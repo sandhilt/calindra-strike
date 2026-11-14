@@ -33,10 +33,10 @@ The static browser client connects over WebSocket to an authoritative Node.js ga
 
 ```bash
 npm install
-npm run dev:server
-npm run dev:client
-npm test
-npm run typecheck
+node --run dev:server
+node --run dev:client
+node --run test
+node --run typecheck
 ```
 
 The local client uses `ws://127.0.0.1:7350/ws`. Set `VITE_GAME_SERVER` at build time to use a different backend. Outside localhost, the default is `/ws` on the same origin as the frontend.
@@ -44,11 +44,10 @@ The local client uses `ws://127.0.0.1:7350/ws`. Set `VITE_GAME_SERVER` at build 
 ## Builds and hosting
 
 ```bash
-npm run build:client
-npm run build:server
+node --run build:client
 ```
 
-Serve `client/dist` as static files and run `server/dist/server.mjs` with Node.js 22 or newer, or use the included Dockerfile and Compose template. Configure the server environment using `.env.example`; `ALLOWED_ORIGINS` must contain the exact frontend origins. Use TLS for public connections. Hosting configuration and credentials belong to the operator's environment.
+Serve `client/dist` as static files and start the game server with `node --run start:server` (Node.js 24 or newer, it runs the TypeScript sources directly with no build step and reads `.env` if present), or use the included Dockerfile and Compose template. Configure the server environment using `.env.example`; `ALLOWED_ORIGINS` must contain the exact frontend origins. Use TLS for public connections. Hosting configuration and credentials belong to the operator's environment.
 
 `vercel.json` is a generic static hosting template with a same-origin Content Security Policy. When using a backend on a different origin, configure both `VITE_GAME_SERVER` and the CSP `connect-src` for that origin in your deployment configuration. This repository does not select a production backend or contain production administration instructions.
 

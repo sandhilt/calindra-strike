@@ -3,16 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "packageManager": "npm@11.19.1",
   "workspaces": [
     "shared",
     "server",
     "client"
   ],
   "scripts": {
-    "dev:server": "npm run dev -w @calindra-strike/server",
-    "dev:client": "npm run dev -w @calindra-strike/client",
-    "build:client": "npm run build -w @calindra-strike/client",
-    "start:server": "npm run start -w @calindra-strike/server",
+    "dev:server": "cd server && node --run dev",
+    "dev:client": "cd client && node --run dev",
+    "build:client": "cd client && node --run build",
+    "start:server": "cd server && node --run start",
     "typecheck": "tsc -p shared && tsc -p shared/test && tsc -p server && tsc -p client && tsc -p tools",
     "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\"",
     "bots": "node tools/bots.ts",

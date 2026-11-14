@@ -95,7 +95,7 @@ export class MapBuilder {
     y0: number,
     emit: (a: number, b: number, lo: number, hi: number) => void,
   ): void {
-    const ops = [...openings].sort((p, q) => p.from - q.from);
+    const ops = openings.toSorted((p, q) => p.from - q.from);
     let cursor = a;
     for (const op of ops) {
       if (op.from > cursor) emit(cursor, op.from, y0, y0 + h);

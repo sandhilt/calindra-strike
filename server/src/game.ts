@@ -203,7 +203,10 @@ export class Game {
   private readonly random: () => number;
   private readonly worlds: CollisionWorld[];
 
-  constructor(private readonly opts: GameOptions) {
+  private readonly opts: GameOptions;
+
+  constructor(opts: GameOptions) {
+    this.opts = opts;
     this.random = opts.random ?? Math.random;
     this.worlds = getMaps().map((m) => new CollisionWorld(m));
     const all = getMaps();

@@ -1,12 +1,13 @@
 /** Classic token bucket. `rate` tokens per second, up to `burst`. */
 export class TokenBucket {
+  private readonly rate: number;
+  private readonly burst: number;
   private tokens: number;
   private last: number;
 
-  constructor(
-    private readonly rate: number,
-    private readonly burst: number,
-  ) {
+  constructor(rate: number, burst: number) {
+    this.rate = rate;
+    this.burst = burst;
     this.tokens = burst;
     this.last = performance.now();
   }
@@ -29,12 +30,15 @@ export class TokenBucket {
 /** Per-key buckets with periodic cleanup so the map can't grow without bound. */
 export class KeyedLimiter {
   private readonly buckets = new Map<string, TokenBucket>();
+  private readonly rate: number;
+  private readonly burst: number;
+  private readonly maxKeys: number;
 
-  constructor(
-    private readonly rate: number,
-    private readonly burst: number,
-    private readonly maxKeys = 10_000,
-  ) {}
+  constructor(rate: number, burst: number, maxKeys = 10_000) {
+    this.rate = rate;
+    this.burst = burst;
+    this.maxKeys = maxKeys;
+  }
 
   take(key: string): boolean {
     let b = this.buckets.get(key);

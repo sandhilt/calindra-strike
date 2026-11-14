@@ -51,10 +51,10 @@ export class NavGrid {
   private readonly closed: Uint32Array;
   private gen = 1;
 
-  constructor(
-    private readonly world: CollisionWorld,
-    map: MapDef,
-  ) {
+  private readonly world: CollisionWorld;
+
+  constructor(world: CollisionWorld, map: MapDef) {
+    this.world = world;
     const b = map.bounds;
     this.minX = b.minX + 24;
     this.minZ = b.minZ + 24;
@@ -72,7 +72,7 @@ export class NavGrid {
           // anything under the player's 32x32 footprint can be what they stand on (stair edges, narrow crates)
           if (x + 16 > bx.min.x && x - 16 < bx.max.x && z + 16 > bx.min.z && z - 16 < bx.max.z) tops.add(bx.max.y);
         }
-        for (const y of [...tops].sort((a, c) => a - c)) {
+        for (const y of [...tops].toSorted((a, c) => a - c)) {
           if (world.hullOverlaps(x, y + 0.1, z, STAND_HEIGHT)) continue;
           const id = this.nodes.length;
           this.nodes.push({ id, x, y, z, edges: [] });

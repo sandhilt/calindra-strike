@@ -1,8 +1,8 @@
 /**
  * Dev-only: how much of the 16.7 ms tick budget does the server use with bots?
- *   npx tsx tools/bench.ts [bots=15]
+ *   node tools/bench.ts [bots=15]
  */
-import { WEAPON } from '@calindra-strike/shared';
+import { WEAPON } from '../shared/src/index.ts';
 import { Game } from '../server/src/game.ts';
 
 const bots = Number(process.argv[2] ?? 15);

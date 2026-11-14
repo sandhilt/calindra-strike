@@ -67,7 +67,11 @@ export class BotBrain {
   private stuck = 0;
   private prevButtons = 0;
 
-  constructor(private readonly skill: number) {}
+  private readonly skill: number;
+
+  constructor(skill: number) {
+    this.skill = skill;
+  }
 
   /** Called when the bot (re)spawns so it forgets the previous life. */
   reset(): void {

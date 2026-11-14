@@ -8,3 +8,4 @@ client
 tools
 *.md
 .env*
+**/test

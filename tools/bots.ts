@@ -1,17 +1,18 @@
 /**
  * Dev-only load/behaviour test: spawns simple bots that strafe around and shoot
  * at the nearest player. Usage:
- *   npx tsx tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
+ *   node tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
-import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd } from '@calindra-strike/shared';
-import WebSocket from 'ws';
+import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd } from '../shared/src/index.ts';
+import { parseArgs } from 'node:util';
 
-const count = Number(process.argv[2] ?? 3);
-const url = process.argv[3] ?? 'ws://127.0.0.1:7350/ws';
-const origin = process.argv[4] ?? 'http://localhost:5173';
-const passive = process.argv[5] === 'passive';
+const { positionals } = parseArgs({ allowPositionals: true });
+const count = Number(positionals[0] ?? 3);
+const url = positionals[1] ?? 'ws://127.0.0.1:7350/ws';
+const origin = positionals[2] ?? 'http://localhost:5173';
+const passive = positionals[3] === 'passive';
 const NAMES = ['Brokkr', 'Sindri', 'Freya', 'Loki', 'Tyr', 'Skadi', 'Odin', 'Heimdall'];
 
 function bot(i: number): void {
@@ -28,11 +29,11 @@ function bot(i: number): void {
     teams.clear();
     for (const [pid, , , team] of r) teams.set(pid, team);
   };
-  ws.on('open', () =>
+  ws.addEventListener('open', () =>
     ws.send(JSON.stringify({ t: 'hello', v: PROTOCOL_VERSION, name: `bot ${NAMES[i % NAMES.length]}`, color: (i * 5) % 12, primary: [WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN][i % 3] })),
   );
-  ws.on('message', (d) => {
-    const m = JSON.parse(String(d));
+  ws.addEventListener('message', (e) => {
+    const m = JSON.parse(String(e.data));
     if (m.t === 'welcome') {
       id = m.id;
       mode = m.match.mode;
@@ -47,15 +48,15 @@ function bot(i: number): void {
     }
     if (m.t === 'reject') console.log('rejected', m.reason);
   });
-  ws.on('close', (c, r) => console.log(`bot ${i} closed`, c, String(r)));
+  ws.addEventListener('close', (e) => console.log(`bot ${i} closed`, e.code, e.reason));
   setInterval(() => {
-    if (ws.readyState !== ws.OPEN || id < 0) return;
+    if (ws.readyState !== WebSocket.OPEN || id < 0) return;
     t++;
     const cmds = [];
     for (let k = 0; k < 2; k++) {
       let yaw = (t * 0.01 + i) % (Math.PI * 2);
       let pitch = 0;
-      let buttons = (Math.floor(t / 40) + i) % 2 ? BTN.LEFT : BTN.RIGHT;
+      let buttons: number = (Math.floor(t / 40) + i) % 2 ? BTN.LEFT : BTN.RIGHT;
       if (t % 120 === 0) buttons |= BTN.JUMP;
       if (me) {
         const [x, y, z] = me;

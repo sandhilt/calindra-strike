@@ -9,3 +9,5 @@ tools
 *.md
 .env*
 **/test
+flake.nix
+flake.lock

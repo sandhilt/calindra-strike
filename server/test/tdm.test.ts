@@ -1,5 +1,6 @@
 import { BTN, CollisionWorld, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
 function flatWorld(): CollisionWorld {
@@ -46,35 +47,35 @@ function headshot(game: Game, shooter: ServerPlayer, victim: ServerPlayer) {
 describe('Team Deathmatch', () => {
   it('opens the rotation with TDM and splits players evenly', () => {
     const { game, players } = setup(5);
-    expect(game.mode).toBe('tdm');
-    expect(game.phase).toBe('live');
+    assert.equal(game.mode, 'tdm');
+    assert.equal(game.phase, 'live');
     const a = players.filter((p) => p.team === 0).length;
     const b = players.filter((p) => p.team === 1).length;
-    expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
-    expect(a + b).toBe(5);
+    assert.ok(Math.abs(a - b) <= 1, "Expected Math.abs(a - b) <= 1");
+    assert.equal(a + b, 5);
   });
 
   it('has no friendly fire', () => {
     const { game, players } = setup(4);
     const [s, mate] = players.filter((p) => p.team === 0);
     headshot(game, s, mate);
-    expect(mate.alive).toBe(true);
-    expect(mate.state.health).toBe(100);
-    expect(game.teamScores).toEqual([0, 0]);
+    assert.equal(mate.alive, true);
+    assert.equal(mate.state.health, 100);
+    assert.deepEqual(game.teamScores, [0, 0]);
   });
 
   it('scores enemy kills for the team and ends at the kill limit', () => {
     const { game, players, inbox } = setup(2, { tdmLimit: 1 });
     const [s, enemy] = players[0].team === 0 ? players : [players[1], players[0]];
     headshot(game, s, enemy);
-    expect(enemy.alive).toBe(false);
-    expect(game.teamScores[s.team]).toBe(1);
+    assert.equal(enemy.alive, false);
+    assert.equal(game.teamScores[s.team], 1);
     game.update();
-    expect(game.phase).toBe('podium');
+    assert.equal(game.phase, 'podium');
     const match = inbox.get(s.id)!.filter((m) => m.t === 'match').pop().match;
-    expect(match.mode).toBe('tdm');
-    expect(match.winner).toBe(s.team);
-    expect(match.results[0]).toMatchObject({ id: s.id, team: s.team, kills: 1 });
+    assert.equal(match.mode, 'tdm');
+    assert.equal(match.winner, s.team);
+    assert.partialDeepStrictEqual(match.results[0], { id: s.id, team: s.team, kills: 1 });
   });
 
   it('lets players move only to the smaller team', () => {
@@ -83,22 +84,22 @@ describe('Team Deathmatch', () => {
     const mover = players.find((p) => p.team === big)!;
     const loner = players.find((p) => p.team !== big)!;
     game.switchTeam(loner, big); // joining the bigger side (2) is blocked
-    expect(loner.team).toBe(1 - big);
+    assert.equal(loner.team, 1 - big);
     game.switchTeam(mover, 1 - big); // joining the smaller side (1) is allowed, like CS
-    expect(mover.team).toBe(1 - big);
-    expect(mover.alive).toBe(false); // switching sides costs a respawn, not a death
+    assert.equal(mover.team, 1 - big);
+    assert.equal(mover.alive, false); // switching sides costs a respawn, not a death
     const stayer = players.find((p) => p.team === big)!;
     game.switchTeam(stayer, 1 - big); // now 1 vs 2: blocked
-    expect(stayer.team).toBe(big);
-    expect(mover.deaths).toBe(0);
+    assert.equal(stayer.team, big);
+    assert.equal(mover.deaths, 0);
   });
 
   it('drops each team over its own half of the map', () => {
     const { game, players } = setup(6);
     for (const p of players) {
-      if (p.team === 0) expect(p.state.z).toBeLessThan(0);
-      else expect(p.state.z).toBeGreaterThan(0);
-      expect(p.state.y).toBe(game.map.dropHeight);
+      if (p.team === 0) assert.ok(p.state.z < 0, "Expected p.state.z < 0");
+      else assert.ok(p.state.z > 0, "Expected p.state.z > 0");
+      assert.equal(p.state.y, game.map.dropHeight);
     }
   });
 
@@ -112,8 +113,8 @@ describe('Team Deathmatch', () => {
     victim.respawnAt = game.tick + 1;
     game.update();
     game.update();
-    expect(victim.alive).toBe(true);
-    expect(victim.team).toBe(1);
+    assert.equal(victim.alive, true);
+    assert.equal(victim.team, 1);
   });
 
   it('rotates TDM Forja -> FFA Escritório -> FFA Forja -> TDM Escritório', () => {
@@ -125,7 +126,7 @@ describe('Team Deathmatch', () => {
       game.update(); // -> podium
       for (let i = 0; i < 5 * 60 + 2; i++) game.update(); // -> next match
     }
-    expect(seen).toEqual(['tdm@0', 'ffa@1', 'ffa@0', 'tdm@1']);
+    assert.deepEqual(seen, ['tdm@0', 'ffa@1', 'ffa@0', 'tdm@1']);
   });
 
   it('clears teams in free-for-all', () => {
@@ -133,7 +134,7 @@ describe('Team Deathmatch', () => {
     (game as any).phaseEnds = game.now();
     game.update();
     for (let i = 0; i < 5 * 60 + 2; i++) game.update();
-    expect(game.mode).toBe('ffa');
-    expect(players.every((p) => p.team === -1)).toBe(true);
+    assert.equal(game.mode, 'ffa');
+    assert.equal(players.every((p) => p.team === -1), true);
   });
 });

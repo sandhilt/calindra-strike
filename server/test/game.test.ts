@@ -1,5 +1,6 @@
 import { BTN, CollisionWorld, type GameEvent, type MatchInfo, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
 function flatWorld(): CollisionWorld {
@@ -31,15 +32,15 @@ describe('Game', () => {
   it('waits in warmup until two players, then starts a live match', () => {
     const { game, join } = setup();
     join('A');
-    expect(game.phase).toBe('warmup');
+    assert.equal(game.phase, 'warmup');
     join('B');
-    expect(game.phase).toBe('live');
+    assert.equal(game.phase, 'live');
   });
 
   it('dedupes names', () => {
     const { join } = setup();
-    expect(join('Gabi').name).toBe('Gabi');
-    expect(join('gabi').name).toBe('gabi#2');
+    assert.equal(join('Gabi').name, 'Gabi');
+    assert.equal(join('gabi').name, 'gabi#2');
   });
 
   it('kills with a rifle headshot and credits the shooter', () => {
@@ -52,14 +53,14 @@ describe('Game', () => {
     for (let i = 0; i < 5; i++) game.update();
     game.input(a, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
     game.update();
-    expect(b.alive).toBe(false);
-    expect(a.kills).toBe(1);
-    expect(a.headshots).toBe(1);
+    assert.equal(b.alive, false);
+    assert.equal(a.kills, 1);
+    assert.equal(a.headshots, 1);
     const kill = events(inbox.get(b.id)!).find((e) => e.k === 'kill');
-    expect(kill).toMatchObject({ by: a.id, to: b.id, hs: 1 });
+    assert.partialDeepStrictEqual(kill, { by: a.id, to: b.id, hs: 1 });
     // shot event is broadcast to others, not echoed to the shooter
-    expect(events(inbox.get(b.id)!).some((e) => e.k === 'shot')).toBe(true);
-    expect(events(inbox.get(a.id)!).some((e) => e.k === 'shot')).toBe(false);
+    assert.equal(events(inbox.get(b.id)!).some((e) => e.k === 'shot'), true);
+    assert.equal(events(inbox.get(a.id)!).some((e) => e.k === 'shot'), false);
   });
 
   it('does not damage players with spawn protection or mid-skydive', () => {
@@ -73,8 +74,8 @@ describe('Game', () => {
     for (let i = 0; i < 3; i++) game.update();
     game.input(a, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
     game.update();
-    expect(b.alive).toBe(true);
-    expect(b.state.health).toBe(100);
+    assert.equal(b.alive, true);
+    assert.equal(b.state.health, 100);
   });
 
   it('respawns the dead after 3 seconds, dropping from the sky', () => {
@@ -87,11 +88,11 @@ describe('Game', () => {
     for (let i = 0; i < 3; i++) game.update();
     game.input(a, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
     game.update();
-    expect(b.alive).toBe(false);
+    assert.equal(b.alive, false);
     for (let i = 0; i < 181; i++) game.update();
-    expect(b.alive).toBe(true);
-    expect(b.state.dropping).toBe(true);
-    expect(b.state.y).toBe(game.map.dropHeight);
+    assert.equal(b.alive, true);
+    assert.equal(b.state.dropping, true);
+    assert.equal(b.state.y, game.map.dropHeight);
   });
 
   it('ends the match into a podium and rotates to the next map', () => {
@@ -102,37 +103,39 @@ describe('Game', () => {
     b.kills = 5;
     (game as any).phaseEnds = game.now();
     game.update();
-    expect(game.phase).toBe('podium');
+    assert.equal(game.phase, 'podium');
     const match = inbox.get(a.id)!.filter((m) => m.t === 'match').pop();
-    expect(match.match.results.map((r: any) => r.name)).toEqual(['B', 'A']);
+    assert.deepEqual(match.match.results.map((r: any) => r.name), ['B', 'A']);
     for (let i = 0; i < 5 * 60 + 2; i++) game.update();
-    expect(game.phase).toBe('live');
-    expect(game.mapIndex).toBe(1);
-    expect(a.kills).toBe(0);
+    assert.equal(game.phase, 'live');
+    assert.equal(game.mapIndex, 1);
+    assert.equal(a.kills, 0);
   });
 
-  it.each(['tdm', 'ffa'] as const)('keeps every player in the final %s ranking, including zero kills', (mode) => {
-    const messages: any[] = [];
-    const game = new Game({ maxPlayers: 24, matchMs: 60_000, podiumMs: 5000, warmupMinPlayers: 2, modes: [mode] });
-    const players = Array.from({ length: 8 }, (_, i) => game.join(`Player ${i}`, i, WEAPON.RIFLE, (raw) => messages.push(JSON.parse(raw))) as ServerPlayer);
-    players.forEach((p, i) => {
-      p.kills = i * 2;
-      p.deaths = 8 - i;
-      p.headshots = i;
+  for (const mode of ['tdm', 'ffa'] as const) {
+    it(`keeps every player in the final ${mode} ranking, including zero kills`, () => {
+      const messages: any[] = [];
+      const game = new Game({ maxPlayers: 24, matchMs: 60_000, podiumMs: 5000, warmupMinPlayers: 2, modes: [mode] });
+      const players = Array.from({ length: 8 }, (_, i) => game.join(`Player ${i}`, i, WEAPON.RIFLE, (raw) => messages.push(JSON.parse(raw))) as ServerPlayer);
+      players.forEach((p, i) => {
+        p.kills = i * 2;
+        p.deaths = 8 - i;
+        p.headshots = i;
+      });
+      game.teamScores[0] = 30;
+      game.teamScores[1] = 10;
+      game.phaseEnds = game.now();
+      game.update();
+      const final = messages.filter((m) => m.t === 'match').at(-1).match as MatchInfo;
+      assert.equal(final.phase, 'podium');
+      assert.deepEqual(final.results?.map((r) => r.kills), [14, 12, 10, 8, 6, 4, 2, 0]);
+      assert.deepEqual(new Set(final.results?.map((r) => r.id)), new Set(players.map((p) => p.id)));
+      if (mode === 'tdm') assert.deepEqual(new Set(final.results?.map((r) => r.team)), new Set([0, 1]));
+      game.join('Late spectator', 0, WEAPON.RIFLE, (raw) => messages.push(JSON.parse(raw)));
+      const welcome = messages.filter((m) => m.t === 'welcome').at(-1);
+      assert.deepEqual(welcome.match.results, final.results);
     });
-    game.teamScores[0] = 30;
-    game.teamScores[1] = 10;
-    game.phaseEnds = game.now();
-    game.update();
-    const final = messages.filter((m) => m.t === 'match').at(-1).match as MatchInfo;
-    expect(final.phase).toBe('podium');
-    expect(final.results?.map((r) => r.kills)).toEqual([14, 12, 10, 8, 6, 4, 2, 0]);
-    expect(new Set(final.results?.map((r) => r.id))).toEqual(new Set(players.map((p) => p.id)));
-    if (mode === 'tdm') expect(new Set(final.results?.map((r) => r.team))).toEqual(new Set([0, 1]));
-    game.join('Late spectator', 0, WEAPON.RIFLE, (raw) => messages.push(JSON.parse(raw)));
-    const welcome = messages.filter((m) => m.t === 'welcome').at(-1);
-    expect(welcome.match.results).toEqual(final.results);
-  });
+  }
 
   it('drops a legendary airdrop that a player can claim', () => {
     const { game, join, inbox } = setup();
@@ -141,14 +144,14 @@ describe('Game', () => {
     (game as any).nextAirdropAt = game.now();
     game.update();
     const drop = events(inbox.get(a.id)!).find((e) => e.k === 'drop') as Extract<GameEvent, { k: 'drop' }>;
-    expect(drop).toBeTruthy();
+    assert.ok(drop);
     for (let i = 0; i < 60 * 20; i++) game.update();
     place(a, drop.x, drop.z + 30);
     a.state.y = (game as any).airdrops[0].landY + 0.05;
     game.update();
-    expect([WEAPON.SNIPER, WEAPON.LMG]).toContain(a.state.weapon);
-    expect(a.state.armor).toBe(100);
-    expect(events(inbox.get(a.id)!).some((e) => e.k === 'loot')).toBe(true);
+    assert.ok(([WEAPON.SNIPER, WEAPON.LMG] as number[]).includes(a.state.weapon));
+    assert.equal(a.state.armor, 100);
+    assert.equal(events(inbox.get(a.id)!).some((e) => e.k === 'loot'), true);
   });
 
   it('caps command throughput (no speedhack by flooding commands)', () => {
@@ -161,6 +164,6 @@ describe('Game', () => {
     for (let i = 0; i < 50; i++) game.input(a, flood.slice(i * 10, i * 10 + 10));
     for (let i = 0; i < 60; i++) game.update();
     // one second of server time can never run more than burst + 60 commands
-    expect(a.state.tick - before).toBeLessThanOrEqual(24 + 60);
+    assert.ok(a.state.tick - before <= 24 + 60, "Expected a.state.tick - before <= 24 + 60");
   });
 });

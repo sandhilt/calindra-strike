@@ -1,14 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { parseClientMessage, sanitizeChat, sanitizeName } from '../src/index.ts';
 
 describe('parseClientMessage', () => {
   it('accepts a valid hello and input packet', () => {
-    expect(parseClientMessage(JSON.stringify({ t: 'hello', v: 3, name: 'Gabi', color: 2, primary: 2 }))).toMatchObject({ t: 'hello', code: '' });
+    assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify({ t: 'hello', v: 3, name: 'Gabi', color: 2, primary: 2 })), { t: 'hello', code: '' });
     const m = parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 129, 0.5, -0.1, 0, 12345]] }));
-    expect(m).toEqual({ t: 'in', c: [{ seq: 1, buttons: 129, yaw: 0.5, pitch: -0.1, weapon: 0, interp: 12345 }] });
+    assert.deepEqual(m, { t: 'in', c: [{ seq: 1, buttons: 129, yaw: 0.5, pitch: -0.1, weapon: 0, interp: 12345 }] });
   });
 
-  it.each([
+  for (const raw of [
     'not json',
     '[]',
     'null',
@@ -23,33 +24,35 @@ describe('parseClientMessage', () => {
     '{"t":"loadout","primary":6}',
     '{"t":"chat","text":""}',
     '{"t":"__proto__"}',
-  ])('rejects %s', (raw) => {
-    expect(parseClientMessage(raw)).toBeNull();
-  });
+  ]) {
+    it(`rejects ${raw}`, () => {
+      assert.equal(parseClientMessage(raw), null);
+    });
+  }
 
   it('rejects unknown button bits', () => {
-    expect(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 1024, 0, 0, 0, 0]] }))).toBeNull();
-    expect(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 2048, 0, 0, 0, 0]] }))).toBeNull();
+    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 1024, 0, 0, 0, 0]] })), null);
+    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 2048, 0, 0, 0, 0]] })), null);
   });
 
   it('rejects oversized payloads and too many commands', () => {
-    expect(parseClientMessage('x'.repeat(5000))).toBeNull();
+    assert.equal(parseClientMessage('x'.repeat(5000)), null);
     const c = Array.from({ length: 13 }, (_, i) => [i, 0, 0, 0, 0, 0]);
-    expect(parseClientMessage(JSON.stringify({ t: 'in', c }))).toBeNull();
+    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c })), null);
   });
 });
 
 describe('sanitizers', () => {
   it('strips control, bidi and markup characters from names', () => {
-    expect(sanitizeName('  <b>Gabi</b>‮\u0000  ')).toBe('bGabib');
-    expect(sanitizeName('José Ação')).toBe('José Ação');
-    expect(sanitizeName('a'.repeat(40)).length).toBe(16);
-    expect(sanitizeName('Z͓͑͒algo')).toBe('Zalgo');
+    assert.equal(sanitizeName('  <b>Gabi</b>‮\u0000  '), 'bGabib');
+    assert.equal(sanitizeName('José Ação'), 'José Ação');
+    assert.equal(sanitizeName('a'.repeat(40)).length, 16);
+    assert.equal(sanitizeName('Z͓͑͒algo'), 'Zalgo');
   });
 
   it('keeps chat readable but bounded', () => {
-    expect(sanitizeChat('gg wp!! 🔥')).toBe('gg wp!! 🔥');
-    expect(sanitizeChat('a\nb\tc')).toBe('abc');
-    expect(sanitizeChat('x'.repeat(500)).length).toBe(100);
+    assert.equal(sanitizeChat('gg wp!! 🔥'), 'gg wp!! 🔥');
+    assert.equal(sanitizeChat('a\nb\tc'), 'abc');
+    assert.equal(sanitizeChat('x'.repeat(500)).length, 100);
   });
 });

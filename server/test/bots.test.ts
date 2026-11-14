@@ -1,5 +1,6 @@
 import { WEAPON } from '@calindra-strike/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
 function setup(opts: { botFill?: number; modes?: 'mixed' | 'ffa' | 'tdm'; matchMs?: number } = {}) {
@@ -28,11 +29,11 @@ function setup(opts: { botFill?: number; modes?: 'mixed' | 'ffa' | 'tdm'; matchM
 describe('bots', () => {
   it('fill the server up to BOT_FILL while someone is online, and start the match', () => {
     const { game, join, bots } = setup();
-    expect(bots()).toHaveLength(0);
+    assert.equal((bots()).length, 0);
     join('Gabi');
-    expect(bots()).toHaveLength(5);
-    expect(game.phase).toBe('live');
-    expect(bots().every((b) => b.name.startsWith('BOT '))).toBe(true);
+    assert.equal((bots()).length, 5);
+    assert.equal(game.phase, 'live');
+    assert.equal(bots().every((b) => b.name.startsWith('BOT ')), true);
   });
 
   it('make room for real players and leave when the last human does', () => {
@@ -40,20 +41,20 @@ describe('bots', () => {
     const a = join('A');
     join('B');
     join('C');
-    expect(bots()).toHaveLength(3);
-    expect(game.humanCount()).toBe(3);
+    assert.equal((bots()).length, 3);
+    assert.equal(game.humanCount(), 3);
     game.leave(a.id);
-    expect(bots()).toHaveLength(4);
+    assert.equal((bots()).length, 4);
     for (const p of [...game.players.values()]) if (!p.brain) game.leave(p.id);
-    expect(game.players.size).toBe(0);
-    expect(game.phase).toBe('warmup');
+    assert.equal(game.players.size, 0);
+    assert.equal(game.phase, 'warmup');
   });
 
   it('never block a real player from joining', () => {
     const { game, join, bots } = setup({ botFill: 16 });
-    for (let i = 0; i < 16; i++) expect(typeof join(`P${i}`)).toBe('object');
-    expect(bots()).toHaveLength(0);
-    expect(game.humanCount()).toBe(16);
+    for (let i = 0; i < 16; i++) assert.equal(typeof join(`P${i}`), 'object');
+    assert.equal((bots()).length, 0);
+    assert.equal(game.humanCount(), 16);
   });
 
   it('roam the map and fight: someone gets shot within a minute', () => {
@@ -62,22 +63,22 @@ describe('bots', () => {
     const start = new Map(bots().map((b) => [b.id, { x: b.state.x, z: b.state.z }]));
     for (let i = 0; i < 60 * 60; i++) game.update();
     const moved = bots().filter((b) => Math.hypot(b.state.x - start.get(b.id)!.x, b.state.z - start.get(b.id)!.z) > 300);
-    expect(moved.length).toBeGreaterThan(2);
+    assert.ok(moved.length > 2, "Expected moved.length > 2");
     const kills = [...game.players.values()].reduce((n, p) => n + p.kills, 0);
     const hurt = [...game.players.values()].some((p) => p.deaths > 0 || p.state.health < 100);
-    expect(kills > 0 || hurt).toBe(true);
+    assert.equal(kills > 0 || hurt, true);
   });
 
   it('only shoot the other team in TDM', () => {
     const { game, join } = setup({ modes: 'tdm', botFill: 8 });
     join('Gabi');
-    expect(game.mode).toBe('tdm');
+    assert.equal(game.mode, 'tdm');
     for (let i = 0; i < 60 * 45; i++) game.update();
     // no friendly fire on the server means team scores equal total kills
     const total = [...game.players.values()].reduce((n, p) => n + p.kills, 0);
-    expect(game.teamScores[0] + game.teamScores[1]).toBe(total);
+    assert.equal(game.teamScores[0] + game.teamScores[1], total);
     const sizes = [0, 1].map((t) => [...game.players.values()].filter((p) => p.team === t).length);
-    expect(Math.abs(sizes[0] - sizes[1])).toBeLessThanOrEqual(1);
+    assert.ok(Math.abs(sizes[0] - sizes[1]) <= 1, "Expected Math.abs(sizes[0] - sizes[1]) <= 1");
   });
 });
 
@@ -88,17 +89,17 @@ describe('map vote', () => {
     const b = join('B');
     (game as any).phaseEnds = game.now();
     game.update();
-    expect(game.phase).toBe('podium');
+    assert.equal(game.phase, 'podium');
     const match = inbox.get(a.id)!.filter((m) => m.t === 'match').pop().match;
-    expect(match.vote.options).toHaveLength(3);
-    expect(match.vote.options.some((o: any) => o.map === game.mapIndex && o.mode === game.mode)).toBe(false);
+    assert.equal((match.vote.options).length, 3);
+    assert.equal(match.vote.options.some((o: any) => o.map === game.mapIndex && o.mode === game.mode), false);
     const pick = match.vote.options[2];
     game.vote(a, 2);
     game.vote(b, 2);
-    expect(inbox.get(a.id)!.filter((m) => m.t === 'votes').pop().counts).toEqual([0, 0, 2]);
+    assert.deepEqual(inbox.get(a.id)!.filter((m) => m.t === 'votes').pop().counts, [0, 0, 2]);
     for (let i = 0; i < 5 * 60 + 2; i++) game.update();
-    expect(game.phase).toBe('live');
-    expect({ map: game.mapIndex, mode: game.mode }).toEqual(pick);
+    assert.equal(game.phase, 'live');
+    assert.deepEqual({ map: game.mapIndex, mode: game.mode }, pick);
   });
 
   it('follows the normal rotation when nobody votes', () => {
@@ -108,18 +109,18 @@ describe('map vote', () => {
     (game as any).phaseEnds = game.now();
     game.update();
     for (let i = 0; i < 5 * 60 + 2; i++) game.update();
-    expect({ map: game.mapIndex, mode: game.mode }).toEqual({ map: 1, mode: 'ffa' });
+    assert.deepEqual({ map: game.mapIndex, mode: game.mode }, { map: 1, mode: 'ffa' });
   });
 
   it('ignores votes outside the podium and from bots', () => {
     const { game, join, bots } = setup({ botFill: 4 });
     const a = join('A');
     game.vote(a, 0);
-    expect((game as any).votes.size).toBe(0);
+    assert.equal((game as any).votes.size, 0);
     (game as any).phaseEnds = game.now();
     game.update();
     game.vote(bots()[0], 1);
-    expect((game as any).votes.size).toBe(0);
+    assert.equal((game as any).votes.size, 0);
   });
 });
 
@@ -129,17 +130,17 @@ describe('rejoin', () => {
     const a = join('Gabi');
     join('B');
     const token = inbox.get(a.id)!.find((m) => m.t === 'welcome').token;
-    expect(token).toMatch(/^[0-9a-f]{32}$/);
+    assert.match(token, /^[0-9a-f]{32}$/);
     a.kills = 7;
     a.deaths = 2;
     game.leave(a.id);
     const again = join('someone else', token);
-    expect(again.name).toBe('Gabi');
-    expect(again.kills).toBe(7);
-    expect(again.deaths).toBe(2);
+    assert.equal(again.name, 'Gabi');
+    assert.equal(again.kills, 7);
+    assert.equal(again.deaths, 2);
     // the token is single use
     game.leave(again.id);
     const third = join('x', 'f'.repeat(32));
-    expect(third.kills).toBe(0);
+    assert.equal(third.kills, 0);
   });
 });

@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { closeTo } from './helpers.ts';
 import {
   BTN,
   CollisionWorld,
@@ -56,38 +58,38 @@ describe('movement', () => {
     const s = grounded(w);
     run(w, s, 120, BTN.FWD);
     const speed = Math.hypot(s.vx, s.vz);
-    expect(speed).toBeGreaterThan(215);
-    expect(speed).toBeLessThanOrEqual(weaponDef(WEAPON.RIFLE).speed + 0.01);
-    expect(s.z).toBeLessThan(-200); // yaw 0 looks toward -Z
-    expect(s.onGround).toBe(true);
+    assert.ok(speed > 215, "speed > 215");
+    assert.ok(speed <= weaponDef(WEAPON.RIFLE).speed + 0.01, "speed <= weaponDef(WEAPON.RIFLE).speed + 0.01");
+    assert.ok(s.z < -200, "s.z < -200"); // yaw 0 looks toward -Z
+    assert.equal(s.onGround, true);
   });
 
   it('runs faster with the hammer out than with a pistol or rifle', () => {
     const w = testMap(() => {});
     const s = grounded(w);
     run(w, s, 150, BTN.FWD, 0, 3);
-    expect(s.weapon).toBe(WEAPON.HAMMER);
+    assert.equal(s.weapon, WEAPON.HAMMER);
     const speed = Math.hypot(s.vx, s.vz);
-    expect(speed).toBeGreaterThan(weaponDef(WEAPON.PISTOL).speed + 20);
-    expect(speed).toBeLessThanOrEqual(weaponDef(WEAPON.HAMMER).speed + 0.01);
+    assert.ok(speed > weaponDef(WEAPON.PISTOL).speed + 20, "speed > weaponDef(WEAPON.PISTOL).speed + 20");
+    assert.ok(speed <= weaponDef(WEAPON.HAMMER).speed + 0.01, "speed <= weaponDef(WEAPON.HAMMER).speed + 0.01");
     run(w, s, 150, BTN.FWD, 0, 2);
-    expect(s.weapon).toBe(WEAPON.PISTOL);
-    expect(Math.hypot(s.vx, s.vz)).toBeLessThanOrEqual(weaponDef(WEAPON.PISTOL).speed + 0.01);
+    assert.equal(s.weapon, WEAPON.PISTOL);
+    assert.ok(Math.hypot(s.vx, s.vz) <= weaponDef(WEAPON.PISTOL).speed + 0.01, "Math.hypot(s.vx, s.vz) <= weaponDef(WEAPON.PISTOL).speed + 0.01");
   });
 
   it('stops at walls without penetrating them', () => {
     const w = testMap((b) => b.add(-200, 0, -300, 200, 200, -280, 'concrete'));
     const s = grounded(w);
     run(w, s, 240, BTN.FWD);
-    expect(s.z - 16).toBeGreaterThanOrEqual(-280 - 0.001);
-    expect(s.z - 16).toBeLessThan(-279);
+    assert.ok(s.z - 16 >= -280 - 0.001, "s.z - 16 >= -280 - 0.001");
+    assert.ok(s.z - 16 < -279, "s.z - 16 < -279");
   });
 
   it('slides along walls when moving diagonally', () => {
     const w = testMap((b) => b.add(-2000, 0, -100, 2000, 200, -80, 'concrete'));
     const s = grounded(w);
     run(w, s, 120, BTN.FWD | BTN.RIGHT);
-    expect(s.x).toBeGreaterThan(100);
+    assert.ok(s.x > 100, "s.x > 100");
   });
 
   it('climbs stairs made of 16 unit steps', () => {
@@ -97,8 +99,8 @@ describe('movement', () => {
     });
     const s = grounded(w);
     run(w, s, 150, BTN.FWD);
-    expect(s.y).toBeGreaterThan(95);
-    expect(s.z).toBeLessThan(-300);
+    assert.ok(s.y > 95, "s.y > 95");
+    assert.ok(s.z < -300, "s.z < -300");
   });
 
   it('jumps about 45 units high', () => {
@@ -106,14 +108,14 @@ describe('movement', () => {
     const s = grounded(w);
     let maxY = 0;
     run(w, s, 1, BTN.JUMP);
-    expect(s.vy).toBeGreaterThan(0);
+    assert.ok(s.vy > 0, "s.vy > 0");
     for (let i = 0; i < 60; i++) {
       run(w, s, 1, 0);
       maxY = Math.max(maxY, s.y);
     }
-    expect(maxY).toBeGreaterThan(42);
-    expect(maxY).toBeLessThan(48);
-    expect(JUMP_SPEED).toBeGreaterThan(0);
+    assert.ok(maxY > 42, "maxY > 42");
+    assert.ok(maxY < 48, "maxY < 48");
+    assert.ok(JUMP_SPEED > 0, "JUMP_SPEED > 0");
   });
 
   it('needs a crouch-jump to reach a 56 unit ledge', () => {
@@ -130,8 +132,8 @@ describe('movement', () => {
       run(w, s, 30, BTN.FWD);
       return s.y;
     };
-    expect(attempt(false)).toBeLessThan(1);
-    expect(attempt(true)).toBeGreaterThan(55);
+    assert.ok(attempt(false) < 1, "attempt(false) < 1");
+    assert.ok(attempt(true) > 55, "attempt(true) > 55");
   });
 
   it('skydives down and lands with spawn protection', () => {
@@ -143,10 +145,10 @@ describe('movement', () => {
       run(w, s, 1, BTN.FWD);
       t++;
     }
-    expect(s.dropping).toBe(false);
-    expect(t).toBeLessThan(5 * 60);
-    expect(s.y).toBeLessThan(1);
-    expect(s.protect).toBeGreaterThan(0);
+    assert.equal(s.dropping, false);
+    assert.ok(t < 5 * 60, "t < 5 * 60");
+    assert.ok(s.y < 1, "s.y < 1");
+    assert.ok(s.protect > 0, "s.protect > 0");
   });
 });
 
@@ -165,10 +167,10 @@ describe('determinism', () => {
     const b = createPlayerState();
     unpackState(snap, b);
     for (const c of cmds) applyCmd(w, b, c, 3);
-    expect(b.x).toBeCloseTo(a.x, 2);
-    expect(b.y).toBeCloseTo(a.y, 2);
-    expect(b.z).toBeCloseTo(a.z, 2);
-    expect(b.mag).toEqual(a.mag);
+    closeTo(b.x, a.x, 2);
+    closeTo(b.y, a.y, 2);
+    closeTo(b.z, a.z, 2);
+    assert.deepEqual(b.mag, a.mag);
   });
 });
 
@@ -178,13 +180,13 @@ describe('weapons', () => {
     const s = grounded(w);
     const def = weaponDef(WEAPON.RIFLE);
     const shots = run(w, s, def.fireTicks * 30, BTN.ATTACK);
-    expect(shots.length).toBe(30);
-    expect(s.mag[WEAPON.RIFLE]).toBe(0);
+    assert.equal(shots.length, 30);
+    assert.equal(s.mag[WEAPON.RIFLE], 0);
     run(w, s, 2, BTN.ATTACK);
-    expect(s.reload).toBeGreaterThan(0);
+    assert.ok(s.reload > 0, "s.reload > 0");
     run(w, s, def.reloadTicks + 2, 0);
-    expect(s.mag[WEAPON.RIFLE]).toBe(30);
-    expect(s.reserve[WEAPON.RIFLE]).toBe(60);
+    assert.equal(s.mag[WEAPON.RIFLE], 30);
+    assert.equal(s.reserve[WEAPON.RIFLE], 60);
   });
 
   it('semi-automatic pistol needs a re-press', () => {
@@ -193,7 +195,7 @@ describe('weapons', () => {
     run(w, s, 1, 0, 0, 2);
     run(w, s, 60, 0);
     const held = run(w, s, 60, BTN.ATTACK);
-    expect(held.length).toBe(1);
+    assert.equal(held.length, 1);
   });
 
   it('is accurate standing still and inaccurate while running', () => {
@@ -202,8 +204,8 @@ describe('weapons', () => {
     const still = computeSpread(s);
     run(w, s, 90, BTN.FWD);
     const running = computeSpread(s);
-    expect(still).toBeLessThan(0.01);
-    expect(running).toBeGreaterThan(still * 10);
+    assert.ok(still < 0.01, "still < 0.01");
+    assert.ok(running > still * 10, "running > still * 10");
   });
 
   it('shotgun fires 9 pellets with the same seed on both sides', () => {
@@ -212,7 +214,7 @@ describe('weapons', () => {
     const b = cloneState(a);
     const sa = applyCmd(w, a, { seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: 0 }, 42);
     const sb = applyCmd(w, b, { seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: 0 }, 42);
-    expect(sa?.dirs.length).toBe(27);
-    expect(sa?.dirs).toEqual(sb?.dirs);
+    assert.equal(sa?.dirs.length, 27);
+    assert.deepEqual(sa?.dirs, sb?.dirs);
   });
 });

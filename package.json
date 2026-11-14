@@ -12,16 +12,17 @@
     "dev:server": "npm run dev -w @calindra-strike/server",
     "dev:client": "npm run dev -w @calindra-strike/client",
     "build:client": "npm run build -w @calindra-strike/client",
-    "build:server": "npm run build -w @calindra-strike/server",
-    "typecheck": "tsc -p shared && tsc -p server && tsc -p client",
-    "test": "vitest run",
-    "bots": "tsx tools/bots.ts"
+    "start:server": "npm run start -w @calindra-strike/server",
+    "typecheck": "tsc -p shared && tsc -p shared/test && tsc -p server && tsc -p client && tsc -p tools",
+    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\"",
+    "bots": "node tools/bots.ts",
+    "bench": "node tools/bench.ts"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "@types/node": "^24.0.0"
   }
 }

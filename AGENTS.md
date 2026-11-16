@@ -29,6 +29,8 @@ node --run bench          # tick budget with bots
 
 Run `node --run test` and `node --run typecheck` before finishing a change.
 
+To see a change working in the real app, use the project skill `.claude/skills/verify-calindra-strike` (isolated server + client, doctor, dev bots, feature map). The MCP browser has no WebGL, so the in-game 3D view and HUD cannot be verified there; the skill says how to prove the server side instead.
+
 ## Node standard library first
 
 Server, shared code, tests and tools use only what Node (>= 24) ships, plus the exceptions below. Before adding a package or a hand-rolled helper, check whether Node already has it.

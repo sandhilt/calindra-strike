@@ -114,7 +114,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 ## Controls
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `G` spray (once per spawn) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
 
 ### Watching a match
 

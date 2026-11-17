@@ -30,6 +30,8 @@ import {
   type RosterEntry,
   SNAPSHOT_EVERY_TICKS,
   SPRAY_RANGE,
+  SPRAYS_PER_SPAWN,
+  SPRAY_COOLDOWN_TICKS,
   sprayPlacement,
   type ShotInfo,
   type VoteOption,
@@ -134,7 +136,8 @@ export interface ServerPlayer {
   primaryChoice: WeaponId;
   state: PlayerState;
   alive: boolean;
-  sprayUsed: boolean;
+  sprayCharges: number;
+  nextSprayTick: number;
   respawnAt: number;
   queue: Cmd[];
   lastSeq: number;
@@ -425,7 +428,8 @@ export class Game {
       primaryChoice: primary,
       state: createPlayerState(),
       alive: false,
-      sprayUsed: false,
+      sprayCharges: SPRAYS_PER_SPAWN,
+      nextSprayTick: 0,
       respawnAt: 0,
       queue: [],
       lastSeq: -1,
@@ -557,7 +561,8 @@ export class Game {
       primaryChoice: PRIMARY_CHOICES[Math.floor(this.random() * PRIMARY_CHOICES.length)],
       state: createPlayerState(),
       alive: false,
-      sprayUsed: false,
+      sprayCharges: SPRAYS_PER_SPAWN,
+      nextSprayTick: 0,
       respawnAt: 0,
       queue: [],
       lastSeq: -1,
@@ -654,12 +659,13 @@ export class Game {
   }
 
   spray(p: ServerPlayer): void {
-    if (!p.alive || p.state.dropping || p.sprayUsed || this.phase === 'podium') return;
+    if (!p.alive || p.state.dropping || p.sprayCharges <= 0 || this.tick < p.nextSprayTick || this.phase === 'podium') return;
     const hit = sprayPlacement(this.world, p.state, SPRAY_RANGE);
     if (!hit) return;
-    p.sprayUsed = true;
+    p.sprayCharges--;
+    p.nextSprayTick = this.tick + SPRAY_COOLDOWN_TICKS;
     this.emit({
-      k: 'spray', id: p.id,
+      k: 'spray', id: p.id, left: p.sprayCharges,
       p: [round(hit.x, 10), round(hit.y, 10), round(hit.z, 10)],
       n: [hit.nx, hit.ny, hit.nz], r: round(p.state.yaw, 1e4),
     });
@@ -837,7 +843,8 @@ export class Game {
     const yaw = Math.atan2(best.x, best.z);
     spawnState(p.state, best.x, this.map.dropHeight, best.z, yaw, p.primaryChoice);
     p.alive = true;
-    p.sprayUsed = false;
+    p.sprayCharges = SPRAYS_PER_SPAWN;
+    p.nextSprayTick = 0;
     p.brain?.reset();
     this.clearHistory(p);
   }

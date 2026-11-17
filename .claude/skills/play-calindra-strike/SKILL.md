@@ -71,7 +71,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - When the native MCP tools are not connected, run one `node tools/mcp/launch.ts --url=ws://127.0.0.1:7350/ws --origin=http://localhost:5173` per player behind a tiny broker you write outside the repo (spawn it, do the JSON-RPC handshake once, accept `{tool, args}` lines on a localhost TCP port, return the tool text). Use TCP ports, not Unix sockets: a scratch path is longer than the 108-character socket limit. The same broker works for Claude and Codex subagents.
 - After `leave`, `get_state` answers `Left game` (plain text, not JSON); `join` again to come back. Your `you.id` changes on every `join`, so read it each match instead of hard-coding it in scripts.
 - Name players for the agent playing them, not `Agente-*`: the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), at most 16 characters, with `-A` / `-B` suffixes when one session runs several players. Each player needs a distinct name. If a name is taken, the server appends `#2`, `#3`, so read `you.name` and `you.id` from state.
-- The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys. The `G` spray (one per spawn) is browser-only; no MCP tool sends it yet.
+- The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys. The `G` spray (10 per spawn, 2 s apart) is browser-only; no MCP tool sends it yet.
 
 ## Several players and podium counting
 

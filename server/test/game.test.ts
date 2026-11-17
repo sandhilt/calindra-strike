@@ -1,4 +1,4 @@
-import { BTN, CollisionWorld, type GameEvent, type MatchInfo, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
+import { SPRAYS_PER_SPAWN, SPRAY_COOLDOWN_TICKS, BTN, CollisionWorld, type GameEvent, type MatchInfo, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
@@ -169,7 +169,63 @@ describe('Game', () => {
 });
 
 describe('sprays', () => {
-  it('broadcasts once per spawn, including after death and respawn', () => {
+  it('broadcasts ten sprays with remaining charges and ignores the eleventh', () => {
+    const { game, join, inbox } = setup();
+    const a = join('Sprayer');
+    join('Observer');
+    game.world = flatWorld();
+    place(a, 0, 0);
+    a.state.pitch = -Math.PI / 2;
+    for (let use = 0; use < SPRAYS_PER_SPAWN; use++) {
+      game.spray(a);
+      for (let tick = 0; tick < SPRAY_COOLDOWN_TICKS; tick++) game.update();
+    }
+    game.spray(a);
+    game.update();
+    for (const box of inbox.values()) {
+      const sprays = events(box).filter(e => e.k === 'spray');
+      assert.deepEqual(sprays.map(e => e.left), Array.from({ length: SPRAYS_PER_SPAWN }, (_, i) => SPRAYS_PER_SPAWN - i - 1));
+      for (const spray of sprays) assert.partialDeepStrictEqual(spray, { id: a.id, n: [0, 1, 0] });
+    }
+    assert.equal(a.sprayCharges, 0);
+  });
+
+  it('rejects sprays until exactly two seconds have elapsed', () => {
+    const { game, join, inbox } = setup();
+    const a = join('Sprayer');
+    game.world = flatWorld();
+    place(a, 0, 0);
+    a.state.pitch = -Math.PI / 2;
+    game.spray(a);
+    for (let tick = 0; tick < SPRAY_COOLDOWN_TICKS - 1; tick++) game.update();
+    game.spray(a);
+    assert.equal(a.sprayCharges, SPRAYS_PER_SPAWN - 1);
+    game.update();
+    game.spray(a);
+    game.update();
+    assert.deepEqual(events(inbox.get(a.id)!).filter(e => e.k === 'spray').map(e => e.left), [9, 8]);
+  });
+
+  for (const invalid of ['sky', 'out of range'] as const) {
+    it(`does not consume a charge or start cooldown for ${invalid}`, () => {
+      const { game, join, inbox } = setup();
+      const a = join('Sprayer');
+      game.world = flatWorld();
+      place(a, 0, 0);
+      a.state.pitch = invalid === 'sky' ? Math.PI / 2 : -Math.PI / 2;
+      if (invalid === 'out of range') a.state.y = 200;
+      game.spray(a);
+      assert.equal(a.sprayCharges, SPRAYS_PER_SPAWN);
+      assert.equal(a.nextSprayTick, 0);
+      place(a, 0, 0);
+      a.state.pitch = -Math.PI / 2;
+      game.spray(a);
+      game.update();
+      assert.deepEqual(events(inbox.get(a.id)!).filter(e => e.k === 'spray').map(e => e.left), [9]);
+    });
+  }
+
+  it('resets charges and cooldown after death and respawn', () => {
     const { game, join, inbox } = setup();
     const a = join('Sprayer');
     const b = join('Shooter');
@@ -190,7 +246,8 @@ describe('sprays', () => {
     assert.equal(a.alive, false);
     for (let i = 0; i < 181; i++) game.update();
     assert.equal(a.alive, true);
-    assert.equal(a.sprayUsed, false);
+    assert.equal(a.sprayCharges, SPRAYS_PER_SPAWN);
+    assert.equal(a.nextSprayTick, 0);
     place(a, 0, 0);
     a.state.pitch = -Math.PI / 2;
     game.spray(a);
@@ -215,7 +272,8 @@ describe('sprays', () => {
     a.state.pitch = -Math.PI / 2;
     a.state.y = 200;
     game.spray(a);
-    assert.equal(a.sprayUsed, false);
+    assert.equal(a.sprayCharges, SPRAYS_PER_SPAWN);
+    assert.equal(a.nextSprayTick, 0);
     game.update();
     assert.equal(events(inbox.get(a.id)!).filter(e => e.k === 'spray').length, 0);
     place(a, 0, 0);

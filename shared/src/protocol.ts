@@ -161,7 +161,7 @@ export interface VoteInfo {
 }
 
 export type GameEvent =
-  | { k: 'spray'; id: number; p: number[]; n: number[]; r: number }
+  | { k: 'spray'; id: number; p: number[]; n: number[]; r: number; left: number }
   | FlagEvent
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }

@@ -1,5 +1,5 @@
 import { flagVoice } from './sound-packs/classic.ts';
-import { WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { SPRAY_EMPTY_BURSTS, WEAPON, type WeaponId } from '@calindra-strike/shared';
 
 import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
 import type { Pos, SoundKit, Sounds } from './sound-packs/types.ts';
@@ -267,11 +267,16 @@ export class Sfx {
     }
   }
 
-  /** Spray can: a short rattle, then a bright hiss. Same synth voice as the kill stingers. */
-  spray(): void {
+  spray(pos: Pos, last: boolean): void {
     const t = this.ctx.currentTime;
-    [0, 0.05, 0.1].forEach((at) => this.synth(t + at, { wave: 'square', pitch: [3200, 3200], cutoff: [6000, 6000], dur: 0.03, gain: 0.08, detune: 0 }));
-    this.synth(t + 0.15, { pitch: [5200, 4800], cutoff: [9000, 5000], resonance: 1, dur: 1, gain: 0.1, attack: 0.02, detune: 40 });
+    const out = this.out(pos, 160);
+    [2800, 3600, 3100].forEach((freq, i) => this.noiseBurst(out, t + i * 0.05, freq, 3, 0.001, 0.018, 0.1));
+    this.noiseBurst(out, t + 0.15, 6000, 0.7, 0.015, 0.9, 0.16);
+    if (last) {
+      for (const burst of SPRAY_EMPTY_BURSTS) {
+        this.noiseBurst(out, t + burst.delaySeconds, burst.frequencyHz, 3, 0.001, burst.durationSeconds, burst.gain);
+      }
+    }
   }
 
   footstep(pos: Pos, loud = 1): void {

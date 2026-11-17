@@ -95,6 +95,13 @@ export const BTN_MASK = 1023;
 export const SPECTATOR_PICK_MS = 15_000;
 export const MAX_SPECTATORS = 16;
 
+export const SPRAYS_PER_SPAWN = 10;
+export const SPRAY_COOLDOWN_TICKS = 2 * TICK_RATE; // 2 s
+export const SPRAY_EMPTY_BURSTS = [
+  { delaySeconds: 0.95, frequencyHz: 4800, durationSeconds: 0.06, gain: 0.1 },
+  { delaySeconds: 1.03, frequencyHz: 3900, durationSeconds: 0.045, gain: 0.07 },
+  { delaySeconds: 1.17, frequencyHz: 3400, durationSeconds: 0.03, gain: 0.03 },
+] as const;
 export const SPRAY_RANGE = 128; // world units
 export const SPRAY_SIZE = 32; // world units, decal square side
 export const CTF_PICKUP_RADIUS_UNITS = 48;

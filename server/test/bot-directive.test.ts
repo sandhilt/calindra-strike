@@ -42,6 +42,19 @@ test('goto reaches the Forja warehouse and retains its arrival status', () => {
   assert.equal(brain.think(self, env).buttons & BTN.FWD, 0);
 });
 
+test('a bot that reached its goal still reloads an empty weapon', () => {
+  const { self, env } = fixture();
+  self.state.mag[self.state.weapon] = 0;
+  self.state.reserve[self.state.weapon] = 90;
+  const brain = new BotBrain(1);
+  brain.setDirective({ kind: 'goto', x: self.state.x, y: self.state.y, z: self.state.z });
+  env.tick = 1;
+  brain.think(self, env);
+  assert.ok(brain.arrived);
+  env.tick = 2;
+  assert.ok(brain.think(self, env).buttons & BTN.RELOAD);
+});
+
 test('engage aims and fires only toward the named enemy, then ends for a teammate', () => {
   const { self, env, players } = fixture();
   function peer(id: number, team: number, x: number, z: number): BotAgent {

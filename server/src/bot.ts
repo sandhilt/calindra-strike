@@ -341,7 +341,10 @@ export class BotBrain {
     }
 
     // --- navigation
-    if (this.reached) return this.cmd(buttons, weapon, env);
+    if (this.reached) {
+      if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
+      return this.cmd(buttons, weapon, env);
+    }
     if (!this.goal || env.tick >= this.goalUntil) this.pickGoal(self, env);
     if (env.tick >= this.repathAt) this.repath(self, env);
     let node = this.path[this.pathIdx];
@@ -376,9 +379,13 @@ export class BotBrain {
       this.lastCheck = { x: s.x, z: s.z, tick: env.tick };
     }
     if (this.stuck > 0 && s.onGround && !s.jumpHeld) buttons |= BTN.JUMP;
-    if (s.reload === 0 && def.mag > 0 && s.mag[s.weapon] < def.mag * 0.4 && s.reserve[s.weapon] > 0) buttons |= BTN.RELOAD;
+    if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
 
     return this.cmd(buttons, weapon, env);
+  }
+
+  private wantsReload(s: PlayerState, def: ReturnType<typeof weaponDef>): boolean {
+    return s.reload === 0 && def.mag > 0 && s.mag[s.weapon] < def.mag * 0.4 && s.reserve[s.weapon] > 0;
   }
 
   private cmd(buttons: number, weapon: number, env: BotEnv): Cmd {

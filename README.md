@@ -122,5 +122,7 @@ from FFA to TDM opens a fresh team choice.
 
 The camera follows a player in first person: you see their weapon (with its
 recoil, reload and switch animations), and a badge at the bottom shows
-**assistindo** with the followed player's name in their colour. Space or the
+**assistindo** with the followed player's name in their colour. Your own crosshair
+style is drawn at the centre (other players' crosshair settings are not sent),
+and hidden while the target is scoped, skydiving or holding the sniper. Space or the
 arrow keys change the target.

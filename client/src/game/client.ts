@@ -24,6 +24,7 @@ import {
   RF_GROUND,
   RF_PROTECT,
   RF_RELOAD,
+  RF_ZOOM,
   type ResultRow,
   type RosterEntry,
   STAND_EYE,
@@ -998,7 +999,7 @@ export class ClientGame {
   /** Holds the followed player's weapon in the viewmodel; false when there is nothing to draw. */
   private updateFollowedView(dt: number): boolean {
     const remote = this.remotes.get(this.followedId);
-    const sample = remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS);
+    const sample = this.followedSample();
     if (!remote || !sample) return false;
     if (this.viewColorFor !== remote.id) {
       this.viewColorFor = remote.id;
@@ -1013,6 +1014,11 @@ export class ClientGame {
     this.view.setWeapon(weapon);
     this.view.update(pose);
     return !pose.hidden;
+  }
+
+  private followedSample(): Snap | null {
+    const remote = this.remotes.get(this.followedId);
+    return (remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS)) || null;
   }
 
   private watchTargets(): Remote[] {
@@ -1161,6 +1167,19 @@ export class ClientGame {
     hud.setWatching(this.watchingLabel());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null);
+
+    if (this.spectator) {
+      // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
+      const target = this.followedSample();
+      const open = !!target && !(target.flags & (RF_ZOOM | RF_DROP)) && target.w !== WEAPON.SNIPER;
+      hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
+      hud.setDrop(null);
+      hud.setScope(false);
+      hud.setProtect(false);
+      this.sfx.setWind(0);
+      hud.setMarkers(this.markers());
+      return;
+    }
 
     if (!this.alive) {
       const left = Math.max(0, RESPAWN_TICKS * TICK_MS - (performance.now() - this.deathAt));

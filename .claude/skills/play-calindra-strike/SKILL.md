@@ -17,6 +17,8 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 ## Targeting
 
 - Check `enemy` and `via` before attacking. Decide by `enemy` and `team`, never by name: other agents have similar names.
+- `enemy` and `team` can change between rounds and, in some TDM rounds, during one (teams are rebalanced). Read `enemy` on every state instead of remembering a name as an ally: one agent answered a callout as if from a teammate when the sender was an enemy.
+- `attack` after the target is lost answers "Target not currently perceived" and the intent shows `ended: true`. After you die, `you.intent` keeps the old `moveTo` or `attack` until the respawn; reissue `hunt` once you are alive. Observed intent kinds: `hunt`, `attack`, `moveTo`, `stop`, `idle`.
 - `attack` needs the target in `others` at the moment you send it; it ends when perception is lost. After that, use `lastSeen` with `move_to` to search, or `hunt` again.
 - Do not chase a distant enemy (over ~1000 units). Wait for it to come closer.
 - A player at low HP who keeps fighting usually dies on the next exchange. Below ~50 HP, wait for the enemy to approach.
@@ -33,6 +35,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - `jump` works only when `onGround` and `alive`. It fails with "No living player snapshot yet" while dead.
 - `crouch({ on: true|false })` stays on until you stand, including after respawn. Read `ducked` from state before standing again; the pilot can re-crouch on its own.
 - Crouch when engaging at close range; stand when roaming.
+- Spawns are a parachute drop (y near 960 to 1000). One agent died five times in 40 s by running `hunt` during the fall. Wait for `onGround`, crouch if an enemy is near, then reissue `hunt`.
 - Do not stay still for long in the open: a stationary player is an easy target and risks dying. Keep `hunt` or `move_to` active, change position between fights, and only hold a spot briefly (for example to scope or to wait for an enemy that is coming). Keep the `wait` loop tight too, since game time runs while you are idle between calls.
 - Watch for a frozen pilot: `attack` ends when the target is lost but can leave the player standing, `stop` leaves `idle`, and some players sit still even with `intent: hunt`. If `you.pos` is the same on two reads a few seconds apart while alive and `live`, send `jump` and reissue `hunt`. `move_to` can answer "Target unreachable on navigation grid"; pick another point or go back to `hunt`.
 
@@ -61,6 +64,11 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 
 - Several players from one host are fine. They can run concurrently and share the same `map`, `mode`, `winner` and `results` at podium.
 - A repeated `wait` can return the same podium state. Count each match once, keyed by its results, and reset the key when `phase` returns to `live`.
+- TDM can end on a score limit as well as the timer: several rounds ended when a team reached 50 with 110 to 140 s left. They still count if you joined with about 60 s or more. The `endsInMs` shown during a podium is the podium's own timer, not the round's.
+- A round can end between two of your polls, leaving the connection in the next round without a podium seen. Check `phase` and `endsInMs` before counting a match; do not count a round whose podium you did not see.
+- `airdrops` entries are `{ x, z, distance, bearingDeg }` with no `id` or `pos`. Pass `x` and `z` to `move_to`. The Mjölnir was taken by an enemy first in most rounds; going for a drop usually means dying on the way, so only go when no enemy is near.
+- `get_state` also gives `you.mag` and `you.reserve`, not only `you.slots`. The podium `results` list has `id, name, kills, deaths, hs, best, team, bot`; `winner` is the team index.
+- `choose_loadout` right after `join` (while dead) took effect in one round and not in another, so it is unverified; read `you.slots` after the next spawn.
 - FFA and TDM ties report `winner: -1`. In FFA everyone is `enemy: true` and `team: -1`.
 
 ## Field notes (2026-11-17)
@@ -220,3 +228,29 @@ None of the three agents measured recoil in play; this section is read from `sha
 - Capture the complete podium state immediately before another wait: A lost the detailed results when a later read crossed into the next live match; B also crossed into the next live match before leaving. A wait batch can outlast the podium.
 - B and D confirmed Mjölnir in their slots after hunting near drops, and lost it on death. This confirms the existing automatic-pickup guidance without establishing a new map-specific route.
 - The user explicitly enjoyed the distinct chat personas during this session. Keep each player's voice consistent, respond to match chat, and retain playful Portuguese rivalry alongside useful team callouts.
+
+### Haiku 5.5 high session (2026-11-17)
+
+Four high-effort players (`Claude-H5.5-A` to `-D`) played the same three rounds together (Escritório TDM 46–50, Forja TDM 42–36, Escritório TDM 50–41), with this file in their prompt, a 1 s `stop` pause every few shots, crouching within about 600 units and chat read in every `wait`. Each joined in `live` with 240 to 300 s left. A, B and D saw all three podiums; the server's `results` in their transcripts list all four players with the same kills, deaths and HS as the table (for example Escritório 1: A 15/16, B 12/9, C 11/11, D 9/11). The 12 rows are therefore three shared matches seen by four players, plus C's fourth round (Forja 32–23), not twelve separate matches.
+
+| Player | Match | Loadout | K/D/HS | Place | Result |
+| --- | --- | --- | --- | --- | --- |
+| A | Escritório TDM | Rifle | 15/16/8 | 2nd of 8 | lost 46–50 |
+| A | Forja TDM | SMG, then Mjölnir | 16/15/14 | tied 1st | won 42–36 |
+| A | Escritório TDM | Rifle | 13/13/8 | 3rd of 8 | won 50–41 |
+| B | Escritório TDM | SMG | 12/9/7 | 4th of 8 | won 50–46 |
+| B | Forja TDM | Rifle | 10/10/9 | 6th of 6 | won 42–36 |
+| B | Escritório TDM | Rifle | 11/12/10 | 4th of 8 | won 50–41 |
+| C | Forja TDM | Rifle | 11/12/11 | 5th of 6 | lost 36–42 |
+| C | Escritório TDM | SMG | 22/9/19 | 1st of 8 | won 50–41 |
+| C | Forja TDM | Rifle | 7/10/6 | 4th of 5 | won 32–23 |
+| D | Escritório TDM | Rifle | 9/11/6 | 7th of 8 | lost 46–50 |
+| D | Forja TDM | SMG | 12/16/9 | 4th of 6 | lost 36–42 |
+| D | Escritório TDM | Rifle | 10/20/7 | 5th of 8 | lost 41–50 |
+
+- C joined the first Escritório round late and did not see that podium (its server result was 11/11, 8 HS); its table rows start at the Forja round and its last row is a fourth round.
+- Pooled over the four players, SMG got 49 headshot kills in 62 kills and the rifle 65 in 86. That is no clear difference, so the loadout is not worth agonising over. Nobody measured recoil directly, so the pauses and crouching cannot be credited or blamed for the outcome.
+- `hunt` still empties a magazine at long range: B went from 30 to 0 at more than 600 units while standing still. Use `stop` when the enemy is far and let it come closer.
+- Most deaths came right after a respawn (parachute fall, spawn fights), not from badly controlled bursts.
+- Chat: players sent between 15 and about 30 `say` each. Two things to avoid: logging chat without answering (C in its first round) and repeating the same reply (C used the same two lines again and again). The callouts were by distance and direction because this file lists no landmark names for the maps, so adding the names of the main areas of Escritório and Forja would make callouts more useful.
+- `ducked` returned to `false` after each respawn for C, while B saw it stay `true` in an earlier round, so read `ducked` after every spawn and re-crouch when needed.

@@ -69,7 +69,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read perceived players, lastSeen positions, scores and recent events/chat. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read perceived players, lastSeen positions, scores, flags (state, carrier, position, distance/bearing) and recent events/chat including flag actions. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -89,7 +89,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'hunt',
-    description: 'Hunt perceived enemies; roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
+    description: 'Hunt perceived enemies; pursue CTF flags by team role, otherwise roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },

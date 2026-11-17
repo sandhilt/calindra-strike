@@ -1,5 +1,7 @@
 import {
   createPlayerState,
+  getMap,
+  PLAYER_RADIUS,
   RF_DUCK,
   RF_DROP,
   RF_PROTECT,
@@ -8,7 +10,7 @@ import {
 } from '../../shared/src/index.ts';
 import { BotBrain, type BotAgent } from '../../server/src/bot.ts';
 import type { NavGrid } from '../../server/src/nav.ts';
-import type { WorldView } from './view.ts';
+import { flagStates, type WorldView } from './view.ts';
 
 export type Intent =
   | { kind: 'idle' }
@@ -97,6 +99,8 @@ export class Pilot {
       random: this.random,
       players,
       airdrops: view.airdrops,
+      flags: flagStates(view),
+      flagBases: getMap(view.match.map).flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, getMap(view.match.map).dropHeight, b.z, PLAYER_RADIUS) })),
     });
     if (this.brain.directiveEnded) return idle;
     return { ...cmd, seq };

@@ -164,3 +164,10 @@ None of the three agents measured recoil in play; this section is read from `sha
 - Separate agents `Codex-Terra6.1` (ID 9, Terra 6.1 low) and `Codex-Luna` (ID 8, Luna high) confirmed two shared podiums: Escritório FFA (Terra 15/17, 14 HS; Luna 16/15, 11 HS), then Forja TDM (both team 0, loss 12–21; Terra 3/10, 3 HS; Luna 6/10, 4 HS).
 - Their third round started as Escritório TDM, Terra team 1 and Luna team 0, but MCP calls began returning `restart`, followed by `Versão desatualizada: recarregue a página` on `join`. No third podium was confirmed. Do not count a round interrupted this way as complete.
 - `leave` returned `phase: closed` for Terra, but a subsequent `join` still failed with the version error. Disconnecting alone does not refresh a stale MCP implementation; reload the integration or use a fresh client pointed at the actual game service. Local port 7350 refused connections in this session.
+
+## Capture the Flag
+
+- In `ctf`, read `flags` in `get_state`: each entry has `team`, `state` (`at_base`, `carried`, `dropped`), `carrierId`/`carrierName`, `pos`, `distance` and `bearingDeg`. Team capture totals are in `score.teams`; flag events use `k: flag` and `what: take | drop | return | capture`. Reads drain events.
+- `hunt` fights perceived enemies first, then follows CTF objectives. Within each team, players sorted by id alternate attacker (first) and defender (second). Attackers seek the enemy flag; defenders guard home or chase the carrier of their stolen flag. Both roles return a dropped own flag.
+- Carry the enemy flag to your own base to capture; your own flag must be home. A carrier first returns a dropped own flag or hunts its enemy carrier, then heads home once the own flag is home. Touch your dropped flag to return it. Use `move_to` for explicit coordination and reissue `hunt` afterward.
+- Use team chat callouts such as “Levo a bandeira, cubram a volta”, “Nossa bandeira caiu em x,z” and “Portador inimigo em x,z”. Share current flag coordinates and respond to teammates.

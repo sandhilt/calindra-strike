@@ -7,7 +7,7 @@ An original browser FPS with Counter-Strike 1.6 style gameplay, made for the Cal
 - **Arena match**: 5 minute rounds with a live leaderboard at the top and a 3D **top-3 podium** at the end, alongside a scrollable full ranking with kills, deaths and headshots for every player from both teams. The rotation cycles through every enabled map + mode pair (`Forja`, `Escritório` × TDM, free-for-all and CTF by default), never repeating the same map or mode back to back. Pick which ones are in play with `GAME_MAPS` and `GAME_MODES`.
 - **Team Deathmatch**: **Bulldogs** (lime) vs **Martelos** (blue), no friendly fire, first team to 50 kills (or most kills at the end of the timer) wins. Teams are shuffled and balanced every match, late joiners go to the smaller side, CS-style auto-balance on respawn, and you can switch to the smaller team from the Esc menu. Each side skydives over its own half; the podium shows the winning team's best three.
 - **Capture the Flag**: steal the enemy flag and bring it to your base while your own flag is home. First to 3 captures wins; dropped flags return after 30 seconds.
-- **Bots** (off by default, enable with `BOT_FILL`): server-side bots fill empty slots (up to `BOT_FILL`) whenever someone is online and leave as people join. They navigate an auto-generated walkable grid (stairs, crate jumps, dropping off roofs), react with human-like delay and aim error, burst-fire and scope the AWP, hunt players and go for airdrops, and respect teams in TDM.
+- **Bots** (off by default, enable with `BOT_FILL`): server-side bots fill empty slots (up to `BOT_FILL`) whenever someone is online and leave as people join. They navigate an auto-generated walkable grid (stairs, crate jumps, dropping off roofs), react with human-like delay and aim error, burst-fire and scope the AWP, hunt players and go for airdrops, respect teams in TDM/CTF, and pursue flag objectives in CTF.
 - **Map vote**: during the podium everyone votes for the next match (3 map + mode options, keys 1-3 or click); most votes wins, no votes keeps the rotation.
 - **Rejoin**: a dropped connection or page refresh gets your score back if you return within 90 s.
 - **Air drop**: you skydive into the arena on every (re)spawn and steer to land anywhere (`Ctrl` dives faster). Supply crates parachute in with legendary weapons and full armour: usually the **Mjölnir AWP** (about 2 in 3 crates), otherwise the `Ragnarök` LMG.
@@ -78,7 +78,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | Tool | What it does |
 | --- | --- |
 | `join` / `leave` | Connect with a name, colour and primary weapon, or disconnect |
-| `get_state` / `wait` | Read the world (you, nearby players, air drops, score, events), or pause then read |
+| `get_state` / `wait` | Read the world (you, nearby players, air drops, flags, score, events), or pause then read |
 | `move_to` / `attack` / `hunt` / `stop` | Set a goal. A pilot routes, aims, shoots and reloads between calls |
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
 | `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
@@ -96,6 +96,8 @@ codex mcp add calindra-strike -- node tools/mcp/launch.ts
 ```
 
 Any other harness takes the same command in its MCP config: `command: node`, `args: [tools/mcp/launch.ts]`. Options are `--url` (default `ws://127.0.0.1:7350/ws`), `--origin` (default `http://localhost:5173`) and `--code`.
+
+`get_state` includes `flags` with each team’s flag state (`at_base`, `carried`, `dropped`), carrier id/name, position, distance and bearing. `score.teams` contains team kills in TDM and captures in CTF. Flag events report `take`, `drop`, `return` and `capture`.
 
 For Claude Code there is also a plugin that bundles the MCP and six skills (`play-calindra-strike`, `host-calindra-strike`, and `calindra-strike-combat`, `-navigation`, `-vs-bots`, `-skydive-airdrops`, distilled from the server bot code):
 

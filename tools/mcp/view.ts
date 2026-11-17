@@ -12,6 +12,9 @@ import {
   type MatchInfo,
   type GameEvent,
   type RosterEntry,
+  type FlagState,
+  isTeamMode,
+  TICK_MS,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
 export interface Peer {
@@ -40,6 +43,7 @@ export interface Airdrop {
 export type ViewEvent =
   | (Extract<GameEvent, { k: 'kill' }> & { byName?: string; toName?: string })
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
+  | (Extract<GameEvent, { k: 'flag' }> & { byName?: string })
   | { k: 'intent'; reason: string; id: number };
 export interface ChatLine {
   t: 'chat';
@@ -57,6 +61,7 @@ export interface WorldView {
   lastSeen: Map<number, LastSeen>;
   perception: 'line-of-sight' | 'omniscient';
   airdrops: Airdrop[];
+  flags: number[][];
   scores: number[][];
   events: ViewEvent[];
   chat: ChatLine[];
@@ -72,6 +77,7 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     lastSeen: new Map(),
     perception: 'line-of-sight',
     airdrops: [],
+    flags: [],
     scores: [],
     events: [],
     chat: [],
@@ -108,6 +114,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
         weapon: p[7],
       };
     });
+  v.flags = m.fl ?? [];
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
@@ -204,11 +211,25 @@ export function renderView(
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
     airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...relative(p) })),
+    flags: v.flags.map((row, team) => ({
+      team,
+      state: row[0] === 0 ? 'at_base' : row[0] === 1 ? 'carried' : 'dropped',
+      carrierId: row[0] === 1 ? row[1] : null,
+      carrierName: row[0] === 1 ? v.roster.find(r => r[0] === row[1])?.[1] ?? String(row[1]) : null,
+      pos: row.slice(2, 5),
+      ...relative({ x: row[2], z: row[4] }),
+    })),
     score: {
       me: { kills: score?.[1] ?? 0, deaths: score?.[2] ?? 0 },
-      ...(v.match.mode === 'tdm' ? { teams: v.match.teams } : {}),
+      ...(isTeamMode(v.match.mode) ? { teams: v.match.teams } : {}),
     },
     events: v.events.splice(0),
     chat: v.chat.splice(0),
   };
+}
+
+export function flagStates(v: WorldView): FlagState[] {
+  return v.flags.map(row => row[0] === 0 ? { kind: 'home' }
+    : row[0] === 1 ? { kind: 'carried', carrier: row[1] }
+    : { kind: 'dropped', x: row[2], y: row[3], z: row[4], returnAtTick: row[5] / TICK_MS });
 }

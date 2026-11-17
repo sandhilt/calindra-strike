@@ -568,3 +568,24 @@ test('switch_weapon rejects a replaced primary as last and reports null', async 
   assert.partialDeepStrictEqual(session.getState(), { you: { slots: { last: null } } });
   session.close();
 });
+
+test('CTF view reports flags, capture totals and named flag events', async () => {
+  const { session, socket } = setup();
+  const joining = session.join(args);
+  socket.emit('open', {});
+  socket.message({ ...welcome, match: { ...welcome.match, mode: 'ctf', teams: [2, 1] } });
+  await joining;
+  const self = createPlayerState();
+  socket.message({ t: 'snap', time: 300, ack: 0, me: packState(self), ps: [], ad: [], fl: [[0, -1, 0, 0, -100, 0], [1, 1, 0, 0, 0, 0]] });
+  socket.message({ t: 'ev', e: [{ k: 'flag', what: 'take', team: 1, by: 1 }] });
+  const view = session.getState() as { score: { teams: number[] }; flags: unknown[]; events: unknown[] };
+  assert.deepEqual(view.score.teams, [2, 1]);
+  assert.deepEqual(view.flags[0], { team: 0, state: 'at_base', carrierId: null, carrierName: null, pos: [0, 0, -100], distance: 100, bearingDeg: -0 });
+  assert.partialDeepStrictEqual(view.flags[1], { state: 'carried', carrierId: 1, carrierName: 'agent', distance: 0 });
+  assert.partialDeepStrictEqual(view.events, [{ k: 'flag', what: 'take', team: 1, by: 1, byName: 'agent' }]);
+  socket.message({ t: 'snap', time: 400, ack: 0, me: packState(self), ps: [], ad: [], fl: [[2, -1, 100, 0, 0, 5000], [0, -1, 0, 0, 100, 0]] });
+  const dropped = session.getState() as { flags: unknown[]; events: unknown[] };
+  assert.partialDeepStrictEqual(dropped.flags[0], { state: 'dropped', carrierId: null, carrierName: null, distance: 100, bearingDeg: 90 });
+  assert.deepEqual(dropped.events, []);
+  session.close();
+});

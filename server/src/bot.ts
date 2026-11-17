@@ -1,5 +1,7 @@
 import {
   BTN,
+  type BombPlaces,
+  type BombState,
   CTF_ENGAGE_DISTANCE_UNITS,
   type Cmd,
   type CollisionWorld,
@@ -34,6 +36,8 @@ export interface BotEnv {
   players: Iterable<BotAgent>;
   flags?: readonly FlagState[];
   flagBases?: readonly FlagBase[];
+  bomb?: BombState;
+  bombPlaces?: BombPlaces;
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 

@@ -58,7 +58,9 @@ import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
+import { beepIntervalMs, bombMessage, bombStatus, bombView, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
+import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
@@ -190,6 +192,9 @@ export class ClientGame {
   private readonly remotes = new Map<number, Remote>();
   private flags: FlagView[] = [];
   private flagRenderer?: FlagsView;
+  private bomb: BombView | null = null;
+  private bombRenderer?: BombRenderer;
+  private nextBombBeepAt = 0;
   private readonly airdrops = new Map<number, AirdropView>();
 
   private clockOffset = 0;
@@ -415,9 +420,14 @@ export class ClientGame {
     }
     this.airdrops.clear();
     this.flags = [];
+    this.bomb = null;
+    const bases = this.map.flagBases.map(base => ({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) }));
     this.flagRenderer?.dispose();
-    this.flagRenderer = new FlagsView(this.map.flagBases.map(base => ({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) })));
+    this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
+    this.bombRenderer?.dispose();
+    this.bombRenderer = new BombRenderer(bases);
+    this.scene.add(this.bombRenderer.group);
     for (const r of this.remotes.values()) r.buf.length = 0;
     this.effects.clear();
   }
@@ -482,6 +492,7 @@ export class ClientGame {
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
     this.flags = flagViews(m.fl);
+    this.bomb = bombView(m.bm);
     // drift guard: snapshots should never be "from the future"
     const est = this.serverNow();
     if (m.time > est + 30) this.clockOffset += (m.time - est) * 0.5;
@@ -577,6 +588,9 @@ export class ClientGame {
         if (e.what !== 'drop') this.sfx.flag(e.what, (e.by < 0 ? e.team : actor.team) === this.myTeam);
         break;
       }
+      case 'bomb':
+        this.onBombEvent(e);
+        break;
       case 'shot':
         this.onRemoteShot(e);
         break;
@@ -661,10 +675,57 @@ export class ClientGame {
     }
   }
 
+  private readonly carrierPose = (id: number): CarrierPose | undefined => {
+    if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw };
+    const remote = this.remotes.get(id);
+    if (!remote?.visible) return undefined;
+    const p = remote.avatar.root.position;
+    return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y };
+  };
+
+  private onBombEvent(e: Extract<GameEvent, { k: 'bomb' }>): void {
+    const actor = this.nameOf(e.by);
+    this.hud.info(bombMessage(e.what, e.team, actor.name), e.by < 0 ? TEAMS[e.team].color : actor.color);
+    if (e.what === 'plant' || e.what === 'defused') this.sfx.beep(true);
+    if (e.what !== 'exploded') return;
+    const at = this.bomb?.state === 'planted' ? this.bomb : this.bombRenderer?.position();
+    if (!at) return;
+    this.sfx.boom({ x: at.x, y: at.y, z: at.z });
+    this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ff7a1a', 70);
+    this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ffd23f', 40);
+  }
+
+  private beepBomb(now: number): void {
+    const bomb = this.bomb;
+    if (bomb?.state !== 'planted') {
+      this.nextBombBeepAt = 0;
+      return;
+    }
+    const wall = performance.now();
+    if (wall < this.nextBombBeepAt) return;
+    const urgency = fuseUrgency(bomb, now);
+    this.sfx.bombBeep({ x: bomb.x, y: bomb.y, z: bomb.z }, urgency);
+    this.nextBombBeepAt = wall + beepIntervalMs(urgency);
+  }
+
+  private updateBombHud(hud: Hud, now: number): void {
+    const bomb = this.bomb;
+    if (!bomb) {
+      hud.setBomb(null, -1);
+      hud.setDefuse(null);
+      return;
+    }
+    hud.setBomb(bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name), plantProgress(bomb, now));
+    const viewerId = this.spectator ? this.followedId : this.myId;
+    const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
+    hud.setDefuse(defusing ? { variant: bomb.variant, progress: defuseProgress(bomb, now), timeMs: now } : null);
+  }
+
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
     if (info.mode !== 'ctf') this.flags = [];
+    if (info.mode !== 'defuse') this.bomb = null;
     if (Array.isArray(info.teams)) this.teamScores = info.teams;
     if (info.mode !== before.mode) {
       this.dropAllAvatars();
@@ -678,7 +739,7 @@ export class ClientGame {
       const min = Math.round((info.endsAt - this.serverNow()) / 60000);
       if (info.phase === 'live' && isTeamMode(info.mode)) {
         const t = TEAMS[this.myTeam];
-        this.hud.announce(MODE_LABEL[info.mode], `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} ${info.mode === 'ctf' ? 'capturas' : 'kills'} ou ` : ''}${min} min`);
+        this.hud.announce(MODE_LABEL[info.mode], `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} ${scoreUnit(info.mode)} ou ` : ''}${min} min`);
       } else if (info.phase === 'live') this.hud.announce('todos contra todos', `${this.map.name} · ${min} min · mais kills vence`);
       else if (before.phase !== 'warmup') this.hud.announce('aquecimento', 'esperando mais jogadores', true);
     }
@@ -996,13 +1057,9 @@ export class ClientGame {
     this.updateCamera(dt);
     this.updateRemotes(dt);
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
-    this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, id => {
-      if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw };
-      const remote = this.remotes.get(id);
-      if (!remote?.visible) return undefined;
-      const p = remote.avatar.root.position;
-      return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y };
-    });
+    this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
+    this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
+    this.beepBomb(this.serverNow());
     this.effects.update(dt);
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
@@ -1200,13 +1257,14 @@ export class ClientGame {
     const myIdx = rows.findIndex((r) => r.me);
     const meRow = myIdx >= 0 ? { name: rows[myIdx].name, color: rows[myIdx].color, kills: rows[myIdx].kills, rank: myIdx + 1, me: true } : null;
     const tdm = isTeamMode(this.match.mode);
-    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, this.match.mode === 'ctf' ? 'capturas' : 'kills');
+    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, scoreUnit(this.match.mode));
     else hud.setLeaders(leaders, meRow);
     hud.setTeamBadge(tdm ? this.myTeam : -1);
     hud.setWatching(this.watchingLabel());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
-    hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, this.match.mode === 'ctf' ? 'capturas' : 'kills');
+    hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
+    this.updateBombHud(hud, now);
 
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
@@ -1291,6 +1349,7 @@ export class ClientGame {
         targets.push({ x: at.x, y: at.y + 100, z: at.z, label: 'bandeira dos ' + TEAMS[flag.team].name });
       }
     }
+    this.bombMarkers(targets);
     if (carrying && this.myTeam >= 0) {
       const base = this.map.flagBases[this.myTeam];
       targets.push({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) + 100, label: 'sua base · capture aqui' });
@@ -1314,6 +1373,20 @@ export class ClientGame {
     return out;
   }
 
+  private bombMarkers(targets: { x: number; y: number; z: number; label: string }[]): void {
+    const bomb = this.bomb;
+    if (!bomb) return;
+    const carrying = !this.spectator && (bomb.state === 'carried' || bomb.state === 'planting') && bomb.carrier === this.myId;
+    if (carrying) {
+      const site = this.map.flagBases[1 - bomb.attackers];
+      targets.push({ ...site, y: this.collision.groundBelow(site.x, this.map.dropHeight, site.z, PLAYER_RADIUS) + 100, label: 'site · segure E para plantar' });
+      return;
+    }
+    const at = this.bombRenderer?.position() ?? bomb;
+    const defending = this.myTeam >= 0 && this.myTeam !== bomb.attackers;
+    targets.push({ x: at.x, y: at.y + 60, z: at.z, label: bomb.state === 'planted' && defending ? 'desarme o bug' : 'o bug' });
+  }
+
   ranked(): ScoreRow[] {
     const rows: ScoreRow[] = [];
     for (const id of this.online) {
@@ -1335,6 +1408,7 @@ export class ClientGame {
     this.input.dispose();
     this.sfx.dispose();
     this.flagRenderer?.dispose();
+    this.bombRenderer?.dispose();
     this.world?.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

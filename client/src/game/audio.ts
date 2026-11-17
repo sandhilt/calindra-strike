@@ -291,6 +291,22 @@ export class Sfx {
     [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(this.master, t + i * 0.06, 'triangle', f, f, 0.25, 0.14));
   }
 
+  /** Armed bug ticking: a short blip that gets higher as the fuse burns down (urgency 0..1). */
+  bombBeep(pos: Pos, urgency: number): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 320);
+    const f = 1000 + urgency * 900;
+    this.tone(out, t, 'square', f, f, 0.07, 0.07 + urgency * 0.05);
+  }
+
+  boom(pos: Pos): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 700);
+    this.tone(out, t, 'sine', 110, 28, 1.1, 0.9);
+    this.noiseBurst(out, t, 220, 0.5, 0.004, 1.1, 0.7, 'lowpass');
+    this.noiseBurst(out, t, 1400, 0.7, 0.002, 0.35, 0.45, 'bandpass');
+  }
+
   beep(high = false): void {
     this.tone(this.master, this.ctx.currentTime, 'sine', high ? 1320 : 880, high ? 1320 : 880, 0.12, 0.15);
   }

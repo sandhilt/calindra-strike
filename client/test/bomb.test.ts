@@ -1,0 +1,74 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { DEFUSE_MS, PLANT_MS } from '@calindra-strike/shared';
+import { FUSE_MS } from '@calindra-strike/shared';
+import { beepIntervalMs, bombView, bombStatus, bombMessage, defuseProgress, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
+
+test('maps every wire state and clears outside the mode', () => {
+  assert.equal(bombView([]), null);
+  const at = { x: 10, y: 20, z: 30, variant: 2, attackers: 1 };
+  assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'home' });
+  assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'carried', carrier: 7 });
+  assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
+  assert.deepEqual(bombView([3, -1, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'dropped' });
+  assert.deepEqual(bombView([4, 9, 10, 20, 30, 40000, 8000, 2, 1, 0]), { ...at, state: 'planted', explodeAt: 40000, defuser: 9, defuseDoneAt: 8000 });
+});
+
+test('progress follows the server deadlines and stays within 0..1', () => {
+  const planted = bombView([4, 9, 0, 0, 0, 40000, 10000, 0, 0, 0]);
+  assert.ok(planted);
+  assert.equal(defuseProgress(planted, 10000 - DEFUSE_MS), 0);
+  assert.equal(defuseProgress(planted, 10000 - DEFUSE_MS / 2), 0.5);
+  assert.equal(defuseProgress(planted, 10000), 1);
+  assert.equal(defuseProgress(planted, 99999), 1);
+  assert.equal(defuseProgress(planted, 0), 0);
+  const idle = bombView([4, -1, 0, 0, 0, 40000, 0, 0, 0, 0]);
+  assert.ok(idle);
+  assert.equal(defuseProgress(idle, 5000), 0);
+  const planting = bombView([2, 7, 0, 0, 0, 0, 0, 0, 0, 20000]);
+  assert.ok(planting);
+  assert.equal(plantProgress(planting, 20000 - (PLANT_MS * 3) / 4), 0.25);
+  assert.equal(plantProgress(planted, 0), -1);
+});
+
+test('status speaks to the carrier, the defuser and the rest', () => {
+  const name = (id: number) => 'P' + id;
+  const carried = bombView([1, 7, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(carried);
+  assert.equal(bombStatus(carried, 0, 7, 0, name), 'segure E no site para plantar');
+  assert.equal(bombStatus(carried, 0, 8, 0, name), 'P7 leva o bug');
+  const home = bombView([0, -1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(home);
+  assert.deepEqual([0, 1, -1].map(team => bombStatus(home, 0, 8, team, name)), ['pegue o bug na base', 'defenda o site', 'o bug está na base']);
+  const planted = bombView([4, -1, 0, 0, 0, 23001, 0, 0, 0, 0]);
+  assert.ok(planted);
+  assert.equal(bombStatus(planted, 0, 8, 0, name), 'bug plantado · 24s');
+  assert.equal(bombStatus(planted, 0, 8, 1, name), 'bug plantado · 24s · segure E perto dele');
+  const defusing = bombView([4, 9, 0, 0, 0, 23000, 9000, 0, 0, 0]);
+  assert.ok(defusing);
+  assert.equal(bombStatus(defusing, 0, 9, 1, name), 'desarmando…');
+  assert.equal(bombStatus(defusing, 0, 8, 1, name), 'P9 desarma o bug · 23s');
+});
+
+test('beeps speed up as the fuse burns down', () => {
+  const planted = bombView([4, -1, 0, 0, 0, 100000, 0, 0, 0, 0]);
+  assert.ok(planted);
+  assert.equal(fuseUrgency(planted, 100000 - FUSE_MS), 0);
+  assert.equal(fuseUrgency(planted, 100000), 1);
+  assert.equal(fuseUrgency(planted, 100000 - FUSE_MS / 2), 0.5);
+  assert.equal(fuseUrgency({ ...planted, state: 'dropped' } as never, 0), 0);
+  assert.ok(beepIntervalMs(0) > beepIntervalMs(0.5));
+  assert.ok(beepIntervalMs(0.5) > beepIntervalMs(1));
+  assert.equal(beepIntervalMs(5), beepIntervalMs(1));
+});
+
+test('feed names the team that scored the round', () => {
+  assert.equal(bombMessage('plant', 0, 'Ana'), 'Ana plantou o bug!');
+  assert.equal(bombMessage('defused', 1, 'Ana'), 'Ana desarmou o bug · ponto dos Martelos');
+  assert.equal(bombMessage('exploded', 0, ''), 'o bug explodiu · ponto dos Bulldogs');
+  assert.equal(bombMessage('return', 0, ''), 'o bug voltou para a base');
+});
+
+test('score unit per mode', () => {
+  assert.deepEqual(['tdm', 'ffa', 'ctf', 'defuse'].map((mode) => scoreUnit(mode as 'tdm')), ['kills', 'kills', 'capturas', 'pontos']);
+});

@@ -107,3 +107,5 @@ export const SPRAY_SIZE = 32; // world units, decal square side
 export const CTF_PICKUP_RADIUS_UNITS = 48;
 export const CTF_CAPTURE_RADIUS_UNITS = 64;
 export const CTF_RETURN_TICKS = 30 * TICK_RATE;
+
+export const CTF_ENGAGE_DISTANCE_UNITS = 600;

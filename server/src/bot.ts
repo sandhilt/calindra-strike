@@ -1,5 +1,6 @@
 import {
   BTN,
+  CTF_ENGAGE_DISTANCE_UNITS,
   type Cmd,
   type CollisionWorld,
   DEG,
@@ -50,12 +51,23 @@ export function pickCtfGoal(self: BotAgent, env: BotEnv): FlagBase | null {
     return carrier?.state ?? ownBase;
   }
   if (own.kind === 'dropped') return own;
-  const teammates = [...env.players].filter(p => p.team === self.team).sort((a, b) => a.id - b.id);
-  const defender = teammates.findIndex(p => p.id === self.id) % CTF_DEFENDER_CYCLE === CTF_DEFENDER_CYCLE - 1;
+  const defender = ctfRole(self, env) === 'defender';
   if (defender) {
     return carrier?.state ?? ownBase;
   }
   return enemy.kind === 'dropped' ? enemy : enemyBase;
+}
+
+export type CtfRole = 'carrier' | 'attacker' | 'defender';
+export function ctfCombatStance(role: CtfRole, distanceUnits: number): 'advance' | 'duel' {
+  return role === 'carrier' || (role === 'attacker' && distanceUnits > CTF_ENGAGE_DISTANCE_UNITS) ? 'advance' : 'duel';
+}
+
+function ctfRole(self: BotAgent, env: BotEnv): CtfRole {
+  const enemy = env.flags?.[1 - self.team];
+  if (enemy?.kind === 'carried' && enemy.carrier === self.id) return 'carrier';
+  const teammates = [...env.players].filter(p => p.team === self.team).sort((a, b) => a.id - b.id);
+  return teammates.findIndex(p => p.id === self.id) % CTF_DEFENDER_CYCLE === CTF_DEFENDER_CYCLE - 1 ? 'defender' : 'attacker';
 }
 
 // One defender per four teammates: guarding with more starved the attack and 4v4 bot matches never captured.
@@ -366,6 +378,12 @@ export class BotBrain {
         }
       }
 
+      if (env.mode === 'ctf' && pickCtfGoal(self, env) && ctfCombatStance(ctfRole(self, env), dist) === 'advance') {
+        buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
+        buttons |= this.advanceWhileAiming(self, env);
+        return this.cmd(buttons, weapon, env);
+      }
+
       // counter-strafe: stand still while shooting, strafe between bursts
       if (!(buttons & BTN.ATTACK) && cur.slot !== 3) {
         if (env.tick >= this.strafeUntil) {
@@ -385,13 +403,7 @@ export class BotBrain {
       if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
       return this.cmd(buttons, weapon, env);
     }
-    if (!this.goal || env.tick >= this.goalUntil) this.pickGoal(self, env);
-    if (env.tick >= this.repathAt) this.repath(self, env);
-    let node = this.path[this.pathIdx];
-    while (node && Math.hypot(node.x - s.x, node.z - s.z) < 26 && Math.abs(node.y - s.y) < 40) {
-      this.pathIdx++;
-      node = this.path[this.pathIdx];
-    }
+    const node = this.navigationNode(self, env);
     if (!node) {
       if (this.goal && Math.hypot(this.goal.x - s.x, this.goal.z - s.z) < 60) this.pickGoal(self, env);
       this.repathAt = Math.min(this.repathAt, env.tick + 10);
@@ -422,6 +434,36 @@ export class BotBrain {
     if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
 
     return this.cmd(buttons, weapon, env);
+  }
+
+  private navigationNode(self: BotAgent, env: BotEnv): NavNode | undefined {
+    const s = self.state;
+    if (!this.goal || env.tick >= this.goalUntil) this.pickGoal(self, env);
+    if (env.tick >= this.repathAt) this.repath(self, env);
+    let node = this.path[this.pathIdx];
+    while (node && Math.hypot(node.x - s.x, node.z - s.z) < 26 && Math.abs(node.y - s.y) < 40) {
+      this.pathIdx++;
+      node = this.path[this.pathIdx];
+    }
+    return node;
+  }
+
+  private advanceWhileAiming(self: BotAgent, env: BotEnv): number {
+    const node = this.navigationNode(self, env);
+    if (!node) {
+      this.repathAt = Math.min(this.repathAt, env.tick + 10);
+      return 0;
+    }
+    const s = self.state;
+    const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
+    const angle = wrapAngle(yaw - this.yaw);
+    // Quantize to eight WASD directions while keeping the gun trained on the enemy.
+    const forward = Math.round(Math.cos(angle));
+    const right = Math.round(-Math.sin(angle));
+    let buttons = (forward > 0 ? BTN.FWD : forward < 0 ? BTN.BACK : 0)
+      | (right > 0 ? BTN.RIGHT : right < 0 ? BTN.LEFT : 0);
+    if (this.jumps[this.pathIdx] && Math.hypot(node.x - s.x, node.z - s.z) < 72 && s.onGround && !s.jumpHeld) buttons |= BTN.JUMP;
+    return buttons;
   }
 
   private wantsReload(s: PlayerState, def: ReturnType<typeof weaponDef>): boolean {

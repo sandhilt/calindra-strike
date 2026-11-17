@@ -119,6 +119,32 @@ function rotationFor(maps: number[], modes: GameMode[]): { map: number; mode: Ga
   return out;
 }
 
+/** Choices shown in the end-of-match vote. */
+const VOTE_OPTION_COUNT = 3;
+
+/**
+ * Vote options: `first` (the rotation default) then, while slots remain, a
+ * random entry of a mode not offered yet so every enabled mode can be voted
+ * for; once all modes are covered the rest is filled at random.
+ */
+export function pickVoteOptions<T extends { mode: GameMode }>(
+  pool: readonly T[],
+  first: T,
+  count: number,
+  random: () => number,
+): T[] {
+  const options = [first];
+  const rest = pool.filter((o) => o !== first);
+  while (options.length < count && rest.length) {
+    const unseen = rest.filter((o) => !options.some((p) => p.mode === o.mode));
+    const candidates = unseen.length ? unseen : rest;
+    const pick = candidates[Math.floor(random() * candidates.length)];
+    options.push(pick);
+    rest.splice(rest.indexOf(pick), 1);
+  }
+  return options;
+}
+
 interface HistoryEntry {
   time: number;
   x: number;
@@ -615,10 +641,7 @@ export class Game {
     if (pool.length === 0) pool = all;
     const def = this.rotation[(this.rotationIndex + 1) % this.rotation.length];
     const first = pool.find((o) => o.map === def.map && o.mode === def.mode) ?? pool[0];
-    const rest = pool.filter((o) => o !== first);
-    const options = [first];
-    while (options.length < 3 && rest.length) options.push(rest.splice(Math.floor(this.random() * rest.length), 1)[0]);
-    this.voteOptions = options;
+    this.voteOptions = pickVoteOptions(pool, first, VOTE_OPTION_COUNT, this.random);
     this.votes.clear();
   }
 

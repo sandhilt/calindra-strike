@@ -1,0 +1,103 @@
+import {
+  createPlayerState,
+  RF_DUCK,
+  RF_DROP,
+  RF_PROTECT,
+  type CollisionWorld,
+  type Cmd,
+} from '../../shared/src/index.ts';
+import { BotBrain, type BotAgent } from '../../server/src/bot.ts';
+import type { NavGrid } from '../../server/src/nav.ts';
+import type { WorldView } from './view.ts';
+
+export type Intent =
+  | { kind: 'idle' }
+  | { kind: 'moveTo'; x: number; z: number }
+  | { kind: 'attack'; targetId: number; ended?: boolean }
+  | { kind: 'hunt' };
+
+export class Pilot {
+  private readonly brain: BotBrain;
+  private tick = 0;
+  private alive = false;
+  private dropping = false;
+  private agents = new Map<number, BotAgent>();
+
+  constructor(skill: number, privateRandom: () => number) {
+    this.brain = new BotBrain(skill);
+    this.random = privateRandom;
+  }
+  private readonly random: () => number;
+
+  setIntent(intent: Intent, y: number): void {
+    if (intent.kind === 'moveTo') this.brain.setDirective({ kind: 'goto', x: intent.x, z: intent.z, y });
+    else if (intent.kind === 'attack') this.brain.setDirective({ kind: 'engage', targetId: intent.targetId });
+    else this.brain.setDirective(null);
+  }
+
+  get arrived(): boolean {
+    return this.brain.arrived;
+  }
+  get directiveEnded(): boolean {
+    return this.brain.directiveEnded;
+  }
+
+  nextCmd(view: WorldView, intent: Intent, nav: NavGrid, world: CollisionWorld, seq: number): Cmd {
+    const state = view.self;
+    const alive = state !== null && state.health > 0;
+    if ((alive && !this.alive) || (state?.dropping && !this.dropping)) this.brain.reset();
+    this.alive = alive;
+    this.dropping = state?.dropping ?? false;
+    this.tick++;
+    const idle = {
+      seq,
+      buttons: 0,
+      yaw: state?.yaw ?? 0,
+      pitch: state?.pitch ?? 0,
+      weapon: 0,
+      interp: view.time,
+    };
+    if (!state || !alive || intent.kind === 'idle' || (intent.kind === 'attack' && intent.ended)) return idle;
+    const self: BotAgent = {
+      id: view.id,
+      team: view.roster.find((r) => r[0] === view.id)?.[3] ?? -1,
+      alive,
+      state,
+    };
+    const players = [self];
+    const present = new Set<number>();
+    for (const peer of view.peers) {
+      present.add(peer.id);
+      const previous = this.agents.get(peer.id);
+      const remote = previous?.state ?? createPlayerState();
+      Object.assign(remote, {
+        x: peer.x,
+        y: peer.y,
+        z: peer.z,
+        yaw: peer.yaw,
+        pitch: peer.pitch,
+        ducked: !!(peer.flags & RF_DUCK),
+        dropping: !!(peer.flags & RF_DROP),
+        protect: peer.flags & RF_PROTECT ? 1 : 0,
+        health: 100,
+        weapon: peer.weapon,
+      });
+      const agent = { id: peer.id, team: peer.team, alive: peer.alive, state: remote };
+      this.agents.set(peer.id, agent);
+      players.push(agent);
+    }
+    for (const id of this.agents.keys()) if (!present.has(id)) this.agents.delete(id);
+    const cmd = this.brain.think(self, {
+      world,
+      nav,
+      tick: this.tick,
+      now: view.time,
+      mode: view.match.mode,
+      random: this.random,
+      players,
+      airdrops: view.airdrops,
+    });
+    if (this.brain.directiveEnded) return idle;
+    return { ...cmd, seq };
+  }
+}

@@ -15,9 +15,10 @@
     "build:client": "cd client && node --run build",
     "start:server": "cd server && node --run start",
     "typecheck": "tsc -p shared && tsc -p shared/test && tsc -p server && tsc -p client && tsc -p tools",
-    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\"",
+    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\" \"tools/test/*.test.ts\"",
     "bots": "node tools/bots.ts",
-    "bench": "node tools/bench.ts"
+    "bench": "node tools/bench.ts",
+    "mcp": "node tools/mcp/launch.ts"
   },
   "engines": {
     "node": ">=24"

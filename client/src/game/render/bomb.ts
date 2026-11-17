@@ -1,11 +1,18 @@
 import { BOMB_SITE_RADIUS_UNITS, FUSE_MS, type FlagBase } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { defuseProgress, fuseUrgency, secondsLeft, type BombView } from '../bomb.ts';
-import { drawIdleScreen, drawLaptopScreen } from '../laptop/draw.ts';
+import { drawLidBadge } from '../laptop/badge.ts';
+import { LAPTOP_MODELS, chassisColor, drawIdleScreen, drawLaptopScreen, laptopModelOf } from '../laptop/draw.ts';
+import type { LaptopModel } from '../laptop/scenarios.ts';
 
 const SCREEN_WIDTH_PX = 512;
 const SCREEN_HEIGHT_PX = 320;
 const SCREEN_REFRESH_MS = 100;
+const BADGE_WIDTH_PX = 256;
+const BADGE_HEIGHT_PX = 96;
+const BADGE_WIDTH_UNITS = 14;
+const BADGE_HEIGHT_UNITS = BADGE_WIDTH_UNITS * (BADGE_HEIGHT_PX / BADGE_WIDTH_PX);
+const BADGE_LIFT_UNITS = 0.05;
 const BASE_WIDTH_UNITS = 34;
 const BASE_DEPTH_UNITS = 24;
 const BASE_HEIGHT_UNITS = 2.4;
@@ -26,6 +33,17 @@ const LIGHT_ON = '#ff2a2a';
 const LIGHT_OFF = '#3a0707';
 const SITE_COLOR = '#ff5a4e';
 
+function badgeTexture(model: LaptopModel): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = BADGE_WIDTH_PX;
+  canvas.height = BADGE_HEIGHT_PX;
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  drawLidBadge(ctx, BADGE_WIDTH_PX, BADGE_HEIGHT_PX, model);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 interface ScreenSurface {
   ctx: CanvasRenderingContext2D;
   texture: THREE.CanvasTexture;
@@ -38,6 +56,10 @@ export class BombRenderer {
   readonly group = new THREE.Group();
   private readonly laptop = new THREE.Group();
   private readonly screen: ScreenSurface;
+  private readonly lidMaterial: THREE.MeshStandardMaterial;
+  private readonly badgeMaterial: THREE.MeshBasicMaterial;
+  private readonly badgeTextures: ReadonlyMap<LaptopModel, THREE.CanvasTexture>;
+  private modelShown: LaptopModel | undefined;
   private readonly light: THREE.Mesh;
   private readonly siteRing: THREE.Mesh;
   private readonly bases: readonly FlagBase[];
@@ -63,14 +85,20 @@ export class BombRenderer {
     const lid = new THREE.Group();
     lid.position.set(0, BASE_HEIGHT_UNITS, -BASE_DEPTH_UNITS / 2 + 1);
     lid.rotation.x = -LID_TILT_RAD;
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(BASE_WIDTH_UNITS, LID_HEIGHT_UNITS, LID_THICKNESS_UNITS), plastic);
+    this.lidMaterial = plastic.clone();
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(BASE_WIDTH_UNITS, LID_HEIGHT_UNITS, LID_THICKNESS_UNITS), this.lidMaterial);
     shell.position.y = LID_HEIGHT_UNITS / 2;
+    this.badgeTextures = new Map(LAPTOP_MODELS.map((model) => [model, badgeTexture(model)]));
+    this.badgeMaterial = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
+    const badge = new THREE.Mesh(new THREE.PlaneGeometry(BADGE_WIDTH_UNITS, BADGE_HEIGHT_UNITS), this.badgeMaterial);
+    badge.rotation.y = Math.PI;
+    badge.position.set(0, LID_HEIGHT_UNITS / 2, -(LID_THICKNESS_UNITS / 2 + BADGE_LIFT_UNITS));
     const face = new THREE.Mesh(
       new THREE.PlaneGeometry(BASE_WIDTH_UNITS - BEZEL_UNITS * 2, LID_HEIGHT_UNITS - BEZEL_UNITS * 2),
       new THREE.MeshBasicMaterial({ map: texture }),
     );
     face.position.set(0, LID_HEIGHT_UNITS / 2, LID_THICKNESS_UNITS / 2 + 0.05);
-    lid.add(shell, face);
+    lid.add(shell, face, badge);
 
     this.light = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 8), new THREE.MeshBasicMaterial({ color: LIGHT_OFF }));
     this.light.position.set(BASE_WIDTH_UNITS / 2 - 3, BASE_HEIGHT_UNITS + 0.8, BASE_DEPTH_UNITS / 2 - 3);
@@ -125,7 +153,17 @@ export class BombRenderer {
     (this.light.material as THREE.MeshBasicMaterial).color.set(on ? LIGHT_ON : LIGHT_OFF);
   }
 
+  private showModel(variant: number): void {
+    const model = laptopModelOf(variant);
+    if (model === this.modelShown) return;
+    this.modelShown = model;
+    this.lidMaterial.color.set(chassisColor(model));
+    this.badgeMaterial.map = this.badgeTextures.get(model) ?? null;
+    this.badgeMaterial.needsUpdate = true;
+  }
+
   private refreshScreen(bomb: BombView, now: number): void {
+    this.showModel(bomb.variant);
     if (now < this.nextScreenAt) return;
     this.nextScreenAt = now + SCREEN_REFRESH_MS;
     const { ctx, texture } = this.screen;
@@ -137,6 +175,7 @@ export class BombRenderer {
   dispose(): void {
     this.group.removeFromParent();
     this.screen.texture.dispose();
+    for (const texture of this.badgeTextures.values()) texture.dispose();
     this.group.traverse(object => {
       if (object instanceof THREE.Mesh) {
         object.geometry.dispose();

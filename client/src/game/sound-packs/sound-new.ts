@@ -29,12 +29,6 @@ const SYNTH_DEFAULTS: Omit<SynthPatch, 'pitch' | 'cutoff' | 'dur' | 'gain'> = {
 /** How much of each shot goes into the room reflections. */
 const ROOM_SEND = 0.3;
 
-/** Level boost for the synth stingers, which read thin next to the shots. */
-const STREAK_LEVEL = 1.5;
-
-/** Sub-octave layer under each stinger, relative to its level. */
-const SUB_LEVEL = 0.6;
-
 export const soundNew = {
   id: 'sound-new',
   label: 'sound-new',
@@ -96,9 +90,8 @@ export const soundNew = {
       kit.noiseBurst(bus, t, v.crack * pitch, 1.2, 0.0005, 0.012, g * 0.8, 'highpass');
       // Muzzle blast: the body of the shot.
       kit.noiseBurst(bus, t, v.noiseFreq * pitch * (0.95 + Math.random() * 0.1), v.noiseQ, 0.001, v.decay * jitter(0.1), g, 'bandpass');
-      // Pressure wave: a falling low tone and a sub boom under it.
-      kit.tone(bus, t, 'sine', v.thump * 1.6 * pitch, v.thump * 0.6, v.thumpDecay * jitter(0.1), g * 1.1);
-      kit.noiseBurst(bus, t, 180 * pitch, 0.7, 0.002, v.thumpDecay * 1.2, g * 0.9, 'lowpass');
+      // Pressure wave: a falling low tone.
+      kit.tone(bus, t, 'sine', v.thump * 1.6 * pitch, v.thump * 0.6, v.thumpDecay * jitter(0.1), g * 0.9);
       kit.noiseBurst(bus, t + 0.01, 600, 0.4, 0.02, v.tail * jitter(0.1), g * 0.18, 'lowpass');
       if (weapon === WEAPON.SNIPER || weapon === WEAPON.SHOTGUN) {
         // bolt / pump mechanics after the shot (only audible up close)
@@ -151,10 +144,9 @@ export const soundNew = {
     /** Two detuned oscillators through a resonant low-pass sweep, with an amp envelope and a send to the echo. */
     function synth(t: number, patch: Partial<SynthPatch> & Pick<SynthPatch, 'pitch' | 'cutoff' | 'dur' | 'gain'>): void {
       const p = { ...SYNTH_DEFAULTS, ...patch };
-      const level = p.gain * STREAK_LEVEL;
       const amp = kit.ctx.createGain();
       amp.gain.setValueAtTime(0.0001, t);
-      amp.gain.exponentialRampToValueAtTime(level, t + p.attack);
+      amp.gain.exponentialRampToValueAtTime(p.gain, t + p.attack);
       amp.gain.exponentialRampToValueAtTime(0.0001, t + p.dur);
       const lp = kit.ctx.createBiquadFilter();
       lp.type = 'lowpass';
@@ -176,17 +168,6 @@ export const soundNew = {
         o.stop(t + p.dur + 0.05);
         nodes.push(o);
       }
-      // Sub layer an octave down: the weight the stingers were missing.
-      const sub = kit.ctx.createOscillator();
-      sub.type = 'sine';
-      sub.frequency.setValueAtTime(p.pitch[0] / 2, t);
-      if (p.pitch[1] !== p.pitch[0]) sub.frequency.exponentialRampToValueAtTime(p.pitch[1] / 2, t + p.dur);
-      const subGain = kit.ctx.createGain();
-      subGain.gain.value = SUB_LEVEL;
-      sub.connect(subGain).connect(amp);
-      sub.start(t);
-      sub.stop(t + p.dur + 0.05);
-      nodes.push(sub, subGain);
       kit.release(...nodes);
     }
 

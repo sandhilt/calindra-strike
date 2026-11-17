@@ -121,4 +121,4 @@ export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
 export const FUSE_MS = FUSE_TICKS * TICK_MS;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
-export const DEBUG_SCENARIO_COUNT = 5;
+export const DEBUG_SCENARIO_COUNT = 6;

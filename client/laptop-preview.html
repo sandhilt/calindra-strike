@@ -1,2 +1,27 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Debug defusion · Preview</title></head><body><main><h1>Debug defusion</h1><p>Cinco histórias de um bug em produção · Canvas 2D</p><div id="controls"><button id="play">Pausar</button><label>Progresso <input id="progress" type="range" min="0" max="1" step="0.001" value="0"></label></div><div id="scenarios"></div><h2>Produção aguardando socorro</h2><canvas id="idle" width="720" height="460"></canvas></main><script type="module" src="/src/laptop-preview.ts"></script></body></html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Debug defusion · Preview</title>
+  </head>
+  <body>
+    <main>
+      <h1>Debug defusion</h1>
+      <p>Seis histórias de um bug em produção · Canvas 2D</p>
+      <div id="controls">
+        <button id="play">Pausar</button>
+        <label>Progresso <input id="progress" type="range" min="0" max="1" step="0.001" value="0" /></label>
+        <output id="readout"></output>
+      </div>
+      <div id="scenarios"></div>
+      <h2>Textura 3D (512x320)</h2>
+      <div id="textures"></div>
+      <h2>Selos da tampa (3D)</h2>
+      <div id="badges"></div>
+      <h2>Produção aguardando socorro</h2>
+      <div id="idles"></div>
+    </main>
+    <script type="module" src="/src/laptop-preview.ts"></script>
+  </body>
+</html>

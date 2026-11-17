@@ -1,25 +1,91 @@
+import { drawLidBadge } from './game/laptop/badge.ts';
+import { LAPTOP_MODELS, chassisColor, drawIdleScreen, drawLaptop, drawLaptopScreen } from './game/laptop/draw.ts';
 import { SCENARIOS } from './game/laptop/scenarios.ts';
-import { drawLaptop, drawIdleScreen } from './game/laptop/draw.ts';
+
+const PREVIEW_W = 720;
+const PREVIEW_H = 460;
+const TEXTURE_W = 512;
+const TEXTURE_H = 320;
+const BADGE_W = 256;
+const BADGE_H = 96;
+const LOOP_MS = 8000;
+const IDLE_SECONDS = 40;
+
 const style = document.createElement('style');
-style.textContent = `body{margin:0;background:#0c1320;color:#dce8f7;font:16px system-ui}main{max-width:1500px;margin:auto;padding:28px}h1{margin-bottom:6px}p{color:#a0b6d0}#controls{position:sticky;top:0;background:#182539;padding:16px;border-radius:12px;z-index:1}input{width: min(55vw,600px);vertical-align:middle}button{background:#80e5c2;border:0;padding:9px 20px;border-radius:6px;margin-right:20px}#scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:24px}canvas{width:100%;max-width:720px;background:#101c2d;border-radius:12px}h2{font-size:18px}`;
+style.textContent = `
+  body { margin: 0; background: #0c1320; color: #dce8f7; font: 16px system-ui; }
+  main { max-width: 1500px; margin: auto; padding: 28px; }
+  h1 { margin-bottom: 6px; }
+  p { color: #a0b6d0; }
+  #controls { position: sticky; top: 0; background: #182539; padding: 16px; border-radius: 12px; z-index: 1; }
+  input { width: min(55vw, 600px); vertical-align: middle; }
+  button { background: #80e5c2; border: 0; padding: 9px 20px; border-radius: 6px; margin-right: 20px; }
+  output { margin-left: 16px; font-variant-numeric: tabular-nums; }
+  #scenarios, #textures, #idles, #badges { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 24px; }
+  canvas { width: 100%; max-width: 720px; background: #101c2d; border-radius: 12px; }
+  h2 { font-size: 18px; }
+`;
 document.head.append(style);
-const container = document.querySelector('#scenarios');
+
+function mountCanvas(container: Element | null, label: string, width: number, height: number): CanvasRenderingContext2D | null {
+  const ratio = window.devicePixelRatio || 1;
+  const section = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = label;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  canvas.setAttribute('aria-label', label);
+  section.append(title, canvas);
+  container?.append(section);
+  return canvas.getContext('2d');
+}
+
+const laptops = SCENARIOS.map((scenario) => mountCanvas(document.querySelector('#scenarios'), scenario.title, PREVIEW_W, PREVIEW_H));
+const textures = SCENARIOS.map((scenario) => mountCanvas(document.querySelector('#textures'), scenario.title, TEXTURE_W, TEXTURE_H));
+const idles = SCENARIOS.map((scenario) => mountCanvas(document.querySelector('#idles'), scenario.title, PREVIEW_W, PREVIEW_H));
+LAPTOP_MODELS.forEach((model) => {
+  const ctx = mountCanvas(document.querySelector('#badges'), `Selo da tampa · ${model}`, BADGE_W, BADGE_H);
+  if (!ctx) return;
+  ctx.fillStyle = chassisColor(model);
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.scale(ctx.canvas.width / BADGE_W, ctx.canvas.height / BADGE_H);
+  drawLidBadge(ctx, BADGE_W, BADGE_H, model);
+});
 const slider = document.querySelector<HTMLInputElement>('#progress');
 const play = document.querySelector<HTMLButtonElement>('#play');
-const idle = document.querySelector<HTMLCanvasElement>('#idle')?.getContext('2d');
-const contexts = SCENARIOS.map(scenario => {
-  const card = document.createElement('section'); const title = document.createElement('h2'); title.textContent = scenario.title;
-  const canvas = document.createElement('canvas'); canvas.width = 720; canvas.height = 460; canvas.setAttribute('aria-label', scenario.title);
-  card.append(title, canvas); container?.append(card); return canvas.getContext('2d');
+const readout = document.querySelector<HTMLOutputElement>('#readout');
+
+let playing = true;
+let progress = 0;
+let previous: number | undefined;
+
+slider?.addEventListener('input', () => {
+  progress = Number(slider.value);
+  playing = false;
+  if (play) play.textContent = 'Retomar';
 });
-let playing = true, progress = 0, previous: number | undefined;
-slider?.addEventListener('input', () => { progress = Number(slider.value); playing = false; if (play) play.textContent = 'Retomar'; });
-play?.addEventListener('click', () => { playing = !playing; play.textContent = playing ? 'Pausar' : 'Retomar'; });
+play?.addEventListener('click', () => {
+  playing = !playing;
+  play.textContent = playing ? 'Pausar' : 'Retomar';
+});
+
+function scaled(ctx: CanvasRenderingContext2D, width: number, height: number, draw: (w: number, h: number) => void): void {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const ratio = ctx.canvas.width / width;
+  ctx.scale(ratio, ratio);
+  draw(width, height);
+}
+
 function frame(time: number): void {
-  if (playing) progress = (progress + (previous === undefined ? 0 : time - previous) / 8000) % 1;
-  previous = time; if (slider) slider.value = String(progress);
-  contexts.forEach((ctx, index) => { if (ctx) drawLaptop(ctx, 720, 460, index, progress, time); });
-  if (idle) drawIdleScreen(idle, 720, 460, 0, 40 - progress * 40, time);
+  if (playing) progress = (progress + (previous === undefined ? 0 : time - previous) / LOOP_MS) % 1;
+  previous = time;
+  if (slider) slider.value = String(progress);
+  if (readout) readout.value = progress.toFixed(3);
+  laptops.forEach((ctx, index) => ctx && scaled(ctx, PREVIEW_W, PREVIEW_H, (w, h) => drawLaptop(ctx, w, h, index, progress, time)));
+  textures.forEach((ctx, index) => ctx && scaled(ctx, TEXTURE_W, TEXTURE_H, (w, h) => drawLaptopScreen(ctx, w, h, index, progress, time)));
+  idles.forEach((ctx, index) => ctx && scaled(ctx, PREVIEW_W, PREVIEW_H, (w, h) => drawIdleScreen(ctx, w, h, index, IDLE_SECONDS - progress * IDLE_SECONDS, time)));
   requestAnimationFrame(frame);
 }
+
 requestAnimationFrame(frame);

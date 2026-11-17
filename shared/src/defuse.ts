@@ -15,7 +15,7 @@ export interface BombEvent { k: 'bomb'; what: BombAction; team: number; by: numb
 export interface BombPlaces { home: BombPoint; site: BombPoint; attackers: number }
 export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: BombOutcome }
 
-function within(a: BombPoint, b: BombPoint, radius: number): boolean {
+export function inBombReach(a: BombPoint, b: BombPoint, radius: number): boolean {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= radius;
 }
 
@@ -36,9 +36,9 @@ function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: Bomb
   const events: BombEvent[] = [];
   let defuse = bomb.defuse;
   const current = defuse && actors.find((a) => a.id === defuse?.by);
-  if (defuse && !(current && canAct(current) && current.using && current.team === defenders && within(current, bomb, DEFUSE_RADIUS_UNITS))) defuse = null;
+  if (defuse && !(current && canAct(current) && current.using && current.team === defenders && inBombReach(current, bomb, DEFUSE_RADIUS_UNITS))) defuse = null;
   if (!defuse) {
-    const starter = actors.find((a) => canAct(a) && a.using && a.team === defenders && within(a, bomb, DEFUSE_RADIUS_UNITS));
+    const starter = actors.find((a) => canAct(a) && a.using && a.team === defenders && inBombReach(a, bomb, DEFUSE_RADIUS_UNITS));
     if (starter) {
       defuse = { by: starter.id, doneAtTick: tick + DEFUSE_TICKS };
       events.push({ k: 'bomb', what: 'defuse', team: defenders, by: starter.id });
@@ -66,7 +66,7 @@ export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly B
   }
   if (next.kind === 'home' || next.kind === 'dropped') {
     const at = next.kind === 'home' ? places.home : next;
-    const taker = actors.find((a) => canAct(a) && a.team === places.attackers && within(a, at, CTF_PICKUP_RADIUS_UNITS));
+    const taker = actors.find((a) => canAct(a) && a.team === places.attackers && inBombReach(a, at, CTF_PICKUP_RADIUS_UNITS));
     if (taker) {
       next = { kind: 'carried', carrier: taker.id };
       events.push({ k: 'bomb', what: 'take', team: places.attackers, by: taker.id });
@@ -78,7 +78,7 @@ export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly B
     events.push({ k: 'bomb', what: 'return', team: places.attackers, by: -1 });
     return { bomb: { kind: 'home' }, events };
   }
-  const planting = carrier.using && within(carrier, places.site, BOMB_SITE_RADIUS_UNITS);
+  const planting = carrier.using && inBombReach(carrier, places.site, BOMB_SITE_RADIUS_UNITS);
   if (next.kind === 'carried') {
     return { bomb: planting ? { kind: 'planting', carrier: carrier.id, doneAtTick: tick + PLANT_TICKS } : next, events };
   }

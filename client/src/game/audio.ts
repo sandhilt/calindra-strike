@@ -307,6 +307,26 @@ export class Sfx {
     this.noiseBurst(out, t, 1400, 0.7, 0.002, 0.35, 0.45, 'bandpass');
   }
 
+  /** One keystroke on the bug's keyboard; played in quick runs while someone plants or defuses. */
+  keystroke(pos: Pos): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 260);
+    this.noiseBurst(out, t, 3200 + Math.random() * 1800, 2.5, 0.001, 0.035, 0.22, 'bandpass');
+    this.tone(out, t, 'square', 180, 120, 0.02, 0.03);
+  }
+
+  bombTaken(): void {
+    const t = this.ctx.currentTime;
+    this.tone(this.master, t, 'triangle', 660, 660, 0.09, 0.12);
+    this.tone(this.master, t + 0.08, 'triangle', 990, 990, 0.12, 0.12);
+  }
+
+  denied(): void {
+    const t = this.ctx.currentTime;
+    this.tone(this.master, t, 'square', 220, 160, 0.12, 0.08);
+    this.tone(this.master, t + 0.13, 'square', 180, 130, 0.14, 0.08);
+  }
+
   beep(high = false): void {
     this.tone(this.master, this.ctx.currentTime, 'sine', high ? 1320 : 880, high ? 1320 : 880, 0.12, 0.15);
   }

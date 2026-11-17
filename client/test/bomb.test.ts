@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFUSE_MS, PLANT_MS } from '@calindra-strike/shared';
 import { FUSE_MS } from '@calindra-strike/shared';
-import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombStatus, bombMessage, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
@@ -80,4 +80,21 @@ test('the defuser keeps the finished laptop with the banner for 3 s after the de
   assert.deepEqual(defuseBannerScene(banner, 12_999), { variant: 4, progress: 1, timeMs: 12_999 });
   assert.equal(defuseBannerScene(banner, 13_000), null);
   assert.equal(defuseBannerScene(null, 10_000), null);
+});
+
+test('pressing E explains what is missing instead of failing silently', () => {
+  const site = { x: 1000, y: 0, z: 0 };
+  const name = (id: number) => 'P' + id;
+  const base = { x: 0, y: 0, z: 0, variant: 0, attackers: 0 };
+  const attempt = (bomb: Parameters<typeof useRefusal>[0]['bomb'], myTeam: number, me = { x: 0, y: 0, z: 0 }) => useRefusal({ bomb, myId: 1, myTeam, me, site, name });
+  assert.equal(attempt({ ...base, state: 'home' }, 0), 'encoste no bug para pegá-lo');
+  assert.equal(attempt({ ...base, state: 'carried', carrier: 1 }, 0), 'leve o bug até o site (círculo vermelho)');
+  assert.equal(attempt({ ...base, state: 'carried', carrier: 1 }, 0, { x: 990, y: 0, z: 0 }), null, 'carrier in the site plants');
+  assert.equal(attempt({ ...base, state: 'carried', carrier: 2 }, 0), 'P2 está com o bug');
+  assert.equal(attempt({ ...base, state: 'home' }, 1), 'só dá para desarmar depois que o bug for plantado');
+  const planted = { ...base, state: 'planted' as const, explodeAt: 0, defuser: -1, defuseDoneAt: 0 };
+  assert.equal(attempt(planted, 1, { x: 300, y: 0, z: 0 }), 'chegue mais perto do laptop para desarmar');
+  assert.equal(attempt(planted, 1, { x: 20, y: 0, z: 0 }), null, 'defender next to the laptop defuses');
+  assert.equal(attempt({ ...planted, defuser: 3 }, 1, { x: 20, y: 0, z: 0 }), 'P3 já está desarmando');
+  assert.equal(attempt(planted, -1), null, 'spectators get no hint');
 });

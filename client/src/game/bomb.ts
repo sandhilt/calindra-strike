@@ -1,4 +1,4 @@
-import { DEFUSE_MS, FUSE_MS, PLANT_MS, TEAMS, type BombAction, type GameMode } from '@calindra-strike/shared';
+import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, FUSE_MS, PLANT_MS, TEAMS, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
 
 export type BombView = { x: number; y: number; z: number; variant: number; attackers: number } & (
   | { state: 'home' }
@@ -91,4 +91,27 @@ export function scoreUnit(mode: GameMode): string {
   if (mode === 'ctf') return 'capturas';
   if (mode === 'defuse') return 'pontos';
   return 'kills';
+}
+
+export interface UseAttempt {
+  bomb: BombView;
+  myId: number;
+  myTeam: number;
+  me: BombPoint;
+  site: BombPoint;
+  name: (id: number) => string;
+}
+
+/** Why pressing E does nothing where the player stands, or null when it plants or defuses. */
+export function useRefusal({ bomb, myId, myTeam, me, site, name }: UseAttempt): string | null {
+  if (myTeam !== 0 && myTeam !== 1) return null;
+  if (myTeam === bomb.attackers) {
+    if (bomb.state === 'home' || bomb.state === 'dropped') return 'encoste no bug para pegá-lo';
+    if (bomb.state === 'planted') return 'o bug já está plantado · proteja-o';
+    if (bomb.carrier !== myId) return `${name(bomb.carrier)} está com o bug`;
+    return inBombReach(me, site, BOMB_SITE_RADIUS_UNITS) ? null : 'leve o bug até o site (círculo vermelho)';
+  }
+  if (bomb.state !== 'planted') return 'só dá para desarmar depois que o bug for plantado';
+  if (bomb.defuser >= 0 && bomb.defuser !== myId) return `${name(bomb.defuser)} já está desarmando`;
+  return inBombReach(me, bomb, DEFUSE_RADIUS_UNITS) ? null : 'chegue mais perto do laptop para desarmar';
 }

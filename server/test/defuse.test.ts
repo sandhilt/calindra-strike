@@ -172,3 +172,24 @@ it('input use bit is read from the processed command', () => {
   game.update();
   assert.equal(attacker.using, false);
 });
+
+it('warmup runs the objective as unscored practice so a lone player can plant and defuse', () => {
+  const messages: ServerMsg[] = [];
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 99, modes: 'defuse', random: () => 0.5 });
+  const players = [0, 1].map((i) => game.join('W' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data))) as ServerPlayer);
+  const attackers = (game as any).attackers as number;
+  const attacker = players.find((p) => p.team === attackers) as ServerPlayer;
+  const defender = players.find((p) => p.team !== attackers) as ServerPlayer;
+  assert.equal(game.phase, 'warmup');
+  plant(game, attacker, defender);
+  assert.equal(snapshot(game, messages).bm[0], 4, 'planted during warmup');
+  const at = snapshot(game, messages).bm;
+  attacker.using = false;
+  defender.alive = true;
+  Object.assign(defender.state, { x: at[2], y: at[3], z: at[4], dropping: false });
+  defender.using = true;
+  run(game, DEFUSE_TICKS + 2);
+  assert.deepEqual(game.teamScores, [0, 0], 'warmup defuse does not score');
+  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'defused')), 'defused event sent');
+  assert.equal(game.phase, 'warmup');
+});

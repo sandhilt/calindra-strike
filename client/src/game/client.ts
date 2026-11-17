@@ -58,7 +58,7 @@ import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
-import { DEFUSE_BANNER_MS, beepIntervalMs, bombMessage, bombStatus, bombView, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
+import { DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombStatus, bombView, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
@@ -69,6 +69,10 @@ import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { type WorldView, buildWorld, followShadow } from './render/world.ts';
+
+// Typing rhythm of the bug keyboard while planting or defusing, in ms between keystrokes.
+const KEYSTROKE_MIN_MS = 55;
+const KEYSTROKE_JITTER_MS = 90;
 
 interface Snap {
   t: number;
@@ -197,6 +201,8 @@ export class ClientGame {
   private nextBombBeepAt = 0;
   private defuseVariant = 0;
   private defuseBanner: DefuseBanner | null = null;
+  private lastButtons = 0;
+  private nextKeystrokeAt = 0;
   private readonly airdrops = new Map<number, AirdropView>();
 
   private clockOffset = 0;
@@ -689,6 +695,7 @@ export class ClientGame {
     const actor = this.nameOf(e.by);
     this.hud.info(bombMessage(e.what, e.team, actor.name), e.by < 0 ? TEAMS[e.team].color : actor.color);
     if (e.what === 'plant' || e.what === 'defused') this.sfx.beep(true);
+    if (e.what === 'take' && e.by === this.myId) this.sfx.bombTaken();
     if (e.what === 'defused' && e.by === (this.spectator ? this.followedId : this.myId)) {
       this.defuseBanner = { variant: this.defuseVariant, until: this.serverNow() + DEFUSE_BANNER_MS };
     }
@@ -698,6 +705,27 @@ export class ClientGame {
     this.sfx.boom({ x: at.x, y: at.y, z: at.z });
     this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ff7a1a', 70);
     this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ffd23f', 40);
+  }
+
+  /** E pressed where it cannot plant or defuse: say why instead of failing silently. */
+  private explainUse(): void {
+    const bomb = this.bomb;
+    const site = bomb && this.map.flagBases[1 - bomb.attackers];
+    if (!bomb || !site) return;
+    const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site: { x: site.x, y: this.me.y, z: site.z }, name: id => this.nameOf(id).name });
+    if (!reason) return;
+    this.hud.info(reason);
+    this.sfx.denied();
+  }
+
+  /** Keyboard clatter from the laptop while someone plants or defuses it, so everyone nearby hears the race. */
+  private typeOnBomb(): void {
+    const bomb = this.bomb;
+    const typingAt = bomb?.state === 'planting' ? this.carrierPose(bomb.carrier) : bomb?.state === 'planted' && bomb.defuser >= 0 ? bomb : undefined;
+    const wall = performance.now();
+    if (!typingAt || wall < this.nextKeystrokeAt) return;
+    this.sfx.keystroke({ x: typingAt.x, y: typingAt.y, z: typingAt.z });
+    this.nextKeystrokeAt = wall + KEYSTROKE_MIN_MS + Math.random() * KEYSTROKE_JITTER_MS;
   }
 
   private beepBomb(now: number): void {
@@ -870,6 +898,8 @@ export class ClientGame {
     const renderTime = Math.max(0, this.serverNow() - INTERP_DELAY_MS);
     const canPlay = this.alive && this.match.phase !== 'podium';
     const buttons = this.input.buttons();
+    if (canPlay && buttons & BTN.USE && !(this.lastButtons & BTN.USE)) this.explainUse();
+    this.lastButtons = buttons;
     const req = this.resolveWeaponRequest(this.input.takeWeaponRequest());
     const cmd: Cmd = { seq: ++this.seq, buttons, yaw: this.input.yaw, pitch: this.input.pitch, weapon: req, interp: Math.round(renderTime) };
     if (canPlay) {
@@ -1066,6 +1096,7 @@ export class ClientGame {
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
     this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
     this.beepBomb(this.serverNow());
+    this.typeOnBomb();
     this.effects.update(dt);
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BTN, DEBUG_SCENARIO_COUNT, dropBomb, stepBomb, type BombState, type BombPlaces,
+  BTN, DEBUG_SCENARIO_COUNT, dropBomb, stepBomb, type BombOutcome, type BombState, type BombPlaces,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -342,7 +342,8 @@ export class Game {
   }
 
   private updateBomb(): void {
-    if (this.mode !== 'defuse' || this.phase !== 'live') return;
+    // Warmup runs the objective too, as unscored practice, so a lone player waiting for the match can try planting and defusing.
+    if (this.mode !== 'defuse' || this.phase === 'podium') return;
     const actors = [...this.players.values()].map((p) => ({
       id: p.id, team: p.team, alive: p.alive, using: p.using,
       x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
@@ -355,12 +356,16 @@ export class Game {
     }
     for (const event of result.events) this.emit(event);
     if (!result.outcome) return;
-    const winner = result.outcome === 'defused' ? 1 - this.attackers : this.attackers;
+    if (this.phase === 'live') this.scoreBomb(result.outcome);
+    this.attackers = (1 - this.attackers) as 0 | 1;
+    this.drawBombVariant();
+  }
+
+  private scoreBomb(outcome: BombOutcome): void {
+    const winner = outcome === 'defused' ? 1 - this.attackers : this.attackers;
     this.teamScores[winner]++;
     this.scoreDirty = true;
     if (this.defuseLimit > 0 && this.teamScores[winner] >= this.defuseLimit) this.endPending = true;
-    this.attackers = (1 - this.attackers) as 0 | 1;
-    this.drawBombVariant();
   }
 
   private msAt(tick: number): number {

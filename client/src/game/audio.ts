@@ -267,6 +267,13 @@ export class Sfx {
     }
   }
 
+  /** Spray can: a short rattle, then a bright hiss. Same synth voice as the kill stingers. */
+  spray(): void {
+    const t = this.ctx.currentTime;
+    [0, 0.05, 0.1].forEach((at) => this.synth(t + at, { wave: 'square', pitch: [3200, 3200], cutoff: [6000, 6000], dur: 0.03, gain: 0.08, detune: 0 }));
+    this.synth(t + 0.15, { pitch: [5200, 4800], cutoff: [9000, 5000], resonance: 1, dur: 1, gain: 0.1, attack: 0.02, detune: 40 });
+  }
+
   footstep(pos: Pos, loud = 1): void {
     const t = this.ctx.currentTime;
     const out = this.out(pos, 160);

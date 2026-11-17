@@ -568,6 +568,7 @@ export class ClientGame {
     switch (e.k) {
       case 'spray':
         this.effects.spray(new THREE.Vector3(...e.p), new THREE.Vector3(...e.n), e.r, this.names.get(e.id)?.personal ?? '#9b9b94');
+        if (e.id === this.myId) this.sfx.spray();
         break;
       case 'flag': {
         const actor = this.nameOf(e.by);

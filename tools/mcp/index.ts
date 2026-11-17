@@ -9,6 +9,7 @@ const { values } = parseArgs({
     origin: { type: 'string', default: 'http://localhost:5173' },
     code: { type: 'string', default: '' },
     omniscient: { type: 'boolean', default: false },
+    'auto-vote': { type: 'boolean', default: false },
     skill: { type: 'string', default: '0.7' },
   },
 });
@@ -17,6 +18,7 @@ if (!Number.isFinite(skill) || skill < 0 || skill > 1) throw new Error('--skill 
 const session = new GameSession({
   skill,
   omniscient: values.omniscient,
+  autoVote: values['auto-vote'],
   random: Math.random,
   url: values.url,
   origin: values.origin,

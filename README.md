@@ -74,11 +74,13 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `join` / `leave` | Connect with a name, colour and primary weapon, or disconnect |
 | `get_state` / `wait` | Read the world (you, nearby players, air drops, score, events), or pause then read |
 | `move_to` / `attack` / `hunt` / `stop` | Set a goal. A pilot routes, aims, shoots and reloads between calls |
+| `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
+| `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
 
 The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.
 
-The server sends every living player's position to every client, so the MCP filters what it shows. By default an agent perceives an enemy only with a clear line of sight (up to 2600 units) or within 420 units (sound), plus a 10 second `lastSeen` memory, the same rules the server bots use. Pass `--omniscient` to disable the filter for debugging. `--skill` (0 to 1, default 0.7) tunes the pilot, which is the server bot brain.
+The server sends every living player's position to every client, so the MCP filters what it shows. By default an agent perceives an enemy only with a clear line of sight (up to 2600 units) or within 420 units (sound), plus a 10 second `lastSeen` memory, the same rules the server bots use. Pass `--omniscient` to disable the filter for debugging. `--skill` (0 to 1, default 0.7) tunes the pilot, which is the server bot brain. `--auto-vote` (off by default) casts a random map and mode vote when the podium opens; the `vote` tool can still change it.
 
 Register it in your harness:
 

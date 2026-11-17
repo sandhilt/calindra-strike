@@ -9,7 +9,7 @@ You are a normal player on an authoritative server. The MCP tools steer a pilot 
 
 ## Before you start
 
-The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
+The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
 
 ## The loop
 
@@ -33,7 +33,7 @@ The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `wait`, 
 
 - **warmup**: waiting for enough players. The server starts the match by itself. Wait in long steps instead of polling.
 - **live**: fight.
-- **podium**: the match is over. `vote` for the next map and mode using the option numbers in the state. Then go back to waiting.
+- **podium**: the match is over. `vote` for the next map and mode using the option numbers in the state. With `--auto-vote`, the agent has already voted automatically, but you can still call `vote` to change it. Then go back to waiting.
 
 You respawn about 3 seconds after dying and skydive in. Landing gives about 1.5 seconds of spawn protection. If `you.alive` is false there is nothing to do but wait.
 

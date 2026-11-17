@@ -1,11 +1,18 @@
 import { CHAT_MAX_LEN, WEAPON, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
+import { WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
+const isWeaponSlot = (slot: string): slot is WeaponSlot => Object.hasOwn(WEAPON_SLOT_REQUEST, slot);
 type Args = Record<string, unknown>;
 const number = (a: Args, k: string, min = -Infinity, max = Infinity, integer = false): number => {
   const v = a[k];
   if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > max || (integer && !Number.isInteger(v)))
     throw new Error(`Invalid ${k}`);
+  return v;
+};
+const boolean = (a: Args, k: string): boolean => {
+  const v = a[k];
+  if (typeof v !== 'boolean') throw new Error(`Invalid ${k}`);
   return v;
 };
 const string = (a: Args, k: string, max: number, fallback?: string): string => {
@@ -102,6 +109,50 @@ export const toolDefinitions: Definition[] = [
       const ms = Math.max(100, Math.min(5000, number(a, 'ms')));
       await new Promise((resolve) => setTimeout(resolve, ms));
       return s.getState();
+    },
+  },
+  {
+    name: 'jump',
+    description: 'Jump once. Only works on the ground. Use it for ledges and to get unstuck.',
+    properties: {},
+    run: (s) => s.jump(),
+  },
+  {
+    name: 'crouch',
+    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox.',
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.setCrouch(boolean(a, 'on')),
+  },
+  {
+    name: 'zoom',
+    description: 'Set the scope level: 0 off, 1 or 2 zoomed. Only for a weapon with a scope (the AWP). Once set it replaces the pilot\'s automatic scoping until you respawn. The scope drops during the AWP bolt cycle and returns by itself.',
+    properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
+    required: ['level'],
+    run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),
+  },
+  {
+    name: 'walk',
+    description: 'Walk (Shift) while on; stays set until changed or you respawn.',
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.walk(boolean(a, 'on')),
+  },
+  {
+    name: 'reload',
+    description: 'Reload once (R). Requires a weapon that can reload.',
+    properties: {},
+    run: (s) => s.reload(),
+  },
+  {
+    name: 'switch_weapon',
+    description: 'Switch weapon once: primary (1), pistol (2), hammer (3) or last (Q).',
+    properties: { slot: { type: 'string', enum: Object.keys(WEAPON_SLOT_REQUEST) } },
+    required: ['slot'],
+    run: (s, a) => {
+      const slot = string(a, 'slot', Infinity);
+      if (!isWeaponSlot(slot)) throw new Error('Invalid slot');
+      return s.switchWeapon(slot);
     },
   },
   {

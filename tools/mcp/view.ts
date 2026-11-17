@@ -311,8 +311,8 @@ function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
     stand: prop && dimensions ? {
       kind: prop.stand, solid: true, size: [dimensions.size, dimensions.height, dimensions.size],
       about: prop.stand === 'desk'
-        ? 'Solid obstacle. Walk around it and hold USE to defuse from any side or corner.'
-        : 'Solid obstacle. Walk around it and touch any side or corner to take the laptop.',
+        ? 'Solid cover that blocks movement, bullets and sight. Walk around it and hold USE to defuse from any side or corner.'
+        : 'Solid cover that blocks movement, bullets and sight. Walk around it and touch any side or corner to take the laptop.',
     } : null,
     secondsToExplosion: bomb.kind === 'planted' ? Math.max(0, (explodeAt - v.time) / 1000) : null,
     plantProgress: bomb.kind === 'planting' ? progress(plantDoneAt, PLANT_MS) : 0,

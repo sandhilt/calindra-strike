@@ -176,3 +176,15 @@ it('a movable stand blocks entry, lets a hull leave and clears when removed', ()
   world.setProp(null);
   assert.equal(world.clipAxis(-contact, 0, 0, STAND_HEIGHT, 0, 1), 1);
 });
+
+it('a stand stops bullets like a map crate and stops nothing once cleared', () => {
+  const world = new CollisionWorld({ ...getMaps()[0], boxes: [] });
+  const shooterX = -200;
+  const aimY = BOMB_DESK_SIZE_UNITS / 4;
+  world.setProp(bombStandBox('planted', { x: 0, y: 0, z: 0 }));
+  const hit = world.trace(shooterX, aimY, 0, 1, 0, 0, 400);
+  assert.equal(hit?.t, -shooterX - BOMB_DESK_SIZE_UNITS / 2);
+  assert.equal(hit?.nx, -1);
+  world.setProp(null);
+  assert.equal(world.trace(shooterX, aimY, 0, 1, 0, 0, 400), null);
+});

@@ -4,6 +4,13 @@ import type { MapDef } from './maps/types.ts';
 
 const EPS = 0.03125;
 
+function withBox(boxes: Float64Array, bounds: readonly number[]): Float64Array {
+  const next = new Float64Array(boxes.length + 6);
+  next.set(boxes);
+  next.set(bounds, boxes.length);
+  return next;
+}
+
 export interface TraceHit {
   t: number;
   nx: number;
@@ -19,7 +26,8 @@ export class CollisionWorld {
   private readonly mapSolids: Float64Array;
   private solids: Float64Array;
   private propKey = '';
-  readonly bullets: Float64Array;
+  private readonly mapBullets: Float64Array;
+  private bullets: Float64Array;
   readonly map: MapDef;
 
   constructor(map: MapDef) {
@@ -27,15 +35,16 @@ export class CollisionWorld {
     const solid = map.boxes.filter((b) => b.solid);
     const bullet = map.boxes.filter((b) => !b.shootThrough);
     this.mapSolids = new Float64Array(solid.length * 6);
-    this.bullets = new Float64Array(bullet.length * 6);
+    this.mapBullets = new Float64Array(bullet.length * 6);
     solid.forEach((b, i) => this.mapSolids.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
     this.solids = this.mapSolids;
-    bullet.forEach((b, i) => this.bullets.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+    bullet.forEach((b, i) => this.mapBullets.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+    this.bullets = this.mapBullets;
   }
 
   /**
    * One movable solid on top of the map (the bug's desk or crate), replaced on each call and cleared by null.
-   * Movement and ground only: bullets still pass, like a prop that is not cover.
+   * Behaves like a map crate: it blocks movement, can be stood on and stops bullets and sight.
    */
   setProp(box: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } } | null): void {
     const key = box ? [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z].join() : '';
@@ -43,12 +52,12 @@ export class CollisionWorld {
     this.propKey = key;
     if (!box) {
       this.solids = this.mapSolids;
+      this.bullets = this.mapBullets;
       return;
     }
-    const next = new Float64Array(this.mapSolids.length + 6);
-    next.set(this.mapSolids);
-    next.set([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], this.mapSolids.length);
-    this.solids = next;
+    const bounds = [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z];
+    this.solids = withBox(this.mapSolids, bounds);
+    this.bullets = withBox(this.mapBullets, bounds);
   }
 
   overlaps(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean {

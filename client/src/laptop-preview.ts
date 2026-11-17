@@ -1,4 +1,6 @@
+import * as THREE from 'three';
 import { drawLidBadge } from './game/laptop/badge.ts';
+import { BombRenderer } from './game/render/bomb.ts';
 import { LAPTOP_MODELS, chassisColor, drawIdleScreen, drawLaptop, drawLaptopScreen } from './game/laptop/draw.ts';
 import { SCENARIOS } from './game/laptop/scenarios.ts';
 
@@ -89,3 +91,52 @@ function frame(time: number): void {
 }
 
 requestAnimationFrame(frame);
+
+const MODEL_W = 1100;
+const MODEL_H = 520;
+const ORBIT_RADIUS_UNITS = 190;
+const ORBIT_HEIGHT_UNITS = 110;
+const SWAY_PERIOD_MS = 9000;
+const SWAY_RAD = 0.7;
+
+function mountModel(container: Element | null): void {
+  const canvas = document.createElement('canvas');
+  canvas.style.maxWidth = `${MODEL_W}px`;
+  container?.append(canvas);
+  let renderer: THREE.WebGLRenderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  } catch {
+    canvas.replaceWith(Object.assign(document.createElement('p'), { textContent: 'Sem WebGL neste navegador.' }));
+    return;
+  }
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(MODEL_W, MODEL_H, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#1b2433');
+  scene.add(new THREE.HemisphereLight('#dfe8ff', '#3a3326', 1.6));
+  const sun = new THREE.DirectionalLight('#ffffff', 1.4);
+  sun.position.set(120, 260, 160);
+  scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(900, 500), new THREE.MeshStandardMaterial({ color: '#4a4f57', roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+  const camera = new THREE.PerspectiveCamera(55, MODEL_W / MODEL_H, 1, 3000);
+  const at = { y: 0, variant: 0, attackers: 0 };
+  const stations = [
+    { renderer: new BombRenderer([]), bomb: (now: number) => ({ ...at, x: -90, z: 0, variant: 5, state: 'planted' as const, explodeAt: now + 20000, defuser: 1, defuseDoneAt: now + 3000 }) },
+    { renderer: new BombRenderer([]), bomb: () => ({ ...at, x: 90, z: 0, variant: 0, state: 'home' as const }) },
+  ];
+  for (const s of stations) scene.add(s.renderer.group);
+  const frame = (now: number) => {
+    const angle = Math.sin((now / SWAY_PERIOD_MS) * Math.PI * 2) * SWAY_RAD;
+    camera.position.set(Math.sin(angle) * ORBIT_RADIUS_UNITS, ORBIT_HEIGHT_UNITS, Math.cos(angle) * ORBIT_RADIUS_UNITS);
+    camera.lookAt(0, 30, 0);
+    for (const s of stations) s.renderer.update(s.bomb(now), now, now / 1000, camera.position, () => undefined);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+mountModel(document.querySelector('#model3d'));

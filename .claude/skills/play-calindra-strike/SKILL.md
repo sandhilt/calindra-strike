@@ -35,7 +35,12 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 
 ## Chat
 
-- `say` (up to 100 characters) works during a live match. One short, playful Portuguese message per match is enough, and never after every kill.
+- `say` (up to 100 characters) works during a live match. Provocative chat is welcome (the "stunts" the user asked for): once or twice per match, for example after a notable kill or a comeback, never after every kill. Keep it playful, in Portuguese, aimed at the match and never at a real person's private details.
+- Give each bot or agent its own persona for chat (a cocky veteran, a friendly rookie, a sarcastic commentator): a different tone, nickname or running joke, kept consistent across the whole match.
+- Personas range from calm to hot-headed. A hot-headed persona may trash-talk and roast the other players' aim or gameplay, but never with slurs, insults about identity or body, threats, or any real person's private details. When unsure, tone it down.
+- React to the match chat too, not only to provocations: when a message from another player is addressed to you or is about the match, answer with a short playful `say`. Read `chat` in every `wait` and `get_state` result, since reading drains it. Skip hostile or personal messages.
+- Call out locations so other bots and agents can coordinate, especially with the friendly team. Short callouts in Portuguese through `say`: where you saw an enemy, where you are holding, where you are heading (for example `inimigo no corredor leste`, `seguro o centro`). Use the map's landmark names, not raw coordinates. Read teammates' callouts in `chat` and act on them (rotate, back up, push together). Callouts are useful information, so they do not count against the once-or-twice limit above.
+- Coordinating with the team does not replace taunting the opponents. Keep roasting and teasing the enemy team in persona, in the same message or a separate one, within the limits above and the 100-character limit.
 
 ## Connection and protocol
 
@@ -110,3 +115,42 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 
 - Both arrived with more than two minutes remaining in the first round and nearly five minutes in the second, then stayed through both podiums. They confirmed the same match IDs, teams, and final results from their separate sessions.
 - Crouch was used in close fights, jump on the ground, and chat replies stayed playful and about the match. Astra's first-round Mjölnir pickup was confirmed in its primary slot.
+
+## Tool arguments and recoil (2026-11-17)
+
+Three Claude agents (Haiku 5.5, `Claude-S5.5-A/B/C`) played one Forja TDM (team 0 won 20–19). The MCP client was not connected in that session, so they drove three `launch.ts` processes through a small stdin/socket broker. Same tools, same results.
+
+### Exact arguments
+
+- `attack` takes only `{ "target_id": <int> }`. `id`, `target`, `name` and `{}` all fail with "Unexpected or missing argument".
+- `switch_weapon` takes only `{ "slot": "primary" | "pistol" | "hammer" | "last" }`. The `weapon` key fails. `weapon` in `get_state` updates on the next `wait`, so a state read right after the switch still shows the old weapon.
+- `wait` takes `{ "ms": 100..5000 }`. `reload` only returns the action flags (`crouch`/`walk`/`zoom`); confirm the reload by the `mag` value in the next state.
+- With the magazine and reserve empty, `hunt` falls back to the pistol or the hammer on its own. `switch_weapon primary` may be undone by the pilot on the next tick. Reload before the magazine runs dry.
+- Game time keeps running while you think. Long gaps between calls (20–30 s) cost a large part of a round; keep the `wait` loop tight.
+
+### Recoil and spread: what you can and cannot control
+
+None of the three agents measured recoil in play; this section is read from `shared/src/weapons.ts`, `shared/src/sim.ts` and `server/src/bot.ts` (the pilot uses the bot brain). Check it against a real spray before relying on it.
+
+- Recoil is a per-shot index (`s.recoil`, +1 per shot). Each shot is fired at `aim + recoilOffset(index)`: a vertical climb `maxPitch * (1 - exp(-index * climb / maxPitch))` that settles, then a slow horizontal wander from `swayStart`. It is deterministic, not random, and the server and the client compute it the same way.
+- On top of that, spread grows by `perShot * index` up to `perShotMax`, by running speed, and by being in the air. Crouching on the ground multiplies spread by `duckMult` (0.7–0.9).
+- The index only recovers after the weapon has been idle for more than `fireTicks + 1` ticks, at `recovery` per second (R7 8/s, Brokkr 9/s, Ragnarök 7/s, pistol 7/s).
+
+| Weapon | Climb (°/shot) | Max pitch (°) | Sway (°) from shot | Spread per shot (max) | Duck mult |
+| --- | --- | --- | --- | --- | --- |
+| Forja R7 (rifle) | 0.75 | 7 | 1.6 from 7 | 0.004 (0.035) | 0.75 |
+| Brokkr (SMG) | 0.45 | 4 | 1.0 from 5 | 0.002 (0.020) | 0.8 |
+| Ragnarök (LMG) | 0.5 | 5 | 2.2 from 8 | 0.001 (0.020) | 0.7 |
+| Faísca P9 (pistol) | 1.4 | 6 | 0.6 from 2 | 0.018 (0.060) | 0.8 |
+| Trovão 12 (shotgun) | 3 | 6 | none | none (9 pellets, base 0.065) | 0.9 |
+| Mjölnir (AWP) | 2 | 2 | none | CS table, not the formula | n/a |
+
+- **The pilot does not subtract recoil from its aim.** `bot.ts` aims at the target and fires bursts of 3 to 9 shots with a 14 to 30 tick pause between them. The pause recovers only about 2 to 4 index units on the R7, so long bursts land progressively higher and to the side. This fits the agents' complaint that `hunt` walks into fights and loses them.
+- What the agent can still change: `crouch` before a fight (tighter spread, smaller hitbox); `stop` or `walk` instead of moving while a target is in view, since moving adds up to 0.11 on the R7; do not `jump` mid-fight (airborne adds 0.25 on the R7); `choose_loadout smg` for the lowest climb and spread growth at close range; prefer the shotgun only up close; reload before the magazine empties.
+- AWP (Mjölnir): the CS table applies instead of the spread formula. Standing still and scoped is the most accurate; crouched is perfect; running makes it very inaccurate. Do not run and shoot with it. `zoom` replaces the automatic scoping until you respawn.
+- B was killed by a headshot while crouched right after a respawn and reported `ducked: true` surviving the respawn. That agrees with the `crouch` note in the Movement section but not with the "A new spawn also reset crouch" line in the first field notes; read `ducked` before assuming either.
+
+### Other observations from this match
+
+- Airdrop pickups: C confirmed Mjölnir via `you.weapon` after `move_to` to (-400, 960) with `arrived`; B got a drop at (-320, -960) (ammo went to 100), A's Ragnarök showed a 100 magazine. The coordinates C and B saw on Forja ((-1000, -1376), (-400, 960), (-320, -960), (-1376, 1000), (1000, 1376)) do not match the Forja list under Weapons and airdrops, so read `airdrops` in state rather than trusting fixed coordinates.
+- The podium `results` give kills, deaths, HS, best streak and team per player, plus `vote` and `next`.

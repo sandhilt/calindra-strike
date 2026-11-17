@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BTN, WEAPON, createPlayerState, type Cmd, type WeaponId } from '../../shared/src/index.ts';
 import { ActionOverlay } from '../mcp/actions.ts';
+import * as actions from '../mcp/actions.ts';
 
 const cmd = (buttons = 0, seq = 1): Cmd => ({ seq, buttons, yaw: 0, pitch: 0, weapon: 0, interp: 0 });
 function player(weapon: WeaponId = WEAPON.SNIPER) {
@@ -128,4 +129,79 @@ test('reset clears crouch, zoom and a pending jump', () => {
   assert.equal(out.buttons, 0);
   assert.equal(o.crouch, false);
   assert.equal(o.zoom, null);
+});
+
+test('walk latches on every apply, releases on off and resets', () => {
+  const o = new ActionOverlay();
+  o.walk = true;
+  assert.ok(pressed(o.apply(cmd(), null), BTN.WALK));
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.WALK));
+  o.walk = false;
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.WALK));
+  assert.ok(pressed(o.apply(cmd(BTN.WALK), player()), BTN.WALK));
+  o.walk = true;
+  o.reset();
+  assert.equal(o.walk, false);
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.WALK));
+});
+
+test('reload is consumed on exactly one apply and reset clears a pending reload', () => {
+  const o = new ActionOverlay();
+  o.requestReload();
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.RELOAD));
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.RELOAD));
+  o.requestReload();
+  o.reset();
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.RELOAD));
+});
+
+test('weapon requests override the brain on one apply without mutating its command', () => {
+  for (const request of [1, 2, 3, 4] as const) {
+    const o = new ActionOverlay();
+    const input = { ...cmd(), weapon: 2 };
+    o.requestWeapon(request);
+    assert.equal(o.apply(input, player()).weapon, request);
+    assert.equal(input.weapon, 2);
+    o.ack = input.seq;
+    assert.equal(o.apply(input, player()).weapon, 2);
+    o.requestWeapon(request);
+    o.reset();
+    assert.equal(o.apply(cmd(), player()).weapon, 0);
+  }
+});
+
+test('weapon request suppresses stale brain switches until acknowledged and reset clears it', () => {
+  const overlay = new ActionOverlay();
+  overlay.requestWeapon(3);
+  const brain = { ...cmd(0, 5), weapon: 2 };
+  assert.equal(overlay.apply(brain, player()).weapon, 3);
+  assert.equal(overlay.apply({ ...brain, seq: 6 }, player()).weapon, 0);
+  overlay.ack = 5;
+  assert.equal(overlay.apply({ ...brain, seq: 7 }, player()).weapon, 2);
+  overlay.requestWeapon(3);
+  overlay.apply({ ...brain, seq: 8 }, player());
+  overlay.reset();
+  assert.equal(overlay.apply(brain, player()).weapon, 2);
+});
+
+test('weaponSlots returns available slots', () => {
+  const self = player(WEAPON.RIFLE);
+  self.primary = WEAPON.RIFLE;
+  self.lastWeapon = WEAPON.PISTOL;
+  assert.deepEqual(actions.weaponSlots(self), {
+    primary: WEAPON.RIFLE, pistol: WEAPON.PISTOL, hammer: WEAPON.HAMMER, last: WEAPON.PISTOL,
+  });
+});
+
+test('weaponSlots hides the current weapon from last', () => {
+  const self = player(WEAPON.PISTOL);
+  self.lastWeapon = self.weapon;
+  assert.equal(actions.weaponSlots(self).last, null);
+});
+
+test('weaponSlots hides a primary replaced by an airdrop', () => {
+  const self = player(WEAPON.SNIPER);
+  self.primary = WEAPON.SNIPER;
+  self.lastWeapon = WEAPON.RIFLE;
+  assert.equal(actions.weaponSlots(self).last, null);
 });

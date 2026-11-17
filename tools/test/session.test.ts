@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
-import { BTN, PROTOCOL_VERSION, WEAPON, packState, createPlayerState, RF_ALIVE, type WeaponId } from '../../shared/src/index.ts';
+import { BTN, PROTOCOL_VERSION, WEAPON, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -274,7 +274,7 @@ test('crouch latches DUCK on every cmd while idle and can be released', async ()
   assert.ok(tickButtons().every((b) => b & BTN.DUCK));
   assert.ok(tickButtons().every((b) => b & BTN.DUCK));
   await call('crouch', { on: false });
-  assert.ok(tickButtons().every((b) => !(b & BTN.DUCK)));
+  assert.ok(tickButtons().every((b) => !(b & (BTN.DUCK | BTN.WALK))));
   session.close();
 });
 
@@ -305,37 +305,43 @@ test('zoom scopes the AWP with one ATTACK2 and rejects weapons without a scope o
   rifle.session.close();
 });
 
-test('crouch and zoom reset when the player dies, even if no tick ran in between', async () => {
+test('crouch, walk and zoom reset when the player dies, even if no tick ran in between', async () => {
   const { call, live, socket, tickButtons, session } = await playing();
   await call('crouch', { on: true });
+  await call('walk', { on: true });
   await call('zoom', { level: 1 });
   socket.message({ t: 'snap', time: 300, me: null, ps: [], ad: [] });
   live();
-  assert.ok(tickButtons().every((b) => !(b & BTN.DUCK)));
+  assert.ok(tickButtons().every((b) => !(b & (BTN.DUCK | BTN.WALK))));
   const state = JSON.parse(JSON.stringify(session.getState()));
-  assert.deepEqual(state.you.actions, { crouch: false, zoom: null });
+  assert.deepEqual(state.you.actions, { crouch: false, walk: false, zoom: null });
   session.close();
 });
 
-test('crouch and zoom reset on a respawn of a player who never died (match start)', async () => {
+test('crouch, walk and zoom reset on a respawn of a player who never died (match start)', async () => {
   const { call, live, tickButtons, session } = await playing();
   await call('crouch', { on: true });
+  await call('walk', { on: true });
   await call('zoom', { level: 1 });
   live(WEAPON.SNIPER, false, true); // spawn(): alive again, skydiving
-  assert.ok(tickButtons().every((b) => !(b & BTN.DUCK)));
-  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, zoom: null });
+  assert.ok(tickButtons().every((b) => !(b & (BTN.DUCK | BTN.WALK))));
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, walk: false, zoom: null });
   session.close();
 });
 
-test('crouch, zoom and a queued jump reset when the map changes', async () => {
+test('latched actions and pending requests reset when the map changes', async () => {
   const { call, socket, tickButtons, session } = await playing();
   await call('crouch', { on: true });
+  await call('walk', { on: true });
   await call('zoom', { level: 1 });
   await call('jump');
+  await call('reload');
+  await call('switch_weapon', { slot: 'hammer' });
   socket.message({ t: 'match', match: { ...welcome.match, map: 1 } });
-  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, zoom: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, walk: false, zoom: null });
   const buttons = tickButtons();
-  assert.ok(buttons.every((b) => !(b & (BTN.DUCK | BTN.JUMP | BTN.ATTACK2))));
+  assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [0, 0]);
+  assert.ok(buttons.every((b) => !(b & (BTN.DUCK | BTN.WALK | BTN.JUMP | BTN.ATTACK2 | BTN.RELOAD))));
   session.close();
 });
 
@@ -364,7 +370,10 @@ test('zoom waits for the server ack of its scope press before pressing again', a
 test('actions need a living player snapshot', async () => {
   const { session, socket, call } = await playing();
   socket.message({ t: 'snap', time: 300, me: null, ps: [], ad: [] });
-  for (const [name, a] of [['jump', {}], ['crouch', { on: true }], ['zoom', { level: 1 }]] as const) {
+  for (const [name, a] of [
+    ['jump', {}], ['crouch', { on: true }], ['zoom', { level: 1 }],
+    ['walk', { on: true }], ['reload', {}], ['switch_weapon', { slot: 'pistol' }],
+  ] as const) {
     assert.equal((await call(name, a)).isError, true, name);
   }
   session.close();
@@ -373,9 +382,19 @@ test('actions need a living player snapshot', async () => {
 test('get_state reports ducked, onGround, zoom, maxZoom and the requested actions', async () => {
   const awp = await playing(WEAPON.SNIPER);
   await awp.call('crouch', { on: true });
+  await awp.call('walk', { on: true });
   await awp.call('zoom', { level: 2 });
   const you = JSON.parse(JSON.stringify(awp.session.getState())).you;
-  assert.partialDeepStrictEqual(you, { onGround: true, ducked: false, zoom: 0, maxZoom: 2, actions: { crouch: true, zoom: 2 } });
+  assert.partialDeepStrictEqual(you, {
+    onGround: true, ducked: false, zoom: 0, maxZoom: 2,
+    actions: { crouch: true, walk: true, zoom: 2 },
+    slots: {
+      primary: weaponDef(WEAPON.RIFLE).name,
+      pistol: weaponDef(WEAPON.PISTOL).name,
+      hammer: weaponDef(WEAPON.HAMMER).name,
+      last: weaponDef(createPlayerState().lastWeapon).name,
+    },
+  });
   awp.session.close();
   const rifle = await playing(WEAPON.RIFLE);
   assert.equal(JSON.parse(JSON.stringify(rifle.session.getState())).you.maxZoom, 0);
@@ -426,5 +445,126 @@ test('auto-vote skips podiums without vote options', async () => {
   socket.message({ t: 'match', match: welcome.match });
   socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium', vote: { options: [], counts: [] } } });
   assert.deepEqual(socket.sent.map((raw) => JSON.parse(raw)).filter((m) => m.t === 'vote'), []);
+  session.close();
+});
+
+test('walk latches WALK on both commands while idle and releases on off', async () => {
+  const { call, tickButtons, session } = await playing();
+  assert.equal((await call('walk', { on: true })).isError, undefined);
+  assert.ok(tickButtons().every((b) => b & BTN.WALK));
+  assert.ok(tickButtons().every((b) => b & BTN.WALK));
+  await call('walk', { on: false });
+  assert.ok(tickButtons().every((b) => !(b & BTN.WALK)));
+  assert.equal((await call('walk', { on: 'true' })).isError, true);
+  assert.equal((await call('walk')).isError, true);
+  session.close();
+});
+
+test('reload pulses exactly once across a tick and rejects the hammer', async () => {
+  const rifle = await playing(WEAPON.RIFLE);
+  assert.equal((await rifle.call('reload')).isError, undefined);
+  assert.equal(rifle.tickButtons().filter((b) => b & BTN.RELOAD).length, 1);
+  assert.equal(rifle.tickButtons().filter((b) => b & BTN.RELOAD).length, 0);
+  rifle.session.close();
+  const hammer = await playing(WEAPON.HAMMER);
+  const response = await hammer.call('reload');
+  assert.equal(response.isError, true);
+  assert.match(JSON.stringify(response), /Weapon cannot reload/);
+  assert.ok(hammer.tickButtons().every((b) => !(b & BTN.RELOAD)));
+  hammer.session.close();
+});
+
+test('switch_weapon maps every slot to one command and returns its weapon name', async () => {
+  for (const [slot, request, target] of [
+    ['primary', 1, WEAPON.RIFLE],
+    ['pistol', 2, WEAPON.PISTOL],
+    ['hammer', 3, WEAPON.HAMMER],
+    ['last', 4, createPlayerState().lastWeapon],
+  ] as const) {
+    const { call, tickButtons, socket, session } = await playing(WEAPON.SNIPER);
+    const response = await call('switch_weapon', { slot });
+    assert.equal(response.isError, undefined, slot);
+    assert.partialDeepStrictEqual(JSON.parse(response.content[0].text), {
+      crouch: false, walk: false, zoom: null, weapon: weaponDef(target).name,
+    });
+    tickButtons();
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [request, 0], slot);
+    tickButtons();
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [0, 0], slot);
+    session.close();
+  }
+});
+
+test('switch_weapon queues held slots and rejects unknown slots', async () => {
+  for (const [slot, weapon] of [
+    ['primary', WEAPON.RIFLE], ['pistol', WEAPON.PISTOL], ['hammer', WEAPON.HAMMER],
+  ] as const) {
+    const { call, tickButtons, socket, session } = await playing(weapon);
+    assert.equal((await call('switch_weapon', { slot })).isError, undefined);
+    tickButtons();
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [{ primary: 1, pistol: 2, hammer: 3 }[slot], 0]);
+    const response = await call('switch_weapon', { slot: 'unknown' });
+    assert.equal(response.isError, true);
+    assert.match(JSON.stringify(response), /Invalid slot/);
+    assert.equal((await call('switch_weapon', { slot: 'toString' })).isError, true);
+    assert.equal((await call('switch_weapon')).isError, true);
+    session.close();
+  }
+});
+
+test('death clears pending reload and weapon requests before the next tick', async () => {
+  const { call, live, socket, tickButtons, session } = await playing();
+  await call('reload');
+  await call('switch_weapon', { slot: 'hammer' });
+  const dead = createPlayerState();
+  dead.health = 0;
+  socket.message({ t: 'snap', time: 300, me: packState(dead), ps: [], ad: [] });
+  assert.equal((await call('reload')).isError, true);
+  assert.equal((await call('switch_weapon', { slot: 'hammer' })).isError, true);
+  live();
+  assert.ok(tickButtons().every((b) => !(b & BTN.RELOAD)));
+  assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [0, 0]);
+  session.close();
+});
+
+
+test('weapon slots report and request the primary and last weapons from the snapshot', async () => {
+  const { call, socket, tickButtons, session } = await playing();
+  const self = createPlayerState();
+  Object.assign(self, { health: 100, weapon: WEAPON.HAMMER, primary: WEAPON.SNIPER, lastWeapon: WEAPON.PISTOL });
+  socket.message({ t: 'snap', time: 300, ack: 0, me: packState(self), ps: [], ad: [] });
+  assert.partialDeepStrictEqual(session.getState(), {
+    you: { slots: { primary: weaponDef(WEAPON.SNIPER).name, last: weaponDef(WEAPON.PISTOL).name } },
+  });
+  for (const [slot, request, target] of [['primary', 1, WEAPON.SNIPER], ['last', 4, WEAPON.PISTOL]] as const) {
+    const response = await call('switch_weapon', { slot });
+    assert.equal(response.isError, undefined);
+    assert.partialDeepStrictEqual(JSON.parse(response.content[0].text), { weapon: weaponDef(target).name });
+    tickButtons();
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [request, 0]);
+  }
+  session.close();
+});
+
+test('switch_weapon queues primary after pistol before a new snapshot', async () => {
+  const { call, socket, tickButtons, session } = await playing(WEAPON.RIFLE);
+  await call('switch_weapon', { slot: 'pistol' });
+  tickButtons();
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!).c.map((c: number[]) => c[4]), [2, 0]);
+  await call('switch_weapon', { slot: 'primary' });
+  tickButtons();
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!).c.map((c: number[]) => c[4]), [1, 0]);
+  session.close();
+});
+
+test('switch_weapon rejects a replaced primary as last and reports null', async () => {
+  const { call, socket, session } = await playing();
+  const self = createPlayerState();
+  Object.assign(self, { weapon: WEAPON.SNIPER, primary: WEAPON.SNIPER, lastWeapon: WEAPON.RIFLE });
+  socket.message({ t: 'snap', time: 300, ack: 0, me: packState(self), ps: [], ad: [] });
+  const response = await call('switch_weapon', { slot: 'last' });
+  assert.equal(response.isError, true);
+  assert.match(response.content[0].text, /No previous weapon/);
+  assert.partialDeepStrictEqual(session.getState(), { you: { slots: { last: null } } });
   session.close();
 });

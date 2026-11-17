@@ -42,7 +42,8 @@ Every 0.75 seconds the pilot checks whether you moved less than 10 units. While 
 
 - `jump` is a single jump and fails in the air. Use it to clear a ledge or a low crate when `get_state` shows the same position after a wait. It does not replace `move_to`.
 - `crouch {on: true}` stays set, even while idle, until `crouch {on: false}` or until you respawn. You move at 34 percent of top speed while it is on, so turn it off before a long `move_to`.
-- Both need a living player. `get_state` shows `you.onGround`, `you.ducked` and `you.actions`.
+- `walk {on: true}` is the `Shift` key. It stays set, also while idle, until `walk {on: false}` or until you respawn. Walking is silent for human players but you move at 52 percent of running speed, so turn it off before a long `move_to`. Bot hearing does not depend on it.
+- All of them need a living player. `get_state` shows `you.onGround`, `you.ducked` and `you.actions` (`crouch`, `zoom`, `walk`).
 
 ## Numbers worth remembering
 

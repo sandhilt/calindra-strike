@@ -75,6 +75,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `get_state` / `wait` | Read the world (you, nearby players, air drops, score, events), or pause then read |
 | `move_to` / `attack` / `hunt` / `stop` | Set a goal. A pilot routes, aims, shoots and reloads between calls |
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
+| `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
 
 The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.

@@ -5,6 +5,14 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 
 # Play Calindra Strike
 
+## Play in a subagent
+
+- Every time you are asked to play, run the match in a subagent (a background `Agent`) instead of driving the game tools from the main thread, whenever the harness supports subagents. The main thread stays free and reports when the subagent returns. Play directly only when no subagent tool exists.
+- One MCP connection is one player. If the main thread already joined, `leave` first; otherwise the subagent's `join` returns the main thread's character instead of a new player. Subagents that play at the same time each need their own connection.
+- Put the path of this file in the brief and tell the subagent to read it first and follow it over the brief's summary; Haiku-class agents skip rules that are only paraphrased. The brief also carries the player name, loadout, the counting rule (join a `live` round with about 60 s or more left, stay to the podium), the `restart` rule (the round does not count, re-`join`), no repo edits, and the report to return (full podium `results`, team score, own K/D/HS/streak and place, anything odd).
+- Tell the subagent not to end its turn right after `join`: it must keep the `wait` loop going until the podium and `leave`. A Codex player that stopped after `join` left an idle player on the server; stop it by killing its MCP process or sending `leave` on its connection.
+- A match needs at least `WARMUP_MIN_PLAYERS` players (default 2). A lone subagent never leaves `warmup`, so make sure someone else is on the server (another player, `BOT_FILL`, or the dev bots) before launching it.
+
 ## Core loop
 
 - Join with the requested name (or a recognizable one for the agent), then read `phase`, `mode`, `team`, `you.intent` and `score`.

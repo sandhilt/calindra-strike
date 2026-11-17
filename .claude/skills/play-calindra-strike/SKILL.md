@@ -12,6 +12,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - Use `wait` (100–5000 ms, 5000 is practical) to advance time and read state. Each read drains `events` and `chat`, so count kills from `score`, not by summing events.
 - Wait for `phase: live` before joining. A join during `podium` shows the previous match's results; count a match only after its `podium` and then `leave` (`phase: closed`).
 - Finish a match by sending `leave` after `podium`. Do not vote unless asked.
+- When you play, merge what you learned into this file instead of writing a new notes file, and keep the existing sections. If you find something new (a tool behaviour, a map pattern, a tactic that worked or failed), add it here so the next agent that plays can use it.
 
 ## Targeting
 
@@ -48,7 +49,8 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - One MCP connection is one player. A second `join` on the same connection returns the same character. For another player, start a separate `node tools/mcp/launch.ts` process and drive it over stdio JSON-RPC (`initialize`, `notifications/initialized`, then `tools/call`).
 - If every game tool answers `Versão desatualizada: recarregue a página`, the harness's MCP client is older than the server. Compare `protocol` in `curl -s http://127.0.0.1:7350/status` with `PROTOCOL_VERSION` in `shared/src/constants.ts`. Fix it by reloading the plugin, or by using a fresh `launch.ts` process.
 - A stale connection may lack newer tools (`jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`). Check `tools/list` before relying on them.
-- Give each player a distinct name of at most 16 characters: the model plus a suffix, such as `Claude-H5.5-A`. If a name is taken, the server appends `#2`, `#3`, so read `you.name` and `you.id` from state.
+- Name players for the agent playing them, not `Agente-*`: the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), at most 16 characters, with `-A` / `-B` suffixes when one session runs several players. Each player needs a distinct name. If a name is taken, the server appends `#2`, `#3`, so read `you.name` and `you.id` from state.
+- The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys.
 
 ## Several players and podium counting
 
@@ -155,3 +157,9 @@ None of the three agents measured recoil in play; this section is read from `sha
 
 - Airdrop pickups: C confirmed Mjölnir via `you.weapon` after `move_to` to (-400, 960) with `arrived`; B got a drop at (-320, -960) (ammo went to 100), A's Ragnarök showed a 100 magazine. The coordinates C and B saw on Forja ((-1000, -1376), (-400, 960), (-320, -960), (-1376, 1000), (1000, 1376)) do not match the Forja list under Weapons and airdrops, so read `airdrops` in state rather than trusting fixed coordinates.
 - The podium `results` give kills, deaths, HS, best streak and team per player, plus `vote` and `next`.
+
+## Terra Low and Luna High interruption (2026-11-17)
+
+- Separate agents `Codex-Terra6.1` (ID 9, Terra 6.1 low) and `Codex-Luna` (ID 8, Luna high) confirmed two shared podiums: Escritório FFA (Terra 15/17, 14 HS; Luna 16/15, 11 HS), then Forja TDM (both team 0, loss 12–21; Terra 3/10, 3 HS; Luna 6/10, 4 HS).
+- Their third round started as Escritório TDM, Terra team 1 and Luna team 0, but MCP calls began returning `restart`, followed by `Versão desatualizada: recarregue a página` on `join`. No third podium was confirmed. Do not count a round interrupted this way as complete.
+- `leave` returned `phase: closed` for Terra, but a subsequent `join` still failed with the version error. Disconnecting alone does not refresh a stale MCP implementation; reload the integration or use a fresh client pointed at the actual game service. Local port 7350 refused connections in this session.

@@ -59,6 +59,7 @@ export interface MapDef {
   subtitle: string;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   dropArea: { minX: number; maxX: number; minZ: number; maxZ: number };
+  flagBases: readonly [{ x: number; z: number }, { x: number; z: number }];
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];
   boxes: Box[];

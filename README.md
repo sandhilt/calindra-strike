@@ -65,6 +65,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `GAME_MAPS` | all | Map IDs: `forja`, `escritorio` |
 | `CTF_CAPTURE_LIMIT` | `3` | Captures to win; `0` uses the timer only |
 | `DEFUSE_SCORE_LIMIT` | `5` | Rounds to win debug defusion; `0` uses the timer only |
+| `FRIENDLY_FIRE` | `0` | `1` lets bullets hurt teammates in team modes (a teamkill earns no kill or score); only this setting turns it on |
 | `DEFUSE_PLANT_TIMEOUT_SECONDS` | `60` | Seconds the attackers have to plant before the laptop goes to the other team with a new variation; `0` means no limit |
 | `TDM_SCORE_LIMIT` | `50` | Team kill target; `0` uses the timer only |
 | `MATCH_SECONDS` / `PODIUM_SECONDS` | `300` / `15` | Match and podium duration |
@@ -89,7 +90,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 
 The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.
 
-The server sends every living player's position to every client, so the MCP filters what it shows. By default an agent perceives an enemy only with a clear line of sight (up to 2600 units) or within 420 units (sound), plus a 10 second `lastSeen` memory, the same rules the server bots use. Pass `--omniscient` to disable the filter for debugging. `--skill` (0 to 1, default 0.7) tunes the pilot, which is the server bot brain. `--auto-vote` (off by default) casts a random map and mode vote when the podium opens; the `vote` tool can still change it. `--log` (off by default) logs joins, leaves, match changes and every tool call to stderr, one line each with an ISO timestamp like the server log; stdout stays reserved for the protocol.
+The server sends every living player's position to every client, so the MCP filters what it shows. By default an agent perceives an enemy only with a clear line of sight (up to 2600 units) or within 420 units (sound), plus a 10 second `lastSeen` memory, the same rules the server bots use. Pass `--omniscient` to disable the filter for debugging. `--skill` (0 to 1, default 0.7) tunes the pilot, which is the server bot brain. `--auto-vote` (off by default) casts a random map and mode vote when the podium opens; the `vote` tool can still change it. `--log` (off by default) logs joins, leaves, match changes, votes and every tool call to stderr, one line each with an ISO timestamp like the server log; stdout stays reserved for the protocol.
 
 Register it in your harness:
 

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
+import type { Log } from '../mcp/log.ts';
 import { BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
@@ -28,7 +29,7 @@ class Socket implements SocketLike {
     this.emit('message', { data: JSON.stringify(m) });
   }
 }
-function setup(omniscient = false, autoVote = false) {
+function setup(omniscient = false, autoVote = false, log?: Log) {
   const socket = new Socket();
   const jobs = new Map<ReturnType<typeof setInterval>, () => void>();
   let id = 0;
@@ -47,6 +48,7 @@ function setup(omniscient = false, autoVote = false) {
   const session = new GameSession({
     omniscient,
     autoVote,
+    log,
     url: 'ws://test',
     origin: 'http://test',
     connect: () => socket,
@@ -424,6 +426,20 @@ test('auto-vote votes once per podium and permits manual changes', async () => {
   socket.message({ t: 'match', match: podium });
   assert.equal(votes().length, 3);
   assert.deepEqual(votes().at(-1), { t: 'vote', option: 1 });
+  session.close();
+});
+
+test('every vote the agent casts is logged, automatic or by the tool', async () => {
+  const lines: string[] = [];
+  const { session, socket, jobs } = setup(false, true, (...a) => lines.push(a.join(' ')));
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const vote = { options: [{ map: 0, mode: 'ffa' }, { map: 1, mode: 'tdm' }, { map: 1, mode: 'ffa' }], counts: [0, 0, 0] };
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium', vote } });
+  for (const fn of jobs.values()) fn();
+  await createTools(session).find((tool) => tool.name === 'vote')!.call({ option: 0 });
+  assert.deepEqual(lines.filter((line) => line.startsWith('vote')), ['vote option=1 map=1 mode=tdm', 'vote option=0 map=0 mode=ffa']);
   session.close();
 });
 

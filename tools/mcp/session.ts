@@ -284,10 +284,14 @@ export class GameSession {
     return this.state;
   }
   send(msg: Exclude<ClientMsg, { t: 'hello' }>, raw?: string): void {
-    const { socket } = this.requirePlaying();
+    const { socket, view } = this.requirePlaying();
     if (socket.readyState !== 1) {
       this.close('Socket closed');
       throw new Error('Socket closed');
+    }
+    if (msg.t === 'vote') {
+      const chosen = view.match.vote?.options[msg.option];
+      this.log('vote', `option=${msg.option}`, `map=${chosen?.map}`, `mode=${chosen?.mode}`);
     }
     socket.send(raw ?? JSON.stringify(msg));
   }

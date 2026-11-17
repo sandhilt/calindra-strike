@@ -124,6 +124,8 @@ export const DEFUSE_RADIUS_UNITS = 64;
 export const DEBUG_SCENARIO_COUNT = 6;
 /** Share of rounds that turn Black Friday: it switches on at a random moment, and the planted bug burns a shorter fuse. */
 export const BLACK_FRIDAY_CHANCE = 0.2;
+/** A match without Black Friday gets one at the latest on this round, so every complete match sees it at least once. */
+export const BLACK_FRIDAY_GUARANTEE_ROUND = 3;
 /** A Black Friday round switches on within this long after the round starts, or at the plant if that comes first. */
 export const BLACK_FRIDAY_WINDOW_TICKS = 30 * TICK_RATE;
 export const BLACK_FRIDAY_FUSE_TICKS = 20 * TICK_RATE;

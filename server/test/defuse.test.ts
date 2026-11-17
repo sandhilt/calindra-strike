@@ -309,3 +309,37 @@ it('the plant window does not run down in warmup while nobody is on the attackin
   run(game, 2 * 60);
   assert.equal((game as any).attackers, 1 - before);
 });
+
+it('every plant timeout re-evaluates Black Friday for the round the laptop moves to', () => {
+  let roll = 0.5;
+  const messages: ServerMsg[] = [];
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: 'defuse', plantTimeoutMs: 4000, random: () => roll });
+  for (let i = 0; i < 2; i++) game.join('P' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
+  const round = () => (game as any).bombRound as { blackFriday: boolean; blackFridayAtTick?: number; plantByTick?: number };
+  const timeoutTicks = Math.ceil(4000 / TICK_MS);
+  for (const marked of [true, false, true, false]) {
+    roll = marked ? 0.1 : 0.9;
+    const before = (game as any).attackers as number;
+    run(game, timeoutTicks + 1);
+    assert.equal((game as any).attackers, 1 - before, 'the timeout moved the laptop');
+    assert.equal(round().blackFridayAtTick !== undefined, marked, 'a fresh roll on every timeout, not carried over');
+    assert.equal(round().blackFriday, false, 'the new round starts without Black Friday');
+    const at = round().blackFridayAtTick;
+    if (at !== undefined) assert.ok(at < (round().plantByTick as number), 'it turns on before the window can close');
+  }
+});
+
+it('a match without a lucky roll still gets a Black Friday, and only one is forced', () => {
+  const messages: ServerMsg[] = [];
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: 'defuse', plantTimeoutMs: 4000, random: () => 0.9 });
+  for (let i = 0; i < 2; i++) game.join('P' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
+  const round = () => (game as any).bombRound as { blackFriday: boolean; blackFridayAtTick?: number };
+  const timeoutTicks = Math.ceil(4000 / TICK_MS);
+  const seen: boolean[] = [];
+  for (let n = 1; n <= 5; n++) {
+    while (game.tick < n * timeoutTicks - 2) game.update();
+    seen.push(round().blackFriday);
+    run(game, 4);
+  }
+  assert.deepEqual(seen, [false, false, true, false, false], 'the 3rd round is Black Friday by the time its window closes, the others are not');
+});

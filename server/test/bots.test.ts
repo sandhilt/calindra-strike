@@ -94,7 +94,9 @@ describe('map vote', () => {
     assert.equal((match.vote.options).length, 3);
     assert.equal(match.vote.options.some((o: any) => o.map === game.mapIndex && o.mode === game.mode), false);
     const pick = match.vote.options[2];
-    game.vote(a, 2);
+    assert.deepEqual(game.vote(a, 2), pick, 'an accepted vote returns the option, which the server logs');
+    assert.equal(game.vote(a, 2), null, 'a repeat is ignored');
+    assert.equal(game.vote(a, 9), null, 'an unknown option is ignored');
     game.vote(b, 2);
     assert.deepEqual(inbox.get(a.id)!.filter((m) => m.t === 'votes').pop().counts, [0, 0, 2]);
     for (let i = 0; i < 5 * 60 + 2; i++) game.update();
@@ -115,11 +117,11 @@ describe('map vote', () => {
   it('ignores votes outside the podium and from bots', () => {
     const { game, join, bots } = setup({ botFill: 4 });
     const a = join('A');
-    game.vote(a, 0);
+    assert.equal(game.vote(a, 0), null);
     assert.equal((game as any).votes.size, 0);
     (game as any).phaseEnds = game.now();
     game.update();
-    game.vote(bots()[0], 1);
+    assert.equal(game.vote(bots()[0], 1), null);
     assert.equal((game as any).votes.size, 0);
   });
 });

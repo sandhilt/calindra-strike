@@ -9,7 +9,7 @@ function flatWorld(): CollisionWorld {
   return new CollisionWorld({ ...getMaps()[0], boxes: b.boxes });
 }
 
-function setup(n: number, opts: { tdmLimit?: number } = {}) {
+function setup(n: number, opts: { tdmLimit?: number; friendlyFire?: boolean } = {}) {
   let r = 0.42;
   const game = new Game({
     maxPlayers: 16,
@@ -18,6 +18,7 @@ function setup(n: number, opts: { tdmLimit?: number } = {}) {
     warmupMinPlayers: 2,
     modes: 'mixed',
     tdmLimit: opts.tdmLimit ?? 50,
+    friendlyFire: opts.friendlyFire,
     random: () => (r = ((r * 9301 + 49297) % 233280) / 233280),
   });
   const inbox = new Map<number, any[]>();
@@ -61,6 +62,18 @@ describe('Team Deathmatch', () => {
     headshot(game, s, mate);
     assert.equal(mate.alive, true);
     assert.equal(mate.state.health, 100);
+    assert.deepEqual(game.teamScores, [0, 0]);
+  });
+
+  it('hurts teammates when friendly fire is on, without crediting the shooter', () => {
+    const { game, players } = setup(4, { friendlyFire: true });
+    const [s, mate] = players.filter((p) => p.team === 0);
+    headshot(game, s, mate);
+    assert.equal(mate.alive, false);
+    assert.equal(mate.deaths, 1);
+    assert.equal(s.kills, 0);
+    assert.equal(s.headshots, 0);
+    assert.equal(s.streak, 0);
     assert.deepEqual(game.teamScores, [0, 0]);
   });
 

@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, otherVariant, blackFridayDue, startBlackFriday, bombStandBox, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
-import { BLACK_FRIDAY_FUSE_TICKS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
+import { stepBomb, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
 const actor = (team: number, at: { x: number; y: number; z: number }, extra: Partial<BombActor> = {}): BombActor =>
@@ -234,4 +234,13 @@ it('Black Friday switches on at its moment or at the plant and shortens a fuse a
   const short = startBlackFriday(planted({ explodeAtTick: 310 }), round, 300);
   assert.equal((short.bomb as Extract<BombState, { kind: 'planted' }>).explodeAtTick, 310, 'a fuse shorter than the Black Friday one is kept');
   assert.deepEqual(startBlackFriday(home, round, 300).bomb, home);
+});
+
+it('marks a Black Friday round by chance, and always by the guaranteed round when the match had none', () => {
+  assert.equal(blackFridayMarked(0.19, 1, false), true);
+  assert.equal(blackFridayMarked(0.2, 1, false), false);
+  assert.equal(blackFridayMarked(0.99, 2, false), false);
+  assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND, false), true);
+  assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND + 4, false), true);
+  assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND, true), false, 'no pity once the match had one');
 });

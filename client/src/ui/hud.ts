@@ -1,5 +1,5 @@
 import { TEAMS } from '@calindra-strike/shared';
-import type { BombRole } from '../game/bomb.ts';
+import type { BombRole, CarryNotice } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import { ICONS, h, svg } from './dom.ts';
 
@@ -34,6 +34,9 @@ export interface Marker {
 
 export type FeedInvolvement = 'kill' | 'death' | null;
 
+/** What the bug HUD shows this frame; a null text hides the status line. */
+export interface BombHud { text: string | null; plant: number; role: BombRole | null; blackFriday: boolean; carry: CarryNotice | null }
+
 /** How long the Black Friday banner stays on screen, in ms. */
 const BLACK_FRIDAY_BANNER_MS = 4500;
 const RANK_COLORS = ['#ffd23f', '#dfe4ea', '#e8a066'];
@@ -54,6 +57,7 @@ export class Hud {
     h('span', { text: 'o pavio queima mais rápido' }),
   ]);
   private blackFridayTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly bombCarry = h('div', { class: 'bomb-carry hidden', role: 'status' });
   private readonly plantFill = h('i', { style: 'width:0%' });
   private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
   private readonly defuseCanvas = h('canvas', { class: 'defuse-overlay hidden' });
@@ -137,6 +141,7 @@ export class Hud {
       this.flagBanner,
       this.bombRole,
       this.bombStatus,
+      this.bombCarry,
       this.blackFridayBanner,
       this.plantBar,
       this.defuseCanvas,
@@ -209,9 +214,13 @@ export class Hud {
     });
   }
 
-  /** Status line for the bug, the plant progress (0..1, negative hides the bar) and the viewer's side, which stays on screen all round. */
-  setBomb(text: string | null, plant: number, role: BombRole | null, blackFriday = false): void {
+  /** Status line for the bug, the plant progress (0..1, negative hides the bar), the viewer's side and the warning for whoever carries the bug. */
+  setBomb({ text, plant, role, blackFriday, carry }: BombHud): void {
     const percent = Math.round(plant * 100);
+    this.set('bomb-carry', JSON.stringify(carry), () => {
+      this.bombCarry.classList.toggle('hidden', carry === null);
+      if (carry) this.bombCarry.replaceChildren(svg(ICONS.target), h('b', { text: carry.title }), h('span', { text: carry.hint }));
+    });
     this.set('bomb-role', JSON.stringify(role), () => {
       this.bombRole.classList.toggle('hidden', role === null);
       if (!role) return;

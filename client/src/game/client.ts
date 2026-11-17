@@ -59,7 +59,7 @@ import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
-import { DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombRole, bombStatus, bombView, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
+import { DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombRole, bombStatus, bombView, carryNotice, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
@@ -763,11 +763,17 @@ export class ClientGame {
   private updateBombHud(hud: Hud, now: number): void {
     const bomb = this.bomb;
     if (!bomb) {
-      hud.setBomb(null, -1, null);
+      hud.setBomb({ text: null, plant: -1, role: null, blackFriday: false, carry: null });
       hud.setDefuse(defuseBannerScene(this.defuseBanner, now));
       return;
     }
-    hud.setBomb(bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name), plantProgress(bomb, now), bombRole(bomb, this.myTeam), bomb.blackFriday);
+    hud.setBomb({
+      text: bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name),
+      plant: plantProgress(bomb, now),
+      role: bombRole(bomb, this.myTeam),
+      blackFriday: bomb.blackFriday,
+      carry: this.spectator ? null : carryNotice(bomb, this.myId),
+    });
     const viewerId = this.spectator ? this.followedId : this.myId;
     const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
     if (defusing) this.defuseVariant = bomb.variant;

@@ -90,6 +90,16 @@ function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
   return `bug plantado · ${left}s${hint}`;
 }
 
+export interface CarryNotice { title: string; hint: string }
+
+/** The warning shown to the player who holds the bug, null for everyone else (spectators included). */
+export function carryNotice(bomb: BombView, viewerId: number): CarryNotice | null {
+  if ((bomb.state !== 'carried' && bomb.state !== 'planting') || bomb.carrier !== viewerId) return null;
+  return bomb.state === 'planting'
+    ? { title: 'plantando o bug', hint: 'não solte o E até terminar' }
+    : { title: 'você está com o bug', hint: 'leve até o círculo vermelho e segure E' };
+}
+
 export interface BombRole { side: 'attack' | 'defend'; label: string; goal: string }
 
 /** The viewer's side in a defuse round and what it has to do right now, or null for spectators. */

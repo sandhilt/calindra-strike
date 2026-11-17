@@ -20,6 +20,7 @@ export interface Config {
   botFill: number;
   botSkill: number;
   trustProxy: boolean;
+  friendlyFire: boolean;
 }
 
 function int(name: string, def: number, lo: number, hi: number): number {
@@ -28,6 +29,14 @@ function int(name: string, def: number, lo: number, hi: number): number {
   const v = Number(raw);
   if (!Number.isInteger(v) || v < lo || v > hi) throw new Error(`Invalid ${name}: ${raw}`);
   return v;
+}
+
+/** A switch that is off unless the operator sets it: empty, 0 and false are off, 1 and true are on, anything else is a typo. */
+function flag(name: string): boolean {
+  const raw = (process.env[name] ?? '').trim().toLowerCase();
+  if (raw === '' || raw === '0' || raw === 'false') return false;
+  if (raw === '1' || raw === 'true') return true;
+  throw new Error(`Invalid ${name}: ${process.env[name]} (use 1 or 0)`);
 }
 
 const ALL_MODES = GAME_MODES;
@@ -95,5 +104,6 @@ export function loadConfig(): Config {
     botFill: int('BOT_FILL', 0, 0, 64),
     botSkill: int('BOT_SKILL', 50, 0, 100) / 100,
     trustProxy: process.env.TRUST_PROXY === '1',
+    friendlyFire: flag('FRIENDLY_FIRE'),
   };
 }

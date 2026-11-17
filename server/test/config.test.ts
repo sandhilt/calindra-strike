@@ -82,6 +82,21 @@ it('configures the capture limit within 0..50', () => {
   }
 });
 
+it('turns friendly fire on only when the operator asks for it', () => {
+  stubEnv('FRIENDLY_FIRE', '');
+  assert.equal(loadConfig().friendlyFire, false);
+  for (const value of ['0', 'false']) {
+    stubEnv('FRIENDLY_FIRE', value);
+    assert.equal(loadConfig().friendlyFire, false);
+  }
+  for (const value of ['1', 'true', 'TRUE']) {
+    stubEnv('FRIENDLY_FIRE', value);
+    assert.equal(loadConfig().friendlyFire, true);
+  }
+  stubEnv('FRIENDLY_FIRE', 'yes');
+  assert.throws(() => loadConfig(), /FRIENDLY_FIRE/);
+});
+
 it('configures the debug defusion plant timeout in seconds within 0..3600', () => {
   stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
   assert.equal(loadConfig().plantTimeoutMs, 60_000);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLACK_FRIDAY_FUSE_MS, DEFUSE_MS, FUSE_MS, PLANT_MS, TEAMS } from '@calindra-strike/shared';
-import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombRole, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, plantSecondsLeft, scoreUnit } from '../src/game/bomb.ts';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombRole, bombStatus, bombMessage, carryNotice, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, plantSecondsLeft, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
@@ -59,6 +59,19 @@ test('beeps speed up as the fuse burns down', () => {
   assert.ok(beepIntervalMs(0) > beepIntervalMs(0.5));
   assert.ok(beepIntervalMs(0.5) > beepIntervalMs(1));
   assert.equal(beepIntervalMs(5), beepIntervalMs(1));
+});
+
+test('only the player who holds the bug gets the carry warning', () => {
+  const carried = bombView([1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const planting = bombView([2, 7, 0, 0, 0, 0, 0, 0, 0, 20000, 0]);
+  const home = bombView([0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const planted = bombView([4, 7, 0, 0, 0, 40000, 0, 0, 0, 0, 0]);
+  assert.ok(carried && planting && home && planted);
+  assert.deepEqual(carryNotice(carried, 7), { title: 'você está com o bug', hint: 'leve até o círculo vermelho e segure E' });
+  assert.deepEqual(carryNotice(planting, 7), { title: 'plantando o bug', hint: 'não solte o E até terminar' });
+  assert.equal(carryNotice(carried, 8), null, 'a teammate or spectator is not warned');
+  assert.equal(carryNotice(home, 7), null);
+  assert.equal(carryNotice(planted, 7), null, 'once planted the warning is gone');
 });
 
 test('the plant window counts down for the attackers and is absent once planted or without a limit', () => {

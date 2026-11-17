@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, blackFridayDue, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -210,6 +210,7 @@ export interface GameOptions {
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
+  friendlyFire?: boolean; // team modes only: bullets hurt teammates (off unless the operator turns it on)
   plantTimeoutMs?: number; // time the attackers have to plant before the laptop goes to the other team (0 = no limit)
   tdmLimit?: number; // team kills to win a TDM match early (0 = timer only)
   airdropFirstMs?: number;
@@ -235,6 +236,8 @@ export class Game {
   /** Team that carries and plants; the other team defends. Swaps after every round. */
   private attackers: 0 | 1 = 0;
   private bombRound: BombRound = { variant: 0, blackFriday: false };
+  private matchRounds = 0;
+  private matchHadBlackFriday = false;
   private winner = -1;
   private endPending = false;
   private rotationIndex = 0;
@@ -295,6 +298,7 @@ export class Game {
 
   get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
   get defuseLimit(): number { return this.opts.defuseLimit ?? 5; }
+  get friendlyFire(): boolean { return this.opts.friendlyFire ?? false; }
   get plantTimeoutMs(): number { return this.opts.plantTimeoutMs ?? BOMB_PLANT_TIMEOUT_SECONDS * 1000; }
 
   private scoreLimit(): number {
@@ -321,6 +325,8 @@ export class Game {
     this.flags = [{ kind: 'home' }, { kind: 'home' }];
     this.bomb = { kind: 'home' };
     this.attackers = 0;
+    this.matchRounds = 0;
+    this.matchHadBlackFriday = false;
     this.startBombRound();
     this.syncBombStand();
   }
@@ -329,11 +335,16 @@ export class Game {
   private startBombRound(ignoredVariant?: number): void {
     if (this.mode !== 'defuse') return;
     const roll = this.random();
+    const marked = blackFridayMarked(this.random(), ++this.matchRounds, this.matchHadBlackFriday);
+    this.matchHadBlackFriday ||= marked;
+    const plantWindowTicks = Math.ceil(this.plantTimeoutMs / TICK_MS);
+    // A marked round must turn Black Friday before its own plant window can close, or a short timeout would swallow it.
+    const blackFridayWindowTicks = plantWindowTicks > 0 ? Math.min(BLACK_FRIDAY_WINDOW_TICKS, plantWindowTicks) : BLACK_FRIDAY_WINDOW_TICKS;
     this.bombRound = {
       variant: ignoredVariant === undefined ? Math.floor(roll * DEBUG_SCENARIO_COUNT) : otherVariant(ignoredVariant, roll, DEBUG_SCENARIO_COUNT),
       blackFriday: false,
-      blackFridayAtTick: this.random() < BLACK_FRIDAY_CHANCE ? this.tick + Math.floor(this.random() * BLACK_FRIDAY_WINDOW_TICKS) : undefined,
-      plantByTick: this.plantTimeoutMs > 0 ? this.tick + Math.ceil(this.plantTimeoutMs / TICK_MS) : undefined,
+      blackFridayAtTick: marked ? this.tick + Math.floor(this.random() * blackFridayWindowTicks) : undefined,
+      plantByTick: plantWindowTicks > 0 ? this.tick + plantWindowTicks : undefined,
     };
   }
 
@@ -779,12 +790,15 @@ export class Game {
     return counts;
   }
 
-  vote(p: ServerPlayer, option: number): void {
-    if (this.phase !== 'podium' || p.brain || option < 0 || option >= this.voteOptions.length) return;
-    if (this.votes.get(p.id) === option) return;
+  /** Records the vote and returns the option voted for, or null when it was ignored (not the podium, a server bot, a bad option or a repeat). */
+  vote(p: ServerPlayer, option: number): VoteOption | null {
+    const chosen = this.voteOptions[option];
+    if (this.phase !== 'podium' || p.brain || !chosen) return null;
+    if (this.votes.get(p.id) === option) return null;
     this.votes.set(p.id, option);
     const msg = JSON.stringify({ t: 'votes', counts: this.voteCounts() });
     for (const q of this.recipients()) q.send(msg);
+    return chosen;
   }
 
   /** Most voted option wins; ties prefer the regular rotation, then chance. No votes: rotation. */
@@ -1060,7 +1074,7 @@ export class Game {
     const targets: { q: ServerPlayer; x: number; y: number; z: number; ducked: boolean }[] = [];
     for (const q of this.players.values()) {
       if (q === p || !q.alive || q.state.dropping || q.state.protect > 0) continue;
-      if (isTeamMode(this.mode) && q.team === p.team) continue; // no friendly fire: bullets pass through teammates
+      if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
       targets.push(h ? { q, x: h.x, y: h.y, z: h.z, ducked: h.ducked } : { q, x: q.state.x, y: q.state.y, z: q.state.z, ducked: q.state.ducked });
@@ -1097,6 +1111,10 @@ export class Game {
     for (const [victim, acc] of damageBy) this.damage(victim, p, acc.dmg, acc.head, acc.zone, shot.weapon);
   }
 
+  private sameTeam(a: ServerPlayer, b: ServerPlayer): boolean {
+    return isTeamMode(this.mode) && a.team === b.team;
+  }
+
   private damage(victim: ServerPlayer, attacker: ServerPlayer, dmg: number, head: boolean, zone: number, weapon: WeaponId): void {
     if (!victim.alive) return;
     const def = weaponDef(weapon);
@@ -1119,12 +1137,13 @@ export class Game {
     victim.respawnAt = this.tick + RESPAWN_TICKS;
     victim.state.health = 0;
     victim.queue.length = 0;
-    if (killer !== victim) {
+    const teamkill = killer !== victim && this.sameTeam(killer, victim);
+    if (killer !== victim && !teamkill) {
       killer.kills++;
       killer.streak++;
     }
     killer.bestStreak = Math.max(killer.bestStreak, killer.streak);
-    if (head) killer.headshots++;
+    if (head && !teamkill) killer.headshots++;
     if (MODE_RULES[this.mode].killScore && killer !== victim && killer.team >= 0 && killer.team !== victim.team) {
       this.teamScores[killer.team]++;
       if (this.tdmLimit > 0 && this.teamScores[killer.team] >= this.tdmLimit) this.endPending = true;

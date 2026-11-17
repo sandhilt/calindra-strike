@@ -123,7 +123,8 @@ it('adapter ignores spectator input/chat/loadout/vote/team, permits watch/ping a
     const spectator = [...game.spectators.values()][0];
     assert.ok(spectator);
     let actions = 0;
-    game.input = game.chat = game.setLoadout = game.vote = game.switchTeam = () => { actions++; };
+    game.input = game.chat = game.setLoadout = game.switchTeam = () => { actions++; };
+    game.vote = () => { actions++; return null; };
     send({ t: 'in', c: [] });
     send({ t: 'chat', text: 'ghosting' });
     send({ t: 'loadout', primary: WEAPON.RIFLE });

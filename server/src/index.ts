@@ -19,6 +19,7 @@ const game = new Game({
   ctfLimit: cfg.ctfLimit,
   defuseLimit: cfg.defuseLimit,
   plantTimeoutMs: cfg.plantTimeoutMs,
+  friendlyFire: cfg.friendlyFire,
   airdropFirstMs: cfg.airdropFirstMs,
   botFill: cfg.botFill,
   botSkill: cfg.botSkill,
@@ -239,9 +240,11 @@ function onConnection(ws: WebSocket, ip: string): void {
         case 'loadout':
           game.setLoadout(player, msg.primary);
           break;
-        case 'vote':
-          game.vote(player, msg.option);
+        case 'vote': {
+          const chosen = game.vote(player, msg.option);
+          if (chosen) log('vote', JSON.stringify(player.name), `option=${msg.option}`, `map=${chosen.map}`, `mode=${chosen.mode}`);
           break;
+        }
         case 'team':
           game.switchTeam(player, msg.team);
           break;

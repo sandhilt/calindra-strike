@@ -1,5 +1,5 @@
 import {
-  BLACK_FRIDAY_FUSE_TICKS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS,
+  BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS,
   BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, TICK_MS,
 } from './constants.ts';
 
@@ -23,6 +23,11 @@ export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: Bomb
  * (`blackFridayAtTick`, absent in a normal round) and when the plant window closes.
  */
 export interface BombRound { variant: number; blackFriday: boolean; blackFridayAtTick?: number; plantByTick?: number }
+
+/** Whether the round about to start is a Black Friday one: by chance, or because the match has gone without one for too long. */
+export function blackFridayMarked(roll: number, roundNumber: number, matchHadBlackFriday: boolean): boolean {
+  return roll < BLACK_FRIDAY_CHANCE || (!matchHadBlackFriday && roundNumber >= BLACK_FRIDAY_GUARANTEE_ROUND);
+}
 
 /** A pending Black Friday switches on at its moment, or at the plant, so a marked round is always Black Friday by the time it is scored. */
 export function blackFridayDue(round: BombRound, bomb: BombState, tick: number): boolean {

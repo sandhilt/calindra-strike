@@ -7,6 +7,7 @@ export interface OverlayHooks {
   watch(team: 0 | 1): void;
   resume(): void;
   leave(): void;
+  spectate(): void;
   switchTeam(): void;
   vote(option: number): void;
   settingsChanged(s: Settings): void;
@@ -150,6 +151,7 @@ export class Overlays {
       ),
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),
+        h('button', { class: 'btn spectate-action', type: 'button', text: 'assistir', title: 'Sai do jogo e entra só olhando', onclick: () => this.hooks.spectate() }),
         h('button', { class: 'btn', type: 'button', text: 'sair da partida', onclick: () => this.hooks.leave() }),
       ]),
     ]);

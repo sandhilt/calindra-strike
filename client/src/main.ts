@@ -139,6 +139,15 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
     lobby();
   };
 
+  /** Drops the player slot and rejoins the same match as a watcher. */
+  const spectate = () => {
+    stopped = true;
+    game?.dispose();
+    game = null;
+    overlays.reconnecting('Entrando como espectador…');
+    void play(s, true);
+  };
+
   const reconnect = async () => {
     for (let attempt = 1; attempt <= 60 && !stopped; attempt++) {
       overlays.reconnecting(attempt === 1 ? 'A conexão com o servidor caiu. Voltando…' : `Tentativa ${attempt}…`, leave);
@@ -176,6 +185,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
     watch: (team) => net.send({ t: 'watch', team }),
     resume: () => void game?.requestPlay(),
     leave,
+    spectate,
     settingsChanged: (ns) => game?.applySettings(ns),
     switchTeam: () => {
       game?.switchTeam();

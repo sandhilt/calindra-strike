@@ -1984,4 +1984,4 @@ input:focus-visible {
   color: var(--muted);
 }
 .watch-badge.idle .watch-hint { display: none; }
-.spectator-menu .primary-settings { display: none; }
+.spectator-menu .primary-settings, .spectator-menu .spectate-action { display: none; }

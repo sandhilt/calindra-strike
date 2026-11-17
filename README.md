@@ -110,7 +110,9 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 ### Watching a match
 
-Choose **só assistir** in the lobby to watch without taking a player slot. In TDM,
+Choose **só assistir** in the lobby to watch without taking a player slot. A
+player can also pick **assistir** in the Esc menu: it leaves the player slot and
+rejoins the same server as a spectator. In TDM,
 choose the first team in the Esc menu within 15 seconds; on timeout the server selects the smaller team
 (ties use the score, then chance). FFA starts watching immediately. Up to 16
 spectators can connect independently of the player limit. Spectators receive

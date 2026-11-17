@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BLACK_FRIDAY_CHANCE, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, dropBomb, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, blackFridayDue, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -210,6 +210,7 @@ export interface GameOptions {
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
+  plantTimeoutMs?: number; // time the attackers have to plant before the laptop goes to the other team (0 = no limit)
   tdmLimit?: number; // team kills to win a TDM match early (0 = timer only)
   airdropFirstMs?: number;
   botFill?: number; // keep at least this many players (bots fill the gap while someone is online)
@@ -294,6 +295,7 @@ export class Game {
 
   get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
   get defuseLimit(): number { return this.opts.defuseLimit ?? 5; }
+  get plantTimeoutMs(): number { return this.opts.plantTimeoutMs ?? BOMB_PLANT_TIMEOUT_SECONDS * 1000; }
 
   private scoreLimit(): number {
     if (this.mode === 'ctf') return this.ctfLimit;
@@ -319,18 +321,20 @@ export class Game {
     this.flags = [{ kind: 'home' }, { kind: 'home' }];
     this.bomb = { kind: 'home' };
     this.attackers = 0;
-    this.drawBombVariant();
+    this.startBombRound();
     this.syncBombStand();
   }
 
   /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */
-  private drawBombVariant(): void {
-    if (this.mode === 'defuse') {
-      this.bombRound = {
-        variant: Math.floor(this.random() * DEBUG_SCENARIO_COUNT),
-        blackFriday: this.random() < BLACK_FRIDAY_CHANCE,
-      };
-    }
+  private startBombRound(ignoredVariant?: number): void {
+    if (this.mode !== 'defuse') return;
+    const roll = this.random();
+    this.bombRound = {
+      variant: ignoredVariant === undefined ? Math.floor(roll * DEBUG_SCENARIO_COUNT) : otherVariant(ignoredVariant, roll, DEBUG_SCENARIO_COUNT),
+      blackFriday: false,
+      blackFridayAtTick: this.random() < BLACK_FRIDAY_CHANCE ? this.tick + Math.floor(this.random() * BLACK_FRIDAY_WINDOW_TICKS) : undefined,
+      plantByTick: this.plantTimeoutMs > 0 ? this.tick + Math.ceil(this.plantTimeoutMs / TICK_MS) : undefined,
+    };
   }
 
   private syncBombStand(): void {
@@ -370,6 +374,10 @@ export class Game {
       id: p.id, team: p.team, alive: p.alive, using: p.using,
       x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
     }));
+    // Nobody to practise with while waiting for the match: keep the plant window from running down on an empty attack.
+    if (this.phase !== 'live' && this.bombRound.plantByTick !== undefined && !actors.some((a) => a.team === this.attackers && a.alive)) {
+      this.bombRound = { ...this.bombRound, plantByTick: this.bombRound.plantByTick + 1 };
+    }
     const before = this.bomb;
     const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, this.bombRound);
     this.bomb = result.bomb;
@@ -378,14 +386,19 @@ export class Game {
       const at = bombWirePosition({ x, y: this.groundY(x, y, z), z });
       this.bomb = { ...this.bomb, ...at };
     }
+    if (!result.outcome && blackFridayDue(this.bombRound, this.bomb, this.tick)) {
+      const lit = startBlackFriday(this.bomb, this.bombRound, this.tick);
+      this.bomb = lit.bomb;
+      this.bombRound = lit.round;
+    }
     for (const event of result.events) this.emit(event);
     if (!result.outcome) return;
-    if (this.phase === 'live') this.scoreBomb(result.outcome);
+    if (result.outcome !== 'expired' && this.phase === 'live') this.scoreBomb(result.outcome);
     this.attackers = (1 - this.attackers) as 0 | 1;
-    this.drawBombVariant();
+    this.startBombRound(result.outcome === 'expired' ? this.bombRound.variant : undefined);
   }
 
-  private scoreBomb(outcome: BombOutcome): void {
+  private scoreBomb(outcome: Exclude<BombOutcome, 'expired'>): void {
     const winner = outcome === 'defused' ? 1 - this.attackers : this.attackers;
     this.teamScores[winner]++;
     this.scoreDirty = true;
@@ -414,6 +427,7 @@ export class Game {
       this.attackers,
       bomb.kind === 'planting' ? this.msAt(bomb.doneAtTick) : 0,
       this.bombRound.blackFriday ? 1 : 0,
+      this.bombRound.plantByTick === undefined || bomb.kind === 'planted' ? 0 : this.msAt(this.bombRound.plantByTick),
     ];
   }
 

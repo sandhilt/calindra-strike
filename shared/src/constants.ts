@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -122,10 +122,14 @@ export const FUSE_MS = FUSE_TICKS * TICK_MS;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
 export const DEBUG_SCENARIO_COUNT = 6;
-/** Share of rounds that are Black Friday: announced up front, the planted bug burns a shorter fuse. */
+/** Share of rounds that turn Black Friday: it switches on at a random moment, and the planted bug burns a shorter fuse. */
 export const BLACK_FRIDAY_CHANCE = 0.2;
+/** A Black Friday round switches on within this long after the round starts, or at the plant if that comes first. */
+export const BLACK_FRIDAY_WINDOW_TICKS = 30 * TICK_RATE;
 export const BLACK_FRIDAY_FUSE_TICKS = 20 * TICK_RATE;
 export const BLACK_FRIDAY_FUSE_MS = BLACK_FRIDAY_FUSE_TICKS * TICK_MS;
+/** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
+export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.
 // Sized so a player pressed against any corner still reaches it: desk corner within DEFUSE_RADIUS_UNITS,
 // crate corner within CTF_PICKUP_RADIUS_UNITS (half size plus PLAYER_RADIUS, along both axes).

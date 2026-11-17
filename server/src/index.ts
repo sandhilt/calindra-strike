@@ -18,6 +18,7 @@ const game = new Game({
   tdmLimit: cfg.tdmLimit,
   ctfLimit: cfg.ctfLimit,
   defuseLimit: cfg.defuseLimit,
+  plantTimeoutMs: cfg.plantTimeoutMs,
   airdropFirstMs: cfg.airdropFirstMs,
   botFill: cfg.botFill,
   botSkill: cfg.botSkill,

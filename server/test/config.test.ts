@@ -82,6 +82,19 @@ it('configures the capture limit within 0..50', () => {
   }
 });
 
+it('configures the debug defusion plant timeout in seconds within 0..3600', () => {
+  stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
+  assert.equal(loadConfig().plantTimeoutMs, 60_000);
+  for (const [value, ms] of [['0', 0], ['90', 90_000], ['3600', 3_600_000]] as const) {
+    stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', value);
+    assert.equal(loadConfig().plantTimeoutMs, ms);
+  }
+  for (const value of ['-1', '3601', 'abc']) {
+    stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', value);
+    assert.throws(() => loadConfig(), /DEFUSE_PLANT_TIMEOUT_SECONDS/);
+  }
+});
+
 it('configures the debug defusion round limit within 0..50', () => {
   stubEnv('DEFUSE_SCORE_LIMIT', '');
   assert.equal(loadConfig().defuseLimit, 5);

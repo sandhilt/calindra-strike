@@ -1,4 +1,4 @@
-import { type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { BOMB_PLANT_TIMEOUT_SECONDS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -14,6 +14,7 @@ export interface Config {
   maps: string[]; // empty = every map
   ctfLimit: number;
   defuseLimit: number;
+  plantTimeoutMs: number;
   tdmLimit: number;
   airdropFirstMs: number;
   botFill: number;
@@ -88,6 +89,7 @@ export function loadConfig(): Config {
     maps: mapList(process.env.GAME_MAPS),
     ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
     defuseLimit: int('DEFUSE_SCORE_LIMIT', 5, 0, 50),
+    plantTimeoutMs: int('DEFUSE_PLANT_TIMEOUT_SECONDS', BOMB_PLANT_TIMEOUT_SECONDS, 0, 3600) * 1000,
     tdmLimit: int('TDM_SCORE_LIMIT', 50, 0, 1000),
     airdropFirstMs: int('AIRDROP_FIRST_SECONDS', 25, 1, 600) * 1000,
     botFill: int('BOT_FILL', 0, 0, 64),

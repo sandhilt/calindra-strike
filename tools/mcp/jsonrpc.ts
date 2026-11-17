@@ -1,3 +1,5 @@
+import { silent, type Log } from './log.ts';
+
 export interface ToolResult {
   content: { type: 'text'; text: string }[];
   isError?: boolean;
@@ -15,7 +17,8 @@ export interface McpTool {
   inputSchema: object;
   call(args: unknown): Promise<ToolResult>;
 }
-export function createMcpServer(options: { info: { name: string; version: string }; tools: McpTool[] }) {
+export function createMcpServer(options: { info: { name: string; version: string }; tools: McpTool[]; log?: Log }) {
+  const log = options.log ?? silent;
   return {
     async handleLine(line: string): Promise<string | null> {
       let msg: unknown;
@@ -57,11 +60,14 @@ export function createMcpServer(options: { info: { name: string; version: string
         };
       else if (m.method === 'tools/call') {
         const tool = options.tools.find((t) => t.name === p.name);
+        const started = performance.now();
         try {
           value = tool ? await tool.call(p.arguments ?? {}) : failure('Unknown tool');
         } catch (e) {
           value = failure(e);
         }
+        const failed = (value as ToolResult).isError ? (value as ToolResult).content[0]?.text : undefined;
+        log('tool', typeof p.name === 'string' ? p.name : '(invalid name)', failed === undefined ? 'ok' : `error ${JSON.stringify(failed)}`, `${Math.round(performance.now() - started)}ms`);
       } else return error(-32601, 'Method not found');
       return JSON.stringify({ jsonrpc: '2.0', id, result: value });
     },

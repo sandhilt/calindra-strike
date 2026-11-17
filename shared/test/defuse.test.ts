@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, bombStandBox, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { stepBomb, otherVariant, blackFridayDue, startBlackFriday, bombStandBox, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
 import { BLACK_FRIDAY_FUSE_TICKS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
@@ -187,4 +187,51 @@ it('a stand stops bullets like a map crate and stops nothing once cleared', () =
   assert.equal(hit?.nx, -1);
   world.setProp(null);
   assert.equal(world.trace(shooterX, aimY, 0, 1, 0, 0, 400), null);
+});
+
+it('the laptop goes to the other team when the attackers miss the plant window, unless a plant is under way', () => {
+  const round = { variant: 0, blackFriday: false, plantByTick: 500 };
+  for (const state of [home, { kind: 'carried', carrier: 7 } as BombState, { kind: 'dropped', x: 1, y: 0, z: 2, returnAtTick: 9999 } as BombState]) {
+    assert.deepEqual(stepBomb(state, places, [], 499, round).outcome, undefined);
+    const late = stepBomb(state, places, [], 500, round);
+    assert.equal(late.outcome, 'expired');
+    assert.deepEqual(late.bomb, home);
+    assert.deepEqual(late.events, [{ k: 'bomb', what: 'expired', team: 1, by: -1 }]);
+  }
+  const planting: BombState = { kind: 'planting', carrier: 7, doneAtTick: 520 };
+  const holding = [actor(0, places.site, { using: true })];
+  assert.equal(stepBomb(planting, places, holding, 510, round).outcome, undefined);
+  assert.equal(stepBomb(planting, places, holding, 520, round).bomb.kind, 'planted');
+  const cancelled = stepBomb(planting, places, [actor(0, places.site)], 500, round);
+  assert.equal(cancelled.outcome, 'expired', 'letting go of the plant on the deadline tick hands the laptop over at once');
+  assert.equal(stepBomb(planting, places, [actor(0, places.site)], 499, round).bomb.kind, 'carried');
+  assert.equal(stepBomb(planted(), places, [], 600, { ...round, plantByTick: 1 }).outcome, undefined, 'a planted bug has no plant window');
+  assert.equal(stepBomb(home, places, [], 99999, { variant: 0, blackFriday: false }).outcome, undefined, 'no limit without a deadline');
+});
+
+it('picks a scenario other than the ignored one for every roll', () => {
+  for (const variant of [0, 3, 5]) {
+    const seen = new Set<number>();
+    for (let roll = 0; roll < 1; roll += 0.01) {
+      const next = otherVariant(variant, roll, 6);
+      assert.ok(next >= 0 && next < 6 && next !== variant);
+      seen.add(next);
+    }
+    assert.equal(seen.size, 5);
+  }
+});
+
+it('Black Friday switches on at its moment or at the plant and shortens a fuse already burning', () => {
+  const round = { variant: 0, blackFriday: false, blackFridayAtTick: 300 };
+  assert.equal(blackFridayDue({ variant: 0, blackFriday: false }, home, 99999), false, 'a normal round never turns');
+  assert.equal(blackFridayDue(round, home, 299), false);
+  assert.equal(blackFridayDue(round, home, 300), true);
+  assert.equal(blackFridayDue(round, planted(), 10), true, 'a plant before the moment turns it on');
+  assert.equal(blackFridayDue({ ...round, blackFriday: true }, planted(), 400), false);
+  const long = startBlackFriday(planted({ explodeAtTick: 5000 }), round, 300);
+  assert.equal(long.round.blackFriday, true);
+  assert.equal((long.bomb as Extract<BombState, { kind: 'planted' }>).explodeAtTick, 300 + BLACK_FRIDAY_FUSE_TICKS);
+  const short = startBlackFriday(planted({ explodeAtTick: 310 }), round, 300);
+  assert.equal((short.bomb as Extract<BombState, { kind: 'planted' }>).explodeAtTick, 310, 'a fuse shorter than the Black Friday one is kept');
+  assert.deepEqual(startBlackFriday(home, round, 300).bomb, home);
 });

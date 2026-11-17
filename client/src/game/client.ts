@@ -509,11 +509,14 @@ export class ClientGame {
     if (bomb && this.match.phase !== 'podium') {
       const key = `${bomb.attackers}:${bomb.variant}`;
       if (bomb.blackFriday && key !== this.announcedBombRound) {
-        this.hud.info('BLACK FRIDAY! o pavio queima mais rápido nesta rodada', '#ffd54f');
+        this.hud.announceBlackFriday();
+        this.hud.info('BLACK FRIDAY! o pavio queima mais rápido', '#ffd54f');
         this.sfx.blackFriday();
       }
+      if (!bomb.blackFriday && this.announcedBombRound !== '') this.hud.clearBlackFridayBanner();
       this.announcedBombRound = bomb.blackFriday ? key : '';
     } else {
+      if (this.announcedBombRound !== '') this.hud.clearBlackFridayBanner();
       this.announcedBombRound = '';
     }
     // drift guard: snapshots should never be "from the future"
@@ -764,7 +767,7 @@ export class ClientGame {
       hud.setDefuse(defuseBannerScene(this.defuseBanner, now));
       return;
     }
-    hud.setBomb(bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name), plantProgress(bomb, now), bombRole(bomb, this.myTeam));
+    hud.setBomb(bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name), plantProgress(bomb, now), bombRole(bomb, this.myTeam), bomb.blackFriday);
     const viewerId = this.spectator ? this.followedId : this.myId;
     const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
     if (defusing) this.defuseVariant = bomb.variant;

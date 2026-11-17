@@ -134,17 +134,25 @@ function mountModel(container: Element | null): void {
   }
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.setSize(MODEL_W, MODEL_H, false);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#1b2433');
   scene.add(new THREE.HemisphereLight('#dfe8ff', '#3a3326', 1.6));
   const sun = new THREE.DirectionalLight('#ffffff', 1.4);
   sun.position.set(120, 260, 160);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -200, right: 200, top: 200, bottom: -200, near: 50, far: 700 });
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 1.2;
   scene.add(sun);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(900, 500), new THREE.MeshStandardMaterial({ color: '#4a4f57', roughness: 0.95 }));
   floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
   scene.add(floor);
   const camera = new THREE.PerspectiveCamera(55, MODEL_W / MODEL_H, 1, 3000);
-  const at = { y: 0, variant: 0, attackers: 0, blackFriday: false };
+  const at = { y: 0, variant: 0, attackers: 0, blackFriday: false, plantByAt: 0 };
   const stations = [
     { renderer: new BombRenderer([]), bomb: (now: number) => ({ ...at, x: -90, z: 0, variant: 5, blackFriday: true, state: 'planted' as const, explodeAt: now + 20000, defuser: 1, defuseDoneAt: now + 3000 }) },
     { renderer: new BombRenderer([]), bomb: () => ({ ...at, x: 90, z: 0, variant: 0, state: 'home' as const }) },

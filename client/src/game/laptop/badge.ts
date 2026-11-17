@@ -1,4 +1,4 @@
-import { fillRound, glowDisc, strokeRound, textWidth, write, type Ctx } from './canvas.ts';
+import { textWidth, write, type Ctx } from './canvas.ts';
 import type { LaptopModel } from './scenarios.ts';
 
 /** Logical size the badge art is authored in. */
@@ -7,11 +7,37 @@ export const BADGE_H = 96;
 
 const WORDMARK_SIZE = 40;
 
+const APPLE_SCALE_PX = 52;
+const APPLE_CENTER_Y_PX = BADGE_H / 2 + 3;
+/** Bite and leaf in apple units (1 = APPLE_SCALE_PX), relative to the body's centre. */
+const APPLE_BITE = { x: 0.6, y: -0.06, radius: 0.19 };
+
+/** The white apple on the lid: body, a bite out of the right shoulder and a leaf, all drawn from curves. */
 function drawMacBadge(c: Ctx): void {
-  glowDisc(c, BADGE_W / 2, BADGE_H / 2, 70, '#ffffff', 0.55);
-  fillRound(c, BADGE_W / 2 - 30, BADGE_H / 2 - 30, 60, 60, 16, 'rgba(255,255,255,0.18)');
-  strokeRound(c, BADGE_W / 2 - 30, BADGE_H / 2 - 30, 60, 60, 16, 'rgba(255,255,255,0.85)', 2.5);
-  write(c, 'M', BADGE_W / 2, BADGE_H / 2 + 14, { color: '#ffffff', size: 40, weight: 'bold', align: 'center' });
+  c.save();
+  c.translate(BADGE_W / 2, APPLE_CENTER_Y_PX);
+  c.scale(APPLE_SCALE_PX, APPLE_SCALE_PX);
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.moveTo(0, -0.28);
+  c.bezierCurveTo(0.15, -0.42, 0.52, -0.38, 0.56, 0);
+  c.bezierCurveTo(0.6, 0.3, 0.36, 0.62, 0.2, 0.62);
+  c.bezierCurveTo(0.1, 0.62, 0.06, 0.56, 0, 0.56);
+  c.bezierCurveTo(-0.06, 0.56, -0.1, 0.62, -0.2, 0.62);
+  c.bezierCurveTo(-0.38, 0.62, -0.6, 0.3, -0.56, 0);
+  c.bezierCurveTo(-0.52, -0.38, -0.15, -0.42, 0, -0.28);
+  c.fill();
+  c.globalCompositeOperation = 'destination-out';
+  c.beginPath();
+  c.arc(APPLE_BITE.x, APPLE_BITE.y, APPLE_BITE.radius, 0, Math.PI * 2);
+  c.fill();
+  c.globalCompositeOperation = 'source-over';
+  c.beginPath();
+  c.moveTo(0.02, -0.3);
+  c.bezierCurveTo(0.02, -0.5, 0.12, -0.62, 0.3, -0.66);
+  c.bezierCurveTo(0.3, -0.48, 0.2, -0.34, 0.02, -0.3);
+  c.fill();
+  c.restore();
 }
 
 /** "ThinkPad" in italic bold with the red dot over the i, built from a dotless i. */

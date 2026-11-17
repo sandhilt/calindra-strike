@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLACK_FRIDAY_FUSE_MS, DEFUSE_MS, FUSE_MS, PLANT_MS } from '@calindra-strike/shared';
-import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombRole, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
+import { BLACK_FRIDAY_FUSE_MS, DEFUSE_MS, FUSE_MS, PLANT_MS, TEAMS } from '@calindra-strike/shared';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombRole, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, plantSecondsLeft, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
-  const at = { x: 10, y: 20, z: 30, variant: 2, attackers: 1, blackFriday: false };
+  const at = { x: 10, y: 20, z: 30, variant: 2, attackers: 1, blackFriday: false, plantByAt: 0 };
   assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'home' });
   assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'carried', carrier: 7 });
   assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000, 0]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
@@ -61,6 +61,21 @@ test('beeps speed up as the fuse burns down', () => {
   assert.equal(beepIntervalMs(5), beepIntervalMs(1));
 });
 
+test('the plant window counts down for the attackers and is absent once planted or without a limit', () => {
+  const name = (id: number) => 'P' + id;
+  const home = bombView([0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60000]);
+  assert.ok(home);
+  assert.equal(plantSecondsLeft(home, 45500), 15);
+  assert.equal(plantSecondsLeft(home, 70000), 0);
+  assert.equal(bombStatus(home, 45500, 7, 0, name), 'pegue o bug na base · 15s para plantar');
+  assert.equal(bombStatus(home, 45500, 7, 1, name), 'defenda o site · 15s para plantar');
+  assert.equal(plantSecondsLeft({ ...home, plantByAt: 0 }, 1000), null);
+  const planted = bombView([4, -1, 0, 0, 0, 90000, 0, 0, 0, 0, 0, 0]);
+  assert.ok(planted);
+  assert.equal(plantSecondsLeft(planted, 1000), null);
+  assert.equal(bombMessage('expired', 1, 'ninguém'), 'o tempo acabou · o bug agora é dos ' + TEAMS[1].name);
+});
+
 test('Black Friday uses the short fuse and labels the round in every state', () => {
   const explodeAt = 100000;
   const start = explodeAt - BLACK_FRIDAY_FUSE_MS;
@@ -107,7 +122,7 @@ test('the defuser keeps the finished laptop with the banner for 3 s after the de
 test('pressing E explains what is missing instead of failing silently', () => {
   const site = { x: 1000, y: 0, z: 0 };
   const name = (id: number) => 'P' + id;
-  const base = { x: 0, y: 0, z: 0, variant: 0, attackers: 0, blackFriday: false };
+  const base = { x: 0, y: 0, z: 0, variant: 0, attackers: 0, blackFriday: false, plantByAt: 0 };
   const attempt = (bomb: Parameters<typeof useRefusal>[0]['bomb'], myTeam: number, me = { x: 0, y: 0, z: 0 }) => useRefusal({ bomb, myId: 1, myTeam, me, site, name });
   assert.equal(attempt({ ...base, state: 'home' }, 0), 'encoste no bug para pegá-lo');
   assert.equal(attempt({ ...base, state: 'carried', carrier: 1 }, 0), 'leve o bug até o site (círculo vermelho)');

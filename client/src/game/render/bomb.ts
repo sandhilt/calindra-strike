@@ -131,6 +131,15 @@ function crate(): THREE.Mesh {
   return box;
 }
 
+/** Everything solid on the station throws and catches sun shadows: laptop on desk, desk and crate on the floor. */
+function castShadows(root: THREE.Object3D, flat: ReadonlySet<THREE.Object3D>): void {
+  root.traverse(object => {
+    if (!(object instanceof THREE.Mesh) || flat.has(object)) return;
+    object.castShadow = true;
+    object.receiveShadow = true;
+  });
+}
+
 function badgeTexture(model: LaptopModel): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = BADGE_WIDTH_PX;
@@ -209,6 +218,10 @@ export class BombRenderer {
     this.laptop.add(slab, keys, touchpad, lid, this.light);
     this.laptop.scale.setScalar(LAPTOP_SCALE);
     this.stands = { desk: desk(), crate: crate() };
+    // The lid's screen and badge are unlit decals and the LED is a glow, so none of them shades its neighbours.
+    castShadows(this.laptop, new Set([face, badge, this.light]));
+    castShadows(this.stands.desk, new Set());
+    castShadows(this.stands.crate, new Set());
     this.station.add(this.laptop, this.stands.desk, this.stands.crate);
 
     this.siteRing = new THREE.Mesh(

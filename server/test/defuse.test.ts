@@ -151,7 +151,7 @@ it('publishes the limit and an empty bomb outside the mode', () => {
   for (const mode of ['defuse', 'ctf', 'tdm', 'ffa'] as const) {
     const { game, messages } = setup(5, mode);
     const snap = snapshot(game, messages);
-    if (mode === 'defuse') assert.equal(snap.bm.length, 11);
+    if (mode === 'defuse') assert.equal(snap.bm.length, 12);
     else assert.deepEqual(snap.bm, []);
     const match = messages.findLast((m) => m.t === 'match') ?? { t: 'match', match: (game as any).matchInfo() };
     assert.ok(match.t === 'match');
@@ -235,4 +235,77 @@ it('installs bomb stands at the exact coordinates sent in snapshots', (t) => {
   assert.equal(plantedRow[0], 4);
   assert.partialDeepStrictEqual(objective.bomb, { x, y, z });
   assert.deepEqual(setProp.mock.calls.at(-1)?.arguments[0], bombStandBox('planted', { x, y, z }));
+});
+
+it('the plant window runs out: nobody scores, the sides swap and the laptop comes back with another scenario', () => {
+  const { game, messages } = setup(5, 'defuse', () => 0.5);
+  const before = (game as any).attackers as number;
+  const variant = snapshot(game, messages).bm[7];
+  const window = snapshot(game, messages).bm[11];
+  assert.ok(window > 0, 'the deadline is published while nothing is planted');
+  run(game, Math.ceil(game.plantTimeoutMs / TICK_MS) + 2);
+  assert.equal((game as any).attackers, 1 - before);
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'expired' && e.team === 1 - before)));
+  const next = snapshot(game, messages).bm;
+  assert.notEqual(next[7], variant);
+  assert.equal(next[0], 0);
+  assert.ok(next[11] > window, 'the new round gets a fresh window');
+});
+
+it('a plant window of zero never hands the laptop over', () => {
+  const messages: ServerMsg[] = [];
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: 'defuse', plantTimeoutMs: 0, random: () => 0.5 });
+  for (let i = 0; i < 2; i++) game.join('P' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
+  const before = (game as any).attackers as number;
+  run(game, 130 * 60);
+  assert.equal((game as any).attackers, before);
+  assert.equal(snapshot(game, messages).bm[11], 0);
+});
+
+it('Black Friday can switch on in the middle of a round and cuts a fuse already burning', () => {
+  // 0.19 marks the round and puts its moment 342 ticks in, after the 181 ticks the plant takes.
+  const { game, attacker, defender, messages } = setup(5, 'defuse', () => 0.19);
+  assert.equal(snapshot(game, messages).bm[10], 0, 'not on at the start of the round');
+  const plantedAt = plant(game, attacker, defender);
+  const { bm } = snapshot(game, messages);
+  assert.equal(bm[0], 4);
+  assert.equal(bm[10], 1, 'a marked round is Black Friday once the bug is planted');
+  assert.ok(Math.abs(bm[5] - plantedAt - BLACK_FRIDAY_FUSE_MS) <= 1);
+});
+
+it('Black Friday strikes a round that is already running, in about one round in five', () => {
+  let seed = 12345;
+  const random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const { game, messages } = setup(0, 'defuse', random);
+  const rounds = 400;
+  let marked = 0;
+  let turnsLater = 0;
+  for (let i = 0; i < rounds; i++) {
+    (game as any).startBombRound();
+    const at = (game as any).bombRound.blackFridayAtTick as number | undefined;
+    if (at === undefined) continue;
+    marked++;
+    if (at > game.tick) turnsLater++;
+  }
+  assert.ok(marked / rounds >= 0.15 && marked / rounds <= 0.3, `marked share ${marked / rounds}`);
+  assert.ok(turnsLater > marked / 2, 'most marked rounds start normal and turn on later');
+  assert.equal(snapshot(game, messages).bm.length, 12);
+});
+
+it('the plant window does not run down in warmup while nobody is on the attacking side', () => {
+  const messages: ServerMsg[] = [];
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 99, modes: 'defuse', plantTimeoutMs: 5000, random: () => 0.5 });
+  const players = [0, 1].map((i) => game.join('W' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data))) as ServerPlayer);
+  const before = (game as any).attackers as number;
+  const attacker = players.find((p) => p.team === before) as ServerPlayer;
+  attacker.alive = false;
+  attacker.respawnAt = Infinity;
+  run(game, 10 * 60);
+  assert.equal((game as any).attackers, before, 'the laptop stays put with nobody to plant it');
+  attacker.alive = true;
+  run(game, 4 * 60);
+  assert.equal((game as any).attackers, before, 'the full window is still ahead once someone is there');
+  run(game, 2 * 60);
+  assert.equal((game as any).attackers, 1 - before);
 });

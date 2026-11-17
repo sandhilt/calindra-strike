@@ -16,6 +16,7 @@ import {
 import { NavGrid } from '../../server/src/nav.ts';
 import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
+import { silent, type Log } from './log.ts';
 import { welcome, decodeSnapshot, renderView, bombProp, type WorldView } from './view.ts';
 export interface SocketLike {
   readyState: number;
@@ -66,9 +67,12 @@ export class GameSession {
     skill?: number;
     omniscient?: boolean;
     autoVote?: boolean;
+    log?: Log;
   };
+  private readonly log: Log;
   constructor(options: GameSession['options']) {
     this.options = options;
+    this.log = options.log ?? silent;
   }
   async join(args: JoinArgs): Promise<object> {
     if (this.state.phase === 'playing') return this.getState();
@@ -103,6 +107,7 @@ export class GameSession {
         try {
           const m: ServerMsg = JSON.parse(String(event.data));
           if (m.t === 'reject') {
+            this.log('reject', m.reason);
             if (settled) this.close(m.reason);
             else finish(m.reason);
             return;
@@ -119,6 +124,7 @@ export class GameSession {
               pilot: new Pilot(this.options.skill ?? 0.7, this.options.random),
             };
             this.state.view.perception = this.options.omniscient ? 'omniscient' : 'line-of-sight';
+            this.log('join', JSON.stringify(args.name), `players=${m.roster.length}`, `mode=${m.match.mode}`, `map=${m.match.map}`);
             this.names.clear();
             for (const r of m.roster) this.names.set(r[0], r[1]);
             this.seq = 0;
@@ -198,6 +204,7 @@ export class GameSession {
         v.peers = [];
         v.lastSeen.clear();
       }
+      if (v.match.mode !== m.match.mode || v.match.map !== m.match.map || v.match.phase !== m.match.phase) this.log('match', m.match.mode, m.match.map, m.match.phase);
       v.match = m.match;
       if (this.options.autoVote && enteringPodium && m.match.vote?.options.length) {
         const option = Math.floor(this.options.random() * m.match.vote.options.length);
@@ -235,6 +242,7 @@ export class GameSession {
             this.using?.finish(event.by === v.id ? event.what === 'plant' ? 'planted' : 'defused' : 'interrupted',
               event.by === v.id ? 'Objective completed' : 'Another player completed the objective');
           } else if (event.what === 'exploded') this.using?.finish('interrupted', 'Bomb exploded');
+          else if (event.what === 'expired') this.using?.finish('interrupted', 'Plant window ran out');
         }
       } else if (m.t === 'snap') {
         const active = (bomb[0] === 2 || (bomb[0] === 4 && bomb[6] > 0)) && bomb[1] === v.id;
@@ -385,6 +393,7 @@ export class GameSession {
     }
     this.using?.finish('interrupted', reason);
     const previous = this.state;
+    if (previous.phase === 'playing') this.log('leave', reason);
     this.state = { phase: 'closed', reason };
     this.intent = { kind: 'idle' };
     this.actions.reset();

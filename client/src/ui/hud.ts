@@ -34,6 +34,8 @@ export interface Marker {
 
 export type FeedInvolvement = 'kill' | 'death' | null;
 
+/** How long the Black Friday banner stays on screen, in ms. */
+const BLACK_FRIDAY_BANNER_MS = 4500;
 const RANK_COLORS = ['#ffd23f', '#dfe4ea', '#e8a066'];
 
 export class Hud {
@@ -47,6 +49,11 @@ export class Hud {
   private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a bandeira, volte à base' });
   private readonly bombRole = h('div', { class: 'bomb-role glass hidden' });
   private readonly bombStatus = h('div', { class: 'bomb-status glass hidden' });
+  private readonly blackFridayBanner = h('div', { class: 'black-friday-banner hidden', role: 'alert' }, [
+    h('b', { text: 'BLACK FRIDAY' }),
+    h('span', { text: 'o pavio queima mais rápido' }),
+  ]);
+  private blackFridayTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly plantFill = h('i', { style: 'width:0%' });
   private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
   private readonly defuseCanvas = h('canvas', { class: 'defuse-overlay hidden' });
@@ -130,6 +137,7 @@ export class Hud {
       this.flagBanner,
       this.bombRole,
       this.bombStatus,
+      this.blackFridayBanner,
       this.plantBar,
       this.defuseCanvas,
       h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
@@ -202,7 +210,7 @@ export class Hud {
   }
 
   /** Status line for the bug, the plant progress (0..1, negative hides the bar) and the viewer's side, which stays on screen all round. */
-  setBomb(text: string | null, plant: number, role: BombRole | null): void {
+  setBomb(text: string | null, plant: number, role: BombRole | null, blackFriday = false): void {
     const percent = Math.round(plant * 100);
     this.set('bomb-role', JSON.stringify(role), () => {
       this.bombRole.classList.toggle('hidden', role === null);
@@ -210,8 +218,9 @@ export class Hud {
       this.bombRole.dataset.side = role.side;
       this.bombRole.replaceChildren(svg(role.side === 'attack' ? ICONS.target : ICONS.shield), h('b', { text: role.label }), h('span', { text: role.goal }));
     });
-    this.set('bomb', JSON.stringify([text, percent]), () => {
+    this.set('bomb', JSON.stringify([text, percent, blackFriday]), () => {
       this.bombStatus.classList.toggle('hidden', text === null);
+      this.bombStatus.classList.toggle('black-friday', blackFriday);
       this.bombStatus.textContent = text ?? '';
       this.plantBar.classList.toggle('hidden', percent < 0);
       this.plantFill.style.width = Math.max(0, percent) + '%';
@@ -264,6 +273,21 @@ export class Hud {
       h('span', { style: `color:${vc}`, text: victim }),
     ]);
     this.pushFeed(el);
+  }
+
+  /** Big centred banner for the moment Black Friday switches on; it restarts its animation if it fires again. */
+  announceBlackFriday(durationMs = BLACK_FRIDAY_BANNER_MS): void {
+    clearTimeout(this.blackFridayTimer);
+    this.blackFridayBanner.classList.remove('hidden');
+    this.blackFridayBanner.style.animation = 'none';
+    void this.blackFridayBanner.offsetWidth;
+    this.blackFridayBanner.style.animation = '';
+    this.blackFridayTimer = setTimeout(() => this.blackFridayBanner.classList.add('hidden'), durationMs);
+  }
+
+  clearBlackFridayBanner(): void {
+    clearTimeout(this.blackFridayTimer);
+    this.blackFridayBanner.classList.add('hidden');
   }
 
   info(text: string, color?: string): void {

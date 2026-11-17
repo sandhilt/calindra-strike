@@ -171,12 +171,23 @@ test('the Black Friday ribbon overlays every calm, incident and defuse screen wi
   }
 });
 
-test('each laptop model gets a text and shape badge for the lid', () => {
-  for (const model of ['macbook', 'thinkpad', 'inspiron'] as const) {
+test('each laptop model gets a text or shape badge for the lid', () => {
+  for (const model of ['thinkpad', 'inspiron'] as const) {
     const { ctx, log } = recordingContext();
     drawLidBadge(ctx, 256, 96, model);
     assert.ok(log.some((entry) => entry.startsWith('fillText') || entry.startsWith('stroke')), model);
   }
+});
+
+test('the MacBook lid carries a white apple: curved body, a bite cut out and a leaf', () => {
+  const { ctx, log } = recordingContext();
+  drawLidBadge(ctx, 256, 96, 'macbook');
+  assert.ok(log.includes('fillStyle=#ffffff'));
+  assert.ok(log.filter((entry) => entry.startsWith('bezierCurveTo')).length === 8, 'six curves for the body and two for the leaf');
+  const bite = log.indexOf('globalCompositeOperation=destination-out');
+  assert.ok(bite >= 0 && log.slice(bite).some((entry) => entry.startsWith('arc(')), 'the bite erases the body');
+  assert.equal(log.findLast((entry) => entry.startsWith('globalCompositeOperation=')), 'globalCompositeOperation=source-over');
+  assert.ok(!log.some((entry) => entry.startsWith('fillText')), 'no letter on the lid');
 });
 
 test('the closing scene shows the green banner after the icon montage', () => {

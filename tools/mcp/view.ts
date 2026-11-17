@@ -292,7 +292,7 @@ export function bombPlaces(v: WorldView, world: CollisionWorld) {
 function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
   const bomb = bombState(v);
   if (!bomb) return null;
-  const [, actor, x, y, z, explodeAt, defuseDoneAt, , attackers, plantDoneAt, blackFridayBit] = v.bomb;
+  const [, actor, x, y, z, explodeAt, defuseDoneAt, , attackers, plantDoneAt, blackFridayBit, plantBy = 0] = v.bomb;
   const blackFriday = blackFridayBit === 1;
   const prop = bombProp(v, bomb);
   const dimensions = prop && BOMB_STAND_SIZE[prop.stand];
@@ -314,6 +314,7 @@ function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
         ? 'Solid cover that blocks movement, bullets and sight. Walk around it and hold USE to defuse from any side or corner.'
         : 'Solid cover that blocks movement, bullets and sight. Walk around it and touch any side or corner to take the laptop.',
     } : null,
+    secondsToPlant: bomb.kind !== 'planted' && plantBy > 0 ? Math.max(0, (plantBy - v.time) / 1000) : null,
     secondsToExplosion: bomb.kind === 'planted' ? Math.max(0, (explodeAt - v.time) / 1000) : null,
     plantProgress: bomb.kind === 'planting' ? progress(plantDoneAt, PLANT_MS) : 0,
     defuseProgress: defuser ? progress(defuseDoneAt, DEFUSE_MS) : 0 };

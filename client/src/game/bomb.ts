@@ -1,6 +1,6 @@
 import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
 
-export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean } & (
+export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean; plantByAt: number } & (
   | { state: 'home' }
   | { state: 'carried'; carrier: number }
   | { state: 'planting'; carrier: number; doneAt: number }
@@ -11,8 +11,8 @@ export type BombView = { x: number; y: number; z: number; variant: number; attac
 /** Parses the snapshot's bm row; an empty row means the mode has no bomb. */
 export function bombView(row: readonly number[]): BombView | null {
   if (row.length === 0) return null;
-  const [state, actor, x, y, z, explodeAt, defuseDoneAt, variant, attackers, plantDoneAt, blackFriday] = row;
-  const at = { x, y, z, variant, attackers, blackFriday: blackFriday === 1 };
+  const [state, actor, x, y, z, explodeAt, defuseDoneAt, variant, attackers, plantDoneAt, blackFriday, plantByAt = 0] = row;
+  const at = { x, y, z, variant, attackers, blackFriday: blackFriday === 1, plantByAt };
   if (state === 1) return { ...at, state: 'carried', carrier: actor };
   if (state === 2) return { ...at, state: 'planting', carrier: actor, doneAt: plantDoneAt };
   if (state === 3) return { ...at, state: 'dropped' };
@@ -42,6 +42,11 @@ export function plantProgress(bomb: BombView, now: number): number {
   return bomb.state === 'planting' ? clamp01(1 - (bomb.doneAt - now) / PLANT_MS) : -1;
 }
 
+/** Seconds the attackers still have to plant, null once planted or when the server has no limit. */
+export function plantSecondsLeft(bomb: BombView, now: number): number | null {
+  return bomb.state === 'planted' || bomb.plantByAt <= 0 ? null : Math.max(0, Math.ceil((bomb.plantByAt - now) / 1000));
+}
+
 export function secondsLeft(bomb: BombView, now: number): number {
   return bomb.state === 'planted' ? Math.max(0, Math.ceil((bomb.explodeAt - now) / 1000)) : 0;
 }
@@ -64,6 +69,12 @@ export function bombStatus(bomb: BombView, now: number, viewerId: number, viewer
 }
 
 function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
+  const status = phaseStatus(bomb, now, viewerId, viewerTeam, name);
+  const left = plantSecondsLeft(bomb, now);
+  return left === null ? status : `${status} · ${left}s para plantar`;
+}
+
+function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
   const attacking = viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
@@ -99,6 +110,7 @@ export function bombMessage(what: BombAction, team: number, name: string): strin
     case 'defuse': return `${name} começou a desarmar o bug`;
     case 'defused': return `${name} desarmou o bug · ponto dos ${winner}`;
     case 'exploded': return `o bug explodiu · ponto dos ${winner}`;
+    case 'expired': return `o tempo acabou · o bug agora é dos ${winner}`;
   }
 }
 

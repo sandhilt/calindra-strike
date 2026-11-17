@@ -10,15 +10,36 @@ export type BombState =
   | { kind: 'planting'; carrier: number; doneAtTick: number }
   | ({ kind: 'dropped'; returnAtTick: number } & BombPoint)
   | ({ kind: 'planted'; explodeAtTick: number; variant: number; defuse: { by: number; doneAtTick: number } | null } & BombPoint);
-export type BombAction = 'take' | 'drop' | 'return' | 'plant' | 'defuse' | 'defused' | 'exploded';
-export type BombOutcome = 'defused' | 'exploded';
+export type BombAction = 'take' | 'drop' | 'return' | 'plant' | 'defuse' | 'defused' | 'exploded' | 'expired';
+/** 'expired': the attackers ran out of time to plant, nobody scores and the laptop goes to the other team. */
+export type BombOutcome = 'defused' | 'exploded' | 'expired';
 export interface BombActor extends BombPoint { id: number; team: number; alive: boolean; dropping: boolean; using: boolean }
-/** Outcome events carry the winning team; the others carry the acting player's team. */
+/** Outcome events carry the winning team (the new attackers for 'expired'); the others carry the acting player's team. */
 export interface BombEvent { k: 'bomb'; what: BombAction; team: number; by: number }
 export interface BombPlaces { home: BombPoint; site: BombPoint; attackers: number }
 export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: BombOutcome }
-/** Drawn when a round starts: which laptop scenario plays and whether it is a Black Friday round. */
-export interface BombRound { variant: number; blackFriday: boolean }
+/**
+ * Drawn when a round starts: which laptop scenario plays, whether Black Friday is on right now, when it will switch on
+ * (`blackFridayAtTick`, absent in a normal round) and when the plant window closes.
+ */
+export interface BombRound { variant: number; blackFriday: boolean; blackFridayAtTick?: number; plantByTick?: number }
+
+/** A pending Black Friday switches on at its moment, or at the plant, so a marked round is always Black Friday by the time it is scored. */
+export function blackFridayDue(round: BombRound, bomb: BombState, tick: number): boolean {
+  return !round.blackFriday && round.blackFridayAtTick !== undefined && (tick >= round.blackFridayAtTick || bomb.kind === 'planted');
+}
+
+/** Switches Black Friday on, and shortens a fuse already burning to the Black Friday one. */
+export function startBlackFriday(bomb: BombState, round: BombRound, tick: number): { bomb: BombState; round: BombRound } {
+  const next = { ...round, blackFriday: true };
+  if (bomb.kind !== 'planted') return { bomb, round: next };
+  return { bomb: { ...bomb, explodeAtTick: Math.min(bomb.explodeAtTick, tick + BLACK_FRIDAY_FUSE_TICKS) }, round: next };
+}
+
+/** A scenario other than `variant`, picked by `roll` in [0, 1): the laptop the other team gets must not look like the one that was ignored. */
+export function otherVariant(variant: number, roll: number, count: number): number {
+  return (variant + 1 + Math.floor(roll * (count - 1))) % count;
+}
 
 export function fuseTicks(blackFriday: boolean): number {
   return blackFriday ? BLACK_FRIDAY_FUSE_TICKS : FUSE_TICKS;
@@ -90,6 +111,10 @@ function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: Bomb
 export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly BombActor[], tick: number, round: BombRound): BombStep {
   const events: BombEvent[] = [];
   if (bomb.kind === 'planted') return stepPlanted(bomb, places, actors, tick);
+  const windowClosed = round.plantByTick !== undefined && tick >= round.plantByTick;
+  const expire = (): BombStep => ({ bomb: { kind: 'home' }, events: [{ k: 'bomb', what: 'expired', team: 1 - places.attackers, by: -1 }], outcome: 'expired' });
+  // A plant already under way is allowed to finish, so a carrier at the last second is not cut off.
+  if (windowClosed && bomb.kind !== 'planting') return expire();
   let next: BombState = bomb;
   if (next.kind === 'dropped' && tick >= next.returnAtTick) {
     next = { kind: 'home' };
@@ -113,7 +138,7 @@ export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly B
   if (next.kind === 'carried') {
     return { bomb: planting ? { kind: 'planting', carrier: carrier.id, doneAtTick: tick + PLANT_TICKS } : next, events };
   }
-  if (!planting) return { bomb: { kind: 'carried', carrier: carrier.id }, events };
+  if (!planting) return windowClosed ? expire() : { bomb: { kind: 'carried', carrier: carrier.id }, events };
   if (tick < next.doneAtTick) return { bomb: next, events };
   events.push({ k: 'bomb', what: 'plant', team: places.attackers, by: carrier.id });
   return { bomb: { kind: 'planted', x: carrier.x, y: carrier.y, z: carrier.z, explodeAtTick: tick + fuseTicks(round.blackFriday), variant: round.variant, defuse: null }, events };

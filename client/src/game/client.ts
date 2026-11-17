@@ -232,7 +232,7 @@ export class ClientGame {
     this.input.sensitivity = settings.sensitivity;
     this.input.onKey = (code, down, e) => this.onKey(code, down, e);
     this.hud = new Hud(container);
-    this.sfx = new Sfx(settings.volume);
+    this.sfx = new Sfx(settings.volume, settings.soundPack);
     this.effects = new Effects(this.scene);
     this.view = new ViewModel(PLAYER_COLORS[settings.color]);
     this.scene.add(this.camera, this.muzzleLight);
@@ -320,6 +320,7 @@ export class ClientGame {
     this.settings = s;
     this.input.sensitivity = s.sensitivity;
     this.sfx.setVolume(s.volume);
+    if (this.sfx.setPack(s.soundPack)) this.sfx.shot(s.primary, null, false);
     if (!this.spectator) this.net.send({ t: 'loadout', primary: s.primary });
   }
 

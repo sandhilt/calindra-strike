@@ -33,6 +33,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - `jump` works only when `onGround` and `alive`. It fails with "No living player snapshot yet" while dead.
 - `crouch({ on: true|false })` stays on until you stand, including after respawn. Read `ducked` from state before standing again; the pilot can re-crouch on its own.
 - Crouch when engaging at close range; stand when roaming.
+- Do not stay still for long in the open: a stationary player is an easy target and risks dying. Keep `hunt` or `move_to` active, change position between fights, and only hold a spot briefly (for example to scope or to wait for an enemy that is coming). Keep the `wait` loop tight too, since game time runs while you are idle between calls.
 
 ## Chat
 

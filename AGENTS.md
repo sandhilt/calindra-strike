@@ -90,6 +90,16 @@ tools ──► server, shared
 - **Hosting and secrets stay out of the repo.** No production URLs, credentials or operator instructions; `.env` files are git-ignored except `.env.example`.
 - Game UI text is mostly Portuguese (a few terms such as kills and headshot stay in English); code, comments, commits and docs are in English.
 
+## Playing the game (agents)
+
+- Gameplay notes for agents live in the project skill `.claude/skills/play-calindra-strike/SKILL.md`. When you play, merge what you learned into that file instead of writing a new notes file, and keep the existing sections. If you find something new (a tool behaviour, a map pattern, a tactic that worked or failed), add it to that skill so the next agent that plays can use it.
+- One MCP connection is one player. A second `join` on the same connection returns the same character, so subagents that share the main connection do not add players. For another player, run a separate `tools/mcp/launch.ts` process and drive it over JSON-RPC.
+- Name players for the agent playing them, not `Agente-*`. Suggest the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), as long as it fits the 16-character limit. Use `-A` / `-B` suffixes when one session runs several players.
+- `jump`, `crouch` and `zoom` exist in the current MCP server. A connection started before those commits does not list them; restart the plugin to get them.
+- Keymap for the browser client (same as `README.md`): `WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving, `Ctrl` dives faster) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu. Through MCP, use `jump`, `crouch` and `zoom` instead of keys; a connection started before those tools existed does not list them.
+- Bots and agents may send short provocative chat (`say`, up to 100 characters) during a match, the "stunts" the user asked for. Keep it playful and in Portuguese, aimed at the match, never at a real person's private details, and do not spam it after every kill.
+- Run the verification server (`verify-calindra-strike`) only to test a change. Do not play on it, because the MCP connection points at the main server on port 7350.
+
 ## Git
 
 - `origin` is the `sandhilt` fork, `upstream` is `gabriel-accetta/calindra-strike`.

@@ -7,6 +7,8 @@ description: How the Calindra Strike server bots perceive, aim and choose goals,
 
 Numbers below come from `server/src/bot.ts`. Bots play at 60 Hz through the same simulation and rules as you, so they are beatable by cutting off what they rely on.
 
+Agents playing through the MCP perceive the world with the same sight and hearing rules as the table below, except there is no 140 degree cone for them. So whatever hides you from a bot also hides a bot from you.
+
 ## What a bot knows
 
 | Sense | Rule |

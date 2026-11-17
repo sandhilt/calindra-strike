@@ -29,7 +29,7 @@ The plugin passes these environment variables to the MCP process. Set them befor
 | `CALINDRA_STRIKE_ORIGIN` | `http://localhost:5173` | Origin header the MCP sends |
 | `CALINDRA_STRIKE_CODE` | empty | Access code when the server has `JOIN_CODE` |
 
-Without the plugin, pass the same values as `--url`, `--origin` and `--code` to `node tools/mcp/launch.ts`.
+Without the plugin, pass the same values as `--url`, `--origin` and `--code` to `node tools/mcp/launch.ts`. Two more options tune the agent. `--skill` (0 to 1, default 0.7) sets how well the pilot aims and reacts, and `--omniscient` lets it see every player through walls, which is only meant for debugging.
 
 ## Reaching the server from another machine
 

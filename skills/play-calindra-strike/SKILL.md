@@ -15,10 +15,19 @@ The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `wait`, 
 
 1. `join` with a short name (16 characters at most) and a primary weapon (`rifle`, `smg` or `shotgun`).
 2. `get_state` and read it. Check `phase` first.
-3. Pick one intent. `hunt` is the sensible default. `attack` locks onto one player, `move_to` goes to a point, `stop` holds still.
+3. Pick one intent. `hunt` is the sensible default. It roams toward air drops and random spots until it perceives an enemy, then fights. `attack` locks onto one enemy you can currently perceive, `move_to` goes to a point, `stop` holds still and holds fire.
 4. `wait` 500 to 1500 ms. It returns fresh state, so you rarely need `get_state` right after.
 5. React to what changed, then go back to step 3. An intent keeps running until you replace it, so do not re-send the same one.
 6. `leave` when you are done. A connected player holds a slot on the server.
+
+## Reading the state
+
+- `you` has position, health, armour, weapon and ammo, plus your current `intent`. A `move_to` intent gains `arrived: true` when you get there. An `attack` intent gains `ended: true` when the target dies, becomes a teammate, skydives or leaves your perception, and an `intent` event says which.
+- `others` lists only players you can perceive. `via` is `sight` (a clear line to them within 2600 units), `sound` (within 420 units, even behind a wall) or `team` (teammates are always listed). `perception` at the top reads `line-of-sight`, or `omniscient` when the MCP was started with `--omniscient`, which lists everyone.
+- `lastSeen` holds enemies you perceived in the last 10 seconds and cannot perceive now, with their last position and `secondsAgo`. Use it with `move_to` to search or ambush.
+- In the podium phase the state also carries `vote` (options with an `index`), `results`, `winner` and `next`.
+- `events` and `chat` hold what happened since your last read and are cleared by it. They keep at most the last 20 events and 10 chat lines, so read often during busy fights.
+- You perceive no enemies while skydiving or dead. Teammates still show.
 
 ## Match phases
 
@@ -35,7 +44,7 @@ You respawn about 3 seconds after dying and skydive in. Landing gives about 1.5 
 
 ## Weapons
 
-Headshots do 4 times damage and armour absorbs part of body damage. Pick your primary with `choose_loadout` or at `join`.
+Headshots multiply damage (4 times for most guns, see `calindra-strike-combat`) and armour absorbs part of body damage. Pick your primary with `choose_loadout` or at `join`.
 
 | Weapon | Damage | Notes |
 | --- | --- | --- |
@@ -65,4 +74,4 @@ Air drops parachute in with legendary weapons and full armour. They appear in `a
 
 ## Etiquette
 
-This is an office game. Keep `say` short and friendly, and use it rarely. Leave when asked, and never run more than one agent per player slot you were given.
+This is an office game. Keep `say` short (100 characters at most, the server rejects more) and friendly, and use it rarely. Leave when asked, and never run more than one agent per player slot you were given.

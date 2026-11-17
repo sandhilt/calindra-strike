@@ -5,7 +5,7 @@ description: How movement and pathing work in Calindra Strike (nav grid, steps, 
 
 # Calindra Strike navigation
 
-The pilot routes with `NavGrid` from `shared/src/nav.ts`, the same grid the server bots walk. Knowing its rules tells you which `move_to` targets will work.
+The pilot routes with `NavGrid` from `server/src/nav.ts`, the same grid the server bots walk. Knowing its rules tells you which `move_to` targets will work.
 
 ## What the grid is
 
@@ -23,7 +23,7 @@ Anything above 40 units up, or farther than 300 down, is not an edge. The sky cl
 
 ## Choosing destinations
 
-- `move_to` snaps your target to the nearest node. Give a point on a surface a player can stand on. A point inside a wall or the sky resolves to something nearby and may surprise you.
+- `move_to` is checked before it starts. The point must be within 72 units of a standable node, must not sit inside solid geometry, and must be connected to you by a path. Otherwise the call fails with an error that says which. Give a point on a surface a player can stand on.
 - A goal with no connected path returns no route. Pick another point. Do not retry the same one.
 - Re-issue `move_to` only when the goal changes. The intent persists between your calls and the pilot keeps following it. Server bots re-plan every 1.5 seconds and after every fight.
 - Higher ground is reachable by jump edges and then usable as cover. Dropping off a roof is allowed and fast but loses height you may not get back.
@@ -36,7 +36,7 @@ Anything above 40 units up, or farther than 300 down, is not an edge. The sky cl
 
 ## Getting unstuck
 
-Every 0.75 seconds the pilot checks whether you moved less than 10 units. After three failed checks in a row it jumps, picks a random reachable goal and re-plans. If `get_state` shows the same position for several waits, do the same by hand. Send a different `move_to`, do not keep waiting.
+Every 0.75 seconds the pilot checks whether you moved less than 10 units. While you `hunt`, three failed checks in a row make it jump, pick a random reachable goal and re-plan. With `move_to` or `attack` it only jumps and keeps your original goal. If `get_state` shows the same position for several waits, send a different `move_to` instead of waiting.
 
 ## Numbers worth remembering
 

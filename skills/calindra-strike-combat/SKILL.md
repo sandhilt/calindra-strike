@@ -5,12 +5,12 @@ description: Fire discipline and weapon handling for Calindra Strike, taken from
 
 # Calindra Strike combat
 
-The server bots in `server/src/bot.ts` play by the same rules as you, so their habits are a tested recipe. The pilot behind `attack` and `hunt` is meant to follow it. This skill is for the decisions that stay with you.
+The server bots in `server/src/bot.ts` play by the same rules as you, so their habits are a tested recipe. The pilot behind `attack`, `hunt` and `move_to` is that same brain (`BotBrain`), with its skill set by the MCP's `--skill` option (0 to 1, default 0.7). This skill is for the decisions that stay with you.
 
 ## Aim
 
 - Aim point is the chest by default. Standing, the chest is 44 units above the feet and the head 64. Crouching, 20 and 30.
-- Headshots do 4 times damage, but the hitbox is small. A shot only lands when your aim is inside `atan(12 / distance)` plus 0.6 degrees of the target for the body, and `atan(7 / distance)` plus 0.6 for the head. At 1000 units the head window is about 1 degree.
+- Headshots multiply damage by 4 for the pistol, rifle, SMG, AWP and LMG, by 2 for each shotgun pellet and by 1.4 for the hammer. The hitbox is small. A shot only lands when your aim is inside `atan(12 / distance)` plus 0.6 degrees of the target for the body, and `atan(7 / distance)` plus 0.6 for the head. At 1000 units the head window is about 1 degree.
 - Do not fire while still turning toward the target. Bots wait until the aim error is under that tolerance and only then press fire.
 - Switching targets costs a fresh reaction and fresh aim error. Bots even bias toward the current target (a 30 percent distance discount) to avoid flicking between people. Prefer finishing one enemy with `attack` over re-running `hunt` mid-duel.
 

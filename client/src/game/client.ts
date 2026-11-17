@@ -1,5 +1,6 @@
 import {
   BTN,
+  type SpectatorInfo,
   type Cmd,
   CMDS_PER_PACKET_MAX,
   CollisionWorld,
@@ -84,6 +85,7 @@ interface Remote {
 }
 
 export interface Welcome {
+  spectator: SpectatorInfo | null;
   id: number;
   time: number;
   roster: RosterEntry[];
@@ -104,14 +106,14 @@ export interface PodiumData {
   vote: VoteInfo | null;
 }
 
-export interface TeamState {
-  team: number;
-  canSwitch: boolean;
-}
+export type TeamPanel =
+  | { kind: 'player'; team: number; canSwitch: boolean }
+  | { kind: 'pick'; secondsLeft: number }
+  | { kind: 'watching'; team: number };
 
 export interface UiHooks {
   showClickToPlay(show: boolean): void;
-  showMenu(show: boolean): void;
+  showMenu(show: boolean, panel?: TeamPanel | null): void;
   showPodium(data: PodiumData | null, next: string): void;
   updateVotes(counts: number[], mine: number): void;
   updatePodiumCountdown(seconds: number): void;
@@ -159,6 +161,8 @@ export class ClientGame {
   private readonly me: PlayerState = createPlayerState();
   private readonly serverState: PlayerState = createPlayerState();
   private prev = new THREE.Vector3();
+  private spectator: SpectatorInfo | null;
+  private followedId = -1;
   private alive = false;
   private pending: Cmd[] = [];
   private outbox: Cmd[] = [];
@@ -194,6 +198,7 @@ export class ClientGame {
   private chatOpen = false;
   private podiumActive = false;
   private menuOpen = false;
+  private pickPanelKey = '';
   private elapsed = 0;
 
   constructor(
@@ -203,6 +208,7 @@ export class ClientGame {
     welcome: Welcome,
     private readonly ui: UiHooks,
   ) {
+    this.spectator = welcome.spectator;
     this.myId = welcome.id;
     this.match = welcome.match;
     this.clockOffset = welcome.time - performance.now();
@@ -248,6 +254,7 @@ export class ClientGame {
     });
 
     this.renderer.domElement.addEventListener('click', () => {
+      if (this.spectator) { if (!this.menuOpen) this.cycleTarget(); return; }
       if (!this.input.locked && !this.menuOpen) void this.requestPlay();
     });
     document.addEventListener('pointerlockchange', this.onLockChange);
@@ -255,8 +262,12 @@ export class ClientGame {
     window.addEventListener('beforeunload', this.onBeforeUnload);
     this.hud.chatInput.addEventListener('keydown', this.onChatKey);
     this.onResize();
-    this.ui.showClickToPlay(true);
+    this.ui.showClickToPlay(!this.spectator);
     if (this.match.phase === 'podium') this.enterPodium(this.match);
+    if (this.spectator?.kind === 'choosing') {
+      this.menuOpen = true;
+      this.ui.showMenu(true, this.teamPanel());
+    }
     this.lastFrame = performance.now();
     this.raf = requestAnimationFrame(this.frame);
   }
@@ -291,12 +302,13 @@ export class ClientGame {
       this.sfx.resume();
     } else if (!this.chatOpen && !this.podiumActive) {
       this.menuOpen = true;
-      this.ui.showMenu(true);
+      this.ui.showMenu(true, this.teamPanel());
     }
   };
 
   async requestPlay(): Promise<void> {
     this.sfx.resume();
+    if (this.spectator) { this.menuOpen = false; this.ui.showMenu(false); return; }
     await this.input.lock();
   }
 
@@ -304,7 +316,7 @@ export class ClientGame {
     this.settings = s;
     this.input.sensitivity = s.sensitivity;
     this.sfx.setVolume(s.volume);
-    this.net.send({ t: 'loadout', primary: s.primary });
+    if (!this.spectator) this.net.send({ t: 'loadout', primary: s.primary });
   }
 
   private setRoster(roster: RosterEntry[]): void {
@@ -344,7 +356,11 @@ export class ClientGame {
     return this.match.mode !== 'ffa' && t >= 0 && this.names.get(id)?.team === t;
   }
 
-  teamState(): TeamState | null {
+  teamPanel(): TeamPanel | null {
+    if (this.spectator?.kind === 'choosing') {
+      return { kind: 'pick', secondsLeft: Math.max(0, Math.ceil((this.spectator.pickEndsAt - this.serverNow()) / 1000)) };
+    }
+    if (this.spectator?.kind === 'watching') return { kind: 'watching', team: this.spectator.team };
     if (this.match.mode !== 'tdm' || this.myTeam < 0) return null;
     let mine = 0;
     let other = 0;
@@ -353,12 +369,13 @@ export class ClientGame {
       if (t === this.myTeam) mine++;
       else if (t === 1 - this.myTeam) other++;
     }
-    return { team: this.myTeam, canSwitch: this.match.phase !== 'podium' && other < mine };
+    return { kind: 'player', team: this.myTeam, canSwitch: this.match.phase !== 'podium' && other < mine };
   }
 
   switchTeam(): void {
-    const st = this.teamState();
-    if (st?.canSwitch) this.net.send({ t: 'team', team: 1 - st.team });
+    if (this.spectator) return;
+    const st = this.teamPanel();
+    if (st?.kind === 'player' && st.canSwitch) this.net.send({ t: 'team', team: 1 - st.team });
   }
 
   private loadMap(index: number): void {
@@ -388,6 +405,16 @@ export class ClientGame {
 
   private onMessage(m: ServerMsg): void {
     switch (m.t) {
+      case 'spectate': {
+        const wasChoosing = this.spectator?.kind === 'choosing';
+        this.spectator = m.state;
+        this.pickPanelKey = '';
+        if (m.state.kind === 'choosing') this.menuOpen = true;
+        else if (wasChoosing) this.menuOpen = false;
+        this.ui.showMenu(this.menuOpen, this.teamPanel());
+        this.followedId = -1;
+        break;
+      }
       case 'snap':
         this.onSnap(m);
         break;
@@ -641,12 +668,12 @@ export class ClientGame {
     // free the mouse so people can click a map in the vote
     if (document.pointerLockElement) document.exitPointerLock();
     this.ui.showMenu(false);
-    this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: info.vote ?? null }, next);
+    this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: this.spectator ? null : info.vote ?? null }, next);
   }
 
   /** Map vote on the podium (keys 1-3 or click). */
   vote(option: number): void {
-    if (!this.podiumActive || !this.match.vote || option < 0 || option >= this.match.vote.options.length) return;
+    if (this.spectator || !this.podiumActive || !this.match.vote || option < 0 || option >= this.match.vote.options.length) return;
     this.myVote = option;
     this.net.send({ t: 'vote', option });
     this.ui.updateVotes(this.voteCounts, this.myVote);
@@ -658,13 +685,29 @@ export class ClientGame {
     this.hud.setVisible(true);
     this.ui.showPodium(null, '');
     this.effects.clear();
-    if (!this.input.locked) this.ui.showClickToPlay(true);
+    if (!this.input.locked) this.ui.showClickToPlay(!this.spectator);
   }
 
   // ------------------------------------------------------------------ input
 
   private onKey(code: string, down: boolean, e: KeyboardEvent): boolean {
     if (this.chatOpen) return true;
+    if (this.spectator && code === 'Tab') {
+      e.preventDefault();
+      this.scoreboardOpen = down;
+      return true;
+    }
+    if (this.spectator && down && code === 'Escape') {
+      this.menuOpen = !this.menuOpen;
+      this.ui.showMenu(this.menuOpen, this.teamPanel());
+      return true;
+    }
+    if (this.spectator && down && !this.menuOpen && (code === 'Space' || code.startsWith('Arrow'))) {
+      e.preventDefault();
+      this.cycleTarget();
+      return true;
+    }
+    if (this.spectator) return true;
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
       return true;
@@ -714,6 +757,7 @@ export class ClientGame {
   // ------------------------------------------------------------------ simulation
 
   private tick(): void {
+    if (this.spectator) return;
     this.tickCount++;
     const renderTime = Math.max(0, this.serverNow() - INTERP_DELAY_MS);
     const canPlay = this.alive && this.match.phase !== 'podium';
@@ -890,6 +934,14 @@ export class ClientGame {
     }
     if (n === 15) this.accum = 0;
 
+    const panel = this.spectator?.kind === 'choosing' ? this.teamPanel() : null;
+    if (this.menuOpen && panel?.kind === 'pick') {
+      const key = this.spectator?.kind === 'choosing' ? this.spectator.pickEndsAt + ':' + panel.secondsLeft : '';
+      if (key !== this.pickPanelKey) {
+        this.pickPanelKey = key;
+        this.ui.showMenu(true, panel);
+      }
+    }
     if (this.podiumActive) {
       this.podium.update(dt);
       this.podium.render(this.renderer);
@@ -931,6 +983,20 @@ export class ClientGame {
     this.sfx.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, f.x, f.y, f.z);
   };
 
+  private watchTargets(): Remote[] {
+    const state = this.spectator;
+    if (state?.kind !== 'watching') return [];
+    return [...this.remotes.values()].filter(r => {
+      const s = this.sample(r, this.serverNow() - INTERP_DELAY_MS);
+      return s && (s.flags & RF_ALIVE) && (state.team === -1 || this.names.get(r.id)?.team === state.team);
+    });
+  }
+
+  private cycleTarget(): void {
+    const targets = this.watchTargets();
+    this.followedId = targets[(targets.findIndex(r => r.id === this.followedId) + 1) % targets.length]?.id ?? -1;
+  }
+
   private updateCamera(dt: number): void {
     const s = this.me;
     const def = weaponDef(s.weapon);
@@ -950,7 +1016,16 @@ export class ClientGame {
     }
     this.input.zoomSensScale = zoomed ? (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO : 1;
 
-    if (this.alive) {
+    if (this.spectator) {
+      const targets = this.watchTargets();
+      if (!targets.some(r => r.id === this.followedId)) this.followedId = targets[0]?.id ?? -1;
+      const remote = this.remotes.get(this.followedId);
+      const sample = remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS);
+      if (sample) {
+        this.camera.position.set(sample.x, sample.y + (sample.flags & RF_DUCK ? DUCK_EYE : STAND_EYE), sample.z);
+        this.camera.rotation.set(sample.pitch, sample.yaw, 0, 'YXZ');
+      }
+    } else if (this.alive) {
       const alpha = clamp(this.accum / TICK_MS, 0, 1);
       const x = this.prev.x + (s.x - this.prev.x) * alpha + this.correction.x;
       const y = this.prev.y + (s.y - this.prev.y) * alpha + this.correction.y;
@@ -989,7 +1064,7 @@ export class ClientGame {
       const wasVisible = r.visible;
       pos.set(s.x, s.y, s.z);
       r.avatar.root.rotation.y = s.yaw;
-      r.avatar.root.visible = true;
+      r.avatar.root.visible = !(this.spectator && r.id === this.followedId);
       r.visible = true;
       const moved = wasVisible ? Math.hypot(s.x - r.last.x, s.z - r.last.z) : 0;
       const inst = dt > 0 ? moved / dt : 0;
@@ -1027,6 +1102,7 @@ export class ClientGame {
 
   private updateHud(zoomed: boolean): void {
     const hud = this.hud;
+    hud.root.classList.toggle('spectating', !!this.spectator);
     const s = this.me;
     const def = weaponDef(s.weapon);
     const now = this.serverNow();

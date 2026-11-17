@@ -13,6 +13,8 @@ import { Overlays } from './ui/overlays.ts';
 
 const app = document.getElementById('app') as HTMLElement;
 const settings = loadSettings();
+let spectating = false;
+try { spectating = sessionStorage.getItem('calindra-strike:spectate') === 'true'; } catch {}
 let stopLobby: (() => void) | null = null;
 
 const TOKEN_KEY = 'calindra-strike:token';
@@ -45,7 +47,7 @@ class Rejected extends Error {
 
 function lobby(error = ''): void {
   stopLobby?.();
-  stopLobby = renderLobby(app, settings, error, (s) => void play(s));
+  stopLobby = renderLobby(app, settings, error, (s, spectate) => void play(s, spectate));
 }
 
 function waitWelcome(net: Connection, ms: number): Promise<Welcome> {
@@ -90,9 +92,9 @@ async function connect(s: Settings): Promise<{ net: Connection; welcome: Welcome
   const net = new Connection(SERVER_WS);
   try {
     await Promise.all([net.opened(), loadBrand()]);
-    net.send({ t: 'hello', v: PROTOCOL_VERSION, name: s.name, color: s.color, primary: s.primary, code: s.code, token: token.get() });
+    net.send({ t: 'hello', v: PROTOCOL_VERSION, name: s.name, color: s.color, primary: s.primary, code: s.code, spectate: spectating, token: spectating ? undefined : token.get() });
     const welcome = await waitWelcome(net, 8000);
-    token.set(welcome.token);
+    if (!spectating) token.set(welcome.token);
     return { net, welcome };
   } catch (e) {
     net.close();
@@ -100,7 +102,9 @@ async function connect(s: Settings): Promise<{ net: Connection; welcome: Welcome
   }
 }
 
-async function play(s: Settings): Promise<void> {
+async function play(s: Settings, spectate: boolean): Promise<void> {
+  spectating = spectate;
+  try { sessionStorage.setItem('calindra-strike:spectate', String(spectate)); } catch {}
   try {
     const { net, welcome } = await connect(s);
     stopLobby?.();
@@ -169,6 +173,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   };
 
   const overlays = new Overlays(root, s, {
+    watch: (team) => net.send({ t: 'watch', team }),
     resume: () => void game?.requestPlay(),
     leave,
     settingsChanged: (ns) => game?.applySettings(ns),
@@ -181,7 +186,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   if (import.meta.env.DEV) (window as unknown as { __overlays: Overlays }).__overlays = overlays;
   game = new ClientGame(root, net, s, welcome, {
     showClickToPlay: (v) => overlays.showClick(v),
-    showMenu: (v) => overlays.showMenu(v, game?.teamState() ?? null),
+    showMenu: (v, panel) => overlays.showMenu(v, panel ?? game?.teamPanel() ?? null),
     showPodium: (r, next) => overlays.showPodium(r, next),
     updateVotes: (counts, mine) => overlays.updateVotes(counts, mine),
     updatePodiumCountdown: (sec) => overlays.podiumCountdown(sec),

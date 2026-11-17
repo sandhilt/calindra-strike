@@ -1932,3 +1932,7 @@ input:focus-visible {
     display: none;
   }
 }
+
+.join-actions { display: flex; gap: 12px; }
+.spectating .vitals, .spectating .ammo { display: none; }
+.spectator-menu .primary-settings { display: none; }

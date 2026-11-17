@@ -1,9 +1,10 @@
 import { MODE_LABEL, PRIMARY_CHOICES, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
-import type { PodiumData, TeamState } from '../game/client.ts';
+import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { gameLogo, h } from './dom.ts';
 
 export interface OverlayHooks {
+  watch(team: 0 | 1): void;
   resume(): void;
   leave(): void;
   switchTeam(): void;
@@ -38,6 +39,7 @@ export class Overlays {
   private readonly podiumTitle = h('h2', { text: 'pódio' });
   private readonly podiumScore = h('div', { class: 'podium-score hidden' });
   private readonly teamRow = h('div', { class: 'team-switch hidden' });
+  private readonly menuTitle = h('h2', { text: 'pausado' });
   private nextMap = '';
   private lastSeconds = -1;
 
@@ -105,16 +107,18 @@ export class Overlays {
     };
 
     return h('div', { class: 'menu glass' }, [
-      h('h2', { text: 'pausado' }),
+      this.menuTitle,
       h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' }),
       this.teamRow,
-      seg(
-        'arma principal',
-        PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
-        () => s.primary,
-        (v) => (s.primary = v),
-      ),
-      h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'vale a partir do próximo salto' }),
+      h('div', { class: 'primary-settings' }, [
+        seg(
+          'arma principal',
+          PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
+          () => s.primary,
+          (v) => (s.primary = v),
+        ),
+        h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'vale a partir do próximo salto' }),
+      ]),
       slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
       slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
       slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
@@ -155,27 +159,52 @@ export class Overlays {
     this.click.classList.toggle('hidden', !v);
   }
 
-  showMenu(v: boolean, team: TeamState | null = null): void {
+  showMenu(v: boolean, team: TeamPanel | null = null): void {
     this.menu.classList.toggle('hidden', !v);
     if (v) this.click.classList.add('hidden');
+    this.menu.classList.toggle('spectator-menu', team !== null && team.kind !== 'player');
+    this.menuTitle.textContent = team !== null && team.kind !== 'player' ? 'assistindo' : 'pausado';
     if (v) this.renderTeamRow(team);
   }
 
-  private renderTeamRow(team: TeamState | null): void {
-    this.teamRow.classList.toggle('hidden', !team);
-    if (!team) return;
+  private renderTeamRow(team: TeamPanel | null): void {
+    this.teamRow.classList.toggle('hidden', !team || (team.kind === 'watching' && team.team < 0));
+    if (!team || (team.kind === 'watching' && team.team < 0)) return;
+    if (team.kind === 'pick') {
+      this.teamRow.replaceChildren(
+        h('div', {}, [
+          h('span', { class: 'label', text: 'escolha um time para assistir' }),
+          h('p', { text: team.secondsLeft > 0 ? 'Escolha em ' + team.secondsLeft + ' s' : 'Aguardando escolha do servidor…' }),
+          h('p', { class: 'label', text: 'Ao acabar o tempo, o servidor escolhe o time.' }),
+        ]),
+        ...([0, 1] as const).map(t => h('button', {
+          class: 'btn',
+          type: 'button',
+          style: 'color:' + TEAMS[t].color,
+          text: TEAMS[t].name,
+          disabled: team.secondsLeft === 0,
+          onclick: () => this.hooks.watch(t),
+        })),
+      );
+      return;
+    }
+    const canSwitch = team.kind === 'watching' || team.canSwitch;
+    const otherTeam = team.team === 0 ? 1 : 0;
     const mine = TEAMS[team.team];
-    const other = TEAMS[1 - team.team];
+    const other = TEAMS[otherTeam];
     this.teamRow.replaceChildren(
-      h('div', { class: 'team-current', style: `--team:${mine.color}` }, [h('span', { class: 'label', text: 'seu time' }), h('b', { text: mine.name })]),
+      h('div', { class: 'team-current', style: `--team:${mine.color}` }, [h('span', { class: 'label', text: team.kind === 'watching' ? 'assistindo' : 'seu time' }), h('b', { text: mine.name })]),
       h('button', {
         class: 'btn',
         type: 'button',
         style: `--team:${other.color}`,
-        disabled: !team.canSwitch,
-        title: team.canSwitch ? '' : 'O outro time já tem a mesma quantidade ou mais jogadores',
-        text: team.canSwitch ? `ir para os ${other.name}` : `${other.name}: time cheio`,
-        onclick: () => this.hooks.switchTeam(),
+        disabled: !canSwitch,
+        title: canSwitch ? '' : 'O outro time já tem a mesma quantidade ou mais jogadores',
+        text: canSwitch ? `ir para os ${other.name}` : `${other.name}: time cheio`,
+        onclick: () => {
+          if (team.kind === 'watching') this.hooks.watch(otherTeam);
+          else this.hooks.switchTeam();
+        },
       }),
     );
   }

@@ -39,7 +39,7 @@ function fmt(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function renderLobby(app: HTMLElement, settings: Settings, error: string, onPlay: (s: Settings) => void): () => void {
+export function renderLobby(app: HTMLElement, settings: Settings, error: string, onPlay: (s: Settings, spectate: boolean) => void): () => void {
   let status: Status | null = null;
   let disposed = false;
 
@@ -116,6 +116,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   const err = h('p', { class: 'form-error', role: 'alert', text: error });
   const play = h('button', { class: 'btn btn-primary play', type: 'submit', text: 'jogar agora' });
 
+  const watch = h('button', { class: 'btn', type: 'submit', text: 'só assistir' });
   const footnote = h('p', { class: 'footnote', text: 'Partidas de 5 min · quem fizer mais kills sobe no pódio' });
   const form = h('form', { class: 'card', novalidate: true }, [
     server,
@@ -123,7 +124,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'sua cor' }), swatches]),
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'arma principal' }), weapons]),
     codeField,
-    play,
+    h('div', { class: 'join-actions' }, [play, watch]),
     err,
     leaders,
     h('p', { class: 'mobile-note', text: 'Calindra Strike precisa de mouse e teclado. Abra no computador.' }),
@@ -147,8 +148,9 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     settings.code = codeInput.value.trim();
     saveSettings(settings);
     play.disabled = true;
+    watch.disabled = true;
     play.textContent = 'conectando…';
-    onPlay(settings);
+    onPlay(settings, e.submitter === watch);
   });
 
   const key = (k: string, label: string) => h('div', {}, [h('span', { class: 'kbd', text: k }), label]);

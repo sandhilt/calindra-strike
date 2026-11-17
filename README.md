@@ -105,3 +105,13 @@ The game validates client messages, limits traffic and commands, sanitizes names
 ## Controls
 
 `WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
+
+### Watching a match
+
+Choose **só assistir** in the lobby to watch without taking a player slot. In TDM,
+choose the first team in the Esc menu within 15 seconds; on timeout the server selects the smaller team
+(ties use the score, then chance). FFA starts watching immediately. Up to 16
+spectators can connect independently of the player limit. Spectators receive
+chat but cannot send it, play or vote. Later team switches in the Esc menu are
+free and have no time limit. Returning
+from FFA to TDM opens a fresh team choice.

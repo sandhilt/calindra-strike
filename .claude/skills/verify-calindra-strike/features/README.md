@@ -28,3 +28,4 @@ Maintained source for verifying user-facing behavior. Read this index, then the 
 - [Join from the lobby](./join-lobby.md): nickname, color and weapon selection, joining a match, errors.
 - [Match flow](./match-flow.md): warmup, live, podium and the next map in the rotation.
 - [Access control](./access-control.md): allowed origins and the optional join code.
+- [Spectating](./spectate.md): timed team choice, independent spectator capacity, server broadcasts and action restrictions.

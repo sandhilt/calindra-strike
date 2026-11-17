@@ -146,7 +146,8 @@ export function buildEscritorio(): MapDef {
     subtitle: 'open space, literalmente',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
     dropArea: { minX: -1200, maxX: 1200, minZ: -950, maxZ: 950 },
-    flagBases: [{ x: 0, z: -920 }, { x: 0, z: 920 }],
+    // West and east flanks: the widest open floor, instead of the cramped strip behind the pillar.
+    flagBases: [{ x: -920, z: -240 }, { x: 920, z: 240 }],
     dropHeight: 1000,
     airdropPoints: b.points,
     boxes: b.boxes,

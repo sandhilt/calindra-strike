@@ -1,4 +1,4 @@
-import { type GameMode, MODE_LABEL, PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId, sanitizeName, weaponDef } from '@calindra-strike/shared';
+import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId, sanitizeName, weaponDef } from '@calindra-strike/shared';
 import { SERVER_HTTP } from '../config.ts';
 import { type Settings, saveSettings } from '../settings.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
@@ -219,7 +219,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     modeChipText.textContent = enabledModes.map((mode) => MODE_LABEL[mode]).join(' · ');
     footnote.textContent = 'Partidas de 5 min · quem fizer mais kills sobe no pódio';
     const label = MODE_LABEL[status.mode ?? 'ffa'] ?? 'todos contra todos';
-    const mode = status.mode !== 'ffa' && status.teams ? `${label} ${status.teams[0]}×${status.teams[1]}` : label;
+    const mode = isTeamMode(status.mode ?? 'ffa') && status.teams ? `${label} ${status.teams[0]}×${status.teams[1]}` : label;
     const phase =
       status.phase === 'live' && status.endsInMs !== null
         ? `${status.map} · ${mode} · ${fmt(status.endsInMs)}`

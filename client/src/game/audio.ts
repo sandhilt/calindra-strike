@@ -1,3 +1,4 @@
+import { flagVoice } from './sound-packs/classic.ts';
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 
 import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
@@ -63,6 +64,10 @@ export class Sfx {
     this.packId = id;
     this.overrides = overrides;
     return true;
+  }
+
+  flag(action: 'take' | 'capture' | 'return', ownTeam: boolean): void {
+    (this.overrides.flag ?? flagVoice(this.kit))(action, ownTeam);
   }
 
   resume(): void {

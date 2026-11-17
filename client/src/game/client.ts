@@ -1,5 +1,7 @@
 import {
   BTN,
+  isTeamMode,
+  PLAYER_RADIUS,
   type SpectatorInfo,
   type Cmd,
   CMDS_PER_PACKET_MAX,
@@ -55,6 +57,8 @@ import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow }
 import { Sfx } from './audio.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
+import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
+import { FlagsView } from './render/flags.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import { Effects } from './render/effects.ts';
@@ -179,6 +183,8 @@ export class ClientGame {
   private reloadStages = 0;
 
   private readonly remotes = new Map<number, Remote>();
+  private flags: FlagView[] = [];
+  private flagRenderer?: FlagsView;
   private readonly airdrops = new Map<number, AirdropView>();
 
   private clockOffset = 0;
@@ -353,7 +359,7 @@ export class ClientGame {
   private nameOf(id: number): { name: string; color: string; team: number } {
     const n = this.names.get(id);
     if (!n) return { name: `#${id}`, color: '#9b9b94', team: -1 };
-    const color = this.match.mode !== 'ffa' && n.team >= 0 ? TEAMS[n.team].color : n.personal;
+    const color = isTeamMode(this.match.mode) && n.team >= 0 ? TEAMS[n.team].color : n.personal;
     return { name: n.name, color, team: n.team };
   }
 
@@ -363,7 +369,7 @@ export class ClientGame {
 
   private isTeammate(id: number): boolean {
     const t = this.myTeam;
-    return this.match.mode !== 'ffa' && t >= 0 && this.names.get(id)?.team === t;
+    return isTeamMode(this.match.mode) && t >= 0 && this.names.get(id)?.team === t;
   }
 
   teamPanel(): TeamPanel | null {
@@ -371,7 +377,7 @@ export class ClientGame {
       return { kind: 'pick', secondsLeft: Math.max(0, Math.ceil((this.spectator.pickEndsAt - this.serverNow()) / 1000)) };
     }
     if (this.spectator?.kind === 'watching') return { kind: 'watching', team: this.spectator.team };
-    if (this.match.mode !== 'tdm' || this.myTeam < 0) return null;
+    if (!isTeamMode(this.match.mode) || this.myTeam < 0) return null;
     let mine = 0;
     let other = 0;
     for (const id of this.online) {
@@ -403,6 +409,10 @@ export class ClientGame {
       a.dispose();
     }
     this.airdrops.clear();
+    this.flags = [];
+    this.flagRenderer?.dispose();
+    this.flagRenderer = new FlagsView(this.map.flagBases.map(base => ({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) })));
+    this.scene.add(this.flagRenderer.group);
     for (const r of this.remotes.values()) r.buf.length = 0;
     this.effects.clear();
   }
@@ -466,6 +476,7 @@ export class ClientGame {
   }
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
+    this.flags = flagViews(m.fl);
     // drift guard: snapshots should never be "from the future"
     const est = this.serverNow();
     if (m.time > est + 30) this.clockOffset += (m.time - est) * 0.5;
@@ -551,6 +562,12 @@ export class ClientGame {
 
   private onEvent(e: GameEvent): void {
     switch (e.k) {
+      case 'flag': {
+        const actor = this.nameOf(e.by);
+        this.hud.info(flagMessage(e.what, e.team, e.by, actor.name), e.by < 0 ? TEAMS[e.team].color : actor.color);
+        if (e.what !== 'drop') this.sfx.flag(e.what, (e.by < 0 ? e.team : actor.team) === this.myTeam);
+        break;
+      }
       case 'shot':
         this.onRemoteShot(e);
         break;
@@ -638,6 +655,7 @@ export class ClientGame {
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
+    if (info.mode !== 'ctf') this.flags = [];
     if (Array.isArray(info.teams)) this.teamScores = info.teams;
     if (info.mode !== before.mode) {
       this.dropAllAvatars();
@@ -649,9 +667,9 @@ export class ClientGame {
     } else {
       if (this.podiumActive) this.exitPodium();
       const min = Math.round((info.endsAt - this.serverNow()) / 60000);
-      if (info.phase === 'live' && info.mode === 'tdm') {
+      if (info.phase === 'live' && isTeamMode(info.mode)) {
         const t = TEAMS[this.myTeam];
-        this.hud.announce('team deathmatch', `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} kills ou ` : ''}${min} min`);
+        this.hud.announce(MODE_LABEL[info.mode], `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} ${info.mode === 'ctf' ? 'capturas' : 'kills'} ou ` : ''}${min} min`);
       } else if (info.phase === 'live') this.hud.announce('todos contra todos', `${this.map.name} · ${min} min · mais kills vence`);
       else if (before.phase !== 'warmup') this.hud.announce('aquecimento', 'esperando mais jogadores', true);
     }
@@ -663,7 +681,7 @@ export class ClientGame {
 
   private enterPodium(info: MatchInfo): void {
     const results = info.results ?? [];
-    const tdm = info.mode !== 'ffa';
+    const tdm = isTeamMode(info.mode);
     const winner = tdm ? (info.winner ?? -1) : -1;
     const featured = winner >= 0 ? results.filter((r) => r.team === winner) : results;
     const colorFor = (r: ResultRow) => (tdm && r.team >= 0 ? TEAMS[r.team].color : (PLAYER_COLORS[r.color] ?? '#f0f0f0'));
@@ -965,6 +983,13 @@ export class ClientGame {
     this.updateCamera(dt);
     this.updateRemotes(dt);
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
+    this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, id => {
+      if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw };
+      const remote = this.remotes.get(id);
+      if (!remote?.visible) return undefined;
+      const p = remote.avatar.root.position;
+      return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y };
+    });
     this.effects.update(dt);
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
@@ -1161,13 +1186,14 @@ export class ClientGame {
     const leaders: LeaderRow[] = rows.slice(0, 3).map((r, i) => ({ name: r.name, color: r.color, kills: r.kills, rank: i + 1, me: r.me }));
     const myIdx = rows.findIndex((r) => r.me);
     const meRow = myIdx >= 0 ? { name: rows[myIdx].name, color: rows[myIdx].color, kills: rows[myIdx].kills, rank: myIdx + 1, me: true } : null;
-    const tdm = this.match.mode !== 'ffa';
-    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam);
+    const tdm = isTeamMode(this.match.mode);
+    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, this.match.mode === 'ctf' ? 'capturas' : 'kills');
     else hud.setLeaders(leaders, meRow);
     hud.setTeamBadge(tdm ? this.myTeam : -1);
     hud.setWatching(this.watchingLabel());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
-    hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null);
+    hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, this.match.mode === 'ctf' ? 'capturas' : 'kills');
+    hud.setFlags(this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
 
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
@@ -1244,6 +1270,18 @@ export class ClientGame {
     const h = this.renderer.domElement.clientHeight;
     const targets: { x: number; y: number; z: number; label: string }[] = [];
     for (const a of this.airdrops.values()) targets.push({ x: a.x, y: a.group.position.y + 70, z: a.z, label: a.label });
+    const carrying = !this.spectator && this.flags.some(f => f.state === 'carried' && f.carrier === this.myId);
+    for (const flag of this.flags) {
+      if (flag.team !== this.myTeam || flag.state === 'dropped') {
+        if (flag.state === 'carried' && flag.carrier === this.myId) continue;
+        const at = this.flagRenderer?.position(flag.team) ?? flag;
+        targets.push({ x: at.x, y: at.y + 100, z: at.z, label: 'bandeira dos ' + TEAMS[flag.team].name });
+      }
+    }
+    if (carrying && this.myTeam >= 0) {
+      const base = this.map.flagBases[this.myTeam];
+      targets.push({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) + 100, label: 'sua base · capture aqui' });
+    }
     for (const a of targets) {
       v3.set(a.x, a.y, a.z);
       const dist = v3.distanceTo(this.camera.position);
@@ -1283,6 +1321,7 @@ export class ClientGame {
     if (document.pointerLockElement) document.exitPointerLock();
     this.input.dispose();
     this.sfx.dispose();
+    this.flagRenderer?.dispose();
     this.world?.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

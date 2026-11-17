@@ -1985,3 +1985,19 @@ input:focus-visible {
 }
 .watch-badge.idle .watch-hint { display: none; }
 .spectator-menu .primary-settings, .spectator-menu .spectate-action { display: none; }
+
+.flag-status, .flag-banner {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.flag-status { top: 94px; display: flex; gap: 16px; font-size: 12px; }
+.flag-banner { top: 144px; color: var(--lime, #a5fa00); font-weight: 700; }
+@media (max-width: 600px) {
+  .flag-status { top: 82px; flex-direction: column; gap: 3px; width: max-content; }
+  .flag-banner { top: 148px; width: max-content; font-size: 12px; }
+}

@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -89,8 +89,9 @@ export const BTN = {
   ATTACK: 128,
   ATTACK2: 256,
   RELOAD: 512,
+  USE: 1024,
 } as const;
-export const BTN_MASK = 1023;
+export const BTN_MASK = 2047;
 
 export const SPECTATOR_PICK_MS = 15_000;
 export const MAX_SPECTATORS = 16;
@@ -109,3 +110,15 @@ export const CTF_CAPTURE_RADIUS_UNITS = 64;
 export const CTF_RETURN_TICKS = 30 * TICK_RATE;
 
 export const CTF_ENGAGE_DISTANCE_UNITS = 600;
+
+// --- debug defusion ---
+export const PLANT_TICKS = 3 * TICK_RATE;
+export const FUSE_TICKS = 35 * TICK_RATE;
+export const DEFUSE_TICKS = 7 * TICK_RATE;
+export const BOMB_RETURN_TICKS = 20 * TICK_RATE;
+export const PLANT_MS = PLANT_TICKS * TICK_MS;
+export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
+export const FUSE_MS = FUSE_TICKS * TICK_MS;
+export const BOMB_SITE_RADIUS_UNITS = 160;
+export const DEFUSE_RADIUS_UNITS = 64;
+export const DEBUG_SCENARIO_COUNT = 5;

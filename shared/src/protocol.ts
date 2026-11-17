@@ -1,4 +1,5 @@
 import type { FlagEvent } from './ctf.ts';
+import type { BombEvent } from './defuse.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
 import type { Cmd, PlayerState } from './sim.ts';
 import { PRIMARY_CHOICES, WEAPON_COUNT, type WeaponId } from './weapons.ts';
@@ -109,19 +110,21 @@ export function encodeCmd(c: Cmd): number[] {
 // ------------------------------------------------------------ server -> client
 
 export type MatchPhase = 'warmup' | 'live' | 'podium';
-export type GameMode = 'ffa' | 'tdm' | 'ctf';
-export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf'];
+export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse';
+export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse'];
 
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
   tdm: 'team deathmatch',
   ctf: 'capture a bandeira',
+  defuse: 'debug defusion',
 };
 
 export const MODE_RULES = {
   ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false },
   tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true },
   ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false },
+  defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false },
 } as const;
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
 
@@ -142,8 +145,8 @@ export interface MatchInfo {
   mode: GameMode;
   map: number;
   endsAt: number; // server time ms
-  teams: number[]; // team scores [bulldogs, martelos] (TDM kills or CTF captures)
-  limit: number; // TDM kill limit or CTF capture limit, 0 = timer only
+  teams: number[]; // team scores [bulldogs, martelos] (TDM kills, CTF captures or debug defusion rounds)
+  limit: number; // TDM kill, CTF capture or defusion round limit, 0 = timer only
   results?: ResultRow[];
   winner?: number; // TDM: winning team, -1 draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
@@ -163,6 +166,7 @@ export interface VoteInfo {
 export type GameEvent =
   | { k: 'spray'; id: number; p: number[]; n: number[]; r: number; left: number }
   | FlagEvent
+  | BombEvent
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
@@ -182,7 +186,10 @@ export type ServerMsg =
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
   // fl rows: [state, carrierId, x, y, z, returnAtMs]; x,y,z = current world position, carrier position when carried.
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][] }
+  // bm (debug defusion only, [] otherwise): [state, actorId, x, y, z, explodeAtMs, defuseDoneAtMs, variant, attackers, plantDoneAtMs].
+  // state: 0 home, 1 carried, 2 planting, 3 dropped, 4 planted. actorId is the carrier (carried, planting) or the defuser (planted), -1 if none.
+  // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
   | { t: 'score'; s: number[][]; ts: number[] }

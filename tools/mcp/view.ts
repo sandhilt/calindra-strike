@@ -5,6 +5,7 @@ import {
   RF_ALIVE,
   getMap,
   weaponDef,
+  WEAPON,
   wrapAngle,
   type PlayerState,
   type ServerMsg,
@@ -113,7 +114,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
 export function renderView(
   v: WorldView,
   intent: Intent,
-  actions: { crouch: boolean; zoom: number | null } = { crouch: false, zoom: null },
+  actions: { crouch: boolean; walk: boolean; zoom: number | null } = { crouch: false, walk: false, zoom: null },
 ): object {
   const s = v.self;
   const relative = (p: { x: number; z: number }) =>
@@ -173,6 +174,12 @@ export function renderView(
       pos: s ? [s.x, s.y, s.z] : null,
       yawDeg,
       weapon: s ? weaponDef(s.weapon).name : null,
+      slots: s ? {
+        primary: weaponDef(s.primary).name,
+        pistol: weaponDef(WEAPON.PISTOL).name,
+        hammer: weaponDef(WEAPON.HAMMER).name,
+        last: weaponDef(s.lastWeapon).name,
+      } : null,
       mag: s?.mag[s.weapon],
       reserve: s?.reserve[s.weapon],
       reloading: s ? s.reload > 0 : false,

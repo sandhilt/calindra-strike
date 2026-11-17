@@ -10,11 +10,12 @@ import {
   type ServerMsg,
   type ClientMsg,
   weaponDef,
+  WEAPON,
   type PlayerState,
   type WeaponId,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
-import { ActionOverlay } from './actions.ts';
+import { ActionOverlay, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { welcome, decodeSnapshot, renderView, type WorldView } from './view.ts';
 export interface SocketLike {
@@ -271,8 +272,8 @@ export class GameSession {
     this.intent = intent;
     return { intent, distance };
   }
-  private actionState(): { crouch: boolean; zoom: number | null } {
-    return { crouch: this.actions.crouch, zoom: this.actions.zoom };
+  private actionState(): { crouch: boolean; walk: boolean; zoom: number | null } {
+    return { crouch: this.actions.crouch, walk: this.actions.walk, zoom: this.actions.zoom };
   }
   private livingSelf(): PlayerState {
     const s = this.requirePlaying().view.self;
@@ -288,6 +289,29 @@ export class GameSession {
     this.livingSelf();
     this.actions.crouch = on;
     return this.actionState();
+  }
+  walk(on: boolean): object {
+    this.livingSelf();
+    this.actions.walk = on;
+    return this.actionState();
+  }
+  reload(): object {
+    const self = this.livingSelf();
+    if (weaponDef(self.weapon).mag <= 0) throw new Error('Weapon cannot reload');
+    this.actions.requestReload();
+    return this.actionState();
+  }
+  switchWeapon(slot: WeaponSlot): object {
+    const self = this.livingSelf();
+    const targets = {
+      primary: self.primary,
+      pistol: WEAPON.PISTOL,
+      hammer: WEAPON.HAMMER,
+      last: self.lastWeapon,
+    };
+    const target = targets[slot];
+    if (target !== self.weapon) this.actions.requestWeapon(WEAPON_SLOT_REQUEST[slot]);
+    return { ...this.actionState(), weapon: weaponDef(target).name };
   }
   setZoom(level: number): object {
     const scopeLevels = weaponDef(this.livingSelf().weapon).zoomFov.length;

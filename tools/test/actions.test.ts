@@ -129,3 +129,41 @@ test('reset clears crouch, zoom and a pending jump', () => {
   assert.equal(o.crouch, false);
   assert.equal(o.zoom, null);
 });
+
+test('walk latches on every apply, releases on off and resets', () => {
+  const o = new ActionOverlay();
+  o.walk = true;
+  assert.ok(pressed(o.apply(cmd(), null), BTN.WALK));
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.WALK));
+  o.walk = false;
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.WALK));
+  assert.ok(pressed(o.apply(cmd(BTN.WALK), player()), BTN.WALK));
+  o.walk = true;
+  o.reset();
+  assert.equal(o.walk, false);
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.WALK));
+});
+
+test('reload is consumed on exactly one apply and reset clears a pending reload', () => {
+  const o = new ActionOverlay();
+  o.requestReload();
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.RELOAD));
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.RELOAD));
+  o.requestReload();
+  o.reset();
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.RELOAD));
+});
+
+test('weapon requests override the brain on one apply without mutating its command', () => {
+  for (const request of [1, 2, 3, 4] as const) {
+    const o = new ActionOverlay();
+    const input = { ...cmd(), weapon: 2 };
+    o.requestWeapon(request);
+    assert.equal(o.apply(input, player()).weapon, request);
+    assert.equal(input.weapon, 2);
+    assert.equal(o.apply(input, player()).weapon, 2);
+    o.requestWeapon(request);
+    o.reset();
+    assert.equal(o.apply(cmd(), player()).weapon, 0);
+  }
+});

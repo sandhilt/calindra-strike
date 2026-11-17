@@ -1,6 +1,8 @@
 import { CHAT_MAX_LEN, WEAPON, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
+import { WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
+const isWeaponSlot = (slot: string): slot is WeaponSlot => Object.hasOwn(WEAPON_SLOT_REQUEST, slot);
 type Args = Record<string, unknown>;
 const number = (a: Args, k: string, min = -Infinity, max = Infinity, integer = false): number => {
   const v = a[k];
@@ -128,6 +130,30 @@ export const toolDefinitions: Definition[] = [
     properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
     required: ['level'],
     run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),
+  },
+  {
+    name: 'walk',
+    description: 'Walk (Shift) while on; stays set until changed or you respawn.',
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.walk(boolean(a, 'on')),
+  },
+  {
+    name: 'reload',
+    description: 'Reload once (R). Requires a weapon that can reload.',
+    properties: {},
+    run: (s) => s.reload(),
+  },
+  {
+    name: 'switch_weapon',
+    description: 'Switch weapon once: primary (1), pistol (2), hammer (3) or last (Q).',
+    properties: { slot: { type: 'string', enum: Object.keys(WEAPON_SLOT_REQUEST) } },
+    required: ['slot'],
+    run: (s, a) => {
+      const slot = string(a, 'slot', Infinity);
+      if (!isWeaponSlot(slot)) throw new Error('Invalid slot');
+      return s.switchWeapon(slot);
+    },
   },
   {
     name: 'choose_loadout',

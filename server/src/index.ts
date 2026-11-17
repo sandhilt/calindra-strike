@@ -230,6 +230,9 @@ function onConnection(ws: WebSocket, ip: string): void {
         case 'ping':
           send(JSON.stringify({ t: 'pong', c: msg.c, s: game.now() }), true);
           break;
+        case 'spray':
+          game.spray(player);
+          break;
         case 'loadout':
           game.setLoadout(player, msg.primary);
           break;

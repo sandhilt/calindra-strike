@@ -65,3 +65,13 @@ it('validates spectator joins and team choices', () => {
   for (const team of [0, 1]) assert.deepStrictEqual(parseClientMessage(JSON.stringify({ t: 'watch', team })), { t: 'watch', team });
   for (const team of [-1, 2, '0', null, 0.5]) assert.equal(parseClientMessage(JSON.stringify({ t: 'watch', team })), null);
 });
+
+it('accepts only the payload-free spray message', () => {
+  assert.deepEqual(parseClientMessage('{"t":"spray"}'), { t: 'spray' });
+  for (const raw of [
+    '{"t":"spray","p":[0,0,0]}',
+    '{"t":"spray","junk":null}',
+    '{"t":["spray"]}',
+    '["spray"]',
+  ]) assert.equal(parseClientMessage(raw), null);
+});

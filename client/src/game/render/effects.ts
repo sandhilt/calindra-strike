@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { SPRAY_SIZE } from '@calindra-strike/shared';
+import { brandImage } from '../../brand.ts';
 import { flashTexture } from './viewmodel.ts';
 
 interface Tracer {
@@ -47,6 +49,9 @@ export class Effects {
   private readonly tracers: Tracer[] = [];
   private readonly decals: Decal[] = [];
   private decalIdx = 0;
+  private readonly sprays: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
+  private readonly sprayTextures = new Map<string, THREE.CanvasTexture>();
+  private sprayIdx = 0;
   private readonly sparks: Particle[] = [];
   private readonly sparkGeo: THREE.BufferGeometry;
   private readonly sparkPts: THREE.Points;
@@ -77,6 +82,15 @@ export class Effects {
       scene.add(mesh);
       this.decals.push({ mesh, age: 0 });
     }
+    const sprayGeo = new THREE.PlaneGeometry(SPRAY_SIZE, SPRAY_SIZE);
+    for (let i = 0; i < 32; i++) {
+      const mesh = new THREE.Mesh(sprayGeo, new THREE.MeshBasicMaterial({
+        transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
+      }));
+      mesh.visible = false;
+      scene.add(mesh);
+      this.sprays.push(mesh);
+    }
     this.sparkGeo = new THREE.BufferGeometry();
     this.sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 3), 3));
     this.sparkGeo.setDrawRange(0, 0);
@@ -98,6 +112,43 @@ export class Effects {
       scene.add(s);
       this.flashes.push({ s, t: 0 });
     }
+  }
+
+  spray(pos: THREE.Vector3, normal: THREE.Vector3, yaw: number, color: string): void {
+    let texture = this.sprayTextures.get(color);
+    if (!texture) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      const g = canvas.getContext('2d');
+      if (!g) return;
+      const image = brandImage('eitri');
+      if (image) {
+        const scale = 256 / Math.max(image.naturalWidth, image.naturalHeight);
+        const w = image.naturalWidth * scale;
+        const h = image.naturalHeight * scale;
+        g.drawImage(image, (256 - w) / 2, (256 - h) / 2, w, h);
+        g.globalCompositeOperation = 'source-in';
+        g.fillStyle = color;
+        g.fillRect(0, 0, 256, 256);
+      } else {
+        g.fillStyle = color;
+        g.beginPath();
+        g.arc(128, 128, 120, 0, Math.PI * 2);
+        g.fill();
+      }
+      texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      this.sprayTextures.set(color, texture);
+    }
+    const mesh = this.sprays[this.sprayIdx];
+    this.sprayIdx = (this.sprayIdx + 1) % this.sprays.length;
+    mesh.material.map = texture;
+    mesh.material.needsUpdate = true;
+    mesh.position.copy(pos).addScaledVector(normal, 0.4);
+    mesh.up.set(0, 1, 0);
+    if (Math.abs(normal.y) > 0.99) mesh.up.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+    mesh.lookAt(this.tmpS.copy(mesh.position).add(normal));
+    mesh.visible = true;
   }
 
   tracer(from: THREE.Vector3, to: THREE.Vector3): void {
@@ -255,6 +306,8 @@ export class Effects {
   clear(): void {
     for (const c of this.corpses) this.scene.remove(c.obj);
     this.corpses.length = 0;
+    for (const mesh of this.sprays) mesh.visible = false;
+    this.sprayIdx = 0;
     for (const d of this.decals) d.mesh.visible = false;
     this.sparks.length = 0;
     this.cubes.length = 0;

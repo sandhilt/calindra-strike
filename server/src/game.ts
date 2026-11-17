@@ -28,6 +28,8 @@ import {
   type ResultRow,
   type RosterEntry,
   SNAPSHOT_EVERY_TICKS,
+  SPRAY_RANGE,
+  sprayPlacement,
   type ShotInfo,
   type VoteOption,
   TICK_DT,
@@ -131,6 +133,7 @@ export interface ServerPlayer {
   primaryChoice: WeaponId;
   state: PlayerState;
   alive: boolean;
+  sprayUsed: boolean;
   respawnAt: number;
   queue: Cmd[];
   lastSeq: number;
@@ -358,6 +361,7 @@ export class Game {
       primaryChoice: primary,
       state: createPlayerState(),
       alive: false,
+      sprayUsed: false,
       respawnAt: 0,
       queue: [],
       lastSeq: -1,
@@ -487,6 +491,7 @@ export class Game {
       primaryChoice: PRIMARY_CHOICES[Math.floor(this.random() * PRIMARY_CHOICES.length)],
       state: createPlayerState(),
       alive: false,
+      sprayUsed: false,
       respawnAt: 0,
       queue: [],
       lastSeq: -1,
@@ -578,6 +583,18 @@ export class Game {
       p.queue.push(c);
     }
     if (p.queue.length > MAX_QUEUE) p.queue.splice(0, p.queue.length - MAX_QUEUE);
+  }
+
+  spray(p: ServerPlayer): void {
+    if (!p.alive || p.state.dropping || p.sprayUsed || this.phase === 'podium') return;
+    const hit = sprayPlacement(this.world, p.state, SPRAY_RANGE);
+    if (!hit) return;
+    p.sprayUsed = true;
+    this.emit({
+      k: 'spray', id: p.id,
+      p: [round(hit.x, 10), round(hit.y, 10), round(hit.z, 10)],
+      n: [hit.nx, hit.ny, hit.nz], r: round(p.state.yaw, 1e4),
+    });
   }
 
   setLoadout(p: ServerPlayer, primary: WeaponId): void {
@@ -747,6 +764,7 @@ export class Game {
     const yaw = Math.atan2(best.x, best.z);
     spawnState(p.state, best.x, this.map.dropHeight, best.z, yaw, p.primaryChoice);
     p.alive = true;
+    p.sprayUsed = false;
     p.brain?.reset();
     this.clearHistory(p);
   }

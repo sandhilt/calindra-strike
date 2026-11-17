@@ -5,3 +5,4 @@ export * from './physics.ts';
 export * from './protocol.ts';
 export * from './sim.ts';
 export * from './weapons.ts';
+export * from './spray.ts';

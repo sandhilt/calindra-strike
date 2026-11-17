@@ -7,6 +7,7 @@ export const MAX_MESSAGE_BYTES = 4096;
 // ------------------------------------------------------------ client -> server
 
 export type ClientMsg =
+  | { t: 'spray' }
   | { t: 'hello'; v: number; name: string; color: number; primary: WeaponId; code: string; token: string; spectate?: boolean }
   | { t: 'watch'; team: 0 | 1 }
   | { t: 'in'; c: Cmd[] }
@@ -51,6 +52,8 @@ export function parseClientMessage(raw: string): ClientMsg | null {
       }
       return { t: 'in', c: cmds };
     }
+    case 'spray':
+      return Object.keys(o).length === 1 ? { t: 'spray' } : null;
     case 'ping':
       return isNum(o.c, 0, 1e13) ? { t: 'ping', c: o.c } : null;
     case 'hello': {
@@ -149,6 +152,7 @@ export interface VoteInfo {
 }
 
 export type GameEvent =
+  | { k: 'spray'; id: number; p: number[]; n: number[]; r: number }
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }

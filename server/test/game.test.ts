@@ -167,3 +167,60 @@ describe('Game', () => {
     assert.ok(a.state.tick - before <= 24 + 60, "Expected a.state.tick - before <= 24 + 60");
   });
 });
+
+describe('sprays', () => {
+  it('broadcasts once per spawn, including after death and respawn', () => {
+    const { game, join, inbox } = setup();
+    const a = join('Sprayer');
+    const b = join('Shooter');
+    game.world = flatWorld();
+    place(a, 0, 0);
+    place(b, 0, 500);
+    a.state.pitch = -Math.PI / 2;
+    game.spray(a);
+    game.spray(a);
+    game.update();
+    for (const box of inbox.values()) {
+      const sprays = events(box).filter(e => e.k === 'spray');
+      assert.equal(sprays.length, 1);
+      assert.partialDeepStrictEqual(sprays[0], { id: a.id, n: [0, 1, 0] });
+    }
+    game.input(b, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
+    game.update();
+    assert.equal(a.alive, false);
+    for (let i = 0; i < 181; i++) game.update();
+    assert.equal(a.alive, true);
+    assert.equal(a.sprayUsed, false);
+    place(a, 0, 0);
+    a.state.pitch = -Math.PI / 2;
+    game.spray(a);
+    game.update();
+    for (const box of inbox.values()) assert.equal(events(box).filter(e => e.k === 'spray').length, 2);
+  });
+
+  it('does not consume attempts at sky, out of range, while dead or dropping', () => {
+    const { game, join, inbox } = setup();
+    const a = join('Sprayer');
+    game.world = flatWorld();
+    place(a, 0, 0);
+    a.alive = false;
+    a.state.pitch = -Math.PI / 2;
+    game.spray(a);
+    a.alive = true;
+    a.state.dropping = true;
+    game.spray(a);
+    a.state.dropping = false;
+    a.state.pitch = Math.PI / 2;
+    game.spray(a);
+    a.state.pitch = -Math.PI / 2;
+    a.state.y = 200;
+    game.spray(a);
+    assert.equal(a.sprayUsed, false);
+    game.update();
+    assert.equal(events(inbox.get(a.id)!).filter(e => e.k === 'spray').length, 0);
+    place(a, 0, 0);
+    game.spray(a);
+    game.update();
+    assert.equal(events(inbox.get(a.id)!).filter(e => e.k === 'spray').length, 1);
+  });
+});

@@ -551,6 +551,9 @@ export class ClientGame {
 
   private onEvent(e: GameEvent): void {
     switch (e.k) {
+      case 'spray':
+        this.effects.spray(new THREE.Vector3(...e.p), new THREE.Vector3(...e.n), e.r, this.names.get(e.id)?.personal ?? '#9b9b94');
+        break;
       case 'shot':
         this.onRemoteShot(e);
         break;
@@ -720,6 +723,10 @@ export class ClientGame {
     if (this.spectator) return true;
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
+      return true;
+    }
+    if (code === 'KeyG') {
+      if (down && !e.repeat && this.input.locked && !this.menuOpen && !this.podiumActive) this.net.send({ t: 'spray' });
       return true;
     }
     if (code === 'Tab') {

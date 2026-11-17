@@ -117,3 +117,8 @@ spectators can connect independently of the player limit. Spectators receive
 chat but cannot send it, play or vote. Later team switches in the Esc menu are
 free and have no time limit. Returning
 from FFA to TDM opens a fresh team choice.
+
+The camera follows a player in first person: you see their weapon (with its
+recoil, reload and switch animations), and a badge at the bottom shows
+**assistindo** with the followed player's name in their colour. Space or the
+arrow keys change the target.

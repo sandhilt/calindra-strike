@@ -61,6 +61,13 @@ export class Hud {
   private readonly protect = h('div', { class: 'protect-vignette' });
   private readonly scope = h('div', { class: 'scope hidden' });
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
+  private readonly watchName = h('b', { class: 'watch-name' });
+  private readonly watchBadge = h('div', { class: 'watch-badge glass hidden' }, [
+    h('i', { class: 'watch-dot' }),
+    h('span', { class: 'label', text: 'assistindo' }),
+    this.watchName,
+    h('span', { class: 'watch-hint' }, [h('span', { class: 'kbd', text: 'Espaço' }), 'próximo']),
+  ]);
   private readonly center = h('div', { class: 'center' });
   private readonly dropAlt = h('div', { class: 'alt', text: '' });
   private readonly drop = h('div', { class: 'drop-hud glass hidden' }, [
@@ -114,6 +121,7 @@ export class Hud {
       this.hitm,
       this.dmgRing,
       this.center,
+      this.watchBadge,
       this.drop,
       this.death,
       this.chat,
@@ -174,6 +182,16 @@ export class Hud {
       if (team < 0) return;
       this.teamBadge.textContent = TEAMS[team].name;
       this.teamBadge.style.setProperty('--team', TEAMS[team].color);
+    });
+  }
+
+  /** Spectator badge. `target` null while nobody is alive to follow; `undefined` hides it. */
+  setWatching(target: { name: string; color: string } | null | undefined): void {
+    this.set('watch', JSON.stringify(target ?? false), () => {
+      this.watchBadge.classList.toggle('hidden', target === undefined);
+      this.watchBadge.classList.toggle('idle', target === null);
+      this.watchName.textContent = target ? target.name : 'aguardando jogadores';
+      this.watchBadge.style.setProperty('--team', target?.color ?? 'var(--muted)');
     });
   }
 

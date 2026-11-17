@@ -1935,4 +1935,40 @@ input:focus-visible {
 
 .join-actions { display: flex; gap: 12px; }
 .spectating .vitals, .spectating .ammo { display: none; }
+.watch-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  white-space: nowrap;
+  border-color: color-mix(in srgb, var(--team) 55%, transparent);
+}
+.watch-badge .watch-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.watch-badge.idle .watch-dot { background: var(--muted); animation: none; }
+.watch-badge .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.watch-badge .watch-name { font-size: 15px; color: var(--team); }
+.watch-badge .watch-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.watch-badge.idle .watch-hint { display: none; }
 .spectator-menu .primary-settings { display: none; }

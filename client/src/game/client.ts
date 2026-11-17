@@ -58,6 +58,7 @@ import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import { Effects } from './render/effects.ts';
 import { PodiumScene } from './render/podium.ts';
+import { FollowedViewTracker } from './render/follow-view.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { type WorldView, buildWorld, followShadow } from './render/world.ts';
 
@@ -163,6 +164,8 @@ export class ClientGame {
   private prev = new THREE.Vector3();
   private spectator: SpectatorInfo | null;
   private followedId = -1;
+  private readonly followedView = new FollowedViewTracker();
+  private viewColorFor = -1;
   private alive = false;
   private pending: Cmd[] = [];
   private outbox: Cmd[] = [];
@@ -863,6 +866,7 @@ export class ClientGame {
     const [ox, oy, oz] = e.o;
     this.sfx.shot(e.w as WeaponId, { x: ox, y: oy, z: oz }, e.h === 1);
     const r = this.remotes.get(e.id);
+    if (this.spectator && e.id === this.followedId) this.view.fire(e.h === 1);
     if (def.slot === 3) return;
     const origin = new THREE.Vector3(ox, oy, oz);
     if (r?.visible) {
@@ -964,24 +968,47 @@ export class ClientGame {
 
     const def = weaponDef(this.me.weapon);
     const zoomed = this.alive && this.me.zoom > 0 && def.zoomFov.length > 0;
-    this.view.update({
-      dt,
-      speed: Math.hypot(this.me.vx, this.me.vz),
-      onGround: this.me.onGround,
-      lookDX: ldx,
-      lookDY: ldy,
-      reloadFrac: this.me.reload > 0 ? 1 - this.me.reload / def.reloadTicks : -1,
-      deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
-      hidden: !this.alive || zoomed || this.me.dropping,
-    });
+    const showView = this.spectator ? this.updateFollowedView(dt) : this.alive && !zoomed && !this.me.dropping;
+    if (!this.spectator) {
+      this.view.update({
+        dt,
+        speed: Math.hypot(this.me.vx, this.me.vz),
+        onGround: this.me.onGround,
+        lookDX: ldx,
+        lookDY: ldy,
+        reloadFrac: this.me.reload > 0 ? 1 - this.me.reload / def.reloadTicks : -1,
+        deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
+        hidden: !showView,
+      });
+    }
 
     this.renderer.render(this.scene, this.camera);
-    if (this.alive && !zoomed && !this.me.dropping) this.view.render(this.renderer);
+    if (showView) this.view.render(this.renderer);
 
     this.updateHud(zoomed);
     const f = v3.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
     this.sfx.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, f.x, f.y, f.z);
   };
+
+  /** Holds the followed player's weapon in the viewmodel; false when there is nothing to draw. */
+  private updateFollowedView(dt: number): boolean {
+    const remote = this.remotes.get(this.followedId);
+    const sample = remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS);
+    if (!remote || !sample) return false;
+    if (this.viewColorFor !== remote.id) {
+      this.viewColorFor = remote.id;
+      this.view.setSleeveColor(this.nameOf(remote.id).color);
+    }
+    const { weapon, ...pose } = this.followedView.pose(
+      remote.id,
+      { weapon: sample.w as WeaponId, flags: sample.flags, speed: remote.speed, onGround: (sample.flags & RF_GROUND) !== 0 },
+      performance.now(),
+      dt,
+    );
+    this.view.setWeapon(weapon);
+    this.view.update(pose);
+    return !pose.hidden;
+  }
 
   private watchTargets(): Remote[] {
     const state = this.spectator;
@@ -1126,6 +1153,7 @@ export class ClientGame {
     if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam);
     else hud.setLeaders(leaders, meRow);
     hud.setTeamBadge(tdm ? this.myTeam : -1);
+    hud.setWatching(this.watchingLabel());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null);
 
@@ -1176,6 +1204,13 @@ export class ClientGame {
       const kb = (this.net.bytesIn / 1024 / Math.max(1, this.elapsed)).toFixed(1);
       hud.setNetstat(`${this.fps} fps\nping ${Math.round(this.rtt)} ms\npred ${this.pending.length}\n${kb} KB/s`);
     } else hud.setNetstat(null);
+  }
+
+  private watchingLabel(): { name: string; color: string } | null | undefined {
+    if (this.spectator?.kind !== 'watching') return undefined;
+    if (!this.remotes.has(this.followedId)) return null;
+    const { name, color } = this.nameOf(this.followedId);
+    return { name, color };
   }
 
   private markers(): Marker[] {

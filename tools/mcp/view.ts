@@ -17,6 +17,7 @@ import {
   type FlagState,
   isTeamMode,
   TICK_MS,
+  PLANT_MS, DEFUSE_MS, PLAYER_RADIUS, type BombState,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
 export interface Peer {
@@ -45,7 +46,7 @@ export interface Airdrop {
 export type ViewEvent =
   | (Extract<GameEvent, { k: 'kill' }> & { byName?: string; toName?: string })
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
-  | (Extract<GameEvent, { k: 'flag' }> & { byName?: string })
+  | (Extract<GameEvent, { k: 'flag' | 'bomb' }> & { byName?: string })
   | { k: 'intent'; reason: string; id: number };
 export interface ChatLine {
   t: 'chat';
@@ -75,6 +76,7 @@ export interface WorldView {
   perception: 'line-of-sight' | 'omniscient';
   airdrops: Airdrop[];
   flags: number[][];
+  bomb: number[];
   scores: number[][];
   events: ViewEvent[];
   chat: ChatLine[];
@@ -91,6 +93,7 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     perception: 'line-of-sight',
     airdrops: [],
     flags: [],
+    bomb: [],
     sprays: [],
     scores: [],
     events: [],
@@ -129,6 +132,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
       };
     });
   v.flags = m.fl ?? [];
+  v.bomb = m.bm ?? [];
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
@@ -229,6 +233,7 @@ export function renderView(
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
     airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...describeRelative(p) })),
+    bomb: describeBomb(v, world),
     flags: v.flags.map((row, team) => ({
       team,
       state: row[0] === 0 ? 'at_base' : row[0] === 1 ? 'carried' : 'dropped',
@@ -250,4 +255,40 @@ export function flagStates(v: WorldView): FlagState[] {
   return v.flags.map(row => row[0] === 0 ? { kind: 'home' }
     : row[0] === 1 ? { kind: 'carried', carrier: row[1] }
     : { kind: 'dropped', x: row[2], y: row[3], z: row[4], returnAtTick: row[5] / TICK_MS });
+}
+
+export function bombState(v: WorldView): BombState | undefined {
+  const [state, actor, x, y, z, explodeAt, defuseDoneAt, variant, , plantDoneAt] = v.bomb;
+  if (!v.bomb.length || v.match.mode !== 'defuse') return undefined;
+  if (state === 1) return { kind: 'carried', carrier: actor };
+  if (state === 2) return { kind: 'planting', carrier: actor, doneAtTick: plantDoneAt / TICK_MS };
+  if (state === 3) return { kind: 'dropped', x, y, z, returnAtTick: Infinity };
+  if (state === 4) return { kind: 'planted', x, y, z, explodeAtTick: explodeAt / TICK_MS,
+    variant, defuse: actor < 0 ? null : { by: actor, doneAtTick: defuseDoneAt / TICK_MS } };
+  return { kind: 'home' };
+}
+export function bombPlaces(v: WorldView, world: CollisionWorld) {
+  const map = getMap(v.match.map);
+  const bases = map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) }));
+  const attackers = v.bomb[8];
+  return { home: bases[attackers], site: bases[1 - attackers], attackers };
+}
+function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
+  const bomb = bombState(v);
+  if (!bomb) return null;
+  const [, actor, x, y, z, explodeAt, defuseDoneAt, , attackers, plantDoneAt] = v.bomb;
+  const name = (id: number) => v.roster.find(r => r[0] === id)?.[1] ?? String(id);
+  const carrier = bomb.kind === 'carried' || bomb.kind === 'planting';
+  const defuser = bomb.kind === 'planted' && actor >= 0;
+  const team = v.roster.find(r => r[0] === v.id)?.[3];
+  const site = world ? bombPlaces(v, world).site : null;
+  const progress = (end: number, duration: number) => Math.max(0, Math.min(1, 1 - (end - v.time) / duration));
+  return { state: bomb.kind, carrierId: carrier ? actor : null, carrierName: carrier ? name(actor) : null,
+    defuserId: defuser ? actor : null, defuserName: defuser ? name(actor) : null,
+    pos: [x, y, z], ...relative(v.self)({ x, z }),
+    site: site ? { pos: [site.x, site.y, site.z], ...relative(v.self)(site) } : null,
+    attackersTeam: attackers, role: team === attackers ? 'attacker' : team === 1 - attackers ? 'defender' : 'spectator',
+    secondsToExplosion: bomb.kind === 'planted' ? Math.max(0, (explodeAt - v.time) / 1000) : null,
+    plantProgress: bomb.kind === 'planting' ? progress(plantDoneAt, PLANT_MS) : 0,
+    defuseProgress: defuser ? progress(defuseDoneAt, DEFUSE_MS) : 0 };
 }

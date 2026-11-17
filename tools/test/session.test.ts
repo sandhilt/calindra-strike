@@ -32,8 +32,9 @@ function setup(omniscient = false, autoVote = false) {
   const socket = new Socket();
   const jobs = new Map<ReturnType<typeof setInterval>, () => void>();
   let id = 0;
+  let now = 0;
   const clock: Clock = {
-    now: () => 0,
+    now: () => now,
     setInterval: (fn) => {
       const handle = ++id as unknown as ReturnType<typeof setInterval>;
       jobs.set(handle, fn);
@@ -52,7 +53,7 @@ function setup(omniscient = false, autoVote = false) {
     clock,
     random: () => 0.5,
   });
-  return { session, socket, jobs };
+  return { session, socket, jobs, advance: (ms: number) => { now += ms; for (const fn of [...jobs.values()]) fn(); } };
 }
 const args = { name: 'agent', color: 0, primary: WEAPON.RIFLE, code: 'secret' };
 const welcome = {
@@ -624,5 +625,84 @@ test('sprays decode names, cap oldest, persist across respawns and clear with a 
   spray();
   socket.message({ t: 'match', match: { ...welcome.match, phase: 'live', map: 1 } });
   assert.deepEqual(state().sprays, []);
+  session.close();
+});
+
+async function defusion() {
+  const ctx = setup();
+  const joined = ctx.session.join(args);
+  ctx.socket.message({ ...welcome, match: { ...welcome.match, mode: 'defuse' } });
+  await joined;
+  const self = createPlayerState();
+  const snap = (bomb: number[], time = 200) => ctx.socket.message({
+    t: 'snap', time, ack: 0, me: packState(self), ps: [], ad: [], bm: bomb,
+  });
+  return { ...ctx, self, snap };
+}
+
+test('bomb perception exposes roles, names, progress, positions and all named events', async () => {
+  const { session, socket, snap } = await defusion();
+  snap([4, 2, 110, 0, 0, 10200, 5200, 1, 0, 0]);
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.partialDeepStrictEqual(state.bomb, {
+    state: 'planted', defuserName: 'enemy', role: 'attacker',
+    attackersTeam: 0, secondsToExplosion: 10, distance: 110, bearingDeg: 90,
+  });
+  assert.ok(state.bomb.site.pos.length === 3);
+  assert.ok(state.bomb.defuseProgress >= 0);
+  for (const what of ['take', 'drop', 'plant', 'defuse', 'defused', 'exploded', 'return'])
+    socket.message({ t: 'ev', e: [{ k: 'bomb', what, team: 0, by: 2 }] });
+  const events = JSON.parse(JSON.stringify(session.getState())).events;
+  assert.equal(events.length, 7);
+  assert.ok(events.every((e: { byName: string }) => e.byName === 'enemy'));
+  snap([]);
+  assert.equal(JSON.parse(JSON.stringify(session.getState())).bomb, null);
+  session.close();
+});
+
+test('manual use completes on plant, releases keys and reports death interruption', async () => {
+  const { session, socket, jobs, snap, self } = await defusion();
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const planted = session.use();
+  for (const fn of [...jobs.values()]) fn();
+  const commands = JSON.parse(socket.sent.at(-1)!).c;
+  assert.ok(commands.every((c: number[]) => (c[1] & BTN.USE) !== 0));
+  socket.message({ t: 'ev', e: [{ k: 'bomb', what: 'plant', team: 0, by: 1 }] });
+  assert.partialDeepStrictEqual(await planted, { outcome: 'planted' });
+  for (const fn of [...jobs.values()]) fn();
+  assert.ok(JSON.parse(socket.sent.at(-1)!).c.every((c: number[]) => !(c[1] & BTN.USE)));
+  const died = session.use();
+  self.health = 0;
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.partialDeepStrictEqual(await died, { outcome: 'interrupted', reason: 'Player died' });
+  session.close();
+});
+
+test('manual use reports defused, respawn, competing completion and disconnect', async () => {
+  for (const reason of ['defused', 'respawn', 'other', 'disconnect']) {
+    const { session, socket, snap, self, jobs } = await defusion();
+    snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0]);
+    const using = session.use();
+    if (reason === 'defused') socket.message({ t: 'ev', e: [{ k: 'bomb', what: 'defused', team: 0, by: 1 }] });
+    if (reason === 'other') socket.message({ t: 'ev', e: [{ k: 'bomb', what: 'defused', team: 0, by: 2 }] });
+    if (reason === 'respawn') {
+      self.dropping = true;
+      snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0]);
+    }
+    if (reason === 'disconnect') session.close();
+    assert.partialDeepStrictEqual(await using, { outcome: reason === 'defused' ? 'defused' : 'interrupted' });
+    session.close();
+    assert.equal(jobs.size, 0);
+  }
+});
+
+test('manual use duration is bounded and releases on timeout', async () => {
+  const { session, snap, advance } = await defusion();
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.throws(() => session.use(10001), /Invalid ms/);
+  const using = session.use(100);
+  advance(99);
+  advance(1);
+  assert.deepEqual(await using, { outcome: 'interrupted', reason: 'Duration elapsed' });
   session.close();
 });

@@ -23,6 +23,7 @@ export function weaponSlots(self: PlayerState): {
  * replaces the brain's auto-scope.
  */
 export class ActionOverlay {
+  use = false;
   crouch = false;
   walk = false;
   /** null leaves the bot's auto-scope alone, 0 forces it off, 1..n is the wanted level. */
@@ -49,6 +50,7 @@ export class ActionOverlay {
   }
 
   reset(): void {
+    this.use = false;
     this.walk = false;
     this.reloadPending = false;
     this.weaponPending = null;
@@ -84,6 +86,10 @@ export class ActionOverlay {
         buttons |= BTN.ATTACK2;
         this.pressSeq = cmd.seq;
       }
+    }
+    if (this.use && self && self.health > 0 && !self.dropping) {
+      buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT | BTN.JUMP | BTN.ATTACK | BTN.ATTACK2);
+      buttons |= BTN.USE;
     }
     return { ...cmd, buttons, weapon };
   }

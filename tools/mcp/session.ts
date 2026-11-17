@@ -51,6 +51,7 @@ export class GameSession {
   state: State = { phase: 'idle' };
   intent: Intent = { kind: 'idle' };
   private seq = 0;
+  private using: { finish: (outcome: string, reason: string) => void; initial: number; started: boolean } | undefined;
   private readonly actions = new ActionOverlay();
   private names = new Map<number, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -213,9 +214,30 @@ export class GameSession {
           v.sprays = v.sprays.slice(-64);
         } else if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
-        else if (e.k === 'flag') v.events.push({ ...e, byName: this.names.get(e.by) });
+        else if (e.k === 'flag' || e.k === 'bomb') v.events.push({ ...e, byName: this.names.get(e.by) });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
       }
+    if (this.using) {
+      const self = v.self;
+      const bomb = v.bomb;
+      if (!self || self.health <= 0) this.using.finish('interrupted', 'Player died');
+      else if (self.dropping) this.using.finish('interrupted', 'Player respawned or dropping');
+      else if (m.t === 'match' || !bomb.length) this.using.finish('interrupted', 'Match changed');
+      else if (m.t === 'ev') {
+        for (const event of m.e) {
+          if (event.k !== 'bomb') continue;
+          if (event.what === 'plant' || event.what === 'defused') {
+            this.using?.finish(event.by === v.id ? event.what === 'plant' ? 'planted' : 'defused' : 'interrupted',
+              event.by === v.id ? 'Objective completed' : 'Another player completed the objective');
+          } else if (event.what === 'exploded') this.using?.finish('interrupted', 'Bomb exploded');
+        }
+      } else if (m.t === 'snap') {
+        const active = (bomb[0] === 2 || (bomb[0] === 4 && bomb[6] > 0)) && bomb[1] === v.id;
+        if (active) this.using.started = true;
+        else if (this.using.started || bomb[0] !== this.using.initial) this.using.finish(
+          this.using.initial !== 4 && bomb[0] === 4 ? 'planted' : 'interrupted', 'Bomb state changed');
+      }
+    }
     if (m.t === 'snap' && this.intent.kind === 'attack' && !this.intent.ended) {
       const id = this.intent.targetId;
       if (!v.peers.some((p) => p.id === id && p.alive && p.enemy && !(p.flags & RF_DROP))) {
@@ -292,6 +314,28 @@ export class GameSession {
     if (!s || s.health <= 0) throw new Error('No living player snapshot yet');
     return s;
   }
+  use(ms = 10000): Promise<object> {
+    const self = this.livingSelf();
+    const { view } = this.requirePlaying();
+    if (self.dropping) throw new Error('Player is dropping');
+    if (view.match.mode !== 'defuse' || view.match.phase !== 'live' || !view.bomb.length)
+      throw new Error('No live debug defusion objective');
+    if (!Number.isFinite(ms) || ms <= 0 || ms > 10000) throw new Error('Invalid ms');
+    if (this.using) throw new Error('Already using');
+    this.actions.use = true;
+    return new Promise(resolve => {
+      const startedAt = this.options.clock.now();
+      const timer = this.options.clock.setInterval(() => {
+        if (this.options.clock.now() - startedAt >= ms) this.using?.finish('interrupted', 'Duration elapsed');
+      }, 25);
+      this.using = { initial: view.bomb[0], started: false, finish: (outcome, reason) => {
+        this.options.clock.clearInterval(timer);
+        this.actions.use = false;
+        this.using = undefined;
+        resolve({ outcome, reason });
+      } };
+    });
+  }
   jump(): object {
     if (!this.livingSelf().onGround) throw new Error('Not on the ground');
     this.actions.requestJump();
@@ -334,6 +378,7 @@ export class GameSession {
       cancel();
       return;
     }
+    this.using?.finish('interrupted', reason);
     const previous = this.state;
     this.state = { phase: 'closed', reason };
     this.intent = { kind: 'idle' };

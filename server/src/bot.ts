@@ -4,14 +4,22 @@ import {
   type CollisionWorld,
   DEG,
   type GameMode,
+  type PlayerState,
   WEAPON,
   clamp,
   eyeHeight,
   weaponDef,
   wrapAngle,
 } from '@calindra-strike/shared';
-import type { ServerPlayer } from './game.ts';
 import type { NavGrid, NavNode } from './nav.ts';
+
+export interface BotAgent {
+ readonly id: number;
+ readonly team: number;
+ readonly alive: boolean;
+ readonly state: PlayerState;
+}
+export type BotDirective = { kind: 'goto'; x: number; y: number; z: number } | { kind: 'engage'; targetId: number };
 
 export interface BotEnv {
   world: CollisionWorld;
@@ -20,7 +28,7 @@ export interface BotEnv {
   now: number;
   mode: GameMode;
   random: () => number;
-  players: Iterable<ServerPlayer>;
+  players: Iterable<BotAgent>;
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
@@ -40,10 +48,24 @@ function anglesTo(ex: number, ey: number, ez: number, x: number, y: number, z: n
 }
 
 /**
- * Server-side bot. Produces exactly one command per tick through the same
+ * Shared bot brain. Produces exactly one command per tick through the same
  * simulation as real players, so it moves and shoots under the same rules.
  */
 export class BotBrain {
+  private directive: BotDirective | null = null;
+  private reached = false;
+  private ended = false;
+  get arrived(): boolean { return this.reached; }
+  get directiveEnded(): boolean { return this.ended; }
+  setDirective(directive: BotDirective | null): void {
+    this.directive = directive;
+    this.reached = false;
+    this.ended = false;
+    this.targetId = -1;
+    this.goal = null;
+    this.path = [];
+    this.repathAt = 0;
+  }
   private seq = 0;
   private yaw = 0;
   private pitch = 0;
@@ -93,11 +115,11 @@ export class BotBrain {
     this.pitch += clamp(pitch - this.pitch, -max, max);
   }
 
-  private isEnemy(self: ServerPlayer, q: ServerPlayer, mode: GameMode): boolean {
+  private isEnemy(self: BotAgent, q: BotAgent, mode: GameMode): boolean {
     return q !== self && q.alive && (mode === 'ffa' || q.team !== self.team);
   }
 
-  private visible(env: BotEnv, ex: number, ey: number, ez: number, q: ServerPlayer): boolean {
+  private visible(env: BotEnv, ex: number, ey: number, ez: number, q: BotAgent): boolean {
     const t = q.state;
     for (const h of [44, 64]) {
       const dx = t.x - ex;
@@ -110,14 +132,15 @@ export class BotBrain {
     return false;
   }
 
-  private scan(self: ServerPlayer, env: BotEnv): ServerPlayer | null {
+  private scan(self: BotAgent, env: BotEnv): BotAgent | null {
     const s = self.state;
     const ex = s.x;
     const ey = s.y + eyeHeight(s);
     const ez = s.z;
-    let best: ServerPlayer | null = null;
+    let best: BotAgent | null = null;
     let bestD = Infinity;
     for (const q of env.players) {
+      if (this.directive?.kind === 'engage' && q.id !== this.directive.targetId) continue;
       if (!this.isEnemy(self, q, env.mode) || q.state.dropping) continue;
       const d = Math.hypot(q.state.x - ex, q.state.z - ez);
       if (d > VIEW_RANGE) continue;
@@ -135,8 +158,8 @@ export class BotBrain {
     return best;
   }
 
-  private nearestEnemy(self: ServerPlayer, env: BotEnv): ServerPlayer | null {
-    let best: ServerPlayer | null = null;
+  private nearestEnemy(self: BotAgent, env: BotEnv): BotAgent | null {
+    let best: BotAgent | null = null;
     let bestD = Infinity;
     for (const q of env.players) {
       if (!this.isEnemy(self, q, env.mode) || q.state.dropping) continue;
@@ -149,8 +172,24 @@ export class BotBrain {
     return best;
   }
 
-  private pickGoal(self: ServerPlayer, env: BotEnv): void {
+  private pickGoal(self: BotAgent, env: BotEnv): void {
     const s = self.state;
+    if (this.directive?.kind === 'goto') {
+      this.goal = this.directive;
+      this.goalUntil = Infinity;
+      this.repathAt = 0;
+      return;
+    }
+    if (this.directive?.kind === 'engage') {
+      const id = this.directive.targetId;
+      const target = [...env.players].find(p => p.id === id);
+      if (target) {
+        this.goal = { x: target.state.x, y: target.state.y, z: target.state.z };
+        this.goalUntil = env.tick + 90;
+        this.repathAt = 0;
+        return;
+      }
+    }
     const r = env.random();
     const drop = env.airdrops.find((d) => d.landed && Math.hypot(d.x - s.x, d.z - s.z) < 1600);
     const enemy = this.nearestEnemy(self, env);
@@ -164,7 +203,7 @@ export class BotBrain {
     this.repathAt = 0;
   }
 
-  private repath(self: ServerPlayer, env: BotEnv): void {
+  private repath(self: BotAgent, env: BotEnv): void {
     const s = self.state;
     this.repathAt = env.tick + 90;
     if (!this.goal) return;
@@ -183,8 +222,18 @@ export class BotBrain {
     this.pathIdx = 0;
   }
 
-  think(self: ServerPlayer, env: BotEnv): Cmd {
+  think(self: BotAgent, env: BotEnv): Cmd {
     const s = self.state;
+    if (this.directive?.kind === 'engage') {
+      const id = this.directive.targetId;
+      const target = [...env.players].find(p => p.id === id);
+      if (!target || !this.isEnemy(self, target, env.mode) || target.state.dropping) {
+        this.setDirective(null);
+        this.ended = true;
+      }
+    }
+    this.reached = this.directive?.kind === 'goto'
+      && Math.hypot(this.directive.x - s.x, this.directive.z - s.z) < 60;
     const dt = 1 / 60;
     if (!this.aimInit) {
       this.yaw = s.yaw;
@@ -226,7 +275,7 @@ export class BotBrain {
         }
       }
     }
-    let target: ServerPlayer | null = null;
+    let target: BotAgent | null = null;
     if (this.targetId >= 0) {
       for (const q of env.players) if (q.id === this.targetId) target = q;
       if (!target || !this.isEnemy(self, target, env.mode) || target.state.dropping) {
@@ -282,10 +331,12 @@ export class BotBrain {
         if (dist > 1100) buttons |= BTN.FWD;
       }
       this.path = []; // replan after the fight
+      if (this.directive) this.repathAt = 0;
       return this.cmd(buttons, weapon, env);
     }
 
     // --- navigation
+    if (this.reached) return this.cmd(buttons, weapon, env);
     if (!this.goal || env.tick >= this.goalUntil) this.pickGoal(self, env);
     if (env.tick >= this.repathAt) this.repath(self, env);
     let node = this.path[this.pathIdx];
@@ -310,7 +361,7 @@ export class BotBrain {
       const moved = Math.hypot(s.x - this.lastCheck.x, s.z - this.lastCheck.z);
       if (moved < 10 && node) {
         this.stuck++;
-        if (this.stuck >= 3) {
+        if (this.stuck >= 3 && !this.directive) {
           const n = env.nav.randomNode(env.random);
           this.goal = { x: n.x, y: n.y, z: n.z };
           this.repathAt = 0;

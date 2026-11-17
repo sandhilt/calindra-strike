@@ -1,11 +1,6 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
-import type { Pos, SoundKit, SoundPack } from './types.ts';
+import type { Pos, SoundKit, SoundPack, StreakSound } from './types.ts';
 import { VOICES } from './voices.ts';
-
-type StreakSound = 'kill' | 'double' | 'triple' | 'multi' | 'rampage' | 'unstoppable' | 'godlike';
-const STINGERS: Readonly<Partial<Record<number, StreakSound>>> = {
-  2: 'double', 3: 'triple', 4: 'multi', 5: 'rampage', 7: 'unstoppable', 10: 'godlike',
-};
 
 /** A synth voice: detuned oscillator pair, resonant low-pass with a sweep, amp envelope. */
 interface SynthPatch {
@@ -173,8 +168,8 @@ export const soundNew = {
 
     return {
       shot,
-      kill(streak: number): void {
-        stingers[STINGERS[streak] ?? 'kill'](kit.ctx.currentTime);
+      kill(_streak: number, sound: StreakSound): void {
+        stingers[sound](kit.ctx.currentTime);
       },
     };
   },

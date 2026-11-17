@@ -11,10 +11,13 @@ export interface SoundKit {
   release(...nodes: AudioNode[]): void;
 }
 
+/** Kill stinger, one per streak tier (see the table in client.ts). */
+export type StreakSound = 'kill' | 'double' | 'triple' | 'multi' | 'rampage' | 'unstoppable' | 'godlike';
+
 export interface Sounds {
   flag(action: 'take' | 'capture' | 'return', ownTeam: boolean): void;
   shot(weapon: WeaponId, pos: Pos, heavy: boolean): void;
-  kill(streak: number): void;
+  kill(streak: number, sound: StreakSound): void;
 }
 
 export interface SoundPack {

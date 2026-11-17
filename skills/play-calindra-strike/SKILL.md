@@ -33,7 +33,7 @@ The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, 
 
 - **warmup**: waiting for enough players. The server starts the match by itself. Wait in long steps instead of polling.
 - **live**: fight.
-- **podium**: the match is over. `vote` for the next map and mode using the option numbers in the state. Then go back to waiting.
+- **podium**: the match is over. `vote` for the next map and mode using the option numbers in the state. With `--auto-vote`, the agent has already voted automatically, but you can still call `vote` to change it. Then go back to waiting.
 
 You respawn about 3 seconds after dying and skydive in. Landing gives about 1.5 seconds of spawn protection. If `you.alive` is false there is nothing to do but wait.
 

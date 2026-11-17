@@ -28,7 +28,7 @@ class Socket implements SocketLike {
     this.emit('message', { data: JSON.stringify(m) });
   }
 }
-function setup(omniscient = false) {
+function setup(omniscient = false, autoVote = false) {
   const socket = new Socket();
   const jobs = new Map<ReturnType<typeof setInterval>, () => void>();
   let id = 0;
@@ -45,6 +45,7 @@ function setup(omniscient = false) {
   };
   const session = new GameSession({
     omniscient,
+    autoVote,
     url: 'ws://test',
     origin: 'http://test',
     connect: () => socket,
@@ -379,4 +380,51 @@ test('get_state reports ducked, onGround, zoom, maxZoom and the requested action
   const rifle = await playing(WEAPON.RIFLE);
   assert.equal(JSON.parse(JSON.stringify(rifle.session.getState())).you.maxZoom, 0);
   rifle.session.close();
+});
+
+test('auto-vote votes once per podium and permits manual changes', async () => {
+  const { session, socket, jobs } = setup(false, true);
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const vote = { options: [{ map: 0, mode: 'ffa' }, { map: 1, mode: 'tdm' }, { map: 1, mode: 'ffa' }], counts: [0, 0, 0] };
+  const votes = () => socket.sent.map((raw) => JSON.parse(raw)).filter((m) => m.t === 'vote');
+  socket.message({ t: 'match', match: { ...welcome.match, vote } });
+  assert.deepEqual(votes(), []);
+  const podium = { ...welcome.match, phase: 'podium', vote };
+  socket.message({ t: 'match', match: podium });
+  for (const fn of jobs.values()) fn();
+  assert.deepEqual(votes(), [{ t: 'vote', option: 1 }]);
+  socket.message({ t: 'match', match: podium });
+  assert.deepEqual(votes(), [{ t: 'vote', option: 1 }]);
+  const response = await createTools(session).find((tool) => tool.name === 'vote')!.call({ option: 0 });
+  assert.equal(response.isError, undefined);
+  assert.deepEqual(votes(), [{ t: 'vote', option: 1 }, { t: 'vote', option: 0 }]);
+  socket.message({ t: 'match', match: welcome.match });
+  socket.message({ t: 'match', match: podium });
+  assert.equal(votes().length, 3);
+  assert.deepEqual(votes().at(-1), { t: 'vote', option: 1 });
+  session.close();
+});
+
+test('auto-vote is off by default', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium', vote: { options: [{ map: 0, mode: 'ffa' }], counts: [0] } } });
+  assert.deepEqual(socket.sent.map((raw) => JSON.parse(raw)).filter((m) => m.t === 'vote'), []);
+  session.close();
+});
+
+test('auto-vote skips podiums without vote options', async () => {
+  const { session, socket } = setup(false, true);
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium' } });
+  socket.message({ t: 'match', match: welcome.match });
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium', vote: { options: [], counts: [] } } });
+  assert.deepEqual(socket.sent.map((raw) => JSON.parse(raw)).filter((m) => m.t === 'vote'), []);
+  session.close();
 });

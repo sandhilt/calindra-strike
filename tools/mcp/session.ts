@@ -64,6 +64,7 @@ export class GameSession {
     random: () => number;
     skill?: number;
     omniscient?: boolean;
+    autoVote?: boolean;
   };
   constructor(options: GameSession['options']) {
     this.options = options;
@@ -178,6 +179,7 @@ export class GameSession {
       }
     }
     if (m.t === 'match') {
+      const enteringPodium = v.match.phase !== 'podium' && m.match.phase === 'podium';
       if (v.match.map !== m.match.map) {
         const map = getMap(m.match.map);
         this.state.world = new CollisionWorld(map);
@@ -189,6 +191,10 @@ export class GameSession {
         v.lastSeen.clear();
       }
       v.match = m.match;
+      if (this.options.autoVote && enteringPodium && m.match.vote?.options.length) {
+        const option = Math.floor(this.options.random() * m.match.vote.options.length);
+        this.send({ t: 'vote', option });
+      }
     }
     if (m.t === 'score') {
       v.scores = m.s;

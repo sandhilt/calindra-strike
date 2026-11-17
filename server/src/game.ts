@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -168,6 +169,7 @@ export interface GameOptions {
   warmupMinPlayers: number;
   modes?: ModeSetting | GameMode[];
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
+  ctfLimit?: number; // captures to win CTF early (0 = timer only)
   tdmLimit?: number; // team kills to win a TDM match early (0 = timer only)
   airdropFirstMs?: number;
   botFill?: number; // keep at least this many players (bots fill the gap while someone is online)
@@ -186,6 +188,8 @@ export class Game {
   phaseEnds = 0;
   mode: GameMode = 'ffa';
   readonly teamScores = [0, 0];
+  private flags: FlagState[] = [{ kind: 'home' }, { kind: 'home' }];
+  private readonly flagBasesByMap = new Map<string, FlagBase[]>();
   private winner = -1;
   private endPending = false;
   private rotationIndex = 0;
@@ -243,6 +247,64 @@ export class Game {
     this.mode = r.mode;
   }
 
+  get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
+
+  private flagBases(): FlagBase[] {
+    let bases = this.flagBasesByMap.get(this.map.id);
+    if (!bases) {
+      bases = this.map.flagBases.map((base) => ({ ...base, y: this.groundY(base.x, this.map.dropHeight, base.z) }));
+      this.flagBasesByMap.set(this.map.id, bases);
+    }
+    return bases;
+  }
+
+  /** Flags rest on the floor, never in the air where a carrier fell. */
+  private groundY(x: number, fromY: number, z: number): number {
+    return Math.max(0, this.world.groundBelow(x, fromY, z, PLAYER_RADIUS));
+  }
+
+  private resetFlags(): void {
+    this.flags = [{ kind: 'home' }, { kind: 'home' }];
+  }
+
+  private dropFlag(p: ServerPlayer): void {
+    if (this.mode !== 'ctf') return;
+    const at = { x: p.state.x, y: this.groundY(p.state.x, p.state.y, p.state.z), z: p.state.z };
+    const result = dropCarried(this.flags, p.id, at, this.tick);
+    this.flags = result.flags;
+    for (const event of result.events) this.emit(event);
+  }
+
+  private updateFlags(): void {
+    if (this.mode !== 'ctf' || this.phase !== 'live') return;
+    const actors = [...this.players.values()].map((p) => ({
+      id: p.id, team: p.team, alive: p.alive,
+      x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
+    }));
+    const result = stepFlags(this.flags, this.flagBases(), actors, this.tick);
+    this.flags = result.flags;
+    for (const event of result.events) this.emit(event);
+    for (const team of result.captured) {
+      this.teamScores[team]++;
+      this.scoreDirty = true;
+      if (this.ctfLimit > 0 && this.teamScores[team] >= this.ctfLimit) this.endPending = true;
+    }
+  }
+
+  private flagSnapshot(): number[][] {
+    if (this.mode !== 'ctf') return [];
+    const bases = this.flagBases();
+    return this.flags.map((flag, team) => {
+      const at = flag.kind === 'dropped' ? flag : bases[team];
+      return [
+        flag.kind === 'home' ? 0 : flag.kind === 'carried' ? 1 : 2,
+        flag.kind === 'carried' ? flag.carrier : -1,
+        round(at.x, 10), round(at.y, 10), round(at.z, 10),
+        flag.kind === 'dropped' ? Math.round(flag.returnAtTick * TICK_MS) : 0,
+      ];
+    });
+  }
+
   // ------------------------------------------------------------ teams
 
   private teamSize(team: number, except?: ServerPlayer): number {
@@ -268,14 +330,15 @@ export class Game {
       [list[i], list[j]] = [list[j], list[i]];
     }
     list.forEach((p, i) => {
-      p.team = this.mode !== 'ffa' ? i % 2 : -1;
+      p.team = isTeamMode(this.mode) ? i % 2 : -1;
     });
   }
 
   switchTeam(p: ServerPlayer, team: number): void {
-    if (this.mode !== 'tdm' || this.phase === 'podium' || p.team === team || (team !== 0 && team !== 1)) return;
+    if (!isTeamMode(this.mode) || this.phase === 'podium' || p.team === team || (team !== 0 && team !== 1)) return;
     // only toward the smaller side, like CS's team balance
     if (this.teamSize(team) >= this.teamSize(p.team)) return;
+    this.dropFlag(p);
     p.team = team;
     p.streak = 0;
     if (p.alive) {
@@ -307,7 +370,7 @@ export class Game {
 
   spectate(name: string, send: (data: string) => void): Spectator | string {
     if (this.spectators.size >= MAX_SPECTATORS) return 'Sem vaga para espectadores';
-    const s: Spectator = { id: this.nextId++, name, send, view: this.mode === 'ffa'
+    const s: Spectator = { id: this.nextId++, name, send, view: !isTeamMode(this.mode)
       ? { kind: 'watching', team: -1 } : { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS } };
     this.spectators.set(s.id, s);
     send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s) }));
@@ -315,7 +378,7 @@ export class Game {
   }
 
   watch(s: Spectator, team: number): void {
-    if (this.spectators.get(s.id) !== s || this.mode !== 'tdm' || (team !== 0 && team !== 1)) return;
+    if (this.spectators.get(s.id) !== s || !isTeamMode(this.mode) || (team !== 0 && team !== 1)) return;
     s.view = { kind: 'watching', team };
     this.sendSpectator(s);
   }
@@ -328,10 +391,10 @@ export class Game {
 
   private syncSpectators(): void {
     for (const s of this.spectators.values()) {
-      if (this.mode === 'ffa' && (s.view.kind !== 'watching' || s.view.team !== -1)) {
+      if (!isTeamMode(this.mode) && (s.view.kind !== 'watching' || s.view.team !== -1)) {
         s.view = { kind: 'watching', team: -1 };
         this.sendSpectator(s);
-      } else if (this.mode === 'tdm' && s.view.kind === 'watching' && s.view.team === -1) {
+      } else if (isTeamMode(this.mode) && s.view.kind === 'watching' && s.view.team === -1) {
         s.view = { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS };
         this.sendSpectator(s);
       }
@@ -377,14 +440,14 @@ export class Game {
       brain: null,
       token: randomBytes(16).toString('hex'),
     };
-    if (this.mode !== 'ffa') p.team = this.pickTeam();
+    if (isTeamMode(this.mode)) p.team = this.pickTeam();
     if (ghost && ghost.expires >= this.tick && ghost.matchId === this.matchId) {
       // same match: give the score back (and the side, if it is still free)
       p.kills = ghost.kills;
       p.deaths = ghost.deaths;
       p.headshots = ghost.headshots;
       p.bestStreak = ghost.bestStreak;
-      if (this.mode !== 'ffa' && ghost.team >= 0 && this.teamSize(ghost.team) <= this.teamSize(1 - ghost.team)) p.team = ghost.team;
+      if (isTeamMode(this.mode) && ghost.team >= 0 && this.teamSize(ghost.team) <= this.teamSize(1 - ghost.team)) p.team = ghost.team;
     }
     this.players.set(id, p);
     p.send(
@@ -411,6 +474,7 @@ export class Game {
   leave(id: number): void {
     const p = this.players.get(id);
     if (!p) return;
+    this.dropFlag(p);
     this.players.delete(id);
     this.votes.delete(id);
     if (!p.brain && this.phase !== 'warmup') {
@@ -447,10 +511,11 @@ export class Game {
     let bots = this.botList();
     let changed = false;
     while (bots.length > want) {
-      const tdm = this.mode !== 'ffa';
+      const teams = isTeamMode(this.mode);
       const bigger = this.teamSize(0) >= this.teamSize(1) ? 0 : 1;
       const pick =
-        bots.find((b) => !b.alive && (!tdm || b.team === bigger)) ?? bots.find((b) => !tdm || b.team === bigger) ?? bots[0];
+        bots.find((b) => !b.alive && (!teams || b.team === bigger)) ?? bots.find((b) => !teams || b.team === bigger) ?? bots[0];
+      this.dropFlag(pick);
       this.players.delete(pick.id);
       this.votes.delete(pick.id);
       this.emit({ k: 'leave', id: pick.id });
@@ -483,7 +548,7 @@ export class Game {
       id,
       name,
       color: Math.floor(this.random() * PLAYER_COLORS.length),
-      team: this.mode !== 'ffa' ? this.pickTeam() : -1,
+      team: isTeamMode(this.mode) ? this.pickTeam() : -1,
       primaryChoice: PRIMARY_CHOICES[Math.floor(this.random() * PRIMARY_CHOICES.length)],
       state: createPlayerState(),
       alive: false,
@@ -611,7 +676,7 @@ export class Game {
       map: this.mapIndex,
       endsAt: this.phaseEnds,
       teams: [...this.teamScores],
-      limit: this.mode === 'tdm' ? this.tdmLimit : 0,
+      limit: this.mode === 'ctf' ? this.ctfLimit : MODE_RULES[this.mode].killScore ? this.tdmLimit : 0,
       results: podium ? this.results : undefined,
       winner: podium ? this.winner : undefined,
       next: podium ? this.rotation[(this.rotationIndex + 1) % this.rotation.length] : undefined,
@@ -638,6 +703,7 @@ export class Game {
   }
 
   startMatch(): void {
+    this.resetFlags();
     this.syncSpectators();
     this.matchId++;
     this.phase = 'live';
@@ -653,11 +719,12 @@ export class Game {
   }
 
   private endMatch(): void {
+    this.resetFlags();
     this.phase = 'podium';
     this.phaseEnds = this.now() + this.opts.podiumMs;
     this.endPending = false;
     const [a, b] = this.teamScores;
-    this.winner = this.mode === 'ffa' || a === b ? -1 : a > b ? 0 : 1;
+    this.winner = !isTeamMode(this.mode) || a === b ? -1 : a > b ? 0 : 1;
     this.results = [...this.players.values()]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.headshots - a.headshots || a.joinedAt - b.joinedAt)
       .map((p) => ({
@@ -687,6 +754,7 @@ export class Game {
     this.map = getMap(choice.map);
     this.world = this.worlds[choice.map];
     this.mode = choice.mode;
+    this.resetFlags();
     this.syncSpectators();
     this.voteOptions = [];
     this.votes.clear();
@@ -704,6 +772,7 @@ export class Game {
   }
 
   private resetToWarmup(): void {
+    this.resetFlags();
     this.syncSpectators();
     this.phase = 'warmup';
     this.phaseEnds = 0;
@@ -717,9 +786,10 @@ export class Game {
   // ------------------------------------------------------------ spawning
 
   private spawn(p: ServerPlayer): void {
+    this.dropFlag(p);
     const a = this.map.dropArea;
-    const tdm = this.mode === 'tdm';
-    if (tdm) {
+    const teams = isTeamMode(this.mode);
+    if (teams) {
       // CS-style autobalance: on respawn, move from a side that is 2+ players bigger
       if (p.team < 0 || this.teamSize(p.team) - this.teamSize(1 - p.team) >= 2) {
         const before = p.team;
@@ -731,15 +801,15 @@ export class Game {
       }
     }
     // TDM: each side skydives in over its own half of the map (Bulldogs north, Martelos south)
-    const minZ = tdm && p.team === 1 ? 150 : a.minZ;
-    const maxZ = tdm && p.team === 0 ? -150 : a.maxZ;
+    const minZ = teams && p.team === 1 ? 150 : a.minZ;
+    const maxZ = teams && p.team === 0 ? -150 : a.maxZ;
     let best = { x: 0, z: 0, score: -1 };
     for (let i = 0; i < 12; i++) {
       const x = a.minX + this.random() * (a.maxX - a.minX);
       const z = minZ + this.random() * (maxZ - minZ);
       let nearest = 1e9;
       for (const q of this.players.values()) {
-        if (q === p || !q.alive || (tdm && q.team === p.team)) continue;
+        if (q === p || !q.alive || (teams && q.team === p.team)) continue;
         nearest = Math.min(nearest, Math.hypot(q.state.x - x, q.state.z - z));
       }
       if (nearest > best.score) best = { x, z, score: nearest };
@@ -811,7 +881,7 @@ export class Game {
     const targets: { q: ServerPlayer; x: number; y: number; z: number; ducked: boolean }[] = [];
     for (const q of this.players.values()) {
       if (q === p || !q.alive || q.state.dropping || q.state.protect > 0) continue;
-      if (this.mode !== 'ffa' && q.team === p.team) continue; // no friendly fire: bullets pass through teammates
+      if (isTeamMode(this.mode) && q.team === p.team) continue; // no friendly fire: bullets pass through teammates
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
       targets.push(h ? { q, x: h.x, y: h.y, z: h.z, ducked: h.ducked } : { q, x: q.state.x, y: q.state.y, z: q.state.z, ducked: q.state.ducked });
@@ -863,6 +933,7 @@ export class Game {
   }
 
   private kill(victim: ServerPlayer, killer: ServerPlayer, weapon: WeaponId, head: boolean): void {
+    this.dropFlag(victim);
     victim.alive = false;
     victim.deaths++;
     victim.streak = 0;
@@ -875,7 +946,7 @@ export class Game {
     }
     killer.bestStreak = Math.max(killer.bestStreak, killer.streak);
     if (head) killer.headshots++;
-    if (this.mode === 'tdm' && killer !== victim && killer.team >= 0 && killer.team !== victim.team) {
+    if (MODE_RULES[this.mode].killScore && killer !== victim && killer.team >= 0 && killer.team !== victim.team) {
       this.teamScores[killer.team]++;
       if (this.tdmLimit > 0 && this.teamScores[killer.team] >= this.tdmLimit) this.endPending = true;
     }
@@ -981,6 +1052,7 @@ export class Game {
       this.updateAirdrops();
     }
 
+    this.updateFlags();
     this.recordHistory();
     this.flushEvents();
     if (this.tick % SNAPSHOT_EVERY_TICKS === 0) this.sendSnapshots();
@@ -1032,7 +1104,8 @@ export class Game {
       ps.push([p.id, round(s.x, 10), round(s.y, 10), round(s.z, 10), round(s.yaw, 1000), round(s.pitch, 1000), flags, s.weapon]);
     }
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)}}`;
+    const fl = this.flagSnapshot();
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';
@@ -1068,7 +1141,7 @@ export class Game {
       maxPlayers: this.opts.maxPlayers,
       map: this.map.name,
       mode: this.mode,
-      teams: this.mode !== 'ffa' ? this.teamScores : null,
+      teams: isTeamMode(this.mode) ? this.teamScores : null,
       modes: [...new Set(this.combos.map((c) => c.mode))],
       maps: [...new Set(this.combos.map((c) => getMap(c.map).name))],
       phase: this.phase,

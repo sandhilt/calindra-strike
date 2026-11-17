@@ -16,6 +16,7 @@ const game = new Game({
   modes: cfg.modes,
   maps: cfg.maps,
   tdmLimit: cfg.tdmLimit,
+  ctfLimit: cfg.ctfLimit,
   airdropFirstMs: cfg.airdropFirstMs,
   botFill: cfg.botFill,
   botSkill: cfg.botSkill,

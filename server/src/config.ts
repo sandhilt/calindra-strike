@@ -1,4 +1,4 @@
-import { type GameMode, getMaps } from '@calindra-strike/shared';
+import { type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -12,6 +12,7 @@ export interface Config {
   warmupMinPlayers: number;
   modes: GameMode[];
   maps: string[]; // empty = every map
+  ctfLimit: number;
   tdmLimit: number;
   airdropFirstMs: number;
   botFill: number;
@@ -27,7 +28,7 @@ function int(name: string, def: number, lo: number, hi: number): number {
   return v;
 }
 
-const ALL_MODES: GameMode[] = ['tdm', 'ffa'];
+const ALL_MODES = GAME_MODES;
 
 function list(raw: string | undefined): string[] {
   return (raw ?? '')
@@ -38,7 +39,7 @@ function list(raw: string | undefined): string[] {
 
 /**
  * GAME_MODES picks any set of modes (e.g. "tdm,ffa"). The older single GAME_MODE
- * still works: "mixed" = TDM + FFA, or one mode. Default: TDM + FFA.
+ * still works: "mixed" = TDM + FFA, or one mode. Default: TDM + FFA + CTF.
  */
 export function modeList(modesRaw: string | undefined, legacyRaw: string | undefined): GameMode[] {
   const items = list(modesRaw);
@@ -84,6 +85,7 @@ export function loadConfig(): Config {
     warmupMinPlayers: int('WARMUP_MIN_PLAYERS', 2, 1, 64),
     modes: modeList(process.env.GAME_MODES, process.env.GAME_MODE),
     maps: mapList(process.env.GAME_MAPS),
+    ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
     tdmLimit: int('TDM_SCORE_LIMIT', 50, 0, 1000),
     airdropFirstMs: int('AIRDROP_FIRST_SECONDS', 25, 1, 600) * 1000,
     botFill: int('BOT_FILL', 0, 0, 64),

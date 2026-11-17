@@ -1,0 +1,131 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { BTN, WEAPON, createPlayerState, type Cmd, type WeaponId } from '../../shared/src/index.ts';
+import { ActionOverlay } from '../mcp/actions.ts';
+
+const cmd = (buttons = 0, seq = 1): Cmd => ({ seq, buttons, yaw: 0, pitch: 0, weapon: 0, interp: 0 });
+function player(weapon: WeaponId = WEAPON.SNIPER) {
+  const s = createPlayerState();
+  s.weapon = weapon;
+  s.onGround = true;
+  return s;
+}
+const pressed = (c: Cmd, b: number) => (c.buttons & b) !== 0;
+
+test('crouch is latched on every cmd, even without a player snapshot', () => {
+  const o = new ActionOverlay();
+  o.crouch = true;
+  assert.ok(pressed(o.apply(cmd(), null), BTN.DUCK));
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.DUCK));
+  o.crouch = false;
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.DUCK));
+  assert.ok(pressed(o.apply(cmd(BTN.DUCK), player()), BTN.DUCK), 'keeps the brain duck');
+});
+
+test('apply does not mutate the incoming cmd', () => {
+  const o = new ActionOverlay();
+  o.crouch = true;
+  const input = cmd();
+  o.apply(input, player());
+  assert.equal(input.buttons, 0);
+});
+
+test('jump pulses JUMP on exactly one apply', () => {
+  const o = new ActionOverlay();
+  o.requestJump();
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.JUMP));
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.JUMP));
+});
+
+test('jump is dropped, not queued, when airborne', () => {
+  const o = new ActionOverlay();
+  const s = player();
+  s.onGround = false;
+  o.requestJump();
+  assert.ok(!pressed(o.apply(cmd(), s), BTN.JUMP));
+  s.onGround = true;
+  assert.ok(!pressed(o.apply(cmd(), s), BTN.JUMP));
+});
+
+test('zoom presses once and only presses again after the server acknowledged that press', () => {
+  const o = new ActionOverlay();
+  const s = player();
+  o.zoom = 1;
+  assert.ok(pressed(o.apply(cmd(0, 1), s), BTN.ATTACK2));
+  // high latency: no snapshot has caught up for a long time, so never repeat on a timer
+  for (let seq = 2; seq <= 200; seq++) assert.ok(!pressed(o.apply(cmd(0, seq), s), BTN.ATTACK2), 'seq ' + seq);
+  o.ack = 0;
+  assert.ok(!pressed(o.apply(cmd(0, 201), s), BTN.ATTACK2));
+  o.ack = 1; // snapshot now reflects the press; scope still not at 1, so press again
+  assert.ok(pressed(o.apply(cmd(0, 202), s), BTN.ATTACK2));
+  assert.ok(!pressed(o.apply(cmd(0, 203), s), BTN.ATTACK2));
+});
+
+test('zoom never presses once the snapshot shows the wanted level', () => {
+  const o = new ActionOverlay();
+  const s = player();
+  s.zoom = 1;
+  o.zoom = 1;
+  for (let i = 0; i < 40; i++) assert.ok(!pressed(o.apply(cmd(), s), BTN.ATTACK2));
+});
+
+test('zoom cycles 1 to 2 and wraps 2 to 0 with a single press each', () => {
+  const up = new ActionOverlay();
+  const s = player();
+  s.zoom = 1;
+  up.zoom = 2;
+  assert.ok(pressed(up.apply(cmd(), s), BTN.ATTACK2));
+  const off = new ActionOverlay();
+  s.zoom = 2;
+  off.zoom = 0;
+  assert.ok(pressed(off.apply(cmd(), s), BTN.ATTACK2));
+});
+
+test('a manual zoom strips the brain auto-scope; null leaves it', () => {
+  const manual = new ActionOverlay();
+  const s = player();
+  s.zoom = 1;
+  manual.zoom = 1;
+  assert.ok(!pressed(manual.apply(cmd(BTN.ATTACK2), s), BTN.ATTACK2));
+  const auto = new ActionOverlay();
+  assert.ok(pressed(auto.apply(cmd(BTN.ATTACK2), s), BTN.ATTACK2));
+});
+
+test('a weapon without a scope never gets ATTACK2 from zoom', () => {
+  const o = new ActionOverlay();
+  o.zoom = 1;
+  for (let i = 0; i < 40; i++) assert.ok(!pressed(o.apply(cmd(), player(WEAPON.RIFLE)), BTN.ATTACK2));
+});
+
+test('during the AWP bolt cycle zoom 0 cancels the re-scope and a positive level waits', () => {
+  const s = player();
+  s.resumeZoom = 1;
+  const off = new ActionOverlay();
+  off.zoom = 0;
+  assert.ok(pressed(off.apply(cmd(), s), BTN.ATTACK2));
+  const on = new ActionOverlay();
+  on.zoom = 1;
+  assert.ok(!pressed(on.apply(cmd(), s), BTN.ATTACK2));
+});
+
+test('reset forgets an unacknowledged scope press', () => {
+  const o = new ActionOverlay();
+  const s = player();
+  o.zoom = 1;
+  assert.ok(pressed(o.apply(cmd(0, 5), s), BTN.ATTACK2));
+  o.reset();
+  o.zoom = 1;
+  assert.ok(pressed(o.apply(cmd(0, 6), s), BTN.ATTACK2));
+});
+
+test('reset clears crouch, zoom and a pending jump', () => {
+  const o = new ActionOverlay();
+  o.crouch = true;
+  o.zoom = 2;
+  o.requestJump();
+  o.reset();
+  const out = o.apply(cmd(), player());
+  assert.equal(out.buttons, 0);
+  assert.equal(o.crouch, false);
+  assert.equal(o.zoom, null);
+});

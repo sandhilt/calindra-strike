@@ -54,7 +54,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow } from '../ui/hud.ts';
-import { Sfx } from './audio.ts';
+import { Sfx, type StreakSound } from './audio.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
@@ -126,13 +126,17 @@ export interface UiHooks {
   disconnected(reason: string, code: number): void;
 }
 
-const STREAKS: Record<number, string> = {
-  2: 'double kill',
-  3: 'triple kill',
-  4: 'multi kill',
-  5: 'rampage!',
-  7: 'imparável',
-  10: 'deus da forja',
+/**
+ * Kill-streak titles and their stingers. Each title is paired with the
+ * Quake / Unreal announcer line it echoes; the sound is synthesized to match.
+ */
+const STREAKS: Record<number, { text: string; sound: StreakSound }> = {
+  2: { text: 'double kill', sound: 'double' }, // Double Kill
+  3: { text: 'triple kill', sound: 'triple' }, // Triple Kill
+  4: { text: 'multi kill', sound: 'multi' }, // Multi Kill
+  5: { text: 'rampage!', sound: 'rampage' }, // Rampage
+  7: { text: 'imparável', sound: 'unstoppable' }, // Unstoppable
+  10: { text: 'deus da forja', sound: 'godlike' }, // Godlike
 };
 
 const v3 = new THREE.Vector3();
@@ -598,9 +602,9 @@ export class ClientGame {
         const def = weaponDef(e.w);
         this.hud.killfeed(k.name, k.color, v.name, v.color, def.tag, e.hs === 1, this.feedInvolvement(e.by, e.to));
         if (e.by === this.myId && e.to !== this.myId) {
-          this.sfx.kill(e.streak);
-          const s = STREAKS[e.streak];
-          if (s) this.hud.announce(s, `${e.streak} em sequência`);
+          const tier = STREAKS[e.streak];
+          this.sfx.kill(e.streak, tier?.sound ?? 'kill');
+          if (tier) this.hud.announce(tier.text, `${e.streak} em sequência`);
           else if (e.hs) this.hud.announce('headshot', undefined, true);
         }
         if (e.to === this.myId) {

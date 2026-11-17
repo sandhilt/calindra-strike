@@ -11,6 +11,37 @@ const VOICE_LIFETIME_MS = 2000;
 /** Length of the shared noise buffer, in seconds. */
 const NOISE_BUFFER_SEC = 4;
 
+/** Kill stinger, one per streak tier (see the table in client.ts). */
+export type StreakSound = 'kill' | 'double' | 'triple' | 'multi' | 'rampage' | 'unstoppable' | 'godlike';
+
+/** A synth voice: detuned oscillator pair, resonant low-pass with a sweep, amp envelope. */
+interface SynthPatch {
+  wave: OscillatorType;
+  pitch: [number, number]; // Hz, start and end of the glide
+  cutoff: [number, number]; // filter Hz, start and end of the sweep
+  resonance: number; // filter Q
+  detune: number; // cents, the two oscillators sit at +/- this
+  attack: number; // s
+  dur: number; // s
+  gain: number;
+}
+
+const SYNTH_DEFAULTS: Omit<SynthPatch, 'pitch' | 'cutoff' | 'dur' | 'gain'> = {
+  wave: 'sawtooth',
+  resonance: 4,
+  detune: 8,
+  attack: 0.005,
+};
+
+/** How much of each shot goes into the room reflections. */
+const ROOM_SEND = 0.3;
+
+/** Level boost for the synth stingers, which read thin next to the shots. */
+const STREAK_LEVEL = 1.5;
+
+/** Sub-octave layer under each stinger, relative to its level. */
+const SUB_LEVEL = 0.6;
+
 /**
  * All sound effects are synthesized with WebAudio at runtime: no sampled
  * assets, nothing copyrighted, nothing to download.
@@ -21,6 +52,10 @@ export class Sfx {
   private noise: AudioBuffer;
   private wind: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private listenerPos = { x: 0, y: 0, z: 0 };
+  /** Send for the synth stingers into a short feedback echo. */
+  private readonly echo: GainNode;
+  /** Input for the room reflections that give gunshots a walled-arena slap. */
+  private readonly room: GainNode;
 
   private readonly kit: SoundKit;
   private readonly packs = new Map<string, Partial<Sounds>>();
@@ -35,6 +70,30 @@ export class Sfx {
     comp.ratio.value = 4;
     this.master.connect(comp).connect(this.ctx.destination);
     this.setVolume(volume);
+    this.echo = this.ctx.createGain();
+    this.echo.gain.value = 0.35;
+    const delay = this.ctx.createDelay(1);
+    delay.delayTime.value = 0.28;
+    const feedback = this.ctx.createGain();
+    feedback.gain.value = 0.4;
+    this.echo.connect(delay);
+    delay.connect(feedback).connect(delay);
+    delay.connect(this.master);
+    // Two short, darkening reflections at different distances from the walls.
+    this.room = this.ctx.createGain();
+    for (const seconds of [0.031, 0.047]) {
+      const reflection = this.ctx.createDelay(0.2);
+      reflection.delayTime.value = seconds;
+      const damp = this.ctx.createBiquadFilter();
+      damp.type = 'lowpass';
+      damp.frequency.value = 2500;
+      const decay = this.ctx.createGain();
+      decay.gain.value = 0.3;
+      this.room.connect(reflection);
+      reflection.connect(damp);
+      damp.connect(decay).connect(reflection);
+      damp.connect(this.master);
+    }
     // Bursts start up to 1.5 s into this buffer and play at up to 1.2x, so 4 s
     // still leaves over 1.2 s for the longest tail (sniper).
     const len = this.ctx.sampleRate * NOISE_BUFFER_SEC;
@@ -163,24 +222,46 @@ export class Sfx {
     this.release(o, g);
   }
 
+  /** Per-shot bus: the sound plays directly and a little of it reflects off the room. */
+  private shotBus(pos: Pos, ref: number): AudioNode {
+    const out = this.out(pos, ref);
+    const bus = this.ctx.createGain();
+    const send = this.ctx.createGain();
+    send.gain.value = ROOM_SEND;
+    bus.connect(out);
+    bus.connect(send).connect(this.room);
+    this.release(bus, send);
+    return bus;
+  }
+
+  /** Random factor in [1 - amount, 1 + amount], so repeated shots never sound identical. */
+  private jitter(amount: number): number {
+    return 1 + (Math.random() * 2 - 1) * amount;
+  }
+
   shot(weapon: WeaponId, pos: Pos, heavy = false): void {
     if (this.overrides.shot) return this.overrides.shot(weapon, pos, heavy);
     const t = this.ctx.currentTime;
     if (weapon === WEAPON.HAMMER) {
-      const out = this.out(pos, 120);
-      this.noiseBurst(out, t, heavy ? 700 : 1100, 0.6, 0.005, heavy ? 0.22 : 0.14, 0.35, 'bandpass');
+      const bus = this.shotBus(pos, 120);
+      this.noiseBurst(bus, t, heavy ? 700 : 1100, 0.6, 0.005, heavy ? 0.22 : 0.14, 0.35, 'bandpass');
       return;
     }
     const v = VOICES[weapon] ?? VOICES[WEAPON.RIFLE];
-    const out = this.out(pos, 260);
-    const g = pos ? v.gain : v.gain * 0.75;
-    this.noiseBurst(out, t, v.crack, 1.2, 0.0008, 0.025, g * 0.8, 'highpass');
-    this.noiseBurst(out, t, v.noiseFreq * (0.95 + Math.random() * 0.1), v.noiseQ, 0.001, v.decay, g, 'bandpass');
-    this.tone(out, t, 'sine', v.thump * 1.6, v.thump * 0.6, v.thumpDecay, g * 0.9);
-    this.noiseBurst(out, t + 0.01, 600, 0.4, 0.02, v.tail, g * 0.18, 'lowpass');
+    const bus = this.shotBus(pos, 260);
+    const g = (pos ? v.gain : v.gain * 0.75) * this.jitter(0.08);
+    const pitch = this.jitter(0.04);
+    // Supersonic crack: a very short, bright click.
+    this.noiseBurst(bus, t, v.crack * pitch, 1.2, 0.0005, 0.012, g * 0.8, 'highpass');
+    // Muzzle blast: the body of the shot.
+    this.noiseBurst(bus, t, v.noiseFreq * pitch * (0.95 + Math.random() * 0.1), v.noiseQ, 0.001, v.decay * this.jitter(0.1), g, 'bandpass');
+    // Pressure wave: a falling low tone and a sub boom under it.
+    this.tone(bus, t, 'sine', v.thump * 1.6 * pitch, v.thump * 0.6, v.thumpDecay * this.jitter(0.1), g * 1.1);
+    this.noiseBurst(bus, t, 180 * pitch, 0.7, 0.002, v.thumpDecay * 1.2, g * 0.9, 'lowpass');
+    this.noiseBurst(bus, t + 0.01, 600, 0.4, 0.02, v.tail * this.jitter(0.1), g * 0.18, 'lowpass');
     if (weapon === WEAPON.SNIPER || weapon === WEAPON.SHOTGUN) {
       // bolt / pump mechanics after the shot (only audible up close)
-      const mech = pos ? out : this.master;
+      const mech = pos ? bus : this.master;
       this.noiseBurst(mech, t + 0.42, 2600, 2, 0.002, 0.04, 0.12);
       this.noiseBurst(mech, t + 0.58, 1900, 2, 0.002, 0.05, 0.12);
     }
@@ -217,12 +298,92 @@ export class Sfx {
     this.noiseBurst(this.master, t, 5000, 2, 0.001, 0.03, 0.12);
   }
 
-  kill(streak: number): void {
+  /** Kill stinger for the streak tier. Synthesized, not sampled: the announcer clips of the original games are copyrighted. */
+  kill(streak: number, sound: StreakSound): void {
     if (this.overrides.kill) return this.overrides.kill(streak);
-    const t = this.ctx.currentTime;
-    const base = 660 * 2 ** (Math.min(streak - 1, 5) / 12);
-    this.tone(this.master, t, 'sine', base, base, 0.18, 0.2);
-    this.tone(this.master, t + 0.08, 'sine', base * 1.5, base * 1.5, 0.3, 0.2);
+    this.stingers[sound](this.ctx.currentTime);
+  }
+
+  private readonly stingers: Record<StreakSound, (t: number) => void> = {
+    kill: (t) => {
+      this.synth(t, { wave: 'sine', pitch: [660, 660], cutoff: [5000, 5000], dur: 0.18, gain: 0.25, detune: 0 });
+      this.synth(t + 0.08, { wave: 'sine', pitch: [990, 990], cutoff: [5000, 5000], dur: 0.3, gain: 0.25, detune: 0 });
+    },
+    // "Double Kill" / "Triple Kill": quick plucked beeps, one more per tier.
+    double: (t) => this.beeps(t, 2),
+    triple: (t) => this.beeps(t, 3),
+    // "Multi Kill": a fast saw arpeggio, each note opening and closing the filter.
+    multi: (t) => {
+      [330, 415, 494, 659].forEach((f, i) => this.synth(t + i * 0.055, { pitch: [f, f], cutoff: [2600, 400], dur: 0.16, gain: 0.16 }));
+    },
+    // "Rampage": a low power chord that closes its filter, with a hit of noise.
+    rampage: (t) => {
+      this.synth(t, { pitch: [110, 104], cutoff: [1400, 250], dur: 0.55, gain: 0.28 });
+      this.synth(t, { pitch: [165, 158], cutoff: [1400, 250], dur: 0.55, gain: 0.2 });
+      this.noiseBurst(this.master, t, 1200, 0.8, 0.005, 0.3, 0.3);
+    },
+    // "Unstoppable": a two-step siren.
+    unstoppable: (t) => {
+      this.synth(t, { wave: 'square', pitch: [420, 1250], cutoff: [2200, 2200], resonance: 8, dur: 0.32, gain: 0.14 });
+      this.synth(t + 0.34, { wave: 'square', pitch: [1250, 420], cutoff: [2200, 2200], resonance: 8, dur: 0.32, gain: 0.14 });
+    },
+    // "Godlike": a rising saw whose filter opens, a wide major chord and a crash.
+    godlike: (t) => {
+      this.synth(t, { pitch: [220, 440], cutoff: [300, 4000], dur: 1.2, gain: 0.22, attack: 0.05, detune: 12 });
+      for (const f of [440, 554, 659]) {
+        this.synth(t, { wave: 'triangle', pitch: [f, f], cutoff: [5000, 2000], dur: 1.2, gain: 0.14, attack: 0.05, detune: 5 });
+      }
+      this.noiseBurst(this.master, t, 3000, 0.6, 0.004, 0.45, 0.22, 'highpass');
+    },
+  };
+
+  private beeps(t: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const f = 880 * 1.25 ** i;
+      this.synth(t + i * 0.09, { wave: 'square', pitch: [f, f], cutoff: [3500, 600], dur: 0.12, gain: 0.18, detune: 6 });
+    }
+  }
+
+  /** Two detuned oscillators through a resonant low-pass sweep, with an amp envelope and a send to the echo. */
+  private synth(t: number, patch: Partial<SynthPatch> & Pick<SynthPatch, 'pitch' | 'cutoff' | 'dur' | 'gain'>): void {
+    const p = { ...SYNTH_DEFAULTS, ...patch };
+    const level = p.gain * STREAK_LEVEL;
+    const amp = this.ctx.createGain();
+    amp.gain.setValueAtTime(0.0001, t);
+    amp.gain.exponentialRampToValueAtTime(level, t + p.attack);
+    amp.gain.exponentialRampToValueAtTime(0.0001, t + p.dur);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = p.resonance;
+    lp.frequency.setValueAtTime(p.cutoff[0], t);
+    lp.frequency.exponentialRampToValueAtTime(p.cutoff[1], t + p.dur);
+    lp.connect(amp);
+    amp.connect(this.master);
+    amp.connect(this.echo);
+    const nodes: AudioNode[] = [amp, lp];
+    for (const detune of [-p.detune, p.detune]) {
+      const o = this.ctx.createOscillator();
+      o.type = p.wave;
+      o.detune.value = detune;
+      o.frequency.setValueAtTime(p.pitch[0], t);
+      if (p.pitch[1] !== p.pitch[0]) o.frequency.exponentialRampToValueAtTime(p.pitch[1], t + p.dur);
+      o.connect(lp);
+      o.start(t);
+      o.stop(t + p.dur + 0.05);
+      nodes.push(o);
+    }
+    // Sub layer an octave down: the weight the stingers were missing.
+    const sub = this.ctx.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(p.pitch[0] / 2, t);
+    if (p.pitch[1] !== p.pitch[0]) sub.frequency.exponentialRampToValueAtTime(p.pitch[1] / 2, t + p.dur);
+    const subGain = this.ctx.createGain();
+    subGain.gain.value = SUB_LEVEL;
+    sub.connect(subGain).connect(amp);
+    sub.start(t);
+    sub.stop(t + p.dur + 0.05);
+    nodes.push(sub, subGain);
+    this.release(...nodes);
   }
 
   hurt(): void {

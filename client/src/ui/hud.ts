@@ -1,4 +1,5 @@
 import { TEAMS } from '@calindra-strike/shared';
+import { drawLaptop } from '../game/laptop/draw.ts';
 import { ICONS, h, svg } from './dom.ts';
 
 export interface LeaderRow {
@@ -43,6 +44,10 @@ export class Hud {
   private readonly leadersRight = h('div', { style: 'display:flex;gap:8px' });
   private readonly flagStatus = h('div', { class: 'flag-status glass hidden' });
   private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a bandeira, volte à base' });
+  private readonly bombStatus = h('div', { class: 'bomb-status glass hidden' });
+  private readonly plantFill = h('i', { style: 'width:0%' });
+  private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
+  private readonly defuseCanvas = h('canvas', { class: 'defuse-overlay hidden' });
   private readonly feed = h('div', { class: 'killfeed' });
   private readonly hpV = h('div', { class: 'v', text: '100' });
   private readonly hpBar = h('i', { style: 'width:100%' });
@@ -121,6 +126,9 @@ export class Hud {
       this.feed,
       this.flagStatus,
       this.flagBanner,
+      this.bombStatus,
+      this.plantBar,
+      this.defuseCanvas,
       h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
       this.ch,
@@ -188,6 +196,36 @@ export class Hud {
       this.flagBanner.classList.toggle('hidden', !carrying);
       this.flagStatus.replaceChildren(...flags.map(flag => h('span', { style: 'color:' + TEAMS[flag.team].color, text: TEAMS[flag.team].name + ': ' + flag.text })));
     });
+  }
+
+  /** Status line for the bug, and the plant progress (0..1, negative hides the bar). */
+  setBomb(text: string | null, plant: number): void {
+    const percent = Math.round(plant * 100);
+    this.set('bomb', JSON.stringify([text, percent]), () => {
+      this.bombStatus.classList.toggle('hidden', text === null);
+      this.bombStatus.textContent = text ?? '';
+      this.plantBar.classList.toggle('hidden', percent < 0);
+      this.plantFill.style.width = Math.max(0, percent) + '%';
+    });
+  }
+
+  /** Full-size laptop shown to the player who is defusing, redrawn every frame. */
+  setDefuse(scene: { variant: number; progress: number; timeMs: number } | null): void {
+    this.set('defuse', String(scene !== null), () => this.defuseCanvas.classList.toggle('hidden', scene === null));
+    if (!scene) return;
+    const width = this.defuseCanvas.clientWidth;
+    const height = this.defuseCanvas.clientHeight;
+    const ctx = this.defuseCanvas.getContext('2d');
+    if (!ctx || width === 0 || height === 0) return;
+    const ratio = window.devicePixelRatio || 1;
+    const backingWidth = Math.round(width * ratio);
+    const backingHeight = Math.round(height * ratio);
+    if (this.defuseCanvas.width !== backingWidth || this.defuseCanvas.height !== backingHeight) {
+      this.defuseCanvas.width = backingWidth;
+      this.defuseCanvas.height = backingHeight;
+    }
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    drawLaptop(ctx, width, height, scene.variant, scene.progress, scene.timeMs);
   }
 
   setTeamBadge(team: number): void {

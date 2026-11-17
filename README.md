@@ -4,9 +4,10 @@
 
 An original browser FPS with Counter-Strike 1.6 style gameplay, made for the Calindra office:
 
-- **Arena match**: 5 minute rounds with a live leaderboard at the top and a 3D **top-3 podium** at the end, alongside a scrollable full ranking with kills, deaths and headshots for every player from both teams. The rotation cycles through every enabled map + mode pair (`Forja`, `Escritório` × TDM, free-for-all and CTF by default), never repeating the same map or mode back to back. Pick which ones are in play with `GAME_MAPS` and `GAME_MODES`.
+- **Arena match**: 5 minute rounds with a live leaderboard at the top and a 3D **top-3 podium** at the end, alongside a scrollable full ranking with kills, deaths and headshots for every player from both teams. The rotation cycles through every enabled map + mode pair (`Forja`, `Escritório` × TDM, free-for-all, CTF and debug defusion by default), never repeating the same map or mode back to back. Pick which ones are in play with `GAME_MAPS` and `GAME_MODES`.
 - **Team Deathmatch**: **Bulldogs** (lime) vs **Martelos** (blue), no friendly fire, first team to 50 kills (or most kills at the end of the timer) wins. Teams are shuffled and balanced every match, late joiners go to the smaller side, CS-style auto-balance on respawn, and you can switch to the smaller team from the Esc menu. Each side skydives over its own half; the podium shows the winning team's best three.
 - **Capture the Flag**: steal the enemy flag and bring it to your base while your own flag is home. First to 3 captures wins; dropped flags return after 30 seconds.
+- **Debug defusion**: the attackers carry "o bug", a laptop, to the opposite base and hold **E** for 3 seconds to plant it. The defenders have 35 seconds to stand next to it and hold **E** for 7 seconds, while a laptop screen shows a developer fixing the bug. A defused bug scores for the defenders, an exploded one for the attackers, and the sides swap every round. First to 5 rounds wins; a dropped laptop returns home after 20 seconds.
 - **Bots** (off by default, enable with `BOT_FILL`): server-side bots fill empty slots (up to `BOT_FILL`) whenever someone is online and leave as people join. They navigate an auto-generated walkable grid (stairs, crate jumps, dropping off roofs), react with human-like delay and aim error, burst-fire and scope the AWP, hunt players and go for airdrops, respect teams in TDM/CTF, and pursue flag objectives in CTF.
 - **Map vote**: during the podium everyone votes for the next match (3 map + mode options, keys 1-3 or click); most votes wins, no votes keeps the rotation.
 - **Rejoin**: a dropped connection or page refresh gets your score back if you return within 90 s.
@@ -60,9 +61,10 @@ Serve `client/dist` as static files and start the game server with `node --run s
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GAME_MODES` | `tdm,ffa,ctf` | Rotation and vote modes: `tdm`, `ffa`, `ctf`, or `all` |
+| `GAME_MODES` | `tdm,ffa,ctf,defuse` | Rotation and vote modes: `tdm`, `ffa`, `ctf`, `defuse`, or `all` |
 | `GAME_MAPS` | all | Map IDs: `forja`, `escritorio` |
 | `CTF_CAPTURE_LIMIT` | `3` | Captures to win; `0` uses the timer only |
+| `DEFUSE_SCORE_LIMIT` | `5` | Rounds to win debug defusion; `0` uses the timer only |
 | `TDM_SCORE_LIMIT` | `50` | Team kill target; `0` uses the timer only |
 | `MATCH_SECONDS` / `PODIUM_SECONDS` | `300` / `15` | Match and podium duration |
 | `WARMUP_MIN_PLAYERS` | `2` | Players needed to start a match |
@@ -114,7 +116,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 ## Controls
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
 
 ### Watching a match
 

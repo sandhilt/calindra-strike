@@ -2001,3 +2001,27 @@ input:focus-visible {
   .flag-status { top: 82px; flex-direction: column; gap: 3px; width: max-content; }
   .flag-banner { top: 148px; width: max-content; font-size: 12px; }
 }
+
+.bomb-status, .bomb-bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+}
+.bomb-status { top: 94px; padding: 8px 12px; font-size: 13px; font-weight: 700; text-align: center; color: #ff8a7e; }
+.bomb-bar { top: 136px; width: 220px; height: 10px; padding: 2px; overflow: hidden; }
+.bomb-bar i { display: block; height: 100%; background: var(--lime, #a5fa00); border-radius: 3px; }
+.defuse-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  width: min(720px, 94vw);
+  aspect-ratio: 720 / 460;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+}
+@media (max-width: 600px) {
+  .bomb-status { top: 82px; width: max-content; font-size: 12px; }
+  .bomb-bar { top: 122px; }
+}

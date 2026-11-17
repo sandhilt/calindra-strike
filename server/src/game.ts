@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
+  BTN, DEBUG_SCENARIO_COUNT, dropBomb, stepBomb, type BombState, type BombPlaces,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -168,6 +169,7 @@ export interface ServerPlayer {
   queue: Cmd[];
   lastSeq: number;
   tokens: number;
+  using: boolean; // BTN.USE held in the last processed command
   kills: number;
   deaths: number;
   headshots: number;
@@ -202,6 +204,7 @@ export interface GameOptions {
   modes?: ModeSetting | GameMode[];
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
+  defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
   tdmLimit?: number; // team kills to win a TDM match early (0 = timer only)
   airdropFirstMs?: number;
   botFill?: number; // keep at least this many players (bots fill the gap while someone is online)
@@ -222,6 +225,10 @@ export class Game {
   readonly teamScores = [0, 0];
   private flags: FlagState[] = [{ kind: 'home' }, { kind: 'home' }];
   private readonly flagBasesByMap = new Map<string, FlagBase[]>();
+  private bomb: BombState = { kind: 'home' };
+  /** Team that carries and plants; the other team defends. Swaps after every round. */
+  private attackers: 0 | 1 = 0;
+  private bombVariant = 0;
   private winner = -1;
   private endPending = false;
   private rotationIndex = 0;
@@ -280,6 +287,13 @@ export class Game {
   }
 
   get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
+  get defuseLimit(): number { return this.opts.defuseLimit ?? 5; }
+
+  private scoreLimit(): number {
+    if (this.mode === 'ctf') return this.ctfLimit;
+    if (this.mode === 'defuse') return this.defuseLimit;
+    return MODE_RULES[this.mode].killScore ? this.tdmLimit : 0;
+  }
 
   private flagBases(): FlagBase[] {
     let bases = this.flagBasesByMap.get(this.map.id);
@@ -295,16 +309,81 @@ export class Game {
     return Math.max(0, this.world.groundBelow(x, fromY, z, PLAYER_RADIUS));
   }
 
-  private resetFlags(): void {
+  private resetObjectives(): void {
     this.flags = [{ kind: 'home' }, { kind: 'home' }];
+    this.bomb = { kind: 'home' };
+    this.attackers = 0;
+    this.drawBombVariant();
   }
 
-  private dropFlag(p: ServerPlayer): void {
-    if (this.mode !== 'ctf') return;
+  /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */
+  private drawBombVariant(): void {
+    if (this.mode === 'defuse') this.bombVariant = Math.floor(this.random() * DEBUG_SCENARIO_COUNT);
+  }
+
+  private dropObjective(p: ServerPlayer): void {
+    p.using = false;
+    if (this.mode !== 'ctf' && this.mode !== 'defuse') return;
     const at = { x: p.state.x, y: this.groundY(p.state.x, p.state.y, p.state.z), z: p.state.z };
+    if (this.mode === 'defuse') {
+      const result = dropBomb(this.bomb, p.id, at, this.tick, this.attackers);
+      this.bomb = result.bomb;
+      for (const event of result.events) this.emit(event);
+      return;
+    }
     const result = dropCarried(this.flags, p.id, at, this.tick);
     this.flags = result.flags;
     for (const event of result.events) this.emit(event);
+  }
+
+  private bombPlaces(): BombPlaces {
+    const bases = this.flagBases();
+    return { home: bases[this.attackers], site: bases[1 - this.attackers], attackers: this.attackers };
+  }
+
+  private updateBomb(): void {
+    if (this.mode !== 'defuse' || this.phase !== 'live') return;
+    const actors = [...this.players.values()].map((p) => ({
+      id: p.id, team: p.team, alive: p.alive, using: p.using,
+      x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
+    }));
+    const before = this.bomb;
+    const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, this.bombVariant);
+    this.bomb = result.bomb;
+    if (this.bomb.kind === 'planted' && before.kind !== 'planted') {
+      this.bomb = { ...this.bomb, y: this.groundY(this.bomb.x, this.bomb.y, this.bomb.z) };
+    }
+    for (const event of result.events) this.emit(event);
+    if (!result.outcome) return;
+    const winner = result.outcome === 'defused' ? 1 - this.attackers : this.attackers;
+    this.teamScores[winner]++;
+    this.scoreDirty = true;
+    if (this.defuseLimit > 0 && this.teamScores[winner] >= this.defuseLimit) this.endPending = true;
+    this.attackers = (1 - this.attackers) as 0 | 1;
+    this.drawBombVariant();
+  }
+
+  private msAt(tick: number): number {
+    return Math.round(tick * TICK_MS);
+  }
+
+  private bombSnapshot(): number[] {
+    if (this.mode !== 'defuse') return [];
+    const bomb = this.bomb;
+    const places = this.bombPlaces();
+    const carrying = bomb.kind === 'carried' || bomb.kind === 'planting';
+    const holder = carrying ? this.players.get(bomb.carrier) : undefined;
+    const at = bomb.kind === 'dropped' || bomb.kind === 'planted' ? bomb : holder?.state ?? places.home;
+    const state = { home: 0, carried: 1, planting: 2, dropped: 3, planted: 4 }[bomb.kind];
+    const actorId = carrying ? bomb.carrier : bomb.kind === 'planted' ? bomb.defuse?.by ?? -1 : -1;
+    return [
+      state, actorId, round(at.x, 10), round(at.y, 10), round(at.z, 10),
+      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : 0,
+      bomb.kind === 'planted' && bomb.defuse ? this.msAt(bomb.defuse.doneAtTick) : 0,
+      bomb.kind === 'planted' ? bomb.variant : this.bombVariant,
+      this.attackers,
+      bomb.kind === 'planting' ? this.msAt(bomb.doneAtTick) : 0,
+    ];
   }
 
   private updateFlags(): void {
@@ -371,7 +450,7 @@ export class Game {
     if (!isTeamMode(this.mode) || this.phase === 'podium' || p.team === team || (team !== 0 && team !== 1)) return;
     // only toward the smaller side, like CS's team balance
     if (this.teamSize(team) >= this.teamSize(p.team)) return;
-    this.dropFlag(p);
+    this.dropObjective(p);
     p.team = team;
     p.streak = 0;
     if (p.alive) {
@@ -460,6 +539,7 @@ export class Game {
       queue: [],
       lastSeq: -1,
       tokens: CMD_BURST,
+      using: false,
       kills: 0,
       deaths: 0,
       headshots: 0,
@@ -509,7 +589,7 @@ export class Game {
   leave(id: number): void {
     const p = this.players.get(id);
     if (!p) return;
-    this.dropFlag(p);
+    this.dropObjective(p);
     this.players.delete(id);
     this.votes.delete(id);
     if (!p.brain && this.phase !== 'warmup') {
@@ -550,7 +630,7 @@ export class Game {
       const bigger = this.teamSize(0) >= this.teamSize(1) ? 0 : 1;
       const pick =
         bots.find((b) => !b.alive && (!teams || b.team === bigger)) ?? bots.find((b) => !teams || b.team === bigger) ?? bots[0];
-      this.dropFlag(pick);
+      this.dropObjective(pick);
       this.players.delete(pick.id);
       this.votes.delete(pick.id);
       this.emit({ k: 'leave', id: pick.id });
@@ -593,6 +673,7 @@ export class Game {
       queue: [],
       lastSeq: -1,
       tokens: CMD_BURST,
+      using: false,
       kills: 0,
       deaths: 0,
       headshots: 0,
@@ -627,6 +708,8 @@ export class Game {
       airdrops: this.airdrops,
       flags: this.flags,
       flagBases: this.flagBases(),
+      bomb: this.bomb,
+      bombPlaces: this.bombPlaces(),
     };
     for (const p of list) {
       if (p.brain && p.alive && p.queue.length < 2) p.queue.push(p.brain.think(p, env));
@@ -725,7 +808,7 @@ export class Game {
       map: this.mapIndex,
       endsAt: this.phaseEnds,
       teams: [...this.teamScores],
-      limit: this.mode === 'ctf' ? this.ctfLimit : MODE_RULES[this.mode].killScore ? this.tdmLimit : 0,
+      limit: this.scoreLimit(),
       results: podium ? this.results : undefined,
       winner: podium ? this.winner : undefined,
       next: podium ? this.rotation[(this.rotationIndex + 1) % this.rotation.length] : undefined,
@@ -752,7 +835,7 @@ export class Game {
   }
 
   startMatch(): void {
-    this.resetFlags();
+    this.resetObjectives();
     this.syncSpectators();
     this.matchId++;
     this.phase = 'live';
@@ -768,7 +851,7 @@ export class Game {
   }
 
   private endMatch(): void {
-    this.resetFlags();
+    this.resetObjectives();
     this.phase = 'podium';
     this.phaseEnds = this.now() + this.opts.podiumMs;
     this.endPending = false;
@@ -803,7 +886,7 @@ export class Game {
     this.map = getMap(choice.map);
     this.world = this.worlds[choice.map];
     this.mode = choice.mode;
-    this.resetFlags();
+    this.resetObjectives();
     this.syncSpectators();
     this.voteOptions = [];
     this.votes.clear();
@@ -821,7 +904,7 @@ export class Game {
   }
 
   private resetToWarmup(): void {
-    this.resetFlags();
+    this.resetObjectives();
     this.syncSpectators();
     this.phase = 'warmup';
     this.phaseEnds = 0;
@@ -835,7 +918,7 @@ export class Game {
   // ------------------------------------------------------------ spawning
 
   private spawn(p: ServerPlayer): void {
-    this.dropFlag(p);
+    this.dropObjective(p);
     const a = this.map.dropArea;
     const teams = isTeamMode(this.mode);
     if (teams) {
@@ -984,7 +1067,7 @@ export class Game {
   }
 
   private kill(victim: ServerPlayer, killer: ServerPlayer, weapon: WeaponId, head: boolean): void {
-    this.dropFlag(victim);
+    this.dropObjective(victim);
     victim.alive = false;
     victim.deaths++;
     victim.streak = 0;
@@ -1084,6 +1167,7 @@ export class Game {
         p.tokens -= 1;
         n++;
         p.lastSeq = cmd.seq;
+        p.using = (cmd.buttons & BTN.USE) !== 0;
         if (p.alive && this.phase !== 'podium') {
           const shot = applyCmd(this.world, p.state, cmd, p.id);
           if (shot) this.handleShot(p, shot, cmd.interp);
@@ -1104,6 +1188,7 @@ export class Game {
     }
 
     this.updateFlags();
+    this.updateBomb();
     this.recordHistory();
     this.flushEvents();
     if (this.tick % SNAPSHOT_EVERY_TICKS === 0) this.sendSnapshots();
@@ -1156,7 +1241,8 @@ export class Game {
     }
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);
     const fl = this.flagSnapshot();
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)}}`;
+    const bm = this.bombSnapshot();
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';

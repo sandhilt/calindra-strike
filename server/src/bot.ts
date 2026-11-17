@@ -4,6 +4,8 @@ import {
   type CollisionWorld,
   DEG,
   type GameMode,
+  type FlagState,
+  type FlagBase,
   type PlayerState,
   WEAPON,
   clamp,
@@ -29,9 +31,36 @@ export interface BotEnv {
   mode: GameMode;
   random: () => number;
   players: Iterable<BotAgent>;
+  flags?: readonly FlagState[];
+  flagBases?: readonly FlagBase[];
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
+/** Team-local id order keeps both roles on each team even with alternating team ids. */
+export function pickCtfGoal(self: BotAgent, env: BotEnv): FlagBase | null {
+  if (env.mode !== 'ctf' || (self.team !== 0 && self.team !== 1)) return null;
+  const ownBase = env.flagBases?.[self.team];
+  const enemyBase = env.flagBases?.[1 - self.team];
+  const own = env.flags?.[self.team];
+  const enemy = env.flags?.[1 - self.team];
+  if (!ownBase || !enemyBase || !own || !enemy) return null;
+  const carrier = own.kind === 'carried' ? [...env.players].find(p => p.id === own.carrier) : null;
+  if (enemy.kind === 'carried' && enemy.carrier === self.id) {
+    if (own.kind === 'dropped') return own;
+    return carrier?.state ?? ownBase;
+  }
+  if (own.kind === 'dropped') return own;
+  const teammates = [...env.players].filter(p => p.team === self.team).sort((a, b) => a.id - b.id);
+  const defender = teammates.findIndex(p => p.id === self.id) % CTF_DEFENDER_CYCLE === CTF_DEFENDER_CYCLE - 1;
+  if (defender) {
+    return carrier?.state ?? ownBase;
+  }
+  return enemy.kind === 'dropped' ? enemy : enemyBase;
+}
+
+// One defender per four teammates: guarding with more starved the attack and 4v4 bot matches never captured.
+const CTF_DEFENDER_CYCLE = 4;
+const GOAL_CHANGE_DISTANCE_UNITS = 1; // ignore sub-unit floor settling when refreshing objectives
 const SCAN_EVERY = 6; // ticks between target scans (100 ms)
 export const VIEW_RANGE = 2600;
 export const HEAR_RANGE = 420; // notices you behind it up close
@@ -195,6 +224,15 @@ export class BotBrain {
         return;
       }
     }
+    const objective = pickCtfGoal(self, env);
+    if (objective) {
+      if (!this.goal || Math.hypot(this.goal.x - objective.x, this.goal.y - objective.y, this.goal.z - objective.z) > GOAL_CHANGE_DISTANCE_UNITS) {
+        this.goal = { x: objective.x, y: objective.y, z: objective.z };
+        this.repathAt = 0;
+      }
+      this.goalUntil = env.tick + SCAN_EVERY;
+      return;
+    }
     const r = env.random();
     const drop = env.airdrops.find((d) => d.landed && Math.hypot(d.x - s.x, d.z - s.z) < 1600);
     const enemy = this.nearestEnemy(self, env);
@@ -255,8 +293,9 @@ export class BotBrain {
     if (s.dropping) {
       // glide toward the action and dive once roughly above it
       const enemy = this.nearestEnemy(self, env);
-      const tx = enemy ? enemy.state.x : 0;
-      const tz = enemy ? enemy.state.z : 0;
+      const objective = pickCtfGoal(self, env);
+      const tx = objective?.x ?? (enemy ? enemy.state.x : 0);
+      const tz = objective?.z ?? (enemy ? enemy.state.z : 0);
       const d = Math.hypot(tx - s.x, tz - s.z);
       const [yaw] = anglesTo(s.x, 0, s.z, tx, 0, tz);
       this.turnTo(yaw, -0.6, dt, 240);
@@ -336,7 +375,7 @@ export class BotBrain {
         if (dist > 1100) buttons |= BTN.FWD;
       }
       this.path = []; // replan after the fight
-      if (this.directive) this.repathAt = 0;
+      this.repathAt = 0;
       return this.cmd(buttons, weapon, env);
     }
 

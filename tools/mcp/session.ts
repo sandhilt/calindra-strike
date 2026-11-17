@@ -207,6 +207,7 @@ export class GameSession {
       for (const e of m.e) {
         if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
+        else if (e.k === 'flag') v.events.push({ ...e, byName: this.names.get(e.by) });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
       }
     if (m.t === 'snap' && this.intent.kind === 'attack' && !this.intent.ended) {

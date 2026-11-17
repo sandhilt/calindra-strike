@@ -295,7 +295,8 @@ export class Game {
     if (this.mode !== 'ctf') return [];
     const bases = this.flagBases();
     return this.flags.map((flag, team) => {
-      const at = flag.kind === 'dropped' ? flag : bases[team];
+      const carrier = flag.kind === 'carried' ? this.players.get(flag.carrier) : undefined;
+      const at = flag.kind === 'dropped' ? flag : carrier?.state ?? bases[team];
       return [
         flag.kind === 'home' ? 0 : flag.kind === 'carried' ? 1 : 2,
         flag.kind === 'carried' ? flag.carrier : -1,
@@ -588,6 +589,8 @@ export class Game {
       random: this.random,
       players: list,
       airdrops: this.airdrops,
+      flags: this.flags,
+      flagBases: this.flagBases(),
     };
     for (const p of list) {
       if (p.brain && p.alive && p.queue.length < 2) p.queue.push(p.brain.think(p, env));

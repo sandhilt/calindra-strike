@@ -291,6 +291,59 @@ export class Sfx {
     [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(this.master, t + i * 0.06, 'triangle', f, f, 0.25, 0.14));
   }
 
+  /** Armed bug ticking: a short blip that gets higher as the fuse burns down (urgency 0..1). */
+  bombBeep(pos: Pos, urgency: number): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 320);
+    const f = 1000 + urgency * 900;
+    this.tone(out, t, 'square', f, f, 0.07, 0.07 + urgency * 0.05);
+  }
+
+  rushBeep(pos: Pos, urgency: number): void {
+    const start = this.ctx.currentTime;
+    const out = this.out(pos, 320);
+    const frequency = 1400 + urgency * 900;
+    const gain = 0.07 + urgency * 0.05;
+    this.tone(out, start, 'square', frequency, frequency, 0.04, gain);
+    this.tone(out, start + 0.06, 'square', frequency * 1.15, frequency * 1.15, 0.04, gain);
+  }
+
+  blackFriday(): void {
+    const start = this.ctx.currentTime;
+    this.noiseBurst(this.master, start, 2300, 2, 0.001, 0.065, 0.14);
+    this.tone(this.master, start + 0.06, 'sine', 2350, 2320, 0.27, 0.16);
+    this.tone(this.master, start + 0.06, 'sine', 3900, 3880, 0.19, 0.08);
+    this.tone(this.master, start + 0.19, 'triangle', 500, 1450, 0.35, 0.14, 0.03);
+  }
+
+  boom(pos: Pos): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 700);
+    this.tone(out, t, 'sine', 110, 28, 1.1, 0.9);
+    this.noiseBurst(out, t, 220, 0.5, 0.004, 1.1, 0.7, 'lowpass');
+    this.noiseBurst(out, t, 1400, 0.7, 0.002, 0.35, 0.45, 'bandpass');
+  }
+
+  /** One keystroke on the bug's keyboard; played in quick runs while someone plants or defuses. */
+  keystroke(pos: Pos): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 260);
+    this.noiseBurst(out, t, 3200 + Math.random() * 1800, 2.5, 0.001, 0.035, 0.22, 'bandpass');
+    this.tone(out, t, 'square', 180, 120, 0.02, 0.03);
+  }
+
+  bombTaken(): void {
+    const t = this.ctx.currentTime;
+    this.tone(this.master, t, 'triangle', 660, 660, 0.09, 0.12);
+    this.tone(this.master, t + 0.08, 'triangle', 990, 990, 0.12, 0.12);
+  }
+
+  denied(): void {
+    const t = this.ctx.currentTime;
+    this.tone(this.master, t, 'square', 220, 160, 0.12, 0.08);
+    this.tone(this.master, t + 0.13, 'square', 180, 130, 0.14, 0.08);
+  }
+
   beep(high = false): void {
     this.tone(this.master, this.ctx.currentTime, 'sine', high ? 1320 : 880, high ? 1320 : 880, 0.12, 0.15);
   }

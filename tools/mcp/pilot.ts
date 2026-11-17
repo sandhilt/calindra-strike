@@ -10,7 +10,7 @@ import {
 } from '../../shared/src/index.ts';
 import { BotBrain, type BotAgent } from '../../server/src/bot.ts';
 import type { NavGrid } from '../../server/src/nav.ts';
-import { flagStates, type WorldView } from './view.ts';
+import { bombState, bombPlaces, flagStates, type WorldView } from './view.ts';
 
 export type Intent =
   | { kind: 'idle' }
@@ -100,6 +100,8 @@ export class Pilot {
       players,
       airdrops: view.airdrops,
       flags: flagStates(view),
+      bomb: bombState(view),
+      bombPlaces: view.bomb.length ? bombPlaces(view, world) : undefined,
       flagBases: getMap(view.match.map).flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, getMap(view.match.map).dropHeight, b.z, PLAYER_RADIUS) })),
     });
     if (this.brain.directiveEnded) return idle;

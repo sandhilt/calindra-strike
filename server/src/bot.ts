@@ -1,5 +1,9 @@
 import {
+  BOMB_SITE_RADIUS_UNITS,
   BTN,
+  DEFUSE_RADIUS_UNITS,
+  type BombPlaces,
+  type BombState,
   CTF_ENGAGE_DISTANCE_UNITS,
   type Cmd,
   type CollisionWorld,
@@ -11,6 +15,7 @@ import {
   WEAPON,
   clamp,
   eyeHeight,
+  inBombReach,
   weaponDef,
   wrapAngle,
 } from '@calindra-strike/shared';
@@ -34,6 +39,8 @@ export interface BotEnv {
   players: Iterable<BotAgent>;
   flags?: readonly FlagState[];
   flagBases?: readonly FlagBase[];
+  bomb?: BombState;
+  bombPlaces?: BombPlaces;
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
@@ -56,6 +63,45 @@ export function pickCtfGoal(self: BotAgent, env: BotEnv): FlagBase | null {
     return carrier?.state ?? ownBase;
   }
   return enemy.kind === 'dropped' ? enemy : enemyBase;
+}
+
+/** Where a bot stands to hold USE, as a margin inside the radius that actually counts on the server. */
+const PLANT_HOLD_RADIUS_UNITS = BOMB_SITE_RADIUS_UNITS - 60;
+const DEFUSE_HOLD_RADIUS_UNITS = DEFUSE_RADIUS_UNITS - 4;
+const HOLD_MAX_HEIGHT_UNITS = 40;
+const APPROACH_RADIUS_UNITS = 140; // nav nodes can end short of an off-grid goal, walk the rest straight
+
+export interface BombGoal extends FlagBase {
+  /** Stand still holding USE once this close, null when the goal is only a place to wait. */
+  holdRadiusUnits: number | null;
+}
+
+/** Attackers fetch the bomb, the carrier plants at the site and the rest escort. Defenders hold the site and defuse once it is planted. */
+export function pickBombGoal(self: BotAgent, env: BotEnv): BombGoal | null {
+  if (env.mode !== 'defuse' || !env.bomb || !env.bombPlaces || (self.team !== 0 && self.team !== 1)) return null;
+  const { bomb, bombPlaces: places } = env;
+  if (self.team !== places.attackers) {
+    if (bomb.kind === 'planted') return { x: bomb.x, y: bomb.y, z: bomb.z, holdRadiusUnits: DEFUSE_HOLD_RADIUS_UNITS };
+    return { ...places.site, holdRadiusUnits: null };
+  }
+  if (bomb.kind === 'home') return { ...places.home, holdRadiusUnits: null };
+  if (bomb.kind === 'dropped' || bomb.kind === 'planted') return { x: bomb.x, y: bomb.y, z: bomb.z, holdRadiusUnits: null };
+  if (bomb.carrier === self.id) return { ...places.site, holdRadiusUnits: PLANT_HOLD_RADIUS_UNITS };
+  const carrier = [...env.players].find(p => p.id === bomb.carrier);
+  return { ...(carrier?.state ?? places.site), holdRadiusUnits: null };
+}
+
+function bombRole(self: BotAgent, env: BotEnv): CtfRole {
+  const bomb = env.bomb;
+  if ((bomb?.kind === 'carried' || bomb?.kind === 'planting') && bomb.carrier === self.id) return 'carrier';
+  return self.team === env.bombPlaces?.attackers ? 'attacker' : 'defender';
+}
+
+function holdsPosition(self: BotAgent, goal: BombGoal | null, bombKind: BombState['kind'] | undefined): boolean {
+  if (!goal || goal.holdRadiusUnits === null) return false;
+  const s = self.state;
+  if (bombKind === 'planted') return inBombReach(s, goal, DEFUSE_HOLD_RADIUS_UNITS);
+  return Math.hypot(goal.x - s.x, goal.z - s.z) <= goal.holdRadiusUnits && Math.abs(goal.y - s.y) <= HOLD_MAX_HEIGHT_UNITS;
 }
 
 export type CtfRole = 'carrier' | 'attacker' | 'defender';
@@ -237,7 +283,7 @@ export class BotBrain {
         return;
       }
     }
-    const objective = pickCtfGoal(self, env);
+    const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env);
     if (objective) {
       if (!this.goal || Math.hypot(this.goal.x - objective.x, this.goal.y - objective.y, this.goal.z - objective.z) > GOAL_CHANGE_DISTANCE_UNITS) {
         this.goal = { x: objective.x, y: objective.y, z: objective.z };
@@ -306,7 +352,7 @@ export class BotBrain {
     if (s.dropping) {
       // glide toward the action and dive once roughly above it
       const enemy = this.nearestEnemy(self, env);
-      const objective = pickCtfGoal(self, env);
+      const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env);
       const tx = objective?.x ?? (enemy ? enemy.state.x : 0);
       const tz = objective?.z ?? (enemy ? enemy.state.z : 0);
       const d = Math.hypot(tx - s.x, tz - s.z);
@@ -315,6 +361,9 @@ export class BotBrain {
       buttons = d > 200 ? BTN.FWD : BTN.DUCK;
       return this.cmd(buttons, weapon, env);
     }
+
+    const bombGoal = pickBombGoal(self, env);
+    const holding = holdsPosition(self, bombGoal, env.bomb?.kind);
 
     // --- perception
     if (env.tick % SCAN_EVERY === self.id % SCAN_EVERY) {
@@ -378,6 +427,15 @@ export class BotBrain {
         }
       }
 
+      if (holding) {
+        buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
+        return this.cmd(buttons | BTN.USE, weapon, env);
+      }
+      if (bombGoal && ctfCombatStance(bombRole(self, env), dist) === 'advance') {
+        buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
+        buttons |= this.advanceWhileAiming(self, env);
+        return this.cmd(buttons, weapon, env);
+      }
       if (env.mode === 'ctf' && pickCtfGoal(self, env) && ctfCombatStance(ctfRole(self, env), dist) === 'advance') {
         buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
         buttons |= this.advanceWhileAiming(self, env);
@@ -399,6 +457,7 @@ export class BotBrain {
     }
 
     // --- navigation
+    if (holding) return this.cmd(BTN.USE, weapon, env);
     if (this.reached) {
       if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
       return this.cmd(buttons, weapon, env);
@@ -407,6 +466,11 @@ export class BotBrain {
     if (!node) {
       if (this.goal && Math.hypot(this.goal.x - s.x, this.goal.z - s.z) < 60) this.pickGoal(self, env);
       this.repathAt = Math.min(this.repathAt, env.tick + 10);
+      if (bombGoal?.holdRadiusUnits != null && Math.hypot(bombGoal.x - s.x, bombGoal.z - s.z) < APPROACH_RADIUS_UNITS) {
+        const [yaw] = anglesTo(s.x, 0, s.z, bombGoal.x, 0, bombGoal.z);
+        this.turnTo(yaw, 0, dt, this.lerpSkill(300, 520));
+        if (Math.abs(wrapAngle(yaw - this.yaw)) < 70 * DEG) buttons |= BTN.FWD;
+      }
     } else {
       const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
       this.turnTo(yaw, 0, dt, this.lerpSkill(300, 520));

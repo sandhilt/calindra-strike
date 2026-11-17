@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseClientMessage, sanitizeChat, sanitizeName } from '../src/index.ts';
+import { BTN, BTN_MASK, parseClientMessage, sanitizeChat, sanitizeName } from '../src/index.ts';
 
 describe('parseClientMessage', () => {
   it('accepts a valid hello and input packet', () => {
@@ -30,8 +30,9 @@ describe('parseClientMessage', () => {
     });
   }
 
-  it('rejects unknown button bits', () => {
-    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 1024, 0, 0, 0, 0]] })), null);
+  it('accepts every button bit and rejects the next one', () => {
+    assert.equal(BTN_MASK, Object.values(BTN).reduce((all, bit) => all | bit, 0));
+    assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, BTN.USE | BTN.FWD, 0, 0, 0, 0]] })), { t: 'in' });
     assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 2048, 0, 0, 0, 0]] })), null);
   });
 

@@ -13,6 +13,7 @@ export interface Config {
   modes: GameMode[];
   maps: string[]; // empty = every map
   ctfLimit: number;
+  defuseLimit: number;
   tdmLimit: number;
   airdropFirstMs: number;
   botFill: number;
@@ -39,7 +40,7 @@ function list(raw: string | undefined): string[] {
 
 /**
  * GAME_MODES picks any set of modes (e.g. "tdm,ffa"). The older single GAME_MODE
- * still works: "mixed" = TDM + FFA, or one mode. Default: TDM + FFA + CTF.
+ * still works: "mixed" = TDM + FFA, or one mode. Default: TDM + FFA + CTF + debug defusion.
  */
 export function modeList(modesRaw: string | undefined, legacyRaw: string | undefined): GameMode[] {
   const items = list(modesRaw);
@@ -86,6 +87,7 @@ export function loadConfig(): Config {
     modes: modeList(process.env.GAME_MODES, process.env.GAME_MODE),
     maps: mapList(process.env.GAME_MAPS),
     ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
+    defuseLimit: int('DEFUSE_SCORE_LIMIT', 5, 0, 50),
     tdmLimit: int('TDM_SCORE_LIMIT', 50, 0, 1000),
     airdropFirstMs: int('AIRDROP_FIRST_SECONDS', 25, 1, 600) * 1000,
     botFill: int('BOT_FILL', 0, 0, 64),

@@ -102,3 +102,23 @@ test('idle holds orientation and respawn resets the previous aim', () => {
   const cmd = pilot.nextCmd(view, { kind: 'hunt' }, nav, world, 3);
   assert.ok(Math.abs(cmd.yaw - s.yaw) < 0.1);
 });
+
+test('hunt plants as carrier and defuses as defender using the server brain', () => {
+  for (const defending of [false, true]) {
+    const { world, nav, view, s, pilot } = fixture();
+    view.match.mode = 'defuse';
+    const site = getMap(0).flagBases[1];
+    s.x = site.x;
+    s.z = site.z;
+    s.y = world.groundBelow(site.x, getMap(0).dropHeight, site.z, 16);
+    view.roster[0][3] = defending ? 1 : 0;
+    view.bomb = defending
+      ? [4, -1, s.x, s.y, s.z, 50000, 0, 0, 0, 0]
+      : [1, 1, s.x, s.y, s.z, 0, 0, 0, 0, 0];
+    for (let seq = 1; seq <= 2; seq++) {
+      const cmd = pilot.nextCmd(view, { kind: 'hunt' }, nav, world, seq);
+      assert.ok(cmd.buttons & BTN.USE);
+      assert.equal(cmd.buttons & (BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT), 0);
+    }
+  }
+});

@@ -9,7 +9,7 @@ You are a normal player on an authoritative server. The MCP tools steer a pilot 
 
 ## Before you start
 
-The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
+The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`, `use`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
 
 ## The loop
 
@@ -41,6 +41,8 @@ You respawn about 3 seconds after dying and skydive in. Landing gives about 1.5 
 
 - **ffa**: everyone is an enemy.
 - **tdm**: Bulldogs against Martelos. No friendly fire. Do not chase teammates, and read `enemy` on each entry of `others` rather than guessing from names. `switch_team` only helps when the other side is smaller.
+- **ctf**: capture the flag, see below.
+- **defuse** (debug defusion): plant or defuse the bug, see below.
 
 ## Weapons
 
@@ -82,3 +84,12 @@ This is an office game. Keep `say` short (100 characters at most, the server rej
 - `hunt` fights perceived enemies first, then follows CTF objectives. Within each team, players sorted by id alternate attacker (first) and defender (second). Attackers seek the enemy flag; defenders guard home or chase the carrier of their stolen flag. Both roles return a dropped own flag.
 - Carry the enemy flag to your own base to capture; your own flag must be home. A carrier first returns a dropped own flag or hunts its enemy carrier, then heads home once the own flag is home. Touch your dropped flag to return it. Use `move_to` for explicit coordination and reissue `hunt` afterward.
 - Use team chat callouts such as “Levo a bandeira, cubram a volta”, “Nossa bandeira caiu em x,z” and “Portador inimigo em x,z”. Share current flag coordinates and respond to teammates.
+
+## Debug defusion
+
+- In `defuse` one team attacks and the other defends; sides swap after every point and the first team to 5 wins. Read `bomb` in `get_state`: `state` (`home`, `carried`, `planting`, `dropped`, `planted`), your `role` (`attacker` or `defender`), `carrierName`, `defuserName`, `pos` with `distance`/`bearingDeg`, `site` with `distance`/`bearingDeg`, `secondsToExplosion`, `plantProgress` and `defuseProgress`. Bomb events use `k: bomb` and `what: take | drop | return | plant | defuse | defused | exploded`.
+- Attackers take the bug at their base and plant it by holding USE for 3 s inside the site; it explodes when the fuse runs out. Defenders defuse it by holding USE for 7 s next to it. Letting go, dying or leaving resets the progress. Defenders cannot pick the bug up, and a dropped bug returns home after 20 s. During `warmup` the objective works as practice and scores nothing.
+- The laptop closes and rides on the carrier's back. `bomb.stand` describes the solid crate at home or desk after planting. They block movement and bullets like map crates, so they work as cover. Walk around them and take or defuse from any side or corner.
+- Black Friday rounds are announced at the start and have their own sounds. Check `bomb.blackFriday` and `bomb.fuseSeconds` (20 s on Black Friday, 35 s otherwise).
+- `hunt` plays the objective by role (fetch, plant and escort as attacker; hold the site and defuse as defender). `use` (`{ ms?: 1..10000 }`) holds USE standing still and returns `planted`, `defused` or `interrupted`; reissue `hunt` afterward.
+- Callouts: “Levo o bug pro site”, “Bug plantado, cubram a entrada”, “Desarmando, me cubram!”.

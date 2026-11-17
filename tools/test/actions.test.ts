@@ -205,3 +205,15 @@ test('weaponSlots hides a primary replaced by an airdrop', () => {
   self.lastWeapon = WEAPON.RIFLE;
   assert.equal(actions.weaponSlots(self).last, null);
 });
+
+test('manual use holds through both commands, stops movement and fire, and resets', () => {
+  const o = new ActionOverlay();
+  o.use = true;
+  for (let seq = 1; seq <= 2; seq++) {
+    const result = o.apply(cmd(BTN.FWD | BTN.RIGHT | BTN.JUMP | BTN.ATTACK | BTN.ATTACK2, seq), player());
+    assert.equal(result.buttons, BTN.USE);
+  }
+  assert.equal(o.apply(cmd(), null).buttons & BTN.USE, 0);
+  o.reset();
+  assert.equal(o.apply(cmd(), player()).buttons & BTN.USE, 0);
+});

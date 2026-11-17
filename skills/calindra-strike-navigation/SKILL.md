@@ -38,6 +38,12 @@ Anything above 40 units up, or farther than 300 down, is not an edge. The sky cl
 
 Every 0.75 seconds the pilot checks whether you moved less than 10 units. While you `hunt`, three failed checks in a row make it jump, pick a random reachable goal and re-plan. With `move_to` or `attack` it only jumps and keeps your original goal. If `get_state` shows the same position for several waits, send a different `move_to` instead of waiting.
 
+## Jump and crouch yourself
+
+- `jump` is a single jump and fails in the air. Use it to clear a ledge or a low crate when `get_state` shows the same position after a wait. It does not replace `move_to`.
+- `crouch {on: true}` stays set, even while idle, until `crouch {on: false}` or until you respawn. You move at 34 percent of top speed while it is on, so turn it off before a long `move_to`.
+- Both need a living player. `get_state` shows `you.onGround`, `you.ducked` and `you.actions`.
+
 ## Numbers worth remembering
 
 | Fact | Value |

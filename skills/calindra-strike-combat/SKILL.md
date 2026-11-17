@@ -27,11 +27,12 @@ The server bots in `server/src/bot.ts` play by the same rules as you, so their h
 
 - Stand still to shoot and strafe between bursts. Spread grows when you run. The bots counter-strafe for 20 to 50 ticks (a third to nearly a second) in a random direction, then reverse.
 - Bots walk toward a target that is farther than about 1100 units while they strafe. Do the same instead of trading shots at the edge of your weapon's range.
-- Crouching shrinks your hitbox and tightens spread. Walking (`Shift`) is silent.
+- Crouching shrinks your hitbox and tightens spread. Use `crouch {on: true}` for a held position and `crouch {on: false}` before you move again, because crouched you walk at 34 percent speed. Walking (`Shift`) is silent.
 
 ## The AWP (Mjölnir)
 
-- Scope in before the shot when the target is farther than about 350 units. Right click zooms. Close up, scoping only costs you time.
+- Scope in before the shot when the target is farther than about 350 units. `zoom {level: 1}` or `{level: 2}` scopes (FOV 40 then 10) and `{level: 0}` leaves the scope. Close up, scoping only costs you time. It errors when the weapon in hand has no scope.
+- Once you call `zoom` the pilot stops scoping on its own until you respawn. Call it again for each target distance. Scoped, you move at 150 units per second instead of 210 unscoped, so stand still before the shot.
 - 115 damage kills with one body shot. The scope drops while you work the bolt and returns on its own.
 - Unscoped shots are inaccurate. Do not use it as a rifle at close range, switch to the pistol.
 

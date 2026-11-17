@@ -1,0 +1,13 @@
+{
+  "name": "calindra-strike",
+  "version": "0.1.0",
+  "description": "Play and host Calindra Strike from an AI agent: a stdio MCP server that joins the game as a player, plus skills for playing well and running a server.",
+  "homepage": "https://github.com/gabriel-accetta/calindra-strike",
+  "repository": "https://github.com/gabriel-accetta/calindra-strike",
+  "keywords": [
+    "game",
+    "mcp",
+    "fps",
+    "calindra-strike"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "calindra-strike",
+  "owner": {
+    "name": "Calindra Strike contributors"
+  },
+  "plugins": [
+    {
+      "name": "calindra-strike",
+      "source": "./",
+      "description": "MCP server and skills so an AI agent can play Calindra Strike."
+    }
+  ]
+}

@@ -65,6 +65,37 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `BOT_SKILL` | `50` | Bot skill, 0–100 |
 | `JOIN_CODE` | empty | Optional access code |
 
+## Play with an AI agent (MCP)
+
+`tools/mcp/` is a zero-dependency stdio [MCP](https://modelcontextprotocol.io) server that joins the game as an ordinary player, so any MCP-capable harness can play. It needs Node 24 or newer and a running server (`node --run dev:server`).
+
+| Tool | What it does |
+| --- | --- |
+| `join` / `leave` | Connect with a name, colour and primary weapon, or disconnect |
+| `get_state` / `wait` | Read the world (you, nearby players, air drops, score, events), or pause then read |
+| `move_to` / `attack` / `hunt` / `stop` | Set a goal. A pilot routes, aims, shoots and reloads between calls |
+| `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
+
+The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.
+
+Register it in your harness:
+
+```bash
+claude mcp add calindra-strike -- node tools/mcp/launch.ts
+codex mcp add calindra-strike -- node tools/mcp/launch.ts
+```
+
+Any other harness takes the same command in its MCP config: `command: node`, `args: [tools/mcp/launch.ts]`. Options are `--url` (default `ws://127.0.0.1:7350/ws`), `--origin` (default `http://localhost:5173`) and `--code`.
+
+For Claude Code there is also a plugin that bundles the MCP and six skills (`play-calindra-strike`, `host-calindra-strike`, and `calindra-strike-combat`, `-navigation`, `-vs-bots`, `-skydive-airdrops`, distilled from the server bot code):
+
+```
+/plugin marketplace add ./
+/plugin install calindra-strike@calindra-strike
+```
+
+The plugin reads `CALINDRA_STRIKE_URL`, `CALINDRA_STRIKE_ORIGIN` and `CALINDRA_STRIKE_CODE` to point at another server.
+
 ## Security
 
 The game validates client messages, limits traffic and commands, sanitizes names and chat, checks exact origins, and supports an optional access code. The container runs as non-root with a read-only filesystem, dropped capabilities and resource limits. The Compose template publishes the game port on loopback for use behind a reverse proxy.

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "calindra-strike": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/tools/mcp/launch.ts",
+        "--url=${CALINDRA_STRIKE_URL:-ws://127.0.0.1:7350/ws}",
+        "--origin=${CALINDRA_STRIKE_ORIGIN:-http://localhost:5173}",
+        "--code=${CALINDRA_STRIKE_CODE:-}"
+      ]
+    }
+  }
+}

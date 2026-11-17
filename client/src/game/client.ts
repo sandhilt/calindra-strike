@@ -58,7 +58,7 @@ import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
-import { beepIntervalMs, bombMessage, bombStatus, bombView, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView } from './bomb.ts';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombMessage, bombStatus, bombView, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
@@ -195,6 +195,8 @@ export class ClientGame {
   private bomb: BombView | null = null;
   private bombRenderer?: BombRenderer;
   private nextBombBeepAt = 0;
+  private defuseVariant = 0;
+  private defuseBanner: DefuseBanner | null = null;
   private readonly airdrops = new Map<number, AirdropView>();
 
   private clockOffset = 0;
@@ -687,6 +689,9 @@ export class ClientGame {
     const actor = this.nameOf(e.by);
     this.hud.info(bombMessage(e.what, e.team, actor.name), e.by < 0 ? TEAMS[e.team].color : actor.color);
     if (e.what === 'plant' || e.what === 'defused') this.sfx.beep(true);
+    if (e.what === 'defused' && e.by === (this.spectator ? this.followedId : this.myId)) {
+      this.defuseBanner = { variant: this.defuseVariant, until: this.serverNow() + DEFUSE_BANNER_MS };
+    }
     if (e.what !== 'exploded') return;
     const at = this.bomb?.state === 'planted' ? this.bomb : this.bombRenderer?.position();
     if (!at) return;
@@ -712,13 +717,14 @@ export class ClientGame {
     const bomb = this.bomb;
     if (!bomb) {
       hud.setBomb(null, -1);
-      hud.setDefuse(null);
+      hud.setDefuse(defuseBannerScene(this.defuseBanner, now));
       return;
     }
     hud.setBomb(bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name), plantProgress(bomb, now));
     const viewerId = this.spectator ? this.followedId : this.myId;
     const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
-    hud.setDefuse(defusing ? { variant: bomb.variant, progress: defuseProgress(bomb, now), timeMs: now } : null);
+    if (defusing) this.defuseVariant = bomb.variant;
+    hud.setDefuse(defusing ? { variant: bomb.variant, progress: defuseProgress(bomb, now), timeMs: now } : defuseBannerScene(this.defuseBanner, now));
   }
 
   private onMatch(info: MatchInfo): void {

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFUSE_MS, PLANT_MS } from '@calindra-strike/shared';
 import { FUSE_MS } from '@calindra-strike/shared';
-import { beepIntervalMs, bombView, bombStatus, bombMessage, defuseProgress, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombStatus, bombMessage, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
@@ -71,4 +71,13 @@ test('feed names the team that scored the round', () => {
 
 test('score unit per mode', () => {
   assert.deepEqual(['tdm', 'ffa', 'ctf', 'defuse'].map((mode) => scoreUnit(mode as 'tdm')), ['kills', 'kills', 'capturas', 'pontos']);
+});
+
+test('the defuser keeps the finished laptop with the banner for 3 s after the defuse', () => {
+  const banner = { variant: 4, until: 10_000 + DEFUSE_BANNER_MS };
+  assert.equal(DEFUSE_BANNER_MS, 3000);
+  assert.deepEqual(defuseBannerScene(banner, 10_000), { variant: 4, progress: 1, timeMs: 10_000 });
+  assert.deepEqual(defuseBannerScene(banner, 12_999), { variant: 4, progress: 1, timeMs: 12_999 });
+  assert.equal(defuseBannerScene(banner, 13_000), null);
+  assert.equal(defuseBannerScene(null, 10_000), null);
 });

@@ -157,3 +157,10 @@ test('the closing scene shows the green banner after the icon montage', () => {
     assert.ok(!montage.log.some((entry) => entry.includes('bug corrigido')));
   }
 });
+
+test('ThinkPads run Linux and Windows scenarios run on the Dell Inspiron', () => {
+  for (const scenario of SCENARIOS) {
+    if (scenario.laptop === 'thinkpad') assert.equal(scenario.os, 'linux', scenario.title);
+    if (scenario.os === 'windows') assert.equal(scenario.laptop, 'inspiron', scenario.title);
+  }
+});

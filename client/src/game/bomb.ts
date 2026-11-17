@@ -22,6 +22,16 @@ export function bombView(row: readonly number[]): BombView | null {
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 
+/** How long the defuser keeps seeing the "bug corrigido" banner after the defuse lands, in ms. */
+export const DEFUSE_BANNER_MS = 3000;
+
+export interface DefuseBanner { variant: number; until: number }
+
+/** The finished laptop screen while the banner is still due, null afterwards. */
+export function defuseBannerScene(banner: DefuseBanner | null, now: number): { variant: number; progress: number; timeMs: number } | null {
+  return banner && now < banner.until ? { variant: banner.variant, progress: 1, timeMs: now } : null;
+}
+
 export function defuseProgress(bomb: BombView, now: number): number {
   if (bomb.state !== 'planted' || bomb.defuser < 0) return 0;
   return clamp01(1 - (bomb.defuseDoneAt - now) / DEFUSE_MS);

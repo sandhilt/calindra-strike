@@ -164,7 +164,7 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
   {
     id: 'wsl',
     title: 'Build no WSL',
-    laptop: 'thinkpad',
+    laptop: 'inspiron',
     os: 'windows',
     scenes: [
       { kind: 'chat', app: 'Slack', lines: ['# incidente-prod', 'Bia: o build quebrou só no Windows.', 'Dev: abrindo o WSL agora.'] },

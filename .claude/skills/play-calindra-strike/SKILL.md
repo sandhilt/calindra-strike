@@ -55,7 +55,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - When the native MCP tools are not connected, run one `node tools/mcp/launch.ts --url=ws://127.0.0.1:7350/ws --origin=http://localhost:5173` per player behind a tiny broker you write outside the repo (spawn it, do the JSON-RPC handshake once, accept `{tool, args}` lines on a localhost TCP port, return the tool text). Use TCP ports, not Unix sockets: a scratch path is longer than the 108-character socket limit. The same broker works for Claude and Codex subagents.
 - After `leave`, `get_state` answers `Left game` (plain text, not JSON); `join` again to come back. Your `you.id` changes on every `join`, so read it each match instead of hard-coding it in scripts.
 - Name players for the agent playing them, not `Agente-*`: the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), at most 16 characters, with `-A` / `-B` suffixes when one session runs several players. Each player needs a distinct name. If a name is taken, the server appends `#2`, `#3`, so read `you.name` and `you.id` from state.
-- The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys.
+- The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys. The `G` spray (one per spawn) is browser-only; no MCP tool sends it yet.
 
 ## Several players and podium counting
 
@@ -191,3 +191,16 @@ None of the three agents measured recoil in play; this section is read from `sha
 
 - These were medium-effort agents and the samples are small: SMG gave 8 HS in 10 kills once and 3 HS in 4 kills once, the rifle 6 HS in 7 kills once and 8 HS in 9 kills once. Nothing here separates the loadouts. All players crouched when an enemy was within about 1000 units, and the main complaint was many shots with few hits (the unmanaged burst described above).
 - One player (A) admitted skipping callouts, the hammer finisher and staying mobile because its prompt only summarised the rules; see the first bullets above.
+
+## Terra Low and Luna High completed session (2026-11-17)
+
+- Separate model agents `Codex-Terra6.1` (ID 83, Terra 6.1 low) and `Codex-Luna` (ID 84, Luna high) confirmed three shared podiums and both closed their own connections afterward.
+
+| Match | Terra K/D (HS) | Luna K/D (HS) | Result |
+| --- | --- | --- | --- |
+| Forja TDM | 20/18 (16) | 19/10 (17) | Team 1 won 40–27 |
+| Escritório FFA | 32/33 (25) | 29/34 (23) | Server winner -1 |
+| Forja FFA | 25/18 (20) | 25/20 (19) | Server winner -1 |
+
+- Terra observed its team change from 0 to 1 near the end of TDM without requesting a switch. Read the final team from the podium rather than assuming the initial team remains fixed; the cause of this change was not verified.
+- Both agents reissued hunt after transitions, read match chat and exchanged Portuguese replies. First-round joins had over 270 seconds remaining; both stayed for the subsequent complete rounds.

@@ -34,6 +34,7 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - `crouch({ on: true|false })` stays on until you stand, including after respawn. Read `ducked` from state before standing again; the pilot can re-crouch on its own.
 - Crouch when engaging at close range; stand when roaming.
 - Do not stay still for long in the open: a stationary player is an easy target and risks dying. Keep `hunt` or `move_to` active, change position between fights, and only hold a spot briefly (for example to scope or to wait for an enemy that is coming). Keep the `wait` loop tight too, since game time runs while you are idle between calls.
+- Watch for a frozen pilot: `attack` ends when the target is lost but can leave the player standing, `stop` leaves `idle`, and some players sit still even with `intent: hunt`. If `you.pos` is the same on two reads a few seconds apart while alive and `live`, send `jump` and reissue `hunt`. `move_to` can answer "Target unreachable on navigation grid"; pick another point or go back to `hunt`.
 
 ## Chat
 
@@ -50,6 +51,9 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - One MCP connection is one player. A second `join` on the same connection returns the same character. For another player, start a separate `node tools/mcp/launch.ts` process and drive it over stdio JSON-RPC (`initialize`, `notifications/initialized`, then `tools/call`).
 - If every game tool answers `Versão desatualizada: recarregue a página`, the harness's MCP client is older than the server. Compare `protocol` in `curl -s http://127.0.0.1:7350/status` with `PROTOCOL_VERSION` in `shared/src/constants.ts`. Fix it by reloading the plugin, or by using a fresh `launch.ts` process.
 - A stale connection may lack newer tools (`jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`). Check `tools/list` before relying on them.
+- When the server restarts on a new `PROTOCOL_VERSION`, every `launch.ts` started earlier is stale: its calls answer `restart`, `Socket closed` or `ECONNREFUSED`, and `join` answers `Versão desatualizada`. Kill those processes and start fresh ones; the first `join` then works. Compare `protocol` in `/status` with `shared/src/constants.ts` first.
+- When the native MCP tools are not connected, run one `node tools/mcp/launch.ts --url=ws://127.0.0.1:7350/ws --origin=http://localhost:5173` per player behind a tiny broker you write outside the repo (spawn it, do the JSON-RPC handshake once, accept `{tool, args}` lines on a localhost TCP port, return the tool text). Use TCP ports, not Unix sockets: a scratch path is longer than the 108-character socket limit. The same broker works for Claude and Codex subagents.
+- After `leave`, `get_state` answers `Left game` (plain text, not JSON); `join` again to come back. Your `you.id` changes on every `join`, so read it each match instead of hard-coding it in scripts.
 - Name players for the agent playing them, not `Agente-*`: the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), at most 16 characters, with `-A` / `-B` suffixes when one session runs several players. Each player needs a distinct name. If a name is taken, the server appends `#2`, `#3`, so read `you.name` and `you.id` from state.
 - The browser keymap is in `README.md`. Through MCP, use the `jump`, `crouch` and `zoom` tools instead of keys.
 
@@ -150,7 +154,7 @@ None of the three agents measured recoil in play; this section is read from `sha
 | Mjölnir (AWP) | 2 | 2 | none | CS table, not the formula | n/a |
 
 - **The pilot does not subtract recoil from its aim.** `bot.ts` aims at the target and fires bursts of 3 to 9 shots with a 14 to 30 tick pause between them. The pause recovers only about 2 to 4 index units on the R7, so long bursts land progressively higher and to the side. This fits the agents' complaint that `hunt` walks into fights and loses them.
-- What the agent can still change: `crouch` before a fight (tighter spread, smaller hitbox); `stop` or `walk` instead of moving while a target is in view, since moving adds up to 0.11 on the R7; do not `jump` mid-fight (airborne adds 0.25 on the R7); `choose_loadout smg` for the lowest climb and spread growth at close range; prefer the shotgun only up close; reload before the magazine empties.
+- What the agent can still change: pause between bursts (`stop` and a 1000 ms `wait`, then `hunt`; the index only starts recovering after a short idle and is near zero after about a second); fight within about 600 units and let farther enemies come to you; `crouch` before a fight (tighter spread, smaller hitbox); `stop` or `walk` instead of moving while a target is in view, since moving adds up to 0.11 on the R7; do not `jump` mid-fight (airborne adds 0.25 on the R7); `choose_loadout smg` for the lowest climb and spread growth at close range; prefer the shotgun only up close; reload before the magazine empties.
 - AWP (Mjölnir): the CS table applies instead of the spread formula. Standing still and scoped is the most accurate; crouched is perfect; running makes it very inaccurate. Do not run and shoot with it. `zoom` replaces the automatic scoping until you respawn.
 - B was killed by a headshot while crouched right after a respawn and reported `ducked: true` surviving the respawn. That agrees with the `crouch` note in the Movement section but not with the "A new spawn also reset crouch" line in the first field notes; read `ducked` before assuming either.
 
@@ -164,3 +168,26 @@ None of the three agents measured recoil in play; this section is read from `sha
 - Separate agents `Codex-Terra6.1` (ID 9, Terra 6.1 low) and `Codex-Luna` (ID 8, Luna high) confirmed two shared podiums: Escritório FFA (Terra 15/17, 14 HS; Luna 16/15, 11 HS), then Forja TDM (both team 0, loss 12–21; Terra 3/10, 3 HS; Luna 6/10, 4 HS).
 - Their third round started as Escritório TDM, Terra team 1 and Luna team 0, but MCP calls began returning `restart`, followed by `Versão desatualizada: recarregue a página` on `join`. No third podium was confirmed. Do not count a round interrupted this way as complete.
 - `leave` returned `phase: closed` for Terra, but a subsequent `join` still failed with the version error. Disconnecting alone does not refresh a stale MCP implementation; reload the integration or use a fresh client pointed at the actual game service. Local port 7350 refused connections in this session.
+
+## Running several agents at once (2026-11-17)
+
+- A background `Agent` call returns at once with `async_launched`; the result arrives later as a notification. Do not treat the immediate return as the end of the match.
+- Haiku 5.5 players skip rules that are only paraphrased in their prompt (team callouts, the melee finisher, staying mobile, persona). Give them the path of this file and tell them to read it first; it takes precedence over the prompt summary.
+- Check on them while they play. Compare each player's `pos`, `intent` and `score` on two reads, and reissue `hunt` for any frozen pilot (see Movement). A stuck player is usually the pilot, not the agent.
+- A `SendMessage` to an agent that already finished resumes it and may send it back into the game. To stop one, use `TaskStop` and then `leave` on its port; do not message a finished agent just to say "done".
+- A `TaskStop`ped agent leaves its player in the match until you call `leave` on its connection.
+- Count a match only if the agent joined in `live` with about 60 seconds or more left and stayed to the podium. When a server restart interrupts a round, that round does not count; relaunch the clients and join the next round.
+- Read the final kills, deaths, HS and streak from the podium `results`, not from events or a hard-coded id.
+
+### Session results, Claude agents (Haiku 5.5, 2026-11-17)
+
+| Player | Match | Loadout | K/D/HS | Outcome |
+| --- | --- | --- | --- | --- |
+| Claude-S5.5-A | Escritório FFA | SMG | 10/9/8 | 4th of 6 |
+| Claude-S5.5-A | Forja TDM | Rifle | 3/1/2 | team lost 12–21 |
+| Claude-S5.5-A | Forja TDM | Rifle | 9/15/8 | team lost 27–40 |
+| Claude-S5.5-C | Escritório FFA | Rifle | 7/10/6 | 6th of 6 |
+| Claude-S5.5-C | Forja TDM | SMG | 4/4/3 | team won 21–12 |
+
+- These were medium-effort agents and the samples are small: SMG gave 8 HS in 10 kills once and 3 HS in 4 kills once, the rifle 6 HS in 7 kills once and 8 HS in 9 kills once. Nothing here separates the loadouts. All players crouched when an enemy was within about 1000 units, and the main complaint was many shots with few hits (the unmanaged burst described above).
+- One player (A) admitted skipping callouts, the hammer finisher and staying mobile because its prompt only summarised the rules; see the first bullets above.

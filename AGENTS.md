@@ -80,6 +80,8 @@ tools ──► server, shared
 
 ## Conventions and gotchas
 
+- **Sound packs** live in `client/src/game/sound-packs/`: export a SoundPack and register it in SOUND_PACKS; omitted voices use classic. Runtime-loaded mods are not supported.
+
 - **Shared code is deterministic.** Client prediction and the server run the same simulation from `shared/`. Do not add randomness, wall-clock time or environment-specific behavior there; use the seeded spread helpers. A change to movement or weapons affects both sides and needs a test in `shared/test/`.
 - **Protocol changes:** edit `shared/src/protocol.ts`, the server handler in `server/src/index.ts` / `game.ts`, and the client message handling in `client/src/game/client.ts` (`net.ts` is transport only, the handshake is in `client/src/main.ts`). Bump `PROTOCOL_VERSION` in `shared/src/constants.ts` for incompatible changes. Keep message validation strict, the server treats every client message as untrusted.
 - **Server is authoritative.** Hit detection is lag-compensated hitscan (rewind up to 250 ms) at a 60 Hz tick. Never trust client-reported damage or positions.

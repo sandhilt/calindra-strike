@@ -1,26 +1,14 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 
-interface ShotVoice {
-  noiseFreq: number;
-  noiseQ: number;
-  decay: number;
-  thump: number;
-  thumpDecay: number;
-  tail: number;
-  gain: number;
-  crack: number;
-}
+import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
+import type { Pos, SoundKit, Sounds } from './sound-packs/types.ts';
+import { VOICES } from './sound-packs/voices.ts';
 
-const VOICES: Record<number, ShotVoice> = {
-  [WEAPON.PISTOL]: { noiseFreq: 2400, noiseQ: 0.9, decay: 0.09, thump: 140, thumpDecay: 0.06, tail: 0.25, gain: 0.55, crack: 3200 },
-  [WEAPON.RIFLE]: { noiseFreq: 1500, noiseQ: 0.7, decay: 0.13, thump: 95, thumpDecay: 0.09, tail: 0.45, gain: 0.75, crack: 2600 },
-  [WEAPON.SMG]: { noiseFreq: 2100, noiseQ: 0.8, decay: 0.08, thump: 120, thumpDecay: 0.05, tail: 0.3, gain: 0.55, crack: 3000 },
-  [WEAPON.SHOTGUN]: { noiseFreq: 900, noiseQ: 0.5, decay: 0.22, thump: 70, thumpDecay: 0.16, tail: 0.6, gain: 0.95, crack: 1800 },
-  [WEAPON.SNIPER]: { noiseFreq: 1100, noiseQ: 0.6, decay: 0.25, thump: 60, thumpDecay: 0.2, tail: 1.1, gain: 1.0, crack: 4200 },
-  [WEAPON.LMG]: { noiseFreq: 1300, noiseQ: 0.7, decay: 0.12, thump: 85, thumpDecay: 0.1, tail: 0.5, gain: 0.75, crack: 2400 },
-};
+/** Longest sound (sniper tail) ends about 1.2 s after it starts; the margin covers timer jitter. */
+const VOICE_LIFETIME_MS = 2000;
 
-type Pos = { x: number; y: number; z: number } | null;
+/** Length of the shared noise buffer, in seconds. */
+const NOISE_BUFFER_SEC = 4;
 
 /**
  * All sound effects are synthesized with WebAudio at runtime: no sampled
@@ -33,7 +21,12 @@ export class Sfx {
   private wind: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private listenerPos = { x: 0, y: 0, z: 0 };
 
-  constructor(volume: number) {
+  private readonly kit: SoundKit;
+  private readonly packs = new Map<string, Partial<Sounds>>();
+  private packId: string = '';
+  private overrides: Partial<Sounds> = {};
+
+  constructor(volume: number, packId: string) {
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
     this.master = this.ctx.createGain();
     const comp = this.ctx.createDynamicsCompressor();
@@ -41,10 +34,35 @@ export class Sfx {
     comp.ratio.value = 4;
     this.master.connect(comp).connect(this.ctx.destination);
     this.setVolume(volume);
-    const len = this.ctx.sampleRate * 2;
+    // Bursts start up to 1.5 s into this buffer and play at up to 1.2x, so 4 s
+    // still leaves over 1.2 s for the longest tail (sniper).
+    const len = this.ctx.sampleRate * NOISE_BUFFER_SEC;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.kit = {
+      ctx: this.ctx,
+      master: this.master,
+      out: this.out.bind(this),
+      noiseBurst: this.noiseBurst.bind(this),
+      tone: this.tone.bind(this),
+      release: this.release.bind(this),
+    };
+    this.setPack(DEFAULT_SOUND_PACK);
+    this.setPack(packId);
+  }
+
+  setPack(id: string): boolean {
+    const pack = findSoundPack(id);
+    if (!pack || id === this.packId) return false;
+    let overrides = this.packs.get(id);
+    if (!overrides) {
+      overrides = pack.create(this.kit);
+      this.packs.set(id, overrides);
+    }
+    this.packId = id;
+    this.overrides = overrides;
+    return true;
   }
 
   resume(): void {
@@ -92,7 +110,19 @@ export class Sfx {
     lp.type = 'lowpass';
     lp.frequency.value = Math.max(900, 16000 - dist * 7);
     lp.connect(p).connect(this.master);
+    this.release(p, lp);
     return lp;
+  }
+
+  /**
+   * Every sound builds fresh nodes. Once it has stopped they are cut from the
+   * graph, otherwise a long match keeps thousands of finished panners and
+   * filters connected to the master bus.
+   */
+  private release(...nodes: AudioNode[]): void {
+    setTimeout(() => {
+      for (const n of nodes) n.disconnect();
+    }, VOICE_LIFETIME_MS);
   }
 
   private noiseBurst(dest: AudioNode, t: number, freq: number, q: number, attack: number, decay: number, gain: number, type: BiquadFilterType = 'bandpass'): void {
@@ -110,6 +140,7 @@ export class Sfx {
     src.connect(f).connect(g).connect(dest);
     src.start(t, Math.random() * 1.5);
     src.stop(t + attack + decay + 0.05);
+    this.release(src, f, g);
   }
 
   private tone(dest: AudioNode, t: number, type: OscillatorType, f0: number, f1: number, dur: number, gain: number, attack = 0.002): void {
@@ -124,9 +155,11 @@ export class Sfx {
     o.connect(g).connect(dest);
     o.start(t);
     o.stop(t + dur + 0.05);
+    this.release(o, g);
   }
 
   shot(weapon: WeaponId, pos: Pos, heavy = false): void {
+    if (this.overrides.shot) return this.overrides.shot(weapon, pos, heavy);
     const t = this.ctx.currentTime;
     if (weapon === WEAPON.HAMMER) {
       const out = this.out(pos, 120);
@@ -180,6 +213,7 @@ export class Sfx {
   }
 
   kill(streak: number): void {
+    if (this.overrides.kill) return this.overrides.kill(streak);
     const t = this.ctx.currentTime;
     const base = 660 * 2 ** (Math.min(streak - 1, 5) / 12);
     this.tone(this.master, t, 'sine', base, base, 0.18, 0.2);
@@ -231,6 +265,7 @@ export class Sfx {
       o.connect(f).connect(g).connect(this.master);
       o.start(t + i * 0.9);
       o.stop(t + i * 0.9 + 0.9);
+      this.release(o, f, g);
     }
   }
 

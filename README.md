@@ -41,6 +41,10 @@ node --run typecheck
 
 The local client uses `ws://127.0.0.1:7350/ws`. Set `VITE_GAME_SERVER` at build time to use a different backend. Outside localhost, the default is `/ws` on the same origin as the frontend.
 
+### Sound packs
+
+Choose clássico or sound-new in the in-game sound pack menu. Packs live in `client/src/game/sound-packs/`: add a file exporting a SoundPack and register it in SOUND_PACKS in index.ts. Omitted voices fall back to classic. Runtime-loaded mods are not supported.
+
 ## Builds and hosting
 
 ```bash

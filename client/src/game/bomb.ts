@@ -79,6 +79,16 @@ function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
   return `bug plantado · ${left}s${hint}`;
 }
 
+export interface BombRole { side: 'attack' | 'defend'; label: string; goal: string }
+
+/** The viewer's side in a defuse round and what it has to do right now, or null for spectators. */
+export function bombRole(bomb: BombView, viewerTeam: number): BombRole | null {
+  if (viewerTeam !== 0 && viewerTeam !== 1) return null;
+  const planted = bomb.state === 'planted';
+  if (viewerTeam === bomb.attackers) return { side: 'attack', label: 'ataque', goal: planted ? 'proteja o bug' : 'plante o bug' };
+  return { side: 'defend', label: 'defesa', goal: planted ? 'desarme o bug' : 'impeça o plantio' };
+}
+
 export function bombMessage(what: BombAction, team: number, name: string): string {
   const winner = TEAMS[team]?.name ?? '';
   switch (what) {

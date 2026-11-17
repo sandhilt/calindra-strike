@@ -2009,6 +2009,22 @@ input:focus-visible {
   max-width: calc(100% - 24px);
 }
 .bomb-status { top: 94px; padding: 8px 12px; font-size: 13px; font-weight: 700; text-align: center; color: #ff8a7e; }
+.bomb-role {
+  position: absolute;
+  top: 210px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-left: 4px solid var(--side);
+}
+.bomb-role[data-side="attack"] { --side: #ff6b5b; }
+.bomb-role[data-side="defend"] { --side: #4fc3f7; }
+.bomb-role svg { width: 20px; height: 20px; color: var(--side); flex: none; }
+.bomb-role b { color: var(--side); text-transform: uppercase; letter-spacing: 0.08em; }
+.bomb-role span { color: #e8edf3; font-weight: 600; }
 .bomb-bar { top: 136px; width: 220px; height: 10px; padding: 2px; overflow: hidden; }
 .bomb-bar i { display: block; height: 100%; background: var(--lime, #a5fa00); border-radius: 3px; }
 .defuse-overlay {
@@ -2023,5 +2039,6 @@ input:focus-visible {
 }
 @media (max-width: 600px) {
   .bomb-status { top: 82px; width: max-content; font-size: 12px; }
+  .bomb-role { top: 170px; left: 8px; font-size: 12px; padding: 6px 10px; }
   .bomb-bar { top: 122px; }
 }

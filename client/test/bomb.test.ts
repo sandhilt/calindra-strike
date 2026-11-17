@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLACK_FRIDAY_FUSE_MS, DEFUSE_MS, FUSE_MS, PLANT_MS } from '@calindra-strike/shared';
-import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
+import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombRole, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
@@ -119,4 +119,17 @@ test('pressing E explains what is missing instead of failing silently', () => {
   assert.equal(attempt(planted, 1, { x: 20, y: 0, z: 0 }), null, 'defender next to the laptop defuses');
   assert.equal(attempt({ ...planted, defuser: 3 }, 1, { x: 20, y: 0, z: 0 }), 'P3 já está desarmando');
   assert.equal(attempt(planted, -1), null, 'spectators get no hint');
+});
+
+test('bombRole keeps each side on its goal all round and hides it from spectators', () => {
+  const row = (state: number) => {
+    const bomb = bombView([state, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert.ok(bomb);
+    return bomb;
+  };
+  assert.deepEqual(bombRole(row(0), 0), { side: 'attack', label: 'ataque', goal: 'plante o bug' });
+  assert.deepEqual(bombRole(row(0), 1), { side: 'defend', label: 'defesa', goal: 'impeça o plantio' });
+  assert.deepEqual(bombRole(row(4), 0), { side: 'attack', label: 'ataque', goal: 'proteja o bug' });
+  assert.deepEqual(bombRole(row(4), 1), { side: 'defend', label: 'defesa', goal: 'desarme o bug' });
+  assert.equal(bombRole(row(0), -1), null);
 });

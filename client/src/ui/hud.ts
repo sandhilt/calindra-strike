@@ -1,4 +1,5 @@
 import { TEAMS } from '@calindra-strike/shared';
+import type { BombRole } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import { ICONS, h, svg } from './dom.ts';
 
@@ -44,6 +45,7 @@ export class Hud {
   private readonly leadersRight = h('div', { style: 'display:flex;gap:8px' });
   private readonly flagStatus = h('div', { class: 'flag-status glass hidden' });
   private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a bandeira, volte à base' });
+  private readonly bombRole = h('div', { class: 'bomb-role glass hidden' });
   private readonly bombStatus = h('div', { class: 'bomb-status glass hidden' });
   private readonly plantFill = h('i', { style: 'width:0%' });
   private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
@@ -126,6 +128,7 @@ export class Hud {
       this.feed,
       this.flagStatus,
       this.flagBanner,
+      this.bombRole,
       this.bombStatus,
       this.plantBar,
       this.defuseCanvas,
@@ -198,9 +201,15 @@ export class Hud {
     });
   }
 
-  /** Status line for the bug, and the plant progress (0..1, negative hides the bar). */
-  setBomb(text: string | null, plant: number): void {
+  /** Status line for the bug, the plant progress (0..1, negative hides the bar) and the viewer's side, which stays on screen all round. */
+  setBomb(text: string | null, plant: number, role: BombRole | null): void {
     const percent = Math.round(plant * 100);
+    this.set('bomb-role', JSON.stringify(role), () => {
+      this.bombRole.classList.toggle('hidden', role === null);
+      if (!role) return;
+      this.bombRole.dataset.side = role.side;
+      this.bombRole.replaceChildren(svg(role.side === 'attack' ? ICONS.target : ICONS.shield), h('b', { text: role.label }), h('span', { text: role.goal }));
+    });
     this.set('bomb', JSON.stringify([text, percent]), () => {
       this.bombStatus.classList.toggle('hidden', text === null);
       this.bombStatus.textContent = text ?? '';

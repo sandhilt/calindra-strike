@@ -15,6 +15,7 @@ import {
   WEAPON,
   clamp,
   eyeHeight,
+  inBombReach,
   weaponDef,
   wrapAngle,
 } from '@calindra-strike/shared';
@@ -66,7 +67,7 @@ export function pickCtfGoal(self: BotAgent, env: BotEnv): FlagBase | null {
 
 /** Where a bot stands to hold USE, as a margin inside the radius that actually counts on the server. */
 const PLANT_HOLD_RADIUS_UNITS = BOMB_SITE_RADIUS_UNITS - 60;
-const DEFUSE_HOLD_RADIUS_UNITS = DEFUSE_RADIUS_UNITS - 24;
+const DEFUSE_HOLD_RADIUS_UNITS = DEFUSE_RADIUS_UNITS - 4;
 const HOLD_MAX_HEIGHT_UNITS = 40;
 const APPROACH_RADIUS_UNITS = 140; // nav nodes can end short of an off-grid goal, walk the rest straight
 
@@ -96,9 +97,10 @@ function bombRole(self: BotAgent, env: BotEnv): CtfRole {
   return self.team === env.bombPlaces?.attackers ? 'attacker' : 'defender';
 }
 
-function holdsPosition(self: BotAgent, goal: BombGoal | null): boolean {
+function holdsPosition(self: BotAgent, goal: BombGoal | null, bombKind: BombState['kind'] | undefined): boolean {
   if (!goal || goal.holdRadiusUnits === null) return false;
   const s = self.state;
+  if (bombKind === 'planted') return inBombReach(s, goal, DEFUSE_HOLD_RADIUS_UNITS);
   return Math.hypot(goal.x - s.x, goal.z - s.z) <= goal.holdRadiusUnits && Math.abs(goal.y - s.y) <= HOLD_MAX_HEIGHT_UNITS;
 }
 
@@ -361,7 +363,7 @@ export class BotBrain {
     }
 
     const bombGoal = pickBombGoal(self, env);
-    const holding = holdsPosition(self, bombGoal);
+    const holding = holdsPosition(self, bombGoal, env.bomb?.kind);
 
     // --- perception
     if (env.tick % SCAN_EVERY === self.id % SCAN_EVERY) {

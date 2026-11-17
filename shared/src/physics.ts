@@ -16,7 +16,9 @@ export interface TraceHit {
  * bullet blockers stop hitscan (glass and foliage are see/shoot-through).
  */
 export class CollisionWorld {
-  readonly solids: Float64Array;
+  private readonly mapSolids: Float64Array;
+  private solids: Float64Array;
+  private propKey = '';
   readonly bullets: Float64Array;
   readonly map: MapDef;
 
@@ -24,10 +26,29 @@ export class CollisionWorld {
     this.map = map;
     const solid = map.boxes.filter((b) => b.solid);
     const bullet = map.boxes.filter((b) => !b.shootThrough);
-    this.solids = new Float64Array(solid.length * 6);
+    this.mapSolids = new Float64Array(solid.length * 6);
     this.bullets = new Float64Array(bullet.length * 6);
-    solid.forEach((b, i) => this.solids.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+    solid.forEach((b, i) => this.mapSolids.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+    this.solids = this.mapSolids;
     bullet.forEach((b, i) => this.bullets.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+  }
+
+  /**
+   * One movable solid on top of the map (the bug's desk or crate), replaced on each call and cleared by null.
+   * Movement and ground only: bullets still pass, like a prop that is not cover.
+   */
+  setProp(box: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } } | null): void {
+    const key = box ? [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z].join() : '';
+    if (key === this.propKey) return;
+    this.propKey = key;
+    if (!box) {
+      this.solids = this.mapSolids;
+      return;
+    }
+    const next = new Float64Array(this.mapSolids.length + 6);
+    next.set(this.mapSolids);
+    next.set([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], this.mapSolids.length);
+    this.solids = next;
   }
 
   overlaps(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean {

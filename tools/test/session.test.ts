@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
-import { BTN, PROTOCOL_VERSION, WEAPON, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -642,11 +642,12 @@ async function defusion() {
 
 test('bomb perception exposes roles, names, progress, positions and all named events', async () => {
   const { session, socket, snap } = await defusion();
-  snap([4, 2, 110, 0, 0, 10200, 5200, 1, 0, 0]);
+  snap([4, 2, 110, 0, 0, 10200, 5200, 1, 0, 0, 1]);
   const state = JSON.parse(JSON.stringify(session.getState()));
   assert.partialDeepStrictEqual(state.bomb, {
     state: 'planted', defuserName: 'enemy', role: 'attacker',
-    attackersTeam: 0, secondsToExplosion: 10, distance: 110, bearingDeg: 90,
+    attackersTeam: 0, blackFriday: true, fuseSeconds: 20, secondsToExplosion: 10, distance: 110, bearingDeg: 90,
+    stand: { kind: 'desk', solid: true, size: [BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS] },
   });
   assert.ok(state.bomb.site.pos.length === 3);
   assert.ok(state.bomb.defuseProgress >= 0);
@@ -660,9 +661,33 @@ test('bomb perception exposes roles, names, progress, positions and all named ev
   session.close();
 });
 
+test('bomb snapshots install and clear solid stands for move_to', async () => {
+  const { session, snap, self } = await defusion();
+  const { x, z } = getMap(welcome.match.map).flagBases[0];
+  Object.assign(self, { x, y: 0, z: z + 100 });
+  const target = { kind: 'moveTo', x, z } as const;
+  snap([]);
+  assert.doesNotThrow(() => session.setIntent(target));
+  snap([0, -1, x, 0, z, 0, 0, 0, 0, 0, 0]);
+  assert.partialDeepStrictEqual(session.getState(), {
+    bomb: { blackFriday: false, fuseSeconds: 35, stand: {
+      kind: 'crate', solid: true, size: [BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS],
+    } },
+  });
+  assert.throws(() => session.setIntent(target), /intersects solid/);
+  snap([1, 1, self.x, self.y, self.z, 0, 0, 0, 0, 0, 0]);
+  assert.partialDeepStrictEqual(session.getState(), { bomb: { stand: null } });
+  assert.doesNotThrow(() => session.setIntent(target));
+  snap([4, -1, x, 0, z, 20200, 0, 0, 0, 0, 1]);
+  assert.throws(() => session.setIntent(target), /intersects solid/);
+  snap([]);
+  assert.doesNotThrow(() => session.setIntent(target));
+  session.close();
+});
+
 test('manual use completes on plant, releases keys and reports death interruption', async () => {
   const { session, socket, jobs, snap, self } = await defusion();
-  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   const planted = session.use();
   for (const fn of [...jobs.values()]) fn();
   const commands = JSON.parse(socket.sent.at(-1)!).c;
@@ -673,7 +698,7 @@ test('manual use completes on plant, releases keys and reports death interruptio
   assert.ok(JSON.parse(socket.sent.at(-1)!).c.every((c: number[]) => !(c[1] & BTN.USE)));
   const died = session.use();
   self.health = 0;
-  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.partialDeepStrictEqual(await died, { outcome: 'interrupted', reason: 'Player died' });
   session.close();
 });
@@ -681,13 +706,13 @@ test('manual use completes on plant, releases keys and reports death interruptio
 test('manual use reports defused, respawn, competing completion and disconnect', async () => {
   for (const reason of ['defused', 'respawn', 'other', 'disconnect']) {
     const { session, socket, snap, self, jobs } = await defusion();
-    snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0]);
+    snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0, 0]);
     const using = session.use();
     if (reason === 'defused') socket.message({ t: 'ev', e: [{ k: 'bomb', what: 'defused', team: 0, by: 1 }] });
     if (reason === 'other') socket.message({ t: 'ev', e: [{ k: 'bomb', what: 'defused', team: 0, by: 2 }] });
     if (reason === 'respawn') {
       self.dropping = true;
-      snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0]);
+      snap([4, -1, 0, 0, 0, 50000, 0, 0, 1, 0, 0]);
     }
     if (reason === 'disconnect') session.close();
     assert.partialDeepStrictEqual(await using, { outcome: reason === 'defused' ? 'defused' : 'interrupted' });
@@ -698,7 +723,7 @@ test('manual use reports defused, respawn, competing completion and disconnect',
 
 test('manual use duration is bounded and releases on timeout', async () => {
   const { session, snap, advance } = await defusion();
-  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  snap([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.throws(() => session.use(10001), /Invalid ms/);
   const using = session.use(100);
   advance(99);

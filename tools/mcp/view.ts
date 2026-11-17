@@ -3,7 +3,9 @@ import { weaponSlots } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
   createPlayerState,
-  type CollisionWorld,
+  CollisionWorld,
+  type MapDef,
+  type BombPoint,
   unpackState,
   RF_ALIVE,
   getMap,
@@ -17,7 +19,7 @@ import {
   type FlagState,
   isTeamMode,
   TICK_MS,
-  PLANT_MS, DEFUSE_MS, PLAYER_RADIUS, type BombState,
+  PLANT_MS, DEFUSE_MS, PLAYER_RADIUS, bombStandBox, BOMB_STAND_SIZE, fuseMs, type BombState,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
 export interface Peer {
@@ -267,16 +269,33 @@ export function bombState(v: WorldView): BombState | undefined {
     variant, defuse: actor < 0 ? null : { by: actor, doneAtTick: defuseDoneAt / TICK_MS } };
   return { kind: 'home' };
 }
+export function bombProp(v: WorldView, bomb = bombState(v)) {
+  if (!bomb) return null;
+  const [, , x, y, z] = v.bomb;
+  return bombStandBox(bomb.kind, { x, y, z });
+}
+
+const bombBases = new WeakMap<MapDef, BombPoint[]>();
+
 export function bombPlaces(v: WorldView, world: CollisionWorld) {
-  const map = getMap(v.match.map);
-  const bases = map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) }));
+  const map = world.map;
+  let bases = bombBases.get(map);
+  if (!bases) {
+    // The desk or crate can sit over a base, whose height must stay fixed.
+    const terrain = new CollisionWorld(map);
+    bases = map.flagBases.map(b => ({ ...b, y: Math.max(0, terrain.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS)) }));
+    bombBases.set(map, bases);
+  }
   const attackers = v.bomb[8];
   return { home: bases[attackers], site: bases[1 - attackers], attackers };
 }
 function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
   const bomb = bombState(v);
   if (!bomb) return null;
-  const [, actor, x, y, z, explodeAt, defuseDoneAt, , attackers, plantDoneAt] = v.bomb;
+  const [, actor, x, y, z, explodeAt, defuseDoneAt, , attackers, plantDoneAt, blackFridayBit] = v.bomb;
+  const blackFriday = blackFridayBit === 1;
+  const prop = bombProp(v, bomb);
+  const dimensions = prop && BOMB_STAND_SIZE[prop.stand];
   const name = (id: number) => v.roster.find(r => r[0] === id)?.[1] ?? String(id);
   const carrier = bomb.kind === 'carried' || bomb.kind === 'planting';
   const defuser = bomb.kind === 'planted' && actor >= 0;
@@ -288,6 +307,13 @@ function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
     pos: [x, y, z], ...relative(v.self)({ x, z }),
     site: site ? { pos: [site.x, site.y, site.z], ...relative(v.self)(site) } : null,
     attackersTeam: attackers, role: team === attackers ? 'attacker' : team === 1 - attackers ? 'defender' : 'spectator',
+    blackFriday, fuseSeconds: Math.round(fuseMs(blackFriday) / 1000),
+    stand: prop && dimensions ? {
+      kind: prop.stand, solid: true, size: [dimensions.size, dimensions.height, dimensions.size],
+      about: prop.stand === 'desk'
+        ? 'Solid obstacle. Walk around it and hold USE to defuse from any side or corner.'
+        : 'Solid obstacle. Walk around it and touch any side or corner to take the laptop.',
+    } : null,
     secondsToExplosion: bomb.kind === 'planted' ? Math.max(0, (explodeAt - v.time) / 1000) : null,
     plantProgress: bomb.kind === 'planting' ? progress(plantDoneAt, PLANT_MS) : 0,
     defuseProgress: defuser ? progress(defuseDoneAt, DEFUSE_MS) : 0 };

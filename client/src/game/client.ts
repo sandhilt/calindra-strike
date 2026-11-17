@@ -38,6 +38,7 @@ import {
   WEAPON,
   type WeaponId,
   applyCmd,
+  bombStandBox,
   clamp,
   computeSpread,
   copyState,
@@ -197,6 +198,7 @@ export class ClientGame {
   private flags: FlagView[] = [];
   private flagRenderer?: FlagsView;
   private bomb: BombView | null = null;
+  private announcedBombRound = '';
   private bombRenderer?: BombRenderer;
   private nextBombBeepAt = 0;
   private defuseVariant = 0;
@@ -429,6 +431,7 @@ export class ClientGame {
     this.airdrops.clear();
     this.flags = [];
     this.bomb = null;
+    this.announcedBombRound = '';
     const bases = this.map.flagBases.map(base => ({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) }));
     this.flagRenderer?.dispose();
     this.flagRenderer = new FlagsView(bases);
@@ -500,7 +503,19 @@ export class ClientGame {
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
     this.flags = flagViews(m.fl);
-    this.bomb = bombView(m.bm);
+    const bomb = this.match.mode === 'defuse' ? bombView(m.bm) : null;
+    this.bomb = bomb;
+    this.collision.setProp(bomb ? bombStandBox(bomb.state, bomb) : null);
+    if (bomb && this.match.phase !== 'podium') {
+      const key = `${bomb.attackers}:${bomb.variant}`;
+      if (bomb.blackFriday && key !== this.announcedBombRound) {
+        this.hud.info('BLACK FRIDAY! o pavio queima mais rápido nesta rodada', '#ffd54f');
+        this.sfx.blackFriday();
+      }
+      this.announcedBombRound = bomb.blackFriday ? key : '';
+    } else {
+      this.announcedBombRound = '';
+    }
     // drift guard: snapshots should never be "from the future"
     const est = this.serverNow();
     if (m.time > est + 30) this.clockOffset += (m.time - est) * 0.5;
@@ -684,11 +699,11 @@ export class ClientGame {
   }
 
   private readonly carrierPose = (id: number): CarrierPose | undefined => {
-    if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw };
+    if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw, firstPerson: true };
     const remote = this.remotes.get(id);
     if (!remote?.visible) return undefined;
     const p = remote.avatar.root.position;
-    return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y };
+    return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y, firstPerson: this.spectator !== null && id === this.followedId };
   };
 
   private onBombEvent(e: Extract<GameEvent, { k: 'bomb' }>): void {
@@ -737,7 +752,8 @@ export class ClientGame {
     const wall = performance.now();
     if (wall < this.nextBombBeepAt) return;
     const urgency = fuseUrgency(bomb, now);
-    this.sfx.bombBeep({ x: bomb.x, y: bomb.y, z: bomb.z }, urgency);
+    if (bomb.blackFriday) this.sfx.rushBeep(bomb, urgency);
+    else this.sfx.bombBeep(bomb, urgency);
     this.nextBombBeepAt = wall + beepIntervalMs(urgency);
   }
 
@@ -759,7 +775,13 @@ export class ClientGame {
     const before = this.match;
     this.match = info;
     if (info.mode !== 'ctf') this.flags = [];
-    if (info.mode !== 'defuse') this.bomb = null;
+    if (info.mode !== 'defuse') {
+      this.bomb = null;
+      this.announcedBombRound = '';
+      this.collision.setProp(null);
+    } else if (before.phase !== 'live' && info.phase === 'live') {
+      this.announcedBombRound = '';
+    }
     if (Array.isArray(info.teams)) this.teamScores = info.teams;
     if (info.mode !== before.mode) {
       this.dropAllAvatars();

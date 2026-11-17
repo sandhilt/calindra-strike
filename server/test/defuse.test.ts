@@ -1,11 +1,12 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOMB_RETURN_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_RETURN_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { bombStandBox, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
-function setup(defuseLimit = 5, mode: GameMode = 'defuse') {
+function setup(defuseLimit = 5, mode: GameMode = 'defuse', random = () => 0.5) {
   const messages: ServerMsg[] = [];
-  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: mode, defuseLimit, random: () => 0.5 });
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: mode, defuseLimit, random });
   const players: ServerPlayer[] = [];
   for (let i = 0; i < 4; i++) {
     const p = game.join('P' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
@@ -33,7 +34,7 @@ function snapshot(game: Game, messages: ServerMsg[]) {
 }
 const attackSite = (game: Game, attackers: number) => 1 - attackers;
 
-/** Takes the bomb at home, plants it at the site and returns the planting tick. */
+/** Takes the bomb at home, plants it at the site and returns the planting time. */
 function plant(game: Game, attacker: ServerPlayer, defender: ServerPlayer) {
   const attackers = attacker.team;
   place(game, defender, attackers, false);
@@ -43,6 +44,7 @@ function plant(game: Game, attacker: ServerPlayer, defender: ServerPlayer) {
   game.update();
   place(game, attacker, attackSite(game, attackers), true);
   run(game, PLANT_TICKS + 1);
+  return game.now();
 }
 
 it('plants after the plant time and explodes for the attackers, then the sides swap', () => {
@@ -149,7 +151,7 @@ it('publishes the limit and an empty bomb outside the mode', () => {
   for (const mode of ['defuse', 'ctf', 'tdm', 'ffa'] as const) {
     const { game, messages } = setup(5, mode);
     const snap = snapshot(game, messages);
-    if (mode === 'defuse') assert.equal(snap.bm.length, 10);
+    if (mode === 'defuse') assert.equal(snap.bm.length, 11);
     else assert.deepEqual(snap.bm, []);
     const match = messages.findLast((m) => m.t === 'match') ?? { t: 'match', match: (game as any).matchInfo() };
     assert.ok(match.t === 'match');
@@ -192,4 +194,45 @@ it('warmup runs the objective as unscored practice so a lone player can plant an
   assert.deepEqual(game.teamScores, [0, 0], 'warmup defuse does not score');
   assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'defused')), 'defused event sent');
   assert.equal(game.phase, 'warmup');
+});
+
+it('installs the planted desk and publishes the Black Friday fuse', () => {
+  const { game, attacker, defender, messages } = setup(5, 'defuse', () => 0);
+  assert.equal(snapshot(game, messages).bm[10], 1);
+  const plantedAt = plant(game, attacker, defender);
+  const { bm } = snapshot(game, messages);
+  assert.equal(bm[0], 4);
+  assert.equal(bm[10], 1);
+  assert.ok(Math.abs(bm[5] - plantedAt - BLACK_FRIDAY_FUSE_MS) <= 1);
+
+  const [, , x, y, z] = bm;
+  const contact = BOMB_DESK_SIZE_UNITS / 2 + PLAYER_RADIUS;
+  assert.equal(game.world.clipAxis(x - contact, y, z, STAND_HEIGHT, 0, 1), 0);
+});
+
+it('installs bomb stands at the exact coordinates sent in snapshots', (t) => {
+  const { game, attacker, messages } = setup();
+  const objective = game as unknown as { bomb: BombState; bombPlaces(): BombPlaces };
+  const places = objective.bombPlaces();
+  const home = { ...places.home, x: places.home.x + 0.04 };
+  t.mock.method(objective, 'bombPlaces', () => ({ ...places, home }));
+  const setProp = t.mock.method(game.world, 'setProp');
+
+  const { bm: homeRow } = snapshot(game, messages);
+  const [, , homeX, homeY, homeZ] = homeRow;
+  assert.equal(homeRow[0], 0);
+  assert.deepEqual(setProp.mock.calls.at(-1)?.arguments[0], bombStandBox('home', { x: homeX, y: homeY, z: homeZ }));
+
+  place(game, attacker, attacker.team);
+  game.update();
+  place(game, attacker, attackSite(game, attacker.team), true);
+  attacker.state.x += 0.04;
+  attacker.state.z += 0.06;
+  run(game, PLANT_TICKS + 1);
+
+  const { bm: plantedRow } = snapshot(game, messages);
+  const [, , x, y, z] = plantedRow;
+  assert.equal(plantedRow[0], 4);
+  assert.partialDeepStrictEqual(objective.bomb, { x, y, z });
+  assert.deepEqual(setProp.mock.calls.at(-1)?.arguments[0], bombStandBox('planted', { x, y, z }));
 });

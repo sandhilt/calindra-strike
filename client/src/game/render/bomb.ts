@@ -1,9 +1,9 @@
-import { BOMB_SITE_RADIUS_UNITS, FUSE_MS, type FlagBase } from '@calindra-strike/shared';
+import { BOMB_SITE_RADIUS_UNITS, BOMB_STAND_SIZE, PLAYER_RADIUS, type FlagBase } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { defuseProgress, fuseUrgency, secondsLeft, type BombView } from '../bomb.ts';
 import { TEX } from './textures.ts';
 import { drawLidBadge } from '../laptop/badge.ts';
-import { LAPTOP_MODELS, chassisColor, drawIdleScreen, drawLaptopScreen, laptopModelOf } from '../laptop/draw.ts';
+import { LAPTOP_MODELS, chassisColor, drawBlackFridayRibbon, drawCalmScreen, drawIdleScreen, drawLaptopScreen, laptopModelOf } from '../laptop/draw.ts';
 import type { LaptopModel } from '../laptop/scenarios.ts';
 
 const SCREEN_WIDTH_PX = 512;
@@ -21,8 +21,10 @@ const LID_HEIGHT_UNITS = BASE_WIDTH_UNITS * (SCREEN_HEIGHT_PX / SCREEN_WIDTH_PX)
 const LID_THICKNESS_UNITS = 1.6;
 const LID_TILT_RAD = 0.28;
 const BEZEL_UNITS = 1.5;
-const LAPTOP_SCALE = 1.5;
-const CARRY_BACK_OFFSET_UNITS = 16;
+const LAPTOP_SCALE = 1;
+const QUARTER_TURN_RAD = Math.PI / 2;
+const CARRY_BACK_OFFSET_UNITS = PLAYER_RADIUS + 2;
+const PLANT_FORWARD_OFFSET_UNITS = PLAYER_RADIUS + BASE_DEPTH_UNITS / 2;
 const CARRY_LIFT_UNITS = 36;
 const SITE_RING_WIDTH_UNITS = 6;
 const SITE_RING_LIFT_UNITS = 1;
@@ -43,20 +45,16 @@ const KEYBOARD_BACK_UNITS = BASE_DEPTH_UNITS / 2 - 2.5; // gap between the hinge
 const SPACEBAR_COLUMNS = 6;
 const TOUCHPAD_WIDTH_UNITS = 11;
 const TOUCHPAD_DEPTH_UNITS = 6;
-// A desk around 0.43 of the player's height, like a 75 cm desk next to a 175 cm person.
-const DESK_TOP_UNITS = 30;
-const DESK_WIDTH_UNITS = 84;
-const DESK_DEPTH_UNITS = 44;
+const { size: DESK_SIZE_UNITS, height: DESK_TOP_UNITS } = BOMB_STAND_SIZE.desk;
 const DESK_TOP_THICKNESS_UNITS = 2.5;
 const DESK_LEG_UNITS = 2.5;
-const LAPTOP_DESK_OFFSET_UNITS = -10; // laptop left of centre, leaving room for the mouse
-const MOUSEPAD_WIDTH_UNITS = 20;
-const MOUSEPAD_DEPTH_UNITS = 16;
-const MOUSEPAD_X_UNITS = 28;
-const MUG_X_UNITS = 31;
-const MUG_Z_UNITS = -13;
-const CRATE_SIZE_UNITS = 56;
-const CRATE_HEIGHT_UNITS = 28;
+const LAPTOP_DESK_OFFSET_UNITS = -6;
+const MOUSEPAD_WIDTH_UNITS = 11;
+const MOUSEPAD_DEPTH_UNITS = 12;
+const MOUSEPAD_X_UNITS = 18;
+const MUG_X_UNITS = 18;
+const MUG_Z_UNITS = -19;
+const { size: CRATE_SIZE_UNITS, height: CRATE_HEIGHT_UNITS } = BOMB_STAND_SIZE.crate;
 
 /** What the bug rests on: a dev desk once planted, a supply crate at the attackers' base, nothing when held or dropped. */
 type Stand = 'desk' | 'crate' | 'none';
@@ -103,21 +101,21 @@ function woodTexture(make: () => THREE.CanvasTexture): THREE.CanvasTexture {
 function desk(): THREE.Group {
   const wood = new THREE.MeshStandardMaterial({ map: woodTexture(TEX.desk), roughness: 0.7 });
   const steel = new THREE.MeshStandardMaterial({ color: '#30343b', metalness: 0.6, roughness: 0.4 });
-  const top = new THREE.Mesh(new THREE.BoxGeometry(DESK_WIDTH_UNITS, DESK_TOP_THICKNESS_UNITS, DESK_DEPTH_UNITS), wood);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(DESK_SIZE_UNITS, DESK_TOP_THICKNESS_UNITS, DESK_SIZE_UNITS), wood);
   top.position.y = DESK_TOP_UNITS - DESK_TOP_THICKNESS_UNITS / 2;
   const group = new THREE.Group();
   group.add(top);
   const legHeight = DESK_TOP_UNITS - DESK_TOP_THICKNESS_UNITS;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(DESK_LEG_UNITS, legHeight, DESK_LEG_UNITS), steel);
-    leg.position.set(sx * (DESK_WIDTH_UNITS / 2 - DESK_LEG_UNITS), legHeight / 2, sz * (DESK_DEPTH_UNITS / 2 - DESK_LEG_UNITS));
+    leg.position.set(sx * (DESK_SIZE_UNITS / 2 - DESK_LEG_UNITS), legHeight / 2, sz * (DESK_SIZE_UNITS / 2 - DESK_LEG_UNITS));
     group.add(leg);
   }
   const pad = new THREE.Mesh(new THREE.BoxGeometry(MOUSEPAD_WIDTH_UNITS, 0.3, MOUSEPAD_DEPTH_UNITS), new THREE.MeshStandardMaterial({ color: '#141821', roughness: 1 }));
   pad.position.set(MOUSEPAD_X_UNITS, DESK_TOP_UNITS + 0.15, 4);
   const mouse = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshStandardMaterial({ color: '#d9dde3', roughness: 0.35 }));
   mouse.scale.set(2.2, 1.1, 3.4);
-  mouse.position.set(MOUSEPAD_X_UNITS + 2, DESK_TOP_UNITS + 0.9, 5);
+  mouse.position.set(MOUSEPAD_X_UNITS, DESK_TOP_UNITS + 0.9, 5);
   const mug = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.1, 6, 16), new THREE.MeshStandardMaterial({ color: '#9de82b', roughness: 0.5 }));
   mug.position.set(MUG_X_UNITS, DESK_TOP_UNITS + 3, MUG_Z_UNITS);
   group.add(pad, mouse, mug);
@@ -149,9 +147,9 @@ interface ScreenSurface {
   texture: THREE.CanvasTexture;
 }
 
-export interface CarrierPose { x: number; y: number; z: number; yaw: number }
+export interface CarrierPose { x: number; y: number; z: number; yaw: number; firstPerson?: boolean }
 
-/** The bug: an opened laptop whose screen is a canvas texture, the desk or crate it rests on, plus a ring marking the plant site. */
+/** The bug: a laptop whose screen is a canvas texture, the desk or crate it rests on, plus a ring marking the plant site. */
 export class BombRenderer {
   readonly group = new THREE.Group();
   private readonly station = new THREE.Group();
@@ -159,6 +157,7 @@ export class BombRenderer {
   private readonly stands: Record<Exclude<Stand, 'none'>, THREE.Object3D>;
   private placedAt = '';
   private readonly screen: ScreenSurface;
+  private readonly lid = new THREE.Group();
   private readonly lidMaterial: THREE.MeshStandardMaterial;
   private readonly badgeMaterial: THREE.MeshBasicMaterial;
   private readonly badgeTextures: ReadonlyMap<LaptopModel, THREE.CanvasTexture>;
@@ -186,7 +185,7 @@ export class BombRenderer {
     const touchpad = new THREE.Mesh(new THREE.BoxGeometry(TOUCHPAD_WIDTH_UNITS, 0.1, TOUCHPAD_DEPTH_UNITS), new THREE.MeshStandardMaterial({ color: '#3a3f47', metalness: 0.3, roughness: 0.6 }));
     touchpad.position.set(0, BASE_HEIGHT_UNITS + 0.05, BASE_DEPTH_UNITS / 2 - TOUCHPAD_DEPTH_UNITS / 2 - 1);
 
-    const lid = new THREE.Group();
+    const lid = this.lid;
     lid.position.set(0, BASE_HEIGHT_UNITS, -BASE_DEPTH_UNITS / 2 + 1);
     lid.rotation.x = -LID_TILT_RAD;
     this.lidMaterial = plastic.clone();
@@ -223,7 +222,10 @@ export class BombRenderer {
 
   update(bomb: BombView | null, now: number, seconds: number, camera: THREE.Vector3, carrier: (id: number) => CarrierPose | undefined): void {
     this.group.visible = bomb !== null;
-    if (!bomb) return;
+    if (!bomb) {
+      this.placedAt = '';
+      return;
+    }
     this.placeSite(bomb);
     this.placeLaptop(bomb, camera, carrier);
     this.blink(bomb, now, seconds);
@@ -243,21 +245,29 @@ export class BombRenderer {
 
   private placeLaptop(bomb: BombView, camera: THREE.Vector3, carrier: (id: number) => CarrierPose | undefined): void {
     const holder = bomb.state === 'carried' || bomb.state === 'planting' ? carrier(bomb.carrier) : undefined;
+    const carried = bomb.state === 'carried';
+    this.laptop.visible = !carried || (holder !== undefined && !holder.firstPerson);
+    this.laptop.rotation.x = carried ? QUARTER_TURN_RAD : 0;
+    this.lid.rotation.x = carried ? QUARTER_TURN_RAD : -LID_TILT_RAD;
+    this.lid.position.y = carried ? BASE_HEIGHT_UNITS + KEY_HEIGHT_UNITS + LID_THICKNESS_UNITS / 2 : BASE_HEIGHT_UNITS;
+    this.light.visible = bomb.state === 'planted';
     if (holder) {
       this.showStand('none');
       this.placedAt = '';
-      this.station.position.set(holder.x + Math.sin(holder.yaw) * CARRY_BACK_OFFSET_UNITS, holder.y + CARRY_LIFT_UNITS, holder.z + Math.cos(holder.yaw) * CARRY_BACK_OFFSET_UNITS);
+      const offset = carried ? CARRY_BACK_OFFSET_UNITS : -PLANT_FORWARD_OFFSET_UNITS;
+      const lift = carried ? CARRY_LIFT_UNITS : 0;
+      this.station.position.set(holder.x + Math.sin(holder.yaw) * offset, holder.y + lift, holder.z + Math.cos(holder.yaw) * offset);
       this.station.rotation.y = holder.yaw;
       return;
     }
     const stand = STAND_BY_STATE[bomb.state];
     this.showStand(stand);
     this.station.position.set(bomb.x, bomb.y, bomb.z);
-    // Face whoever is looking when the bug lands, then stay put so the desk does not spin as players walk around it.
-    const placement = `${bomb.state}:${bomb.x}:${bomb.z}`;
+    const placement = `${bomb.state}:${bomb.x}:${bomb.y}:${bomb.z}:${bomb.attackers}:${bomb.variant}`;
     if (placement === this.placedAt) return;
     this.placedAt = placement;
-    this.station.rotation.y = Math.atan2(camera.x - bomb.x, camera.z - bomb.z);
+    const yaw = Math.atan2(camera.x - bomb.x, camera.z - bomb.z);
+    this.station.rotation.y = Math.round(yaw / QUARTER_TURN_RAD) * QUARTER_TURN_RAD;
   }
 
   private showStand(stand: Stand): void {
@@ -288,7 +298,9 @@ export class BombRenderer {
     this.nextScreenAt = now + SCREEN_REFRESH_MS;
     const { ctx, texture } = this.screen;
     if (bomb.state === 'planted' && bomb.defuser >= 0) drawLaptopScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, defuseProgress(bomb, now), now);
-    else drawIdleScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, bomb.state === 'planted' ? secondsLeft(bomb, now) : FUSE_MS / 1000, now);
+    else if (bomb.state === 'planted') drawIdleScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, secondsLeft(bomb, now), now);
+    else drawCalmScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, now);
+    if (bomb.blackFriday) drawBlackFridayRibbon(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, now);
     texture.needsUpdate = true;
   }
 

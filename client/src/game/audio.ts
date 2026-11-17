@@ -299,6 +299,23 @@ export class Sfx {
     this.tone(out, t, 'square', f, f, 0.07, 0.07 + urgency * 0.05);
   }
 
+  rushBeep(pos: Pos, urgency: number): void {
+    const start = this.ctx.currentTime;
+    const out = this.out(pos, 320);
+    const frequency = 1400 + urgency * 900;
+    const gain = 0.07 + urgency * 0.05;
+    this.tone(out, start, 'square', frequency, frequency, 0.04, gain);
+    this.tone(out, start + 0.06, 'square', frequency * 1.15, frequency * 1.15, 0.04, gain);
+  }
+
+  blackFriday(): void {
+    const start = this.ctx.currentTime;
+    this.noiseBurst(this.master, start, 2300, 2, 0.001, 0.065, 0.14);
+    this.tone(this.master, start + 0.06, 'sine', 2350, 2320, 0.27, 0.16);
+    this.tone(this.master, start + 0.06, 'sine', 3900, 3880, 0.19, 0.08);
+    this.tone(this.master, start + 0.19, 'triangle', 500, 1450, 0.35, 0.14, 0.03);
+  }
+
   boom(pos: Pos): void {
     const t = this.ctx.currentTime;
     const out = this.out(pos, 700);

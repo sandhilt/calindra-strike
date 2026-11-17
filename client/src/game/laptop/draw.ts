@@ -1,5 +1,5 @@
 import { APP_ACCENT, allApps, dockApps, launchApp } from './apps.ts';
-import { SCREEN_W, SCREEN_H, easeOut, fillDisc, fillRound, glowDisc, lerp, line, span, spinner, strokeRound, write, type Ctx } from './canvas.ts';
+import { SCREEN_W, SCREEN_H, easeOut, fillDisc, fillRound, glowDisc, lerp, line, pulse, span, spinner, strokeRound, write, type Ctx } from './canvas.ts';
 import { contentRect, drawChrome, drawProdBadge, drawWindowFrame, windowRadius, windowRect } from './chrome.ts';
 import { drawBanner, drawIconRow, drawMontage, drawScreenGlow, drawSplash } from './overlays.ts';
 import {
@@ -156,6 +156,75 @@ export function drawLaptop(ctx: CanvasRenderingContext2D, width: number, height:
   line(ctx, DECK.x + 10, DECK.y + DECK.h - 4, DECK.x + DECK.w - 10, DECK.y + DECK.h - 4, 'rgba(0,0,0,0.25)', 2);
   drawKeyboard(ctx, data.laptop, data.os);
   drawTouchpad(ctx, data.laptop);
+  ctx.restore();
+}
+
+const CALM_WIDGET = {
+  width: 360, height: 180, radius: 18, padding: 24,
+  titleY: 48, statusY: 85, testsY: 112, musicY: 154,
+  titleSize: 26, bodySize: 17, clockSize: 19,
+} as const;
+const EQUALIZER = { bars: 4, width: 4, stride: 7, minHeight: 4, maxHeight: 16, periodMs: 920, phaseMs: 190 } as const;
+
+export function drawCalmScreen(ctx: CanvasRenderingContext2D, width: number, height: number, scenario: number, timeMs: number): void {
+  const data = scenarioFor(scenario);
+  const apps = dockApps(data);
+  const widget = CALM_WIDGET;
+  const x = (SCREEN_W - widget.width) / 2;
+  const y = (SCREEN_H - widget.height) / 2;
+  const left = x + widget.padding;
+  const right = x + widget.width - widget.padding;
+  const musicY = y + widget.musicY;
+  const accent = '#a2e8cd';
+
+  ctx.save();
+  ctx.scale(width / SCREEN_W, height / SCREEN_H);
+  drawChrome(ctx, { os: data.os, apps, active: apps[0] ?? 'Chrome', prod: 'ok', launch: 1, windowTitle: '', timeMs });
+  fillRound(ctx, x, y, widget.width, widget.height, widget.radius, '#132b35');
+  write(ctx, 'tudo tranquilo', left, y + widget.titleY, { color: '#f1faf8', size: widget.titleSize, weight: 'bold' });
+  write(ctx, '17:58', right, y + widget.titleY, { color: '#c0d6df', size: widget.clockSize, mono: true, align: 'right' });
+  write(ctx, 'prod estável · 0 incidentes', left, y + widget.statusY, { color: accent, size: widget.bodySize });
+  write(ctx, 'testes: 128 passando', left, y + widget.testsY, { color: '#d1e5ec', size: widget.bodySize });
+  write(ctx, 'tocando: lo-fi para depurar', left, musicY, { color: '#c0d6df', size: widget.bodySize });
+  for (let bar = 0; bar < EQUALIZER.bars; bar++) {
+    const level = pulse(timeMs + bar * EQUALIZER.phaseMs, EQUALIZER.periodMs);
+    const barHeight = lerp(EQUALIZER.minHeight, EQUALIZER.maxHeight, level);
+    const barX = right - EQUALIZER.width - (EQUALIZER.bars - 1 - bar) * EQUALIZER.stride;
+    fillRound(ctx, barX, musicY - barHeight, EQUALIZER.width, barHeight, EQUALIZER.width / 2, accent);
+  }
+  ctx.restore();
+}
+
+const BLACK_FRIDAY_RIBBON = {
+  offset: 82, angle: Math.PI / 4, width: 300, height: 36, edge: 3,
+  labelY: 7, labelSize: 19,
+  tagWidth: 108, tagHeight: 26, tagRadius: 13, tagRight: 18, tagTop: 200,
+  tagLabelY: 18, tagLabelSize: 14, tagMinAlpha: 0.7, tagPeriodMs: 850,
+} as const;
+
+export function drawBlackFridayRibbon(ctx: CanvasRenderingContext2D, width: number, height: number, timeMs: number): void {
+  const ribbon = BLACK_FRIDAY_RIBBON;
+  const yellow = '#ffdc53';
+  const black = '#121212';
+  const tagX = SCREEN_W - ribbon.tagRight - ribbon.tagWidth;
+  ctx.save();
+  ctx.scale(width / SCREEN_W, height / SCREEN_H);
+  ctx.beginPath();
+  ctx.rect(0, 0, SCREEN_W, SCREEN_H);
+  ctx.clip();
+  ctx.save();
+  // Bottom-right corner: the top-right one holds the incident countdown.
+  ctx.translate(SCREEN_W - ribbon.offset, SCREEN_H - ribbon.offset);
+  ctx.rotate(-ribbon.angle);
+  ctx.fillStyle = yellow;
+  ctx.fillRect(-ribbon.width / 2, -ribbon.height / 2, ribbon.width, ribbon.height);
+  ctx.fillStyle = black;
+  ctx.fillRect(-ribbon.width / 2, -ribbon.height / 2 + ribbon.edge, ribbon.width, ribbon.height - 2 * ribbon.edge);
+  write(ctx, 'BLACK FRIDAY', 0, ribbon.labelY, { color: yellow, size: ribbon.labelSize, weight: 'bold', align: 'center' });
+  ctx.restore();
+  ctx.globalAlpha *= lerp(ribbon.tagMinAlpha, 1, pulse(timeMs, ribbon.tagPeriodMs));
+  fillRound(ctx, tagX, ribbon.tagTop, ribbon.tagWidth, ribbon.tagHeight, ribbon.tagRadius, yellow);
+  write(ctx, 'tempo 1.75x', tagX + ribbon.tagWidth / 2, ribbon.tagTop + ribbon.tagLabelY, { color: black, size: ribbon.tagLabelSize, weight: 'bold', align: 'center' });
   ctx.restore();
 }
 

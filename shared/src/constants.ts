@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -122,3 +122,14 @@ export const FUSE_MS = FUSE_TICKS * TICK_MS;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
 export const DEBUG_SCENARIO_COUNT = 6;
+/** Share of rounds that are Black Friday: announced up front, the planted bug burns a shorter fuse. */
+export const BLACK_FRIDAY_CHANCE = 0.2;
+export const BLACK_FRIDAY_FUSE_TICKS = 20 * TICK_RATE;
+export const BLACK_FRIDAY_FUSE_MS = BLACK_FRIDAY_FUSE_TICKS * TICK_MS;
+// The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.
+// Sized so a player pressed against any corner still reaches it: desk corner within DEFUSE_RADIUS_UNITS,
+// crate corner within CTF_PICKUP_RADIUS_UNITS (half size plus PLAYER_RADIUS, along both axes).
+export const BOMB_DESK_SIZE_UNITS = 50;
+export const BOMB_DESK_HEIGHT_UNITS = 30;
+export const BOMB_CRATE_SIZE_UNITS = 32;
+export const BOMB_CRATE_HEIGHT_UNITS = 24;

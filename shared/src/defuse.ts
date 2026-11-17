@@ -1,4 +1,7 @@
-import { BOMB_RETURN_TICKS, BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS } from './constants.ts';
+import {
+  BLACK_FRIDAY_FUSE_TICKS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS,
+  BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, TICK_MS,
+} from './constants.ts';
 
 export interface BombPoint { x: number; y: number; z: number }
 export type BombState =
@@ -14,6 +17,34 @@ export interface BombActor extends BombPoint { id: number; team: number; alive: 
 export interface BombEvent { k: 'bomb'; what: BombAction; team: number; by: number }
 export interface BombPlaces { home: BombPoint; site: BombPoint; attackers: number }
 export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: BombOutcome }
+/** Drawn when a round starts: which laptop scenario plays and whether it is a Black Friday round. */
+export interface BombRound { variant: number; blackFriday: boolean }
+
+export function fuseTicks(blackFriday: boolean): number {
+  return blackFriday ? BLACK_FRIDAY_FUSE_TICKS : FUSE_TICKS;
+}
+
+export function fuseMs(blackFriday: boolean): number {
+  return fuseTicks(blackFriday) * TICK_MS;
+}
+
+/** What the bug rests on: a desk once planted, a crate at the attackers' base, nothing while held or dropped. */
+export type BombStand = 'desk' | 'crate';
+export interface BombStandBox { stand: BombStand; min: BombPoint; max: BombPoint }
+const STAND_OF: Record<BombState['kind'], BombStand | null> = { planted: 'desk', home: 'crate', carried: null, planting: null, dropped: null };
+export const BOMB_STAND_SIZE: Record<BombStand, { size: number; height: number }> = {
+  desk: { size: BOMB_DESK_SIZE_UNITS, height: BOMB_DESK_HEIGHT_UNITS },
+  crate: { size: BOMB_CRATE_SIZE_UNITS, height: BOMB_CRATE_HEIGHT_UNITS },
+};
+
+/** The solid box under the bug at `at`, null when it has no stand. */
+export function bombStandBox(kind: BombState['kind'], at: BombPoint): BombStandBox | null {
+  const stand = STAND_OF[kind];
+  if (!stand) return null;
+  const { size, height } = BOMB_STAND_SIZE[stand];
+  const half = size / 2;
+  return { stand, min: { x: at.x - half, y: at.y, z: at.z - half }, max: { x: at.x + half, y: at.y + height, z: at.z + half } };
+}
 
 export function inBombReach(a: BombPoint, b: BombPoint, radius: number): boolean {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= radius;
@@ -56,7 +87,7 @@ function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: Bomb
 }
 
 /** Pure bomb rules. Positions are taken from the actors, so the caller snaps planted and dropped bombs to the floor. */
-export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly BombActor[], tick: number, variant: number): BombStep {
+export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly BombActor[], tick: number, round: BombRound): BombStep {
   const events: BombEvent[] = [];
   if (bomb.kind === 'planted') return stepPlanted(bomb, places, actors, tick);
   let next: BombState = bomb;
@@ -85,5 +116,5 @@ export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly B
   if (!planting) return { bomb: { kind: 'carried', carrier: carrier.id }, events };
   if (tick < next.doneAtTick) return { bomb: next, events };
   events.push({ k: 'bomb', what: 'plant', team: places.attackers, by: carrier.id });
-  return { bomb: { kind: 'planted', x: carrier.x, y: carrier.y, z: carrier.z, explodeAtTick: tick + FUSE_TICKS, variant, defuse: null }, events };
+  return { bomb: { kind: 'planted', x: carrier.x, y: carrier.y, z: carrier.z, explodeAtTick: tick + fuseTicks(round.blackFriday), variant: round.variant, defuse: null }, events };
 }

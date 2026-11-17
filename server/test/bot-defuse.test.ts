@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombState, type ServerMsg } from '@calindra-strike/shared';
+import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombState, type ServerMsg } from '@calindra-strike/shared';
 import { BotBrain, pickBombGoal, type BotAgent, type BotEnv } from '../src/bot.ts';
 import { NavGrid } from '../src/nav.ts';
 import { Game } from '../src/game.ts';
@@ -65,6 +65,21 @@ function botGame(mapId: string) {
   return { game, events, attacker, defender };
 }
 
+it('a bot approaches an elevated desk when horizontal distance alone would make it hold use', () => {
+  const { game, events, attacker, defender } = botGame('escritorio');
+  attacker.alive = false;
+  attacker.respawnAt = Infinity;
+  Object.assign(defender.state, { x: 848, y: 0, z: 185, dropping: false, onGround: true });
+  (game as unknown as { bomb: BombState }).bomb = {
+    kind: 'planted', x: 790, y: 30, z: 185, explodeAtTick: game.tick + FUSE_TICKS, variant: 1, defuse: null,
+  };
+  game.update();
+  assert.equal(defender.using, false);
+  const approachBudget = FUSE_TICKS - DEFUSE_TICKS;
+  for (let tick = 0; tick < approachBudget && !events.includes('defuse'); tick++) game.update();
+  assert.ok(events.includes('defuse'));
+});
+
 for (const map of getMaps()) {
   it('a bot attacker takes the bomb and plants it at the site on ' + map.id, (t) => {
     const { game, events, attacker, defender } = botGame(map.id);
@@ -93,3 +108,25 @@ for (const map of getMaps()) {
     assert.equal(game.teamScores[defender.team], 1);
   });
 }
+
+it('a bot approaching a solid desk diagonally defuses from the corner', () => {
+  const { game, events, attacker, defender } = botGame(map.id);
+  attacker.alive = false;
+  attacker.respawnAt = Infinity;
+  const { x, z } = game.map.flagBases[1 - attacker.team];
+  const y = game.world.groundBelow(x, game.map.dropHeight, z, PLAYER_RADIUS);
+  const contact = BOMB_DESK_SIZE_UNITS / 2 + PLAYER_RADIUS;
+  const startOffset = contact + PLAYER_RADIUS / 2;
+  Object.assign(defender.state, { x: x + startOffset, y, z: z + startOffset, dropping: false, onGround: true });
+  (game as unknown as { bomb: BombState }).bomb = {
+    kind: 'planted', x, y, z, explodeAtTick: game.tick + FUSE_TICKS, variant: 1, defuse: null,
+  };
+  const approachBudget = FUSE_TICKS - DEFUSE_TICKS;
+  for (let tick = 0; tick < approachBudget && !events.includes('defuse'); tick++) game.update();
+  assert.ok(events.includes('defuse'));
+  assert.ok(defender.state.x >= x + contact - PLAYER_RADIUS / 4);
+  assert.ok(defender.state.z >= z + contact - PLAYER_RADIUS / 4);
+  for (let tick = 0; tick < DEFUSE_TICKS; tick++) game.update();
+  assert.ok(events.includes('defused'));
+  assert.equal(game.teamScores[defender.team], 1);
+});

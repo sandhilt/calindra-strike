@@ -16,7 +16,7 @@ import {
 import { NavGrid } from '../../server/src/nav.ts';
 import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
-import { welcome, decodeSnapshot, renderView, type WorldView } from './view.ts';
+import { welcome, decodeSnapshot, renderView, bombProp, type WorldView } from './view.ts';
 export interface SocketLike {
   readyState: number;
   send(data: string): void;
@@ -159,6 +159,7 @@ export class GameSession {
     if (m.t === 'snap') {
       const wasDropping = v.self?.dropping ?? false;
       const raw = decodeSnapshot(v, m);
+      this.state.world.setProp(bombProp(v));
       this.actions.ack = m.ack;
       const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient);
       v.peers = perceived.peers;
@@ -181,7 +182,11 @@ export class GameSession {
     }
     if (m.t === 'match') {
       if (v.match.map !== m.match.map || v.match.mode !== m.match.mode
-        || (v.match.phase !== m.match.phase && m.match.phase !== 'podium')) v.sprays = [];
+        || (v.match.phase !== m.match.phase && m.match.phase !== 'podium')) {
+        v.sprays = [];
+        v.bomb = [];
+        this.state.world.setProp(null);
+      }
       const enteringPodium = v.match.phase !== 'podium' && m.match.phase === 'podium';
       if (v.match.map !== m.match.map) {
         const map = getMap(m.match.map);

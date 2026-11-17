@@ -1,17 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFUSE_MS, PLANT_MS } from '@calindra-strike/shared';
-import { FUSE_MS } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, DEFUSE_MS, FUSE_MS, PLANT_MS } from '@calindra-strike/shared';
 import { DEFUSE_BANNER_MS, beepIntervalMs, bombView, bombStatus, bombMessage, defuseBannerScene, defuseProgress, useRefusal, fuseUrgency, plantProgress, scoreUnit } from '../src/game/bomb.ts';
 
 test('maps every wire state and clears outside the mode', () => {
   assert.equal(bombView([]), null);
-  const at = { x: 10, y: 20, z: 30, variant: 2, attackers: 1 };
-  assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'home' });
-  assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'carried', carrier: 7 });
-  assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
-  assert.deepEqual(bombView([3, -1, 10, 20, 30, 0, 0, 2, 1, 0]), { ...at, state: 'dropped' });
-  assert.deepEqual(bombView([4, 9, 10, 20, 30, 40000, 8000, 2, 1, 0]), { ...at, state: 'planted', explodeAt: 40000, defuser: 9, defuseDoneAt: 8000 });
+  const at = { x: 10, y: 20, z: 30, variant: 2, attackers: 1, blackFriday: false };
+  assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'home' });
+  assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'carried', carrier: 7 });
+  assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000, 0]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
+  assert.deepEqual(bombView([3, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'dropped' });
+  assert.deepEqual(bombView([4, 9, 10, 20, 30, 40000, 8000, 2, 1, 0, 0]), { ...at, state: 'planted', explodeAt: 40000, defuser: 9, defuseDoneAt: 8000 });
 });
 
 test('progress follows the server deadlines and stays within 0..1', () => {
@@ -62,6 +61,29 @@ test('beeps speed up as the fuse burns down', () => {
   assert.equal(beepIntervalMs(5), beepIntervalMs(1));
 });
 
+test('Black Friday uses the short fuse and labels the round in every state', () => {
+  const explodeAt = 100000;
+  const start = explodeAt - BLACK_FRIDAY_FUSE_MS;
+  const name = (id: number) => 'P' + id;
+  const expectedStatuses = [
+    'pegue o bug na base',
+    'segure E no site para plantar',
+    'plantando…',
+    'o bug caiu · pegue-o',
+    'bug plantado · 20s',
+  ];
+  for (const [state, status] of expectedStatuses.entries()) {
+    const bomb = bombView([state, state === 4 ? -1 : 7, 0, 0, 0, explodeAt, 0, 0, 0, 0, 1]);
+    assert.ok(bomb?.blackFriday);
+    assert.equal(bombStatus(bomb, start, 7, 0, name), 'BLACK FRIDAY · ' + status);
+  }
+  const planted = bombView([4, -1, 0, 0, 0, explodeAt, 0, 0, 0, 0, 1]);
+  assert.ok(planted);
+  assert.equal(fuseUrgency(planted, start), 0);
+  assert.equal(fuseUrgency(planted, explodeAt - BLACK_FRIDAY_FUSE_MS / 2), 0.5);
+  assert.equal(fuseUrgency(planted, explodeAt), 1);
+});
+
 test('feed names the team that scored the round', () => {
   assert.equal(bombMessage('plant', 0, 'Ana'), 'Ana plantou o bug!');
   assert.equal(bombMessage('defused', 1, 'Ana'), 'Ana desarmou o bug · ponto dos Martelos');
@@ -85,7 +107,7 @@ test('the defuser keeps the finished laptop with the banner for 3 s after the de
 test('pressing E explains what is missing instead of failing silently', () => {
   const site = { x: 1000, y: 0, z: 0 };
   const name = (id: number) => 'P' + id;
-  const base = { x: 0, y: 0, z: 0, variant: 0, attackers: 0 };
+  const base = { x: 0, y: 0, z: 0, variant: 0, attackers: 0, blackFriday: false };
   const attempt = (bomb: Parameters<typeof useRefusal>[0]['bomb'], myTeam: number, me = { x: 0, y: 0, z: 0 }) => useRefusal({ bomb, myId: 1, myTeam, me, site, name });
   assert.equal(attempt({ ...base, state: 'home' }, 0), 'encoste no bug para pegá-lo');
   assert.equal(attempt({ ...base, state: 'carried', carrier: 1 }, 0), 'leve o bug até o site (círculo vermelho)');

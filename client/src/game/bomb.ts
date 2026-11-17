@@ -1,6 +1,6 @@
-import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, FUSE_MS, PLANT_MS, TEAMS, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
+import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
 
-export type BombView = { x: number; y: number; z: number; variant: number; attackers: number } & (
+export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean } & (
   | { state: 'home' }
   | { state: 'carried'; carrier: number }
   | { state: 'planting'; carrier: number; doneAt: number }
@@ -11,8 +11,8 @@ export type BombView = { x: number; y: number; z: number; variant: number; attac
 /** Parses the snapshot's bm row; an empty row means the mode has no bomb. */
 export function bombView(row: readonly number[]): BombView | null {
   if (row.length === 0) return null;
-  const [state, actor, x, y, z, explodeAt, defuseDoneAt, variant, attackers, plantDoneAt] = row;
-  const at = { x, y, z, variant, attackers };
+  const [state, actor, x, y, z, explodeAt, defuseDoneAt, variant, attackers, plantDoneAt, blackFriday] = row;
+  const at = { x, y, z, variant, attackers, blackFriday: blackFriday === 1 };
   if (state === 1) return { ...at, state: 'carried', carrier: actor };
   if (state === 2) return { ...at, state: 'planting', carrier: actor, doneAt: plantDoneAt };
   if (state === 3) return { ...at, state: 'dropped' };
@@ -48,7 +48,7 @@ export function secondsLeft(bomb: BombView, now: number): number {
 
 /** 0 right after planting, 1 at the explosion. */
 export function fuseUrgency(bomb: BombView, now: number): number {
-  return bomb.state === 'planted' ? 1 - clamp01((bomb.explodeAt - now) / FUSE_MS) : 0;
+  return bomb.state === 'planted' ? 1 - clamp01((bomb.explodeAt - now) / fuseMs(bomb.blackFriday)) : 0;
 }
 
 const BEEP_SLOW_MS = 1000;
@@ -59,6 +59,11 @@ export function beepIntervalMs(urgency: number): number {
 }
 
 export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
+  const status = roundStatus(bomb, now, viewerId, viewerTeam, name);
+  return bomb.blackFriday ? `BLACK FRIDAY · ${status}` : status;
+}
+
+function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
   const attacking = viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';

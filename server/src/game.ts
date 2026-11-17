@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BTN, DEBUG_SCENARIO_COUNT, dropBomb, stepBomb, type BombOutcome, type BombState, type BombPlaces,
+  BLACK_FRIDAY_CHANCE, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, dropBomb, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -68,12 +68,17 @@ const AIRDROP_MAX_ACTIVE = 2;
 const TEAM_SWITCH_RESPAWN_TICKS = 90;
 const GHOST_TICKS = 90 * 60; // a dropped player can rejoin with their score for 90 s
 
+function bombWirePosition({ x, y, z }: BombPoint): BombPoint {
+  // Match the snapshot's tenth-unit precision, including JSON's unsigned zero.
+  return { x: round(x, 10) + 0, y: round(y, 10) + 0, z: round(z, 10) + 0 };
+}
+
 /** Navigation grids are pure functions of the map, shared by every game in the process. */
 const navCache = new Map<string, NavGrid>();
-function navFor(map: MapDef, world: CollisionWorld): NavGrid {
+function navFor(map: MapDef): NavGrid {
   let n = navCache.get(map.id);
   if (!n) {
-    n = new NavGrid(world, map);
+    n = new NavGrid(new CollisionWorld(map), map);
     navCache.set(map.id, n);
   }
   return n;
@@ -228,7 +233,7 @@ export class Game {
   private bomb: BombState = { kind: 'home' };
   /** Team that carries and plants; the other team defends. Swaps after every round. */
   private attackers: 0 | 1 = 0;
-  private bombVariant = 0;
+  private bombRound: BombRound = { variant: 0, blackFriday: false };
   private winner = -1;
   private endPending = false;
   private rotationIndex = 0;
@@ -270,8 +275,9 @@ export class Game {
     this.map = getMap(0);
     this.world = this.worlds[0];
     this.applyRotation();
+    this.resetObjectives();
     // build bot navigation up front so the first bot never causes a hitch mid-game
-    if ((opts.botFill ?? 0) > 0) getMaps().forEach((m, i) => navFor(m, this.worlds[i]));
+    if ((opts.botFill ?? 0) > 0) getMaps().forEach(navFor);
   }
 
   get tdmLimit(): number {
@@ -314,11 +320,27 @@ export class Game {
     this.bomb = { kind: 'home' };
     this.attackers = 0;
     this.drawBombVariant();
+    this.syncBombStand();
   }
 
   /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */
   private drawBombVariant(): void {
-    if (this.mode === 'defuse') this.bombVariant = Math.floor(this.random() * DEBUG_SCENARIO_COUNT);
+    if (this.mode === 'defuse') {
+      this.bombRound = {
+        variant: Math.floor(this.random() * DEBUG_SCENARIO_COUNT),
+        blackFriday: this.random() < BLACK_FRIDAY_CHANCE,
+      };
+    }
+  }
+
+  private syncBombStand(): void {
+    if (this.mode !== 'defuse') {
+      this.world.setProp(null);
+      return;
+    }
+    const bomb = this.bomb;
+    const at = bomb.kind === 'planted' ? bomb : this.bombPlaces().home;
+    this.world.setProp(bombStandBox(bomb.kind, bombWirePosition(at)));
   }
 
   private dropObjective(p: ServerPlayer): void {
@@ -349,10 +371,12 @@ export class Game {
       x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
     }));
     const before = this.bomb;
-    const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, this.bombVariant);
+    const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, this.bombRound);
     this.bomb = result.bomb;
     if (this.bomb.kind === 'planted' && before.kind !== 'planted') {
-      this.bomb = { ...this.bomb, y: this.groundY(this.bomb.x, this.bomb.y, this.bomb.z) };
+      const { x, y, z } = this.bomb;
+      const at = bombWirePosition({ x, y: this.groundY(x, y, z), z });
+      this.bomb = { ...this.bomb, ...at };
     }
     for (const event of result.events) this.emit(event);
     if (!result.outcome) return;
@@ -381,13 +405,15 @@ export class Game {
     const at = bomb.kind === 'dropped' || bomb.kind === 'planted' ? bomb : holder?.state ?? places.home;
     const state = { home: 0, carried: 1, planting: 2, dropped: 3, planted: 4 }[bomb.kind];
     const actorId = carrying ? bomb.carrier : bomb.kind === 'planted' ? bomb.defuse?.by ?? -1 : -1;
+    const { x, y, z } = bombWirePosition(at);
     return [
-      state, actorId, round(at.x, 10), round(at.y, 10), round(at.z, 10),
+      state, actorId, x, y, z,
       bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : 0,
       bomb.kind === 'planted' && bomb.defuse ? this.msAt(bomb.defuse.doneAtTick) : 0,
-      bomb.kind === 'planted' ? bomb.variant : this.bombVariant,
+      bomb.kind === 'planted' ? bomb.variant : this.bombRound.variant,
       this.attackers,
       bomb.kind === 'planting' ? this.msAt(bomb.doneAtTick) : 0,
+      this.bombRound.blackFriday ? 1 : 0,
     ];
   }
 
@@ -704,7 +730,7 @@ export class Game {
     const list = [...this.players.values()];
     const env: BotEnv = {
       world: this.world,
-      nav: navFor(this.map, this.world),
+      nav: navFor(this.map),
       tick: this.tick,
       now: this.now(),
       mode: this.mode,
@@ -1160,6 +1186,7 @@ export class Game {
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();
     else if (this.phase === 'podium' && now >= this.phaseEnds) this.nextMap();
 
+    this.syncBombStand();
     this.runBots();
     if (this.tick % 600 === 0) for (const [k, g] of this.ghosts) if (g.expires < this.tick) this.ghosts.delete(k);
 
@@ -1194,6 +1221,7 @@ export class Game {
 
     this.updateFlags();
     this.updateBomb();
+    this.syncBombStand();
     this.recordHistory();
     this.flushEvents();
     if (this.tick % SNAPSHOT_EVERY_TICKS === 0) this.sendSnapshots();

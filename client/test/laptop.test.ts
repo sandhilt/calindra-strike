@@ -3,7 +3,7 @@ import { afterEach, test } from 'node:test';
 import { DEBUG_SCENARIO_COUNT } from '@calindra-strike/shared';
 import { drawLidBadge } from '../src/game/laptop/badge.ts';
 import { allApps, dockApps, launchApp, postLabs, sceneApps, type AppName } from '../src/game/laptop/apps.ts';
-import { drawIdleScreen, drawLaptop, drawLaptopScreen } from '../src/game/laptop/draw.ts';
+import { drawBlackFridayRibbon, drawCalmScreen, drawIdleScreen, drawLaptop, drawLaptopScreen } from '../src/game/laptop/draw.ts';
 import { ICONS, drawIcon } from '../src/game/laptop/icons.ts';
 import { SCENARIOS, sceneAt } from '../src/game/laptop/scenarios.ts';
 import { TOAST_PLANS } from '../src/game/laptop/toasts.ts';
@@ -12,7 +12,7 @@ import { TOAST_PLANS } from '../src/game/laptop/toasts.ts';
 function recordingContext(): { ctx: CanvasRenderingContext2D; log: string[] } {
   const log: string[] = [];
   const gradient = { addColorStop: (offset: number, color: string) => log.push(`stop ${offset} ${color}`) };
-  const state = new Map<string | symbol, unknown>();
+  const state = new Map<string | symbol, unknown>([['globalAlpha', 1]]);
   const ctx = new Proxy(
     {},
     {
@@ -136,6 +136,38 @@ test('frames are deterministic and never read randomness or the wall clock', () 
     const idle = recordingContext();
     drawIdleScreen(idle.ctx, 512, 320, scenario, 12.4, 500);
     assert.ok(idle.log.length > 20);
+  }
+});
+
+test('each scenario shows a calm desktop before planting', () => {
+  for (const [scenario, { title }] of SCENARIOS.entries()) {
+    const { ctx, log } = recordingContext();
+    drawCalmScreen(ctx, 512, 320, scenario, 1234);
+    const labels = log.filter((entry) => entry.startsWith('fillText('));
+    for (const label of ['PROD OK', 'tudo tranquilo', 'prod estável · 0 incidentes', 'testes: 128 passando', 'tocando: lo-fi para depurar']) {
+      assert.ok(labels.some((entry) => entry.startsWith(`fillText(${label},`)), `${title}: ${label}`);
+    }
+    assert.ok(!labels.some((entry) => /fillText\((?:prod caiu|PROD,|INCIDENTE ·)/.test(entry)), title);
+  }
+});
+
+test('the Black Friday ribbon overlays every calm, incident and defuse screen without clearing it', () => {
+  for (const [scenario, { title }] of SCENARIOS.entries()) {
+    const screens = [
+      (ctx: CanvasRenderingContext2D) => drawCalmScreen(ctx, 512, 320, scenario, 1234),
+      (ctx: CanvasRenderingContext2D) => drawIdleScreen(ctx, 512, 320, scenario, 12, 1234),
+      (ctx: CanvasRenderingContext2D) => drawLaptopScreen(ctx, 512, 320, scenario, 0.5, 1234),
+    ];
+    for (const draw of screens) {
+      const { ctx, log } = recordingContext();
+      draw(ctx);
+      const screenEnd = log.length;
+      drawBlackFridayRibbon(ctx, 512, 320, 1234);
+      const overlay = log.slice(screenEnd);
+      assert.ok(overlay.some((entry) => entry.startsWith('fillText(BLACK FRIDAY,')), title);
+      assert.ok(overlay.some((entry) => entry.startsWith('fillText(tempo 1.75x,')), title);
+      assert.ok(!overlay.some((entry) => entry.startsWith('clearRect(')), title);
+    }
   }
 });
 

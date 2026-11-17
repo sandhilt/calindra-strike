@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -91,3 +91,6 @@ export const BTN = {
   RELOAD: 512,
 } as const;
 export const BTN_MASK = 1023;
+
+export const SPECTATOR_PICK_MS = 15_000;
+export const MAX_SPECTATORS = 16;

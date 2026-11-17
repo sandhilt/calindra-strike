@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
   AIRDROP_PICKUP_RADIUS,
@@ -71,6 +72,9 @@ function navFor(map: MapDef, world: CollisionWorld): NavGrid {
   }
   return n;
 }
+
+export type SpectatorView = { kind: 'choosing'; deadline: number } | { kind: 'watching'; team: number };
+export interface Spectator { id: number; name: string; view: SpectatorView; send: (data: string) => void }
 
 interface Ghost {
   name: string;
@@ -290,6 +294,50 @@ export class Game {
 
   // ------------------------------------------------------------ lifecycle
 
+  readonly spectators = new Map<number, Spectator>();
+
+  private *recipients(): IterableIterator<ServerPlayer | Spectator> {
+    yield* this.players.values();
+    yield* this.spectators.values();
+  }
+
+  private spectatorInfo(s: Spectator): SpectatorInfo {
+    return s.view.kind === 'choosing' ? { kind: 'choosing', pickEndsAt: s.view.deadline } : s.view;
+  }
+
+  spectate(name: string, send: (data: string) => void): Spectator | string {
+    if (this.spectators.size >= MAX_SPECTATORS) return 'Sem vaga para espectadores';
+    const s: Spectator = { id: this.nextId++, name, send, view: this.mode === 'ffa'
+      ? { kind: 'watching', team: -1 } : { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS } };
+    this.spectators.set(s.id, s);
+    send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s) }));
+    return s;
+  }
+
+  watch(s: Spectator, team: number): void {
+    if (this.spectators.get(s.id) !== s || this.mode !== 'tdm' || (team !== 0 && team !== 1)) return;
+    s.view = { kind: 'watching', team };
+    this.sendSpectator(s);
+  }
+
+  leaveSpectator(id: number): void { this.spectators.delete(id); }
+
+  private sendSpectator(s: Spectator): void {
+    s.send(JSON.stringify({ t: 'spectate', state: this.spectatorInfo(s) }));
+  }
+
+  private syncSpectators(): void {
+    for (const s of this.spectators.values()) {
+      if (this.mode === 'ffa' && (s.view.kind !== 'watching' || s.view.team !== -1)) {
+        s.view = { kind: 'watching', team: -1 };
+        this.sendSpectator(s);
+      } else if (this.mode === 'tdm' && s.view.kind === 'watching' && s.view.team === -1) {
+        s.view = { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS };
+        this.sendSpectator(s);
+      }
+    }
+  }
+
   humanCount(): number {
     let n = 0;
     for (const p of this.players.values()) if (!p.brain) n++;
@@ -348,6 +396,7 @@ export class Game {
         match: this.matchInfo(),
         maxPlayers: this.opts.maxPlayers,
         token: p.token,
+        spectator: null,
       }),
     );
     this.broadcastRoster();
@@ -506,7 +555,7 @@ export class Game {
     if (this.votes.get(p.id) === option) return;
     this.votes.set(p.id, option);
     const msg = JSON.stringify({ t: 'votes', counts: this.voteCounts() });
-    for (const q of this.players.values()) q.send(msg);
+    for (const q of this.recipients()) q.send(msg);
   }
 
   /** Most voted option wins; ties prefer the regular rotation, then chance. No votes: rotation. */
@@ -539,7 +588,7 @@ export class Game {
     if (!text || this.tick - p.lastChat < 60 * 1.2) return;
     p.lastChat = this.tick;
     const msg = JSON.stringify({ t: 'chat', id: p.id, text });
-    for (const q of this.players.values()) q.send(msg);
+    for (const q of this.recipients()) q.send(msg);
   }
 
   private uniqueName(base: string): string {
@@ -572,7 +621,7 @@ export class Game {
 
   private broadcastMatch(): void {
     const msg = JSON.stringify({ t: 'match', match: this.matchInfo() });
-    for (const p of this.players.values()) p.send(msg);
+    for (const p of this.recipients()) p.send(msg);
   }
 
   private resetScores(): void {
@@ -589,6 +638,7 @@ export class Game {
   }
 
   startMatch(): void {
+    this.syncSpectators();
     this.matchId++;
     this.phase = 'live';
     this.phaseEnds = this.now() + this.opts.matchMs;
@@ -637,6 +687,7 @@ export class Game {
     this.map = getMap(choice.map);
     this.world = this.worlds[choice.map];
     this.mode = choice.mode;
+    this.syncSpectators();
     this.voteOptions = [];
     this.votes.clear();
     for (const p of this.players.values()) this.clearHistory(p);
@@ -653,6 +704,7 @@ export class Game {
   }
 
   private resetToWarmup(): void {
+    this.syncSpectators();
     this.phase = 'warmup';
     this.phaseEnds = 0;
     this.airdrops = [];
@@ -890,6 +942,10 @@ export class Game {
     this.tick++;
     const now = this.now();
 
+    for (const s of this.spectators.values()) {
+      if (s.view.kind === 'choosing' && now >= s.view.deadline) this.watch(s, this.pickTeam());
+    }
+
     // phase transitions
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();
     else if (this.phase === 'podium' && now >= this.phaseEnds) this.nextMap();
@@ -949,10 +1005,10 @@ export class Game {
   private flushEvents(): void {
     const global = this.globalEvents;
     this.globalEvents = [];
-    for (const p of this.players.values()) {
+    for (const p of this.recipients()) {
       const list: GameEvent[] = [];
       for (const g of global) if (g.except !== p.id) list.push(g.ev);
-      if (p.events.length) {
+      if ('events' in p && p.events.length) {
         list.push(...p.events);
         p.events.length = 0;
       }
@@ -978,9 +1034,9 @@ export class Game {
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);
     const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)}}`;
     const time = this.now();
-    for (const p of this.players.values()) {
-      const me = p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';
-      p.send(`{"t":"snap","time":${time},"ack":${p.lastSeq},"me":${me}${shared}`);
+    for (const p of this.recipients()) {
+      const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';
+      p.send(`{"t":"snap","time":${time},"ack":${'lastSeq' in p ? p.lastSeq : -1},"me":${me}${shared}`);
     }
   }
 
@@ -989,7 +1045,7 @@ export class Game {
     this.lastScoreSent = this.now();
     const s = [...this.players.values()].map((p) => [p.id, p.kills, p.deaths, p.ping, p.streak, p.headshots]);
     const msg = JSON.stringify({ t: 'score', s, ts: this.teamScores });
-    for (const p of this.players.values()) p.send(msg);
+    for (const p of this.recipients()) p.send(msg);
   }
 
   private roster(): RosterEntry[] {
@@ -998,7 +1054,7 @@ export class Game {
 
   private broadcastRoster(): void {
     const msg = JSON.stringify({ t: 'roster', roster: this.roster() });
-    for (const p of this.players.values()) p.send(msg);
+    for (const p of this.recipients()) p.send(msg);
   }
 
   publicStatus(): Record<string, unknown> {

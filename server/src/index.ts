@@ -1,10 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import type { Duplex } from 'node:stream';
-import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION, TICK_MS, parseClientMessage, sanitizeChat, sanitizeName } from '@calindra-strike/shared';
+import { MAX_SPECTATORS, MAX_MESSAGE_BYTES, PROTOCOL_VERSION, TICK_MS, parseClientMessage, sanitizeChat, sanitizeName } from '@calindra-strike/shared';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { loadConfig } from './config.ts';
-import { Game, type ServerPlayer } from './game.ts';
+import { Game, type ServerPlayer, type Spectator } from './game.ts';
 import { KeyedLimiter, TokenBucket } from './ratelimit.ts';
 
 const cfg = loadConfig();
@@ -23,7 +23,7 @@ const game = new Game({
 
 const sockets = new Set<WebSocket>();
 
-const MAX_CONNECTIONS = cfg.maxPlayers + 8;
+const MAX_CONNECTIONS = cfg.maxPlayers + MAX_SPECTATORS + 8;
 const SEND_BUFFER_SOFT = 256 * 1024; // skip non-essential sends above this
 const SEND_BUFFER_HARD = 2 * 1024 * 1024; // terminate hopelessly slow clients
 
@@ -128,6 +128,7 @@ function onConnection(ws: WebSocket, ip: string): void {
   sockets.add(ws);
   perIp.set(ip, (perIp.get(ip) ?? 0) + 1);
   let player: ServerPlayer | null = null;
+  let spectator: Spectator | null = null;
   let strikes = 0;
   let kicked = false;
   let alive = true;
@@ -154,7 +155,7 @@ function onConnection(ws: WebSocket, ip: string): void {
   };
 
   const helloTimer = setTimeout(() => {
-    if (!player) ws.close(4000, 'hello timeout');
+    if (!player && !spectator) ws.close(4000, 'hello timeout');
   }, 6000);
 
   const heartbeat = setInterval(() => {
@@ -180,7 +181,7 @@ function onConnection(ws: WebSocket, ip: string): void {
     const msg = parseClientMessage(data.toString());
     if (!msg) return strike(15, 'malformed');
     try {
-      if (!player) {
+      if (!player && !spectator) {
         if (msg.t !== 'hello') return strike(30, 'no hello');
         if (msg.v !== PROTOCOL_VERSION) {
           send(JSON.stringify({ t: 'reject', reason: 'Versão desatualizada: recarregue a página', code: 'version' }), true);
@@ -190,6 +191,18 @@ function onConnection(ws: WebSocket, ip: string): void {
         if (!codeMatches(msg.code)) {
           send(JSON.stringify({ t: 'reject', reason: 'Código de acesso inválido', code: 'code' }), true);
           ws.close(4003, 'code');
+          return;
+        }
+        if (msg.spectate) {
+          const res = game.spectate(sanitizeName(msg.name), (d) => send(d));
+          if (typeof res === 'string') {
+            send(JSON.stringify({ t: 'reject', reason: res, code: 'full' }), true);
+            ws.close(4002, 'full');
+            return;
+          }
+          spectator = res;
+          clearTimeout(helloTimer);
+          log('spectator join', JSON.stringify(res.name));
           return;
         }
         const res = game.join(sanitizeName(msg.name), msg.color, msg.primary, (d) => send(d), msg.token);
@@ -203,6 +216,13 @@ function onConnection(ws: WebSocket, ip: string): void {
         log('join', JSON.stringify(player.name), `players=${game.players.size}`);
         return;
       }
+      if (spectator) {
+        if (msg.t === 'watch') game.watch(spectator, msg.team);
+        else if (msg.t === 'ping') send(JSON.stringify({ t: 'pong', c: msg.c, s: game.now() }), true);
+        else strike(5, 'spectator action');
+        return;
+      }
+      if (!player) return;
       switch (msg.t) {
         case 'in':
           game.input(player, msg.c);
@@ -224,6 +244,9 @@ function onConnection(ws: WebSocket, ip: string): void {
           if (text) game.chat(player, text);
           break;
         }
+        case 'watch':
+          strike(5, 'player watch');
+          break;
         case 'hello':
           strike(5, 'dup hello');
           break;
@@ -242,6 +265,11 @@ function onConnection(ws: WebSocket, ip: string): void {
     const n = (perIp.get(ip) ?? 1) - 1;
     if (n <= 0) perIp.delete(ip);
     else perIp.set(ip, n);
+    if (spectator) {
+      log('spectator leave', JSON.stringify(spectator.name));
+      game.leaveSpectator(spectator.id);
+      spectator = null;
+    }
     if (player) {
       log('leave', JSON.stringify(player.name), `players=${game.players.size - 1}`);
       game.leave(player.id);

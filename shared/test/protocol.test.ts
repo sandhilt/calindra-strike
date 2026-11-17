@@ -56,3 +56,12 @@ describe('sanitizers', () => {
     assert.equal(sanitizeChat('x'.repeat(500)).length, 100);
   });
 });
+
+it('validates spectator joins and team choices', () => {
+  const hello = { t: 'hello', v: 8, name: 'Viewer', color: 0, primary: 2 };
+  assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify(hello)), { spectate: false });
+  assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify({ ...hello, spectate: true })), { spectate: true });
+  assert.equal(parseClientMessage(JSON.stringify({ ...hello, spectate: 1 })), null);
+  for (const team of [0, 1]) assert.deepStrictEqual(parseClientMessage(JSON.stringify({ t: 'watch', team })), { t: 'watch', team });
+  for (const team of [-1, 2, '0', null, 0.5]) assert.equal(parseClientMessage(JSON.stringify({ t: 'watch', team })), null);
+});

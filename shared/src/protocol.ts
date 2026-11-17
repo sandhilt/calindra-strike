@@ -7,7 +7,8 @@ export const MAX_MESSAGE_BYTES = 4096;
 // ------------------------------------------------------------ client -> server
 
 export type ClientMsg =
-  | { t: 'hello'; v: number; name: string; color: number; primary: WeaponId; code: string; token: string }
+  | { t: 'hello'; v: number; name: string; color: number; primary: WeaponId; code: string; token: string; spectate?: boolean }
+  | { t: 'watch'; team: 0 | 1 }
   | { t: 'in'; c: Cmd[] }
   | { t: 'loadout'; primary: WeaponId }
   | { t: 'ping'; c: number }
@@ -59,12 +60,15 @@ export function parseClientMessage(raw: string): ClientMsg | null {
       if (!isStr(code, 64)) return null;
       const token = o.token === undefined ? '' : o.token;
       if (!isStr(token, 64) || !/^[0-9a-f]*$/.test(token)) return null;
-      return { t: 'hello', v: o.v, name: o.name, color: o.color, primary: o.primary, code, token };
+      if (o.spectate !== undefined && typeof o.spectate !== 'boolean') return null;
+      return { t: 'hello', v: o.v, name: o.name, color: o.color, primary: o.primary, code, token, spectate: o.spectate ?? false };
     }
     case 'loadout':
       return isPrimary(o.primary) ? { t: 'loadout', primary: o.primary } : null;
     case 'chat':
       return isStr(o.text, 400) && o.text.length > 0 ? { t: 'chat', text: o.text } : null;
+    case 'watch':
+      return o.team === 0 || o.team === 1 ? { t: 'watch', team: o.team } : null;
     case 'team':
       return isInt(o.team, 0, 1) ? { t: 'team', team: o.team } : null;
     case 'vote':
@@ -154,8 +158,13 @@ export type GameEvent =
   | { k: 'leave'; id: number }
   | { k: 'team'; id: number; team: number; auto: number };
 
+export type SpectatorInfo =
+  | { kind: 'choosing'; pickEndsAt: number }
+  | { kind: 'watching'; team: number };
+
 export type ServerMsg =
-  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string }
+  | { t: 'spectate'; state: SpectatorInfo }
+  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null }
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
   | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][] }

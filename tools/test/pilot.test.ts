@@ -27,6 +27,7 @@ function fixture() {
     match: { phase: 'live', mode: 'tdm', map: 0, endsAt: 10000, teams: [0, 0], limit: 0 },
     maxPlayers: 16,
     token: '',
+    spectator: null,
   });
   const s = createPlayerState();
   view.self = s;

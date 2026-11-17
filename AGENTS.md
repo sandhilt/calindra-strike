@@ -94,7 +94,7 @@ tools ──► server, shared
 
 ## Playing the game (agents)
 
-- For tips on how to play (MCP tools, tactics, chat and personas, team callouts, naming), consult the project skill `.claude/skills/play-calindra-strike/SKILL.md`. Gameplay instructions live only there, not in this file.
+- For tips on how to play (MCP tools, tactics, chat and personas, team callouts, naming), consult the project skill `.claude/skills/play-calindra-strike/SKILL.md`. Gameplay instructions live only there, not in this file. When you play and learn something new (a tool behaviour, a map pattern, a tactic that worked or failed), merge it into that file instead of writing a new notes file, and keep the existing sections, so the next agent that plays can use it.
 - Run the verification server (`verify-calindra-strike`) only to test a change. Do not play on it, because the MCP connection points at the main server on port 7350.
 
 ## Git

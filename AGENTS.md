@@ -94,15 +94,7 @@ tools ──► server, shared
 
 ## Playing the game (agents)
 
-- Gameplay notes for agents live in the project skill `.claude/skills/play-calindra-strike/SKILL.md`. When you play, merge what you learned into that file instead of writing a new notes file, and keep the existing sections. If you find something new (a tool behaviour, a map pattern, a tactic that worked or failed), add it to that skill so the next agent that plays can use it.
-- One MCP connection is one player. A second `join` on the same connection returns the same character, so subagents that share the main connection do not add players. For another player, run a separate `tools/mcp/launch.ts` process and drive it over JSON-RPC.
-- Name players for the agent playing them, not `Agente-*`. Suggest the agent's name plus its model in the `join` name (for example `Claude-Haiku5.5`, `Codex-GPT6`), as long as it fits the 16-character limit. Use `-A` / `-B` suffixes when one session runs several players.
-- `jump`, `crouch` and `zoom` exist in the current MCP server. A connection started before those commits does not list them; restart the plugin to get them.
-- Keymap for the browser client (same as `README.md`): `WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving, `Ctrl` dives faster) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu. Through MCP, use `jump`, `crouch` and `zoom` instead of keys; a connection started before those tools existed does not list them.
-- Bots and agents may send short provocative chat (`say`, up to 100 characters) during a match, the "stunts" the user asked for. Send it occasionally, for example once or twice per match after a notable kill or a comeback, not after every kill. Keep it playful and in Portuguese, aimed at the match, never at a real person's private details.
-- Each bot or agent can have its own persona for chat: a different tone, nickname or running joke (for example a cocky veteran, a friendly rookie, a sarcastic commentator). Keep one persona consistent across a match, and keep it playful and in Portuguese.
-- Personas can range from calm to hot-headed. A "hot-headed" persona may trash-talk and roast the other players' aim or gameplay, but never with slurs, insults about identity or body, threats, or any real person's private details. When unsure, tone it down.
-- React to the match chat too, not only to provocations: when a message from another player is addressed to you or is about the match, answer with a short playful `say`. Read `chat` in every `wait` and `get_state` result, since reading drains it. Skip hostile or personal messages.
+- For tips on how to play (MCP tools, tactics, chat and personas, team callouts, naming), consult the project skill `.claude/skills/play-calindra-strike/SKILL.md`. Gameplay instructions live only there, not in this file.
 - Run the verification server (`verify-calindra-strike`) only to test a change. Do not play on it, because the MCP connection points at the main server on port 7350.
 
 ## Git

@@ -27,18 +27,19 @@ The server bots in `server/src/bot.ts` play by the same rules as you, so their h
 
 - Stand still to shoot and strafe between bursts. Spread grows when you run. The bots counter-strafe for 20 to 50 ticks (a third to nearly a second) in a random direction, then reverse.
 - Bots walk toward a target that is farther than about 1100 units while they strafe. Do the same instead of trading shots at the edge of your weapon's range.
-- Crouching shrinks your hitbox and tightens spread. Use `crouch {on: true}` for a held position and `crouch {on: false}` before you move again, because crouched you walk at 34 percent speed. Walking (`Shift`) is silent.
+- Crouching shrinks your hitbox and tightens spread. Use `crouch {on: true}` for a held position and `crouch {on: false}` before you move again, because crouched you walk at 34 percent speed. `walk {on: true}` (`Shift`) is silent but slower, and `walk {on: false}` goes back to running.
 
 ## The AWP (Mjölnir)
 
 - Scope in before the shot when the target is farther than about 350 units. `zoom {level: 1}` or `{level: 2}` scopes (FOV 40 then 10) and `{level: 0}` leaves the scope. Close up, scoping only costs you time. It errors when the weapon in hand has no scope.
 - Once you call `zoom` the pilot stops scoping on its own until you respawn. Call it again for each target distance. Scoped, you move at 150 units per second instead of 210 unscoped, so stand still before the shot.
 - 115 damage kills with one body shot. The scope drops while you work the bolt and returns on its own.
-- Unscoped shots are inaccurate. Do not use it as a rifle at close range, switch to the pistol.
+- Unscoped shots are inaccurate. Do not use it as a rifle at close range, `switch_weapon {slot: "pistol"}`.
 
 ## Ammo discipline
 
-- Reload when no enemy is in view and the magazine is under 40 percent.
+- Reload when no enemy is in view and the magazine is under 40 percent. The pilot does this itself, so call `reload` (`R`) only when you want a full magazine before a fight you can see coming. It errors for the hammer and does nothing with a full magazine or no reserve. Reloading drops the scope.
+- `switch_weapon {slot}` is the `1` `2` `3` `Q` keys: `primary`, `pistol`, `hammer` or `last` (the weapon before this one). `get_state` shows what each slot holds in `you.slots`. A switch takes a moment to deploy and cancels a reload and the scope, so do it before the duel, not in it. The pilot adapts to the weapon in hand, so with the hammer it rushes in instead of shooting.
 - If a weapon is empty with no reserve, fall back at once. Bots go to the pistol, and the pistol falls back to the hammer.
 - Pick up an air drop to refill health and armour. See `calindra-strike-skydive-airdrops`.
 

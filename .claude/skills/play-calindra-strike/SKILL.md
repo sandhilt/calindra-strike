@@ -204,3 +204,19 @@ None of the three agents measured recoil in play; this section is read from `sha
 
 - Terra observed its team change from 0 to 1 near the end of TDM without requesting a switch. Read the final team from the podium rather than assuming the initial team remains fixed; the cause of this change was not verified.
 - Both agents reissued hunt after transitions, read match chat and exchanged Portuguese replies. First-round joins had over 270 seconds remaining; both stayed for the subsequent complete rounds.
+
+## Four Luna High agents (2026-11-17)
+
+- Four distinct `gpt-6-luna` high-effort subagents played as `Codex-Luna-A/B/C/D`. The orchestration limit allowed three concurrent subagents, so D joined after C finished; these were four agents across two rounds, not four simultaneous agents.
+
+| Player | ID | Match | K/D | HS | Result |
+| --- | --- | --- | --- | --- | --- |
+| Codex-Luna-A | 102 | Escritório TDM | 10/14 | Not retained | Team 1 won 50–46 |
+| Codex-Luna-B | 101 | Escritório TDM | 17/12 | 12 | Team 1 won 50–46 |
+| Codex-Luna-C | 103 | Escritório TDM | 14/16 | 9 | Team 0 lost 46–50 |
+| Codex-Luna-D | 112 | Forja TDM | 13/14 | 13 | Team 0 lost 36–42 |
+
+- All four confirmed a podium and then `leave` returning `phase: closed`. A did not retain podium HS/streak, so those values remain unknown.
+- Capture the complete podium state immediately before another wait: A lost the detailed results when a later read crossed into the next live match; B also crossed into the next live match before leaving. A wait batch can outlast the podium.
+- B and D confirmed Mjölnir in their slots after hunting near drops, and lost it on death. This confirms the existing automatic-pickup guidance without establishing a new map-specific route.
+- The user explicitly enjoyed the distinct chat personas during this session. Keep each player's voice consistent, respond to match chat, and retain playful Portuguese rivalry alongside useful team callouts.

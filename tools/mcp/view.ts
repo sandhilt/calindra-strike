@@ -1,3 +1,4 @@
+import { weaponSlots } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
   createPlayerState,
@@ -5,7 +6,6 @@ import {
   RF_ALIVE,
   getMap,
   weaponDef,
-  WEAPON,
   wrapAngle,
   type PlayerState,
   type ServerMsg,
@@ -117,6 +117,7 @@ export function renderView(
   actions: { crouch: boolean; walk: boolean; zoom: number | null } = { crouch: false, walk: false, zoom: null },
 ): object {
   const s = v.self;
+  const slots = s ? weaponSlots(s) : null;
   const relative = (p: { x: number; z: number }) =>
     s
       ? {
@@ -174,11 +175,11 @@ export function renderView(
       pos: s ? [s.x, s.y, s.z] : null,
       yawDeg,
       weapon: s ? weaponDef(s.weapon).name : null,
-      slots: s ? {
-        primary: weaponDef(s.primary).name,
-        pistol: weaponDef(WEAPON.PISTOL).name,
-        hammer: weaponDef(WEAPON.HAMMER).name,
-        last: weaponDef(s.lastWeapon).name,
+      slots: slots ? {
+        primary: weaponDef(slots.primary).name,
+        pistol: weaponDef(slots.pistol).name,
+        hammer: weaponDef(slots.hammer).name,
+        last: slots.last === null ? null : weaponDef(slots.last).name,
       } : null,
       mag: s?.mag[s.weapon],
       reserve: s?.reserve[s.weapon],

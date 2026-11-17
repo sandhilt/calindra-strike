@@ -447,15 +447,14 @@ test('switch_weapon maps every slot to one command and returns its weapon name',
   }
 });
 
-test('switch_weapon is a no-op for the held weapon and rejects unknown slots', async () => {
+test('switch_weapon queues held slots and rejects unknown slots', async () => {
   for (const [slot, weapon] of [
     ['primary', WEAPON.RIFLE], ['pistol', WEAPON.PISTOL], ['hammer', WEAPON.HAMMER],
-    ['last', createPlayerState().lastWeapon],
   ] as const) {
     const { call, tickButtons, socket, session } = await playing(weapon);
     assert.equal((await call('switch_weapon', { slot })).isError, undefined);
     tickButtons();
-    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [0, 0]);
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [{ primary: 1, pistol: 2, hammer: 3 }[slot], 0]);
     const response = await call('switch_weapon', { slot: 'unknown' });
     assert.equal(response.isError, true);
     assert.match(JSON.stringify(response), /Invalid slot/);
@@ -484,17 +483,40 @@ test('death clears pending reload and weapon requests before the next tick', asy
 test('weapon slots report and request the primary and last weapons from the snapshot', async () => {
   const { call, socket, tickButtons, session } = await playing();
   const self = createPlayerState();
-  Object.assign(self, { health: 100, weapon: WEAPON.HAMMER, primary: WEAPON.SNIPER, lastWeapon: WEAPON.SMG });
+  Object.assign(self, { health: 100, weapon: WEAPON.HAMMER, primary: WEAPON.SNIPER, lastWeapon: WEAPON.PISTOL });
   socket.message({ t: 'snap', time: 300, ack: 0, me: packState(self), ps: [], ad: [] });
   assert.partialDeepStrictEqual(session.getState(), {
-    you: { slots: { primary: weaponDef(WEAPON.SNIPER).name, last: weaponDef(WEAPON.SMG).name } },
+    you: { slots: { primary: weaponDef(WEAPON.SNIPER).name, last: weaponDef(WEAPON.PISTOL).name } },
   });
-  for (const [slot, request, target] of [['primary', 1, WEAPON.SNIPER], ['last', 4, WEAPON.SMG]] as const) {
+  for (const [slot, request, target] of [['primary', 1, WEAPON.SNIPER], ['last', 4, WEAPON.PISTOL]] as const) {
     const response = await call('switch_weapon', { slot });
     assert.equal(response.isError, undefined);
     assert.partialDeepStrictEqual(JSON.parse(response.content[0].text), { weapon: weaponDef(target).name });
     tickButtons();
     assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [request, 0]);
   }
+  session.close();
+});
+
+test('switch_weapon queues primary after pistol before a new snapshot', async () => {
+  const { call, socket, tickButtons, session } = await playing(WEAPON.RIFLE);
+  await call('switch_weapon', { slot: 'pistol' });
+  tickButtons();
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!).c.map((c: number[]) => c[4]), [2, 0]);
+  await call('switch_weapon', { slot: 'primary' });
+  tickButtons();
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!).c.map((c: number[]) => c[4]), [1, 0]);
+  session.close();
+});
+
+test('switch_weapon rejects a replaced primary as last and reports null', async () => {
+  const { call, socket, session } = await playing();
+  const self = createPlayerState();
+  Object.assign(self, { weapon: WEAPON.SNIPER, primary: WEAPON.SNIPER, lastWeapon: WEAPON.RIFLE });
+  socket.message({ t: 'snap', time: 300, ack: 0, me: packState(self), ps: [], ad: [] });
+  const response = await call('switch_weapon', { slot: 'last' });
+  assert.equal(response.isError, true);
+  assert.match(response.content[0].text, /No previous weapon/);
+  assert.partialDeepStrictEqual(session.getState(), { you: { slots: { last: null } } });
   session.close();
 });

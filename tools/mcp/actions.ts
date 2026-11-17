@@ -1,8 +1,21 @@
-import { BTN, weaponDef, type Cmd, type PlayerState } from '../../shared/src/index.ts';
+import { BTN, WEAPON, weaponDef, type Cmd, type PlayerState, type WeaponId } from '../../shared/src/index.ts';
 
 export const WEAPON_SLOT_REQUEST = { primary: 1, pistol: 2, hammer: 3, last: 4 } as const;
 export type WeaponSlot = keyof typeof WEAPON_SLOT_REQUEST;
 type WeaponRequest = (typeof WEAPON_SLOT_REQUEST)[WeaponSlot];
+
+export function weaponSlots(self: PlayerState): {
+  primary: WeaponId; pistol: WeaponId; hammer: WeaponId; last: WeaponId | null;
+} {
+  const last = self.lastWeapon;
+  return {
+    primary: self.primary,
+    pistol: WEAPON.PISTOL,
+    hammer: WEAPON.HAMMER,
+    last: last !== self.weapon && (last === WEAPON.HAMMER || last === WEAPON.PISTOL || last === self.primary)
+      ? last : null,
+  };
+}
 
 /**
  * Agent-controlled keys on top of the bot brain's cmd: latched crouch and walk,
@@ -21,6 +34,7 @@ export class ActionOverlay {
   private weaponPending: WeaponRequest | null = null;
   /** Seq of the last scope press; the snapshot only shows its effect once `ack` reaches it. */
   private pressSeq = 0;
+  private weaponSeq = 0;
 
   requestJump(): void {
     this.jumpPending = true;
@@ -42,6 +56,7 @@ export class ActionOverlay {
     this.zoom = null;
     this.jumpPending = false;
     this.pressSeq = 0;
+    this.weaponSeq = 0;
     this.ack = 0;
   }
 
@@ -52,8 +67,12 @@ export class ActionOverlay {
       buttons |= BTN.RELOAD;
       this.reloadPending = false;
     }
-    const weapon = this.weaponPending ?? cmd.weapon;
-    this.weaponPending = null;
+    let weapon = this.ack < this.weaponSeq ? 0 : cmd.weapon;
+    if (this.weaponPending !== null) {
+      weapon = this.weaponPending;
+      this.weaponSeq = cmd.seq;
+      this.weaponPending = null;
+    }
     if (this.crouch) buttons |= BTN.DUCK;
     if (this.jumpPending) {
       this.jumpPending = false;

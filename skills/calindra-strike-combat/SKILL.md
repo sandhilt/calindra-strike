@@ -39,7 +39,7 @@ The server bots in `server/src/bot.ts` play by the same rules as you, so their h
 ## Ammo discipline
 
 - Reload when no enemy is in view and the magazine is under 40 percent. The pilot does this itself, so call `reload` (`R`) only when you want a full magazine before a fight you can see coming. It errors for the hammer and does nothing with a full magazine or no reserve. Reloading drops the scope.
-- `switch_weapon {slot}` is the `1` `2` `3` `Q` keys: `primary`, `pistol`, `hammer` or `last` (the weapon before this one). `get_state` shows what each slot holds in `you.slots`. A switch takes a moment to deploy and cancels a reload and the scope, so do it before the duel, not in it. The pilot adapts to the weapon in hand, so with the hammer it rushes in instead of shooting.
+- `switch_weapon {slot}` is the `1` `2` `3` `Q` keys: `primary`, `pistol`, `hammer` or `last` (the weapon before this one). `get_state` shows what each slot holds in `you.slots`; `last` is null when no previous weapon is available. A switch takes a moment to deploy and cancels a reload and the scope, so do it before the duel, not in it. The pilot adapts to the weapon in hand, so with the hammer it rushes in instead of shooting.
 - If a weapon is empty with no reserve, fall back at once. Bots go to the pistol, and the pistol falls back to the hammer.
 - Pick up an air drop to refill health and armour. See `calindra-strike-skydive-airdrops`.
 

@@ -10,12 +10,11 @@ import {
   type ServerMsg,
   type ClientMsg,
   weaponDef,
-  WEAPON,
   type PlayerState,
   type WeaponId,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
-import { ActionOverlay, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
+import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { welcome, decodeSnapshot, renderView, type WorldView } from './view.ts';
 export interface SocketLike {
@@ -303,14 +302,9 @@ export class GameSession {
   }
   switchWeapon(slot: WeaponSlot): object {
     const self = this.livingSelf();
-    const targets = {
-      primary: self.primary,
-      pistol: WEAPON.PISTOL,
-      hammer: WEAPON.HAMMER,
-      last: self.lastWeapon,
-    };
-    const target = targets[slot];
-    if (target !== self.weapon) this.actions.requestWeapon(WEAPON_SLOT_REQUEST[slot]);
+    const target = weaponSlots(self)[slot];
+    if (target === null) throw new Error('No previous weapon');
+    this.actions.requestWeapon(WEAPON_SLOT_REQUEST[slot]);
     return { ...this.actionState(), weapon: weaponDef(target).name };
   }
   setZoom(level: number): object {

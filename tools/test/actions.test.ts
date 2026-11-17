@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BTN, WEAPON, createPlayerState, type Cmd, type WeaponId } from '../../shared/src/index.ts';
 import { ActionOverlay } from '../mcp/actions.ts';
+import * as actions from '../mcp/actions.ts';
 
 const cmd = (buttons = 0, seq = 1): Cmd => ({ seq, buttons, yaw: 0, pitch: 0, weapon: 0, interp: 0 });
 function player(weapon: WeaponId = WEAPON.SNIPER) {
@@ -161,9 +162,46 @@ test('weapon requests override the brain on one apply without mutating its comma
     o.requestWeapon(request);
     assert.equal(o.apply(input, player()).weapon, request);
     assert.equal(input.weapon, 2);
+    o.ack = input.seq;
     assert.equal(o.apply(input, player()).weapon, 2);
     o.requestWeapon(request);
     o.reset();
     assert.equal(o.apply(cmd(), player()).weapon, 0);
   }
+});
+
+test('weapon request suppresses stale brain switches until acknowledged and reset clears it', () => {
+  const overlay = new ActionOverlay();
+  overlay.requestWeapon(3);
+  const brain = { ...cmd(0, 5), weapon: 2 };
+  assert.equal(overlay.apply(brain, player()).weapon, 3);
+  assert.equal(overlay.apply({ ...brain, seq: 6 }, player()).weapon, 0);
+  overlay.ack = 5;
+  assert.equal(overlay.apply({ ...brain, seq: 7 }, player()).weapon, 2);
+  overlay.requestWeapon(3);
+  overlay.apply({ ...brain, seq: 8 }, player());
+  overlay.reset();
+  assert.equal(overlay.apply(brain, player()).weapon, 2);
+});
+
+test('weaponSlots returns available slots', () => {
+  const self = player(WEAPON.RIFLE);
+  self.primary = WEAPON.RIFLE;
+  self.lastWeapon = WEAPON.PISTOL;
+  assert.deepEqual(actions.weaponSlots(self), {
+    primary: WEAPON.RIFLE, pistol: WEAPON.PISTOL, hammer: WEAPON.HAMMER, last: WEAPON.PISTOL,
+  });
+});
+
+test('weaponSlots hides the current weapon from last', () => {
+  const self = player(WEAPON.PISTOL);
+  self.lastWeapon = self.weapon;
+  assert.equal(actions.weaponSlots(self).last, null);
+});
+
+test('weaponSlots hides a primary replaced by an airdrop', () => {
+  const self = player(WEAPON.SNIPER);
+  self.primary = WEAPON.SNIPER;
+  self.lastWeapon = WEAPON.RIFLE;
+  assert.equal(actions.weaponSlots(self).last, null);
 });

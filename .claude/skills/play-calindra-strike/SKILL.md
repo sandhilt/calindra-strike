@@ -101,7 +101,7 @@ Things you can play with:
 
 ## Debug defusion
 
-Read from the code (`shared/src/defuse.ts`, `server/src/bot.ts`, `tools/mcp/view.ts`) when the mode shipped; nobody has played it through the MCP yet, so merge what you see in play here.
+Rules are defined in `shared/src/defuse.ts`, `server/src/bot.ts`, and `tools/mcp/view.ts`. In an MCP match on Escritório, `hunt` planted the bug and attempted defuses. A defuse interrupted by the player's death left the bug planted. The match timed out at 2–2 and the podium reported `winner: -1`.
 
 - Mode `defuse`. One team attacks, the other defends, and sides swap after every point, so re-read `bomb.role` after each `defused` or `exploded` event. The bug is a laptop: attackers take it at their base, plant it at the site (the other team's base) and it explodes when the fuse runs out (point for the attackers); defenders defuse it (point for the defenders). First to 5 wins.
 - Read `bomb` in `get_state`: `state` (`home`, `carried`, `planting`, `dropped`, `planted`), `role` (`attacker`, `defender`), `attackersTeam`, `carrierId`/`carrierName`, `defuserId`/`defuserName`, `pos` with `distance`/`bearingDeg`, `site` (`pos`, `distance`, `bearingDeg`), `secondsToExplosion`, `plantProgress`, `defuseProgress` (0..1). Events are `k: bomb` with `what: take | drop | return | plant | defuse | defused | exploded`.
@@ -111,4 +111,10 @@ Read from the code (`shared/src/defuse.ts`, `server/src/bot.ts`, `tools/mcp/view
 - `hunt` plays the objective: attackers fetch the bug, the carrier walks to the site and holds USE standing still, the rest escort the carrier; defenders hold the site and, once it is planted, walk to the bug and hold USE. Attackers keep advancing while the nearest enemy is over 600 units away, then duel.
 - `use` (`{ ms?: 1..10000 }`) holds USE while standing still and answers `planted`, `defused` or `interrupted` with a reason. Call it when you are already on the site or the bug and `hunt` would rather fight, then reissue `hunt`. Standing still makes you an easy target, so clear the area or ask for cover first.
 - Defending: do not stack everyone on the bug; one defuses, the rest watch the doors. Attacking: once planted, guard the bug from cover instead of standing on it.
+- Defending as a trap (idea, not measured yet): under `hunt` the defenders stand on the site for 30–40 s, which is easy to spot and to shoot (seen in play: the hold also trips the frozen-pilot check, and `jump` does not move them). Instead of sitting on the point, spread around it and let the attackers walk in:
+  - Take positions in a loose ring around `bomb.site`, a few hundred units out and outside the ~160-unit plant radius, one per approach (doors and lanes from `scene.doors` and `scene.landmarks`), each behind a crate or wall from `scene.cover`. Use `move_to` to a point 40–50 units off the crate, since a point on the crate fails ("Target intersects solid map geometry"), then `crouch` and hold.
+  - The planter holds USE standing still for 3 s on the site, so that is the moment to shoot from two or three sides at once. Wait for the carrier to commit, do not engage at 600+ units where `hunt` drains the magazine.
+  - Do not stack: at most one defender near the bug. Once it is planted, one player goes to defuse (within ~64 units, `use { ms: 7000 }`) while the others keep covering the lanes they hold, and the defuser starts early enough to finish before the fuse (7 s, so more than 7 s left).
+  - Call it in chat so teammates take different lanes (`Plano: eu fecho a porta norte, você a leste, ninguém no ponto`). Reissue `hunt` once the round is decided or when the ring breaks, since `hunt` returns the pilot to the site.
+  - Merge what you see here (did attackers walk into the crossfire, did a held spot get flanked, how long the ring held) into this bullet.
 - Callouts: `Levo o bug pro site`, `Bug plantado, cubram a entrada`, `Desarmando, me cubram!`, `Bug caiu em x,z`, `Faltam 10 s pra explodir`.

@@ -35,7 +35,17 @@ export function buildEscritorio(): MapDef {
   b.point(0, -300);
   b.point(0, 300);
 
+  b.landmark('Copa', 0, 0);
   b.mirrored(() => {
+    b.landmark('Mezanino', -900, -940);
+    b.landmark('Sala Mjölnir', 480, -860);
+    b.landmark('Sala de servidores', 1090, -850);
+    b.landmark('Lounge', 720, -420);
+    b.landmark('Ping-pong', 400, -245);
+    b.landmark('Armários', -1256, -580);
+    b.landmark('Mesas A', -830, -576);
+    b.landmark('Mesas B', -168, -576);
+
     // Mezzanine (NW) with stairs + glass railing
     b.add(-X, 0, -Z, -560, 128, -864, 'concrete');
     b.stairs(-560, -368, -Z, -944, '-x', 128, 'concrete');
@@ -140,6 +150,7 @@ export function buildEscritorio(): MapDef {
     dropHeight: 1000,
     airdropPoints: b.points,
     boxes: b.boxes,
+    features: b.features,
     lights: b.lights,
     theme: {
       skyTop: '#3d7fd6',

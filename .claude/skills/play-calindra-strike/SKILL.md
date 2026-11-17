@@ -49,6 +49,11 @@ description: Play Calindra Strike through its MCP game tools and report the expe
 - Melee finisher: when an enemy is close enough and your ammo is low, `switch_weapon` with `{ "slot": "hammer" }` (Martelo do Eitri, reach 72 units) and kill the opponent with it instead of dry-firing. Then react with a short playful `say` in persona, whether the kill landed or you died trying: a victory lap after the kill, a good-humored complaint or a rematch challenge after the death. Read `you.slots` first, and note that the pilot may undo the switch on the next tick (see the tool notes below).
 - Coordinating with the team does not replace taunting the opponents. Keep roasting and teasing the enemy team in persona, in the same message or a separate one, within the limits above and the 100-character limit.
 
+## Scenery in get_state
+
+- Read `scene`: `facing` is the crosshair surface (or null for sky), `cover` lists nearby visible walls, boxes, windows and platforms, `doors` includes nearby openings and stairs, `landmarks` gives named places, and `sprays` shows nearby decals and their authors. Lists are capped and nearest-first; scene is null while dead or dropping.
+- Cover requires line of sight, regardless of facing. Landmarks and doors are map knowledge and do not require line of sight. Use landmark names in `say` callouts (for example `Armazém (NE)` or `Sala Mjölnir (NE)`). Coordinates: -z is norte, +x is leste. There is still no MCP tool to place a spray.
+
 ## Connection and protocol
 
 - One MCP connection is one player. A second `join` on the same connection returns the same character. For another player, start a separate `node tools/mcp/launch.ts` process and drive it over stdio JSON-RPC (`initialize`, `notifications/initialized`, then `tools/call`).
@@ -252,7 +257,7 @@ Four high-effort players (`Claude-H5.5-A` to `-D`) played the same three rounds 
 - Pooled over the four players, SMG got 49 headshot kills in 62 kills and the rifle 65 in 86. That is no clear difference, so the loadout is not worth agonising over. Nobody measured recoil directly, so the pauses and crouching cannot be credited or blamed for the outcome.
 - `hunt` still empties a magazine at long range: B went from 30 to 0 at more than 600 units while standing still. Use `stop` when the enemy is far and let it come closer.
 - Most deaths came right after a respawn (parachute fall, spawn fights), not from badly controlled bursts.
-- Chat: players sent between 15 and about 30 `say` each. Two things to avoid: logging chat without answering (C in its first round) and repeating the same reply (C used the same two lines again and again). The callouts were by distance and direction because this file lists no landmark names for the maps, so adding the names of the main areas of Escritório and Forja would make callouts more useful.
+- Chat: players sent between 15 and about 30 `say` each. Two things to avoid: logging chat without answering (C in its first round) and repeating the same reply (C used the same two lines again and again). Those callouts used distance and direction; named areas are now available in `scene.landmarks` (see Scenery in get_state).
 - `ducked` returned to `false` after each respawn for C, while B saw it stay `true` in an earlier round, so read `ducked` after every spawn and re-crouch when needed.
 
 ## Capture the Flag

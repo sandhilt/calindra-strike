@@ -71,8 +71,9 @@ export function hasLineOfSight(
   ey: number,
   ez: number,
   target: { x: number; y: number; z: number },
+  targetHeights: readonly number[] = [44, 64],
 ): boolean {
-  for (const height of [44, 64]) {
+  for (const height of targetHeights) {
     const dx = target.x - ex;
     const dy = target.y + height - ey;
     const dz = target.z - ez;

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, STAND_HEIGHT, getMaps } from '../src/index.ts';
+import { CollisionWorld, STAND_HEIGHT, getMaps, describeBox, MapBuilder } from '../src/index.ts';
 
 for (const map of getMaps()) {
   describe(`map ${map.id}`, () => {
@@ -55,3 +55,35 @@ for (const map of getMaps()) {
     });
   });
 }
+
+for (const map of getMaps()) {
+  it(`${map.id} has bounded, unique landmarks and semantic geometry`, () => {
+    const landmarks = map.features.filter((f) => f.kind === 'landmark');
+    assert.ok(landmarks.length > 0);
+    assert.equal(new Set(landmarks.map((f) => f.name)).size, landmarks.length);
+    for (const f of landmarks) {
+      assert.ok(f.x >= map.bounds.minX && f.x <= map.bounds.maxX);
+      assert.ok(f.z >= map.bounds.minZ && f.z <= map.bounds.maxZ);
+    }
+    for (const kind of ['door', 'stairs']) assert.ok(map.features.some((f) => f.kind === kind));
+    assert.ok(map.features.some((f) => f.kind === 'window') || map.boxes.some((b) => describeBox(b)?.kind === 'window'));
+    assert.ok(map.boxes.some((b) => b.stair));
+    for (const b of map.boxes.filter((b) => b.stair)) assert.equal(describeBox(b), null);
+  });
+}
+
+it('builder transforms features and disambiguates final quadrants', () => {
+  const b = new MapBuilder();
+  b.landmark('Centro', 0, 0);
+  b.rotated(() => {
+    b.landmark('Sala', 100, -200);
+    b.wallX(0, 100, -200, 16, 100, 'concrete', [{ from: 20, to: 60, bottom: 0, top: 80 }]);
+    b.wallZ(-100, 0, 200, 16, 100, 'concrete', [{ from: -60, to: -20, bottom: 20, top: 80 }]);
+    b.stairs(0, 100, -200, -100, '+x', 64, 'concrete');
+  });
+  assert.deepEqual(b.features.filter((f) => f.kind === 'landmark').map((f) => f.name),
+    ['Centro', 'Sala (NE)', 'Sala (SE)', 'Sala (SO)', 'Sala (NO)']);
+  assert.partialDeepStrictEqual(b.features.find((f) => f.kind === 'door'), { x: 40, z: -200, width: 40 });
+  assert.partialDeepStrictEqual(b.features.filter((f) => f.kind === 'door')[1], { x: 200, z: 40 });
+  assert.partialDeepStrictEqual(b.features.find((f) => f.kind === 'stairs'), { x: 50, z: -150, width: 100, height: 64 });
+});

@@ -28,6 +28,8 @@ export function buildForja(): MapDef {
     b.deco(460, 70, -H, 620, 230, -H + 2, 'logo');
   });
 
+  b.landmark('Bigorna', 0, 0);
+
   // --- center: the anvil ---
   b.add(-224, 0, -224, 224, 96, 224, 'charcoal');
   b.block(0, 0, 48, 48, 112, 'lime', 96);
@@ -45,6 +47,9 @@ export function buildForja(): MapDef {
 
   // --- one quadrant, replayed 4x ---
   b.rotated(() => {
+    b.landmark('Armazém', 960, -992);
+    b.landmark('Contêiner', 1040, -512);
+    b.landmark('Poleiro', 288, -1312);
     // Warehouse
     const x1 = 704;
     const x2 = 1216;
@@ -130,6 +135,7 @@ export function buildForja(): MapDef {
     dropHeight: 1150,
     airdropPoints: b.points,
     boxes: b.boxes,
+    features: b.features,
     lights: b.lights,
     theme: {
       skyTop: '#1f2b47',

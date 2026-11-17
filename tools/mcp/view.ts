@@ -1,7 +1,9 @@
+import { scene } from './scene.ts';
 import { weaponSlots } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
   createPlayerState,
+  type CollisionWorld,
   unpackState,
   RF_ALIVE,
   getMap,
@@ -51,7 +53,18 @@ export interface ChatLine {
   text: string;
   name?: string;
 }
+export interface ViewSpray {
+  id: number;
+  by: string;
+  x: number;
+  y: number;
+  z: number;
+  nx: number;
+  ny: number;
+  nz: number;
+}
 export interface WorldView {
+  sprays: ViewSpray[];
   id: number;
   time: number;
   match: MatchInfo;
@@ -78,6 +91,7 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     perception: 'line-of-sight',
     airdrops: [],
     flags: [],
+    sprays: [],
     scores: [],
     events: [],
     chat: [],
@@ -118,14 +132,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
-export function renderView(
-  v: WorldView,
-  intent: Intent,
-  actions: { crouch: boolean; walk: boolean; zoom: number | null } = { crouch: false, walk: false, zoom: null },
-): object {
-  const s = v.self;
-  const slots = s ? weaponSlots(s) : null;
-  const relative = (p: { x: number; z: number }) =>
+export const relative = (s: PlayerState | null) => (p: { x: number; z: number }) =>
     s
       ? {
           distance: Math.round(Math.hypot(p.x - s.x, p.z - s.z)),
@@ -134,10 +141,21 @@ export function renderView(
           ),
         }
       : { distance: null, bearingDeg: null };
+
+export function renderView(
+  v: WorldView,
+  intent: Intent,
+  actions: { crouch: boolean; walk: boolean; zoom: number | null } = { crouch: false, walk: false, zoom: null },
+  world?: CollisionWorld,
+): object {
+  const s = v.self;
+  const slots = s ? weaponSlots(s) : null;
+  const describeRelative = relative(s);
   const me = v.roster.find((r) => r[0] === v.id);
   const score = v.scores.find((r) => r[0] === v.id);
   const yawDeg = s ? (s.yaw * 180) / Math.PI : null;
   return {
+    scene: world && s && s.health > 0 && !s.dropping ? scene(world, world.map, s, v.sprays, describeRelative) : null,
     perception: v.perception,
     lastSeen: [...v.lastSeen]
       .filter(([id]) => !v.peers.some((p) => p.id === id))
@@ -206,18 +224,18 @@ export function renderView(
         enemy: p.enemy,
         via: p.via,
         alive: p.alive,
-        ...relative(p),
+        ...describeRelative(p),
         pos: [p.x, p.y, p.z],
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
-    airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...relative(p) })),
+    airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...describeRelative(p) })),
     flags: v.flags.map((row, team) => ({
       team,
       state: row[0] === 0 ? 'at_base' : row[0] === 1 ? 'carried' : 'dropped',
       carrierId: row[0] === 1 ? row[1] : null,
       carrierName: row[0] === 1 ? v.roster.find(r => r[0] === row[1])?.[1] ?? String(row[1]) : null,
       pos: row.slice(2, 5),
-      ...relative({ x: row[2], z: row[4] }),
+      ...describeRelative({ x: row[2], z: row[4] }),
     })),
     score: {
       me: { kills: score?.[1] ?? 0, deaths: score?.[2] ?? 0 },

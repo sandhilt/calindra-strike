@@ -69,7 +69,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read perceived players, lastSeen positions, scores, flags (state, carrier, position, distance/bearing) and recent events/chat including flag actions. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, flags (state, carrier, position, distance/bearing) and recent events/chat including flag actions. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },

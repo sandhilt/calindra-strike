@@ -589,3 +589,40 @@ test('CTF view reports flags, capture totals and named flag events', async () =>
   assert.deepEqual(dropped.events, []);
   session.close();
 });
+
+test('sprays decode names, cap oldest, persist across respawns and clear with a new match/map', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.emit('open', {});
+  socket.message(welcome);
+  await joined;
+  const state = () => session.requirePlaying().view;
+  const spray = (id = 2, x = 0) => socket.message({ t: 'ev', e: [{ k: 'spray', id, p: [x, 64, -100], n: [0, 0, 1], r: 0 }] });
+  assert.equal(JSON.parse(JSON.stringify(session.getState())).scene, null);
+  spray();
+  assert.deepEqual(state().sprays, [{ id: 2, by: 'enemy', x: 0, y: 64, z: -100, nx: 0, ny: 0, nz: 1 }]);
+  const self = createPlayerState();
+  self.dropping = false;
+  socket.message({ t: 'snap', time: 200, ack: 0, me: packState(self), ps: [], ad: [] });
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).scene.sprays,
+    [{ by: 'enemy', pos: [0, 64, -100], normal: [0, 0, 1], distance: 100, bearingDeg: 0 }]);
+  socket.message({ t: 'snap', time: 300, ack: 0, me: null, ps: [], ad: [] });
+  self.dropping = true;
+  socket.message({ t: 'snap', time: 400, ack: 0, me: packState(self), ps: [], ad: [] });
+  assert.equal(state().sprays.length, 1);
+  for (let i = 1; i <= 65; i++) spray(99, i);
+  assert.equal(state().sprays.length, 64);
+  assert.equal(state().sprays[0].x, 2);
+  assert.equal(state().sprays.at(-1)?.by, '99');
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'podium' } });
+  assert.equal(state().sprays.length, 64);
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'warmup' } });
+  assert.deepEqual(state().sprays, []);
+  spray();
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'warmup', map: 1 } });
+  assert.deepEqual(state().sprays, []);
+  spray();
+  socket.message({ t: 'match', match: { ...welcome.match, phase: 'live', map: 1 } });
+  assert.deepEqual(state().sprays, []);
+  session.close();
+});

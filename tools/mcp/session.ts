@@ -179,6 +179,8 @@ export class GameSession {
       }
     }
     if (m.t === 'match') {
+      if (v.match.map !== m.match.map || v.match.mode !== m.match.mode
+        || (v.match.phase !== m.match.phase && m.match.phase !== 'podium')) v.sprays = [];
       const enteringPodium = v.match.phase !== 'podium' && m.match.phase === 'podium';
       if (v.match.map !== m.match.map) {
         const map = getMap(m.match.map);
@@ -205,7 +207,11 @@ export class GameSession {
     if (m.t === 'chat') v.chat.push({ name: this.names.get(m.id), ...m });
     if (m.t === 'ev')
       for (const e of m.e) {
-        if (e.k === 'kill')
+        if (e.k === 'spray') {
+          v.sprays.push({ id: e.id, by: this.names.get(e.id) ?? String(e.id),
+            x: e.p[0], y: e.p[1], z: e.p[2], nx: e.n[0], ny: e.n[1], nz: e.n[2] });
+          v.sprays = v.sprays.slice(-64);
+        } else if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
         else if (e.k === 'flag') v.events.push({ ...e, byName: this.names.get(e.by) });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
@@ -251,9 +257,9 @@ export class GameSession {
     socket.send(raw ?? JSON.stringify(msg));
   }
   getState(): object {
-    const { view, pilot } = this.requirePlaying();
+    const { view, pilot, world } = this.requirePlaying();
     const intent = this.intent.kind === 'moveTo' ? { ...this.intent, arrived: pilot.arrived } : this.intent;
-    return renderView(view, intent, this.actionState());
+    return renderView(view, intent, this.actionState(), world);
   }
   setIntent(intent: Intent): object {
     const { view, nav, world, pilot } = this.requirePlaying();

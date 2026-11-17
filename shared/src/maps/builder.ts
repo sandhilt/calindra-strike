@@ -1,5 +1,5 @@
 import { vec3 } from '../math.ts';
-import type { Box, MapLight, Mat } from './types.ts';
+import type { Box, MapFeature, MapLight, Mat } from './types.ts';
 
 export interface BoxOpts {
   solid?: boolean;
@@ -24,6 +24,26 @@ export class MapBuilder {
   readonly lights: MapLight[] = [];
   readonly points: { x: number; z: number }[] = [];
   private rot = 0;
+  private readonly authoredFeatures: MapFeature[] = [];
+
+  get features(): MapFeature[] {
+    const counts = new Map<string, number>();
+    for (const f of this.authoredFeatures) {
+      if (f.kind === 'landmark') counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
+    }
+    return this.authoredFeatures.map((f) => f.kind === 'landmark' && (counts.get(f.name) ?? 0) > 1
+      ? { ...f, name: f.name + ' (' + (f.z < 0 ? 'N' : 'S') + (f.x > 0 ? 'E' : 'O') + ')' } : { ...f });
+  }
+
+  landmark(name: string, x: number, z: number): void {
+    const [ax, az] = this.rotXZ(x, z);
+    this.authoredFeatures.push({ kind: 'landmark', name, x: ax, z: az });
+  }
+
+  private opening(op: Opening, x: number, z: number): void {
+    const [ax, az] = this.rotXZ(x, z);
+    this.authoredFeatures.push({ kind: op.bottom === 0 ? 'door' : 'window', x: ax, z: az, width: op.to - op.from });
+  }
 
   private rotXZ(x: number, z: number): [number, number] {
     let ax = x;
@@ -75,6 +95,7 @@ export class MapBuilder {
 
   /** Wall running along X (from x1 to x2) centred on z, with openings measured along X. */
   wallX(x1: number, x2: number, z: number, thick: number, h: number, mat: Mat, openings: Opening[] = [], y0 = 0): void {
+    for (const op of openings) this.opening(op, (op.from + op.to) / 2, z);
     this.wallSpan(x1, x2, h, openings, y0, (a, b, lo, hi) =>
       this.add(a, lo, z - thick / 2, b, hi, z + thick / 2, mat),
     );
@@ -82,6 +103,7 @@ export class MapBuilder {
 
   /** Wall running along Z (from z1 to z2) centred on x, with openings measured along Z. */
   wallZ(z1: number, z2: number, x: number, thick: number, h: number, mat: Mat, openings: Opening[] = [], y0 = 0): void {
+    for (const op of openings) this.opening(op, x, (op.from + op.to) / 2);
     this.wallSpan(z1, z2, h, openings, y0, (a, b, lo, hi) =>
       this.add(x - thick / 2, lo, a, x + thick / 2, hi, b, mat),
     );
@@ -108,6 +130,9 @@ export class MapBuilder {
 
   /** Solid staircase filling a rectangle, rising toward `dir`. Steps never exceed 16 units. */
   stairs(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, mat: Mat, y0 = 0): void {
+    const [x, z] = this.rotXZ((x1 + x2) / 2, (z1 + z2) / 2);
+    this.authoredFeatures.push({ kind: 'stairs', x, z, width: Math.max(x2 - x1, z2 - z1), height });
+    const firstStep = this.boxes.length;
     const n = Math.ceil(height / 16);
     const stepH = height / n;
     for (let i = 0; i < n; i++) {
@@ -131,6 +156,7 @@ export class MapBuilder {
           break;
       }
     }
+    for (const box of this.boxes.slice(firstStep)) box.stair = true;
   }
 
   /** Replays the block twice: as authored and rotated 180 degrees. */

@@ -22,7 +22,13 @@ export type Mat =
   | 'eitri' // official Eitri icon banner
   | 'logo'; // Calindra Strike logo banner
 
+export type MapFeature =
+  | { kind: 'landmark'; name: string; x: number; z: number }
+  | { kind: 'door' | 'window'; x: number; z: number; width: number }
+  | { kind: 'stairs'; x: number; z: number; width: number; height: number };
+
 export interface Box {
+  stair?: true;
   min: Vec3;
   max: Vec3;
   mat: Mat;
@@ -63,6 +69,7 @@ export interface MapDef {
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];
   boxes: Box[];
+  features: MapFeature[];
   lights: MapLight[];
   theme: MapTheme;
 }

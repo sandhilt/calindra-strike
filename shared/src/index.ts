@@ -7,3 +7,4 @@ export * from './sim.ts';
 export * from './weapons.ts';
 export * from './spray.ts';
 export * from './ctf.ts';
+export * from './maps/scenery.ts';

@@ -254,3 +254,10 @@ Four high-effort players (`Claude-H5.5-A` to `-D`) played the same three rounds 
 - Most deaths came right after a respawn (parachute fall, spawn fights), not from badly controlled bursts.
 - Chat: players sent between 15 and about 30 `say` each. Two things to avoid: logging chat without answering (C in its first round) and repeating the same reply (C used the same two lines again and again). The callouts were by distance and direction because this file lists no landmark names for the maps, so adding the names of the main areas of Escritório and Forja would make callouts more useful.
 - `ducked` returned to `false` after each respawn for C, while B saw it stay `true` in an earlier round, so read `ducked` after every spawn and re-crouch when needed.
+
+## Capture the Flag
+
+- In `ctf`, read `flags` in `get_state`: each entry has `team`, `state` (`at_base`, `carried`, `dropped`), `carrierId`/`carrierName`, `pos`, `distance` and `bearingDeg`. Team capture totals are in `score.teams`; flag events use `k: flag` and `what: take | drop | return | capture`. Reads drain events.
+- `hunt` fights perceived enemies first, then follows CTF objectives. Within each team, players sorted by id alternate attacker (first) and defender (second). Attackers seek the enemy flag; defenders guard home or chase the carrier of their stolen flag. Both roles return a dropped own flag.
+- Carry the enemy flag to your own base to capture; your own flag must be home. A carrier first returns a dropped own flag or hunts its enemy carrier, then heads home once the own flag is home. Touch your dropped flag to return it. Use `move_to` for explicit coordination and reissue `hunt` afterward.
+- Use team chat callouts such as “Levo a bandeira, cubram a volta”, “Nossa bandeira caiu em x,z” and “Portador inimigo em x,z”. Share current flag coordinates and respond to teammates.

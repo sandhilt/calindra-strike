@@ -6,6 +6,18 @@ for (const map of getMaps()) {
   describe(`map ${map.id}`, () => {
     const world = new CollisionWorld(map);
 
+    it('places separated flag bases on open ground in their team halves', () => {
+      assert.equal(map.flagBases.length, 2);
+      assert.ok(map.flagBases[0].z <= -150);
+      assert.ok(map.flagBases[1].z >= 150);
+      assert.ok(Math.hypot(map.flagBases[0].x - map.flagBases[1].x, map.flagBases[0].z - map.flagBases[1].z) >= 1800);
+      for (const base of map.flagBases) {
+        const y = world.groundBelow(base.x, map.dropHeight, base.z, 16);
+        assert.equal(y, 0);
+        assert.equal(world.hullOverlaps(base.x, y + 0.1, base.z, STAND_HEIGHT), false);
+      }
+    });
+
     it('has well formed boxes', () => {
       for (const b of map.boxes) {
         assert.ok(b.max.x > b.min.x, "b.max.x > b.min.x");

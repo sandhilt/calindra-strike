@@ -1,3 +1,4 @@
+import type { FlagEvent } from './ctf.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
 import type { Cmd, PlayerState } from './sim.ts';
 import { PRIMARY_CHOICES, WEAPON_COUNT, type WeaponId } from './weapons.ts';
@@ -108,13 +109,21 @@ export function encodeCmd(c: Cmd): number[] {
 // ------------------------------------------------------------ server -> client
 
 export type MatchPhase = 'warmup' | 'live' | 'podium';
-export type GameMode = 'ffa' | 'tdm';
-export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa'];
+export type GameMode = 'ffa' | 'tdm' | 'ctf';
+export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf'];
 
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
   tdm: 'team deathmatch',
+  ctf: 'capture a bandeira',
 };
+
+export const MODE_RULES = {
+  ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false },
+  tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true },
+  ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false },
+} as const;
+export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
 
 export interface ResultRow {
   id: number;
@@ -133,8 +142,8 @@ export interface MatchInfo {
   mode: GameMode;
   map: number;
   endsAt: number; // server time ms
-  teams: number[]; // team scores [bulldogs, martelos] (TDM)
-  limit: number; // TDM kill limit, 0 = timer only
+  teams: number[]; // team scores [bulldogs, martelos] (TDM kills or CTF captures)
+  limit: number; // TDM kill limit or CTF capture limit, 0 = timer only
   results?: ResultRow[];
   winner?: number; // TDM: winning team, -1 draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
@@ -153,6 +162,7 @@ export interface VoteInfo {
 
 export type GameEvent =
   | { k: 'spray'; id: number; p: number[]; n: number[]; r: number }
+  | FlagEvent
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
@@ -171,7 +181,8 @@ export type ServerMsg =
   | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null }
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][] }
+  // fl rows: [state, carrierId, x, y, z, returnAtMs]; x,y,z = current world position, carrier position when carried.
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
   | { t: 'score'; s: number[][]; ts: number[] }

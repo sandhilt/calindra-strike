@@ -12,6 +12,7 @@ export interface SoundKit {
 }
 
 export interface Sounds {
+  flag(action: 'take' | 'capture' | 'return', ownTeam: boolean): void;
   shot(weapon: WeaponId, pos: Pos, heavy: boolean): void;
   kill(streak: number): void;
 }

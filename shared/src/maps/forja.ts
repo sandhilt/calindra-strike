@@ -126,6 +126,7 @@ export function buildForja(): MapDef {
     subtitle: 'pátio da forja do Eitri',
     bounds: { minX: -H, maxX: H, minZ: -H, maxZ: H },
     dropArea: { minX: -1450, maxX: 1450, minZ: -1450, maxZ: 1450 },
+    flagBases: [{ x: 0, z: -1400 }, { x: 0, z: 1400 }],
     dropHeight: 1150,
     airdropPoints: b.points,
     boxes: b.boxes,

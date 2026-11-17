@@ -41,6 +41,8 @@ export class Hud {
   private readonly timer = h('div', { class: 'timer glass' }, [this.timerT, this.timerS]);
   private readonly leadersLeft = h('div', { style: 'display:flex;gap:8px' });
   private readonly leadersRight = h('div', { style: 'display:flex;gap:8px' });
+  private readonly flagStatus = h('div', { class: 'flag-status glass hidden' });
+  private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a bandeira, volte à base' });
   private readonly feed = h('div', { class: 'killfeed' });
   private readonly hpV = h('div', { class: 'v', text: '100' });
   private readonly hpBar = h('i', { style: 'width:100%' });
@@ -117,6 +119,8 @@ export class Hud {
       this.markersEl,
       h('div', { class: 'topbar' }, [this.leadersLeft, this.timer, this.leadersRight]),
       this.feed,
+      this.flagStatus,
+      this.flagBanner,
       h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
       this.ch,
@@ -165,16 +169,24 @@ export class Hud {
     });
   }
 
-  /** TDM top bar: Bulldogs score | timer | Martelos score. */
-  setTeams(scores: number[], limit: number, myTeam: number): void {
-    this.set('leaders', JSON.stringify(['tdm', scores, limit, myTeam]), () => {
+  /** Team scores share the same cards across team modes. */
+  setTeams(scores: number[], limit: number, myTeam: number, unit = 'kills'): void {
+    this.set('leaders', JSON.stringify(['teams', scores, limit, myTeam, unit]), () => {
       const card = (t: number) =>
         h('div', { class: `team-card glass${t === myTeam ? ' mine' : ''}`, style: `--team:${TEAMS[t].color}` }, [
-          h('div', { class: 'team-meta' }, [h('div', { class: 'team-name', text: TEAMS[t].name }), h('div', { class: 'k', text: limit ? `meta ${limit}` : t === myTeam ? 'seu time' : '' })]),
+          h('div', { class: 'team-meta' }, [h('div', { class: 'team-name', text: TEAMS[t].name }), h('div', { class: 'k', text: limit ? `meta ${limit} ${unit}` : t === myTeam ? 'seu time' : '' })]),
           h('div', { class: 'team-score', text: String(scores[t] ?? 0) }),
         ]);
       this.leadersLeft.replaceChildren(card(0));
       this.leadersRight.replaceChildren(card(1));
+    });
+  }
+
+  setFlags(flags: { team: number; text: string }[], carrying: boolean): void {
+    this.set('flags', JSON.stringify([flags, carrying]), () => {
+      this.flagStatus.classList.toggle('hidden', !flags.length);
+      this.flagBanner.classList.toggle('hidden', !carrying);
+      this.flagStatus.replaceChildren(...flags.map(flag => h('span', { style: 'color:' + TEAMS[flag.team].color, text: TEAMS[flag.team].name + ': ' + flag.text })));
     });
   }
 
@@ -207,8 +219,8 @@ export class Hud {
     this.pushFeed(el);
   }
 
-  info(text: string): void {
-    this.pushFeed(h('div', { class: 'kf glass info', text }));
+  info(text: string, color?: string): void {
+    this.pushFeed(h('div', { class: 'kf glass info', text, style: color ? `color:${color}` : '' }));
   }
 
   private pushFeed(el: HTMLElement): void {

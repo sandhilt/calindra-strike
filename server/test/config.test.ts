@@ -21,15 +21,15 @@ afterEach(() => {
 const base = { maxPlayers: 24, matchMs: 300_000, podiumMs: 5000, warmupMinPlayers: 2 };
 
 describe('map and mode selection', () => {
-  it('plays every map with TDM and FFA by default', () => {
+  it('plays every map with TDM, FFA and CTF by default', () => {
     stubEnv('GAME_MODES', '');
     stubEnv('GAME_MODE', '');
     stubEnv('GAME_MAPS', '');
     const cfg = loadConfig();
-    assert.deepEqual(cfg.modes, ['tdm', 'ffa']);
+    assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf']);
     const game = new Game({ ...base, modes: cfg.modes, maps: cfg.maps });
-    assert.equal((game.combos).length, 4);
-    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa']));
+    assert.equal((game.combos).length, 6);
+    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf']));
     assert.deepEqual(cfg.maps, []);
   });
 
@@ -37,7 +37,7 @@ describe('map and mode selection', () => {
     assert.deepEqual(modeList('ffa, tdm', undefined), ['ffa', 'tdm']);
     assert.deepEqual(modeList(undefined, 'mixed'), ['tdm', 'ffa']); // older single setting still works
     assert.deepEqual(modeList(undefined, 'ffa'), ['ffa']);
-    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa']);
+    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa', 'ctf']);
     assert.deepEqual(mapList('escritorio'), ['escritorio']);
     assert.deepEqual(mapList('forja,escritorio,forja'), ['forja', 'escritorio']);
     assert.throws(() => modeList('tdm,zombies', undefined), /Invalid game mode: zombies/);
@@ -67,4 +67,17 @@ describe('map and mode selection', () => {
   it('rejects unknown maps', () => {
     assert.throws(() => new Game({ ...base, maps: ['dust2'] }), /Unknown map: dust2/);
   });
+});
+
+it('configures the capture limit within 0..50', () => {
+  stubEnv('CTF_CAPTURE_LIMIT', '');
+  assert.equal(loadConfig().ctfLimit, 3);
+  for (const value of [0, 3, 50]) {
+    stubEnv('CTF_CAPTURE_LIMIT', String(value));
+    assert.equal(loadConfig().ctfLimit, value);
+  }
+  for (const value of ['-1', '51', 'abc']) {
+    stubEnv('CTF_CAPTURE_LIMIT', value);
+    assert.throws(() => loadConfig(), /CTF_CAPTURE_LIMIT/);
+  }
 });

@@ -1,5 +1,5 @@
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
-import { MODE_LABEL, PRIMARY_CHOICES, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
+import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { gameLogo, h } from './dom.ts';
@@ -220,11 +220,11 @@ export class Overlays {
     this.updateVotes(data.vote?.counts ?? [], -1);
     this.nextMap = next;
     this.lastSeconds = -1;
-    const tdm = data.mode !== 'ffa';
+    const tdm = isTeamMode(data.mode);
     this.podiumScore.classList.toggle('hidden', !tdm);
     if (tdm) {
       const w = data.winner;
-      this.podiumLabel.textContent = w < 0 ? `fim de partida · ${MODE_LABEL[data.mode]}` : w === data.myTeam ? 'seu time venceu!' : 'não foi dessa vez';
+      this.podiumLabel.textContent = w < 0 ? `fim de partida · ${MODE_LABEL[data.mode]}` : w === data.myTeam ? `seu time venceu! · ${MODE_LABEL[data.mode]}` : `não foi dessa vez · ${MODE_LABEL[data.mode]}`;
       this.podiumTitle.textContent = w < 0 ? 'empate' : `${TEAMS[w].name} venceram`;
       this.podiumTitle.style.color = w < 0 ? '' : TEAMS[w].color;
       this.podiumScore.replaceChildren(

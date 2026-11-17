@@ -1,3 +1,4 @@
+import { perceive } from './perception.ts';
 import {
   CollisionWorld,
   getMap,
@@ -58,6 +59,7 @@ export class GameSession {
     clock: Clock;
     random: () => number;
     skill?: number;
+    omniscient?: boolean;
   };
   constructor(options: GameSession['options']) {
     this.options = options;
@@ -110,6 +112,7 @@ export class GameSession {
               nav: new NavGrid(world, map),
               pilot: new Pilot(this.options.skill ?? 0.7, this.options.random),
             };
+            this.state.view.perception = this.options.omniscient ? 'omniscient' : 'line-of-sight';
             this.names.clear();
             for (const r of m.roster) this.names.set(r[0], r[1]);
             this.seq = 0;
@@ -145,7 +148,17 @@ export class GameSession {
   private receive(m: ServerMsg): void {
     if (this.state.phase !== 'playing') return;
     const v = this.state.view;
-    if (m.t === 'snap') decodeSnapshot(v, m);
+    let targetOutOfSight = false;
+    if (m.t === 'snap') {
+      const raw = decodeSnapshot(v, m);
+      const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient);
+      v.peers = perceived.peers;
+      v.lastSeen = perceived.lastSeen;
+      if (this.intent.kind === 'attack') {
+        const targetId = this.intent.targetId;
+        targetOutOfSight = raw.some((p) => p.id === targetId && p.alive && p.enemy && !(p.flags & RF_DROP));
+      }
+    }
     if (m.t === 'roster') {
       v.roster = m.roster;
       for (const r of m.roster) this.names.set(r[0], r[1]);
@@ -161,6 +174,8 @@ export class GameSession {
         this.state.nav = new NavGrid(this.state.world, map);
         this.state.pilot = new Pilot(this.options.skill ?? 0.7, this.options.random);
         this.intent = { kind: 'idle' };
+        v.peers = [];
+        v.lastSeen.clear();
       }
       v.match = m.match;
     }
@@ -182,7 +197,7 @@ export class GameSession {
       if (!v.peers.some((p) => p.id === id && p.alive && p.enemy && !(p.flags & RF_DROP))) {
         this.intent = { kind: 'attack', targetId: id, ended: true };
         this.state.pilot.setIntent({ kind: 'idle' }, 0);
-        v.events.push({ k: 'intent', reason: 'Target dead, missing, friendly or dropping', id });
+        v.events.push({ k: 'intent', reason: targetOutOfSight ? 'Target out of sight' : 'Target dead, missing, friendly or dropping', id });
       }
     }
     v.events = v.events.slice(-20);
@@ -240,7 +255,7 @@ export class GameSession {
       intent.kind === 'attack' &&
       !view.peers.some((p) => p.id === intent.targetId && p.alive && p.enemy && !(p.flags & RF_DROP))
     )
-      throw new Error('Target dead, missing or friendly');
+      throw new Error('Target not currently perceived or unavailable; consult lastSeen and use move_to to search');
     pilot.setIntent(intent, view.self?.y ?? 0);
     this.intent = intent;
     return { intent, distance };

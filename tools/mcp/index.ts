@@ -8,6 +8,7 @@ const { values } = parseArgs({
     url: { type: 'string', default: 'ws://127.0.0.1:7350/ws' },
     origin: { type: 'string', default: 'http://localhost:5173' },
     code: { type: 'string', default: '' },
+    omniscient: { type: 'boolean', default: false },
     skill: { type: 'string', default: '0.7' },
   },
 });
@@ -15,6 +16,7 @@ const skill = Number(values.skill);
 if (!Number.isFinite(skill) || skill < 0 || skill > 1) throw new Error('--skill must be between 0 and 1');
 const session = new GameSession({
   skill,
+  omniscient: values.omniscient,
   random: Math.random,
   url: values.url,
   origin: values.origin,

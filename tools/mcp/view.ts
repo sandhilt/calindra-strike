@@ -1,3 +1,4 @@
+import type { LastSeen } from './perception.ts';
 import {
   createPlayerState,
   unpackState,
@@ -25,6 +26,7 @@ export interface Peer {
   flags: number;
   pitch: number;
   weapon: number;
+  via?: 'sight' | 'sound' | 'team';
 }
 export interface Airdrop {
   id: number;
@@ -51,6 +53,8 @@ export interface WorldView {
   roster: RosterEntry[];
   self: PlayerState | null;
   peers: Peer[];
+  lastSeen: Map<number, LastSeen>;
+  perception: 'line-of-sight' | 'omniscient';
   airdrops: Airdrop[];
   scores: number[][];
   events: ViewEvent[];
@@ -64,13 +68,15 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     roster: m.roster,
     self: null,
     peers: [],
+    lastSeen: new Map(),
+    perception: 'line-of-sight',
     airdrops: [],
     scores: [],
     events: [],
     chat: [],
   };
 }
-export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }>): void {
+export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }>): Peer[] {
   v.time = m.time;
   v.self = m.me ? createPlayerState() : null;
   if (v.self && m.me) {
@@ -82,7 +88,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
     }
   }
   const team = v.roster.find((r) => r[0] === v.id)?.[3];
-  v.peers = m.ps
+  const peers = m.ps
     .filter((p) => p[0] !== v.id)
     .map((p) => {
       const r = v.roster.find((r) => r[0] === p[0]);
@@ -102,6 +108,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
       };
     });
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
+  return peers;
 }
 export function renderView(v: WorldView, intent: Intent): object {
   const s = v.self;
@@ -118,6 +125,19 @@ export function renderView(v: WorldView, intent: Intent): object {
   const score = v.scores.find((r) => r[0] === v.id);
   const yawDeg = s ? (s.yaw * 180) / Math.PI : null;
   return {
+    perception: v.perception,
+    lastSeen: [...v.lastSeen]
+      .filter(([id]) => !v.peers.some((p) => p.id === id))
+      .sort(([, a], [, b]) => s
+        ? Math.hypot(a.x - s.x, a.z - s.z) - Math.hypot(b.x - s.x, b.z - s.z)
+        : 0)
+      .slice(0, 10)
+      .map(([id, seen]) => ({
+        id,
+        name: v.roster.find((r) => r[0] === id)?.[1] ?? String(id),
+        pos: [seen.x, seen.y, seen.z],
+        secondsAgo: Math.max(0, (v.time - seen.time) / 1000),
+      })),
     phase: v.match.phase,
     mode: v.match.mode,
     map: getMap(v.match.map).name,
@@ -160,6 +180,7 @@ export function renderView(v: WorldView, intent: Intent): object {
         name: p.name,
         team: p.team,
         enemy: p.enemy,
+        via: p.via,
         alive: p.alive,
         ...relative(p),
         pos: [p.x, p.y, p.z],

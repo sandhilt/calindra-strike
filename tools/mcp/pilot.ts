@@ -23,11 +23,12 @@ export class Pilot {
   private dropping = false;
   private agents = new Map<number, BotAgent>();
 
-  constructor(skill: number, privateRandom: () => number) {
-    this.brain = new BotBrain(skill);
-    this.random = privateRandom;
-  }
   private readonly random: () => number;
+
+  constructor(skill: number, random: () => number) {
+    this.brain = new BotBrain(skill);
+    this.random = random;
+  }
 
   setIntent(intent: Intent, y: number): void {
     if (intent.kind === 'moveTo') this.brain.setDirective({ kind: 'goto', x: intent.x, z: intent.z, y });

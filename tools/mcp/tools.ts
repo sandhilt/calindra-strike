@@ -62,7 +62,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read authoritative global positions, scores and recent events/chat. Bearing is degrees relative to your facing, positive right. No visibility is implied. Reading drains events/chat.',
+      'Read perceived players, lastSeen positions, scores and recent events/chat. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -75,14 +75,14 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'attack',
-    description: 'Pursue and shoot a living enemy id. Missing/dead targets stop the intent.',
+    description: 'Attack a currently perceived enemy. Losing perception ends the intent; use lastSeen and move_to to search.',
     properties: { target_id: { type: 'integer', minimum: 0 } },
     required: ['target_id'],
     run: (s, a) => s.setIntent({ kind: 'attack', targetId: number(a, 'target_id', 0, 2 ** 31, true) }),
   },
   {
     name: 'hunt',
-    description: 'Continuously pursue and shoot the nearest living enemy; persists across respawns.',
+    description: 'Hunt perceived enemies; roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },

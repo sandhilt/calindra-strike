@@ -28,7 +28,7 @@ class Socket implements SocketLike {
     this.emit('message', { data: JSON.stringify(m) });
   }
 }
-function setup() {
+function setup(omniscient = false) {
   const socket = new Socket();
   const jobs = new Map<ReturnType<typeof setInterval>, () => void>();
   let id = 0;
@@ -44,6 +44,7 @@ function setup() {
     },
   };
   const session = new GameSession({
+    omniscient,
     url: 'ws://test',
     origin: 'http://test',
     connect: () => socket,
@@ -193,5 +194,53 @@ test('state reports ended attacks and emits an intent event only once', async ()
   assert.equal(state.events.filter((e: { k: string }) => e.k === 'intent').length, 1);
   socket.message({ ...snap, ps: [] });
   assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).events, []);
+  session.close();
+});
+
+test('fair session hides enemies, exposes memory and ends attacks when perception is lost', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const self = createPlayerState();
+  Object.assign(self, { x: -300, y: 0, z: -600, health: 100, dropping: false });
+  const snap = (time: number, z: number) => {
+    self.z = z;
+    socket.message({
+      t: 'snap', time, me: packState(self),
+      ps: [[2, 300, 0, z, 0, 0, RF_ALIVE, 2]], ad: [],
+    });
+  };
+  snap(200, -600);
+  session.setIntent({ kind: 'attack', targetId: 2 });
+  snap(300, 0);
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.equal(state.perception, 'line-of-sight');
+  assert.deepEqual(state.others, []);
+  assert.deepEqual(state.lastSeen, [{ id: 2, name: 'enemy', pos: [300, 0, -600], secondsAgo: 0.1 }]);
+  assert.ok(state.you.intent.ended);
+  assert.equal(state.events[0].reason, 'Target out of sight');
+  const attack = createTools(session).find((tool) => tool.name === 'attack')!;
+  const response = await attack.call({ target_id: 2 });
+  assert.equal(response.isError, true);
+  assert.match(response.content[0].text, /lastSeen.*move_to/);
+  session.close();
+});
+
+test('omniscient session exposes enemies behind walls and labels the mode', async () => {
+  const { session, socket } = setup(true);
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const self = createPlayerState();
+  Object.assign(self, { x: -300, y: 0, z: 0, health: 100, dropping: false });
+  socket.message({
+    t: 'snap', time: 200, me: packState(self),
+    ps: [[2, 300, 0, 0, 0, 0, RF_ALIVE, 2]], ad: [],
+  });
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.equal(state.perception, 'omniscient');
+  assert.equal(state.others[0].id, 2);
+  session.setIntent({ kind: 'attack', targetId: 2 });
   session.close();
 });

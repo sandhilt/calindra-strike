@@ -33,8 +33,26 @@ export interface BotEnv {
 }
 
 const SCAN_EVERY = 6; // ticks between target scans (100 ms)
-const VIEW_RANGE = 2600;
-const HEAR_RANGE = 420; // notices you behind it up close
+export const VIEW_RANGE = 2600;
+export const HEAR_RANGE = 420; // notices you behind it up close
+
+export function hasLineOfSight(
+  world: CollisionWorld,
+  ex: number,
+  ey: number,
+  ez: number,
+  target: { x: number; y: number; z: number },
+): boolean {
+  for (const height of [44, 64]) {
+    const dx = target.x - ex;
+    const dy = target.y + height - ey;
+    const dz = target.z - ez;
+    const distance = Math.hypot(dx, dy, dz);
+    if (distance < 1) return true;
+    if (!world.trace(ex, ey, ez, dx / distance, dy / distance, dz / distance, distance)) return true;
+  }
+  return false;
+}
 
 function gauss(r: () => number): number {
   return (r() + r() + r() - 1.5) / 0.75;
@@ -119,19 +137,6 @@ export class BotBrain {
     return q !== self && q.alive && (mode === 'ffa' || q.team !== self.team);
   }
 
-  private visible(env: BotEnv, ex: number, ey: number, ez: number, q: BotAgent): boolean {
-    const t = q.state;
-    for (const h of [44, 64]) {
-      const dx = t.x - ex;
-      const dy = t.y + h - ey;
-      const dz = t.z - ez;
-      const len = Math.hypot(dx, dy, dz);
-      if (len < 1) return true;
-      if (!env.world.trace(ex, ey, ez, dx / len, dy / len, dz / len, len)) return true;
-    }
-    return false;
-  }
-
   private scan(self: BotAgent, env: BotEnv): BotAgent | null {
     const s = self.state;
     const ex = s.x;
@@ -147,7 +152,7 @@ export class BotBrain {
       // field of view ~140 degrees, but close enemies are heard anyway
       const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + 44, q.state.z);
       if (d > HEAR_RANGE && Math.abs(wrapAngle(yaw - this.yaw)) > 70 * DEG) continue;
-      if (!this.visible(env, ex, ey, ez, q)) continue;
+      if (!hasLineOfSight(env.world, ex, ey, ez, q.state)) continue;
       // prefer the current target slightly so bots don't flick between people
       const score = d * (q.id === this.targetId ? 0.7 : 1);
       if (score < bestD) {

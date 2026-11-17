@@ -110,7 +110,11 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
-export function renderView(v: WorldView, intent: Intent): object {
+export function renderView(
+  v: WorldView,
+  intent: Intent,
+  actions: { crouch: boolean; zoom: number | null } = { crouch: false, zoom: null },
+): object {
   const s = v.self;
   const relative = (p: { x: number; z: number }) =>
     s
@@ -172,6 +176,11 @@ export function renderView(v: WorldView, intent: Intent): object {
       mag: s?.mag[s.weapon],
       reserve: s?.reserve[s.weapon],
       reloading: s ? s.reload > 0 : false,
+      ducked: s?.ducked ?? false,
+      onGround: s?.onGround ?? false,
+      zoom: s?.zoom ?? 0,
+      maxZoom: s ? weaponDef(s.weapon).zoomFov.length : 0,
+      actions,
       intent,
     },
     others: v.peers

@@ -9,9 +9,12 @@ import {
   encodeCmd,
   type ServerMsg,
   type ClientMsg,
+  weaponDef,
+  type PlayerState,
   type WeaponId,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
+import { ActionOverlay } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { welcome, decodeSnapshot, renderView, type WorldView } from './view.ts';
 export interface SocketLike {
@@ -48,6 +51,7 @@ export class GameSession {
   state: State = { phase: 'idle' };
   intent: Intent = { kind: 'idle' };
   private seq = 0;
+  private readonly actions = new ActionOverlay();
   private names = new Map<number, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private cancelJoin: (() => void) | undefined;
@@ -117,6 +121,7 @@ export class GameSession {
             for (const r of m.roster) this.names.set(r[0], r[1]);
             this.seq = 0;
             this.intent = { kind: 'idle' };
+            this.actions.reset();
             this.timer = this.options.clock.setInterval(() => this.tick(), Math.ceil(TICK_MS * 2));
             finish();
           } else if (this.state.phase === 'playing') this.receive(m);
@@ -150,10 +155,15 @@ export class GameSession {
     const v = this.state.view;
     let targetOutOfSight = false;
     if (m.t === 'snap') {
+      const wasDropping = v.self?.dropping ?? false;
       const raw = decodeSnapshot(v, m);
+      this.actions.ack = m.ack;
       const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient);
       v.peers = perceived.peers;
       v.lastSeen = perceived.lastSeen;
+      // reset on the snapshot, not on a tick: a respawn can arrive between two ticks.
+      // Every spawn starts a skydive, including the warmup-to-live respawn of a living player.
+      if (!v.self || v.self.health <= 0 || (v.self.dropping && !wasDropping)) this.actions.reset();
       if (this.intent.kind === 'attack') {
         const targetId = this.intent.targetId;
         targetOutOfSight = raw.some((p) => p.id === targetId && p.alive && p.enemy && !(p.flags & RF_DROP));
@@ -174,6 +184,7 @@ export class GameSession {
         this.state.nav = new NavGrid(this.state.world, map);
         this.state.pilot = new Pilot(this.options.skill ?? 0.7, this.options.random);
         this.intent = { kind: 'idle' };
+        this.actions.reset();
         v.peers = [];
         v.lastSeen.clear();
       }
@@ -208,7 +219,7 @@ export class GameSession {
     try {
       const { view, nav, world, pilot } = this.state;
       const commands = Array.from({ length: 2 }, () =>
-        pilot.nextCmd(view, this.intent, nav, world, ++this.seq),
+        this.actions.apply(pilot.nextCmd(view, this.intent, nav, world, ++this.seq), view.self),
       );
       this.send({ t: 'in', c: commands }, JSON.stringify({ t: 'in', c: commands.map(encodeCmd) }));
     } catch (e) {
@@ -235,7 +246,7 @@ export class GameSession {
   getState(): object {
     const { view, pilot } = this.requirePlaying();
     const intent = this.intent.kind === 'moveTo' ? { ...this.intent, arrived: pilot.arrived } : this.intent;
-    return renderView(view, intent);
+    return renderView(view, intent, this.actionState());
   }
   setIntent(intent: Intent): object {
     const { view, nav, world, pilot } = this.requirePlaying();
@@ -260,6 +271,31 @@ export class GameSession {
     this.intent = intent;
     return { intent, distance };
   }
+  private actionState(): { crouch: boolean; zoom: number | null } {
+    return { crouch: this.actions.crouch, zoom: this.actions.zoom };
+  }
+  private livingSelf(): PlayerState {
+    const s = this.requirePlaying().view.self;
+    if (!s || s.health <= 0) throw new Error('No living player snapshot yet');
+    return s;
+  }
+  jump(): object {
+    if (!this.livingSelf().onGround) throw new Error('Not on the ground');
+    this.actions.requestJump();
+    return this.actionState();
+  }
+  setCrouch(on: boolean): object {
+    this.livingSelf();
+    this.actions.crouch = on;
+    return this.actionState();
+  }
+  setZoom(level: number): object {
+    const scopeLevels = weaponDef(this.livingSelf().weapon).zoomFov.length;
+    if (scopeLevels === 0) throw new Error('Weapon has no scope');
+    if (level > scopeLevels) throw new Error('Zoom level out of range');
+    this.actions.zoom = level;
+    return this.actionState();
+  }
   close(reason = 'Left game'): void {
     if (this.cancelJoin) {
       const cancel = this.cancelJoin;
@@ -270,6 +306,7 @@ export class GameSession {
     const previous = this.state;
     this.state = { phase: 'closed', reason };
     this.intent = { kind: 'idle' };
+    this.actions.reset();
     if (this.timer) this.options.clock.clearInterval(this.timer);
     this.timer = undefined;
     this.cleanup?.();

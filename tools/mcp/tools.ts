@@ -8,6 +8,11 @@ const number = (a: Args, k: string, min = -Infinity, max = Infinity, integer = f
     throw new Error(`Invalid ${k}`);
   return v;
 };
+const boolean = (a: Args, k: string): boolean => {
+  const v = a[k];
+  if (typeof v !== 'boolean') throw new Error(`Invalid ${k}`);
+  return v;
+};
 const string = (a: Args, k: string, max: number, fallback?: string): string => {
   const v = a[k] === undefined ? fallback : a[k];
   if (typeof v !== 'string' || !v.trim() || v.trim().length > max) throw new Error(`Invalid ${k}`);
@@ -103,6 +108,26 @@ export const toolDefinitions: Definition[] = [
       await new Promise((resolve) => setTimeout(resolve, ms));
       return s.getState();
     },
+  },
+  {
+    name: 'jump',
+    description: 'Jump once. Only works on the ground. Use it for ledges and to get unstuck.',
+    properties: {},
+    run: (s) => s.jump(),
+  },
+  {
+    name: 'crouch',
+    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox.',
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.setCrouch(boolean(a, 'on')),
+  },
+  {
+    name: 'zoom',
+    description: 'Set the scope level: 0 off, 1 or 2 zoomed. Only for a weapon with a scope (the AWP). Once set it replaces the pilot\'s automatic scoping until you respawn. The scope drops during the AWP bolt cycle and returns by itself.',
+    properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
+    required: ['level'],
+    run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),
   },
   {
     name: 'choose_loadout',

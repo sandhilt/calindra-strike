@@ -710,9 +710,22 @@ input:focus-visible {
   border-radius: 12px;
 }
 
-.kf.mine {
-  border-color: rgba(165, 250, 0, 0.6);
-  box-shadow: inset 0 0 0 1px rgba(165, 250, 0, 0.25);
+.kf.mine-kill,
+.kf.mine-death {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kf.mine-kill {
+  background: rgba(165, 250, 0, 0.16);
+  border-color: var(--lime);
+  box-shadow: 0 0 14px rgba(165, 250, 0, 0.35);
+}
+
+.kf.mine-death {
+  background: rgba(255, 90, 78, 0.18);
+  border-color: var(--danger);
+  box-shadow: 0 0 14px rgba(255, 90, 78, 0.35);
 }
 
 .kf .w {

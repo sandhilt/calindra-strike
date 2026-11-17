@@ -50,7 +50,7 @@ import {
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
-import { Hud, type LeaderRow, type Marker, type ScoreRow } from '../ui/hud.ts';
+import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
@@ -343,6 +343,11 @@ export class ClientGame {
   }
 
   /** Display identity: team colour in TDM, personal colour in free-for-all. */
+  private feedInvolvement(killerId: number, victimId: number): FeedInvolvement {
+    if (victimId === this.myId) return 'death';
+    return killerId === this.myId ? 'kill' : null;
+  }
+
   private nameOf(id: number): { name: string; color: string; team: number } {
     const n = this.names.get(id);
     if (!n) return { name: `#${id}`, color: '#9b9b94', team: -1 };
@@ -569,7 +574,7 @@ export class ClientGame {
         const k = this.nameOf(e.by);
         const v = this.nameOf(e.to);
         const def = weaponDef(e.w);
-        this.hud.killfeed(k.name, k.color, v.name, v.color, def.tag, e.hs === 1, e.by === this.myId || e.to === this.myId);
+        this.hud.killfeed(k.name, k.color, v.name, v.color, def.tag, e.hs === 1, this.feedInvolvement(e.by, e.to));
         if (e.by === this.myId && e.to !== this.myId) {
           this.sfx.kill(e.streak);
           const s = STREAKS[e.streak];

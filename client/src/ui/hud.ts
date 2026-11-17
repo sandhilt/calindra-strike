@@ -30,6 +30,8 @@ export interface Marker {
   offscreen: boolean;
 }
 
+export type FeedInvolvement = 'kill' | 'death' | null;
+
 const RANK_COLORS = ['#ffd23f', '#dfe4ea', '#e8a066'];
 
 export class Hud {
@@ -195,8 +197,8 @@ export class Hud {
     });
   }
 
-  killfeed(killer: string, kc: string, victim: string, vc: string, weapon: string, hs: boolean, mine: boolean): void {
-    const el = h('div', { class: `kf glass${mine ? ' mine' : ''}` }, [
+  killfeed(killer: string, kc: string, victim: string, vc: string, weapon: string, hs: boolean, involvement: FeedInvolvement): void {
+    const el = h('div', { class: `kf glass${involvement ? ` mine-${involvement}` : ''}` }, [
       h('span', { style: `color:${kc}`, text: killer }),
       h('span', { class: 'w', text: weapon }),
       hs ? h('span', { class: 'hs', text: 'HS' }) : null,

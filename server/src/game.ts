@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
@@ -396,6 +396,7 @@ export class Game {
       const { x, y, z } = this.bomb;
       const at = bombWirePosition({ x, y: this.groundY(x, y, z), z });
       this.bomb = { ...this.bomb, ...at };
+      this.stepOffStand(at);
     }
     if (!result.outcome && blackFridayDue(this.bombRound, this.bomb, this.tick)) {
       const lit = startBlackFriday(this.bomb, this.bombRound, this.tick);
@@ -407,6 +408,20 @@ export class Game {
     if (result.outcome !== 'expired' && this.phase === 'live') this.scoreBomb(result.outcome);
     this.attackers = (1 - this.attackers) as 0 | 1;
     this.startBombRound(result.outcome === 'expired' ? this.bombRound.variant : undefined);
+  }
+
+  /** The desk appears under the planter's feet: push anyone it would trap out of its footprint. */
+  private stepOffStand(at: BombPoint): void {
+    const box = bombStandBox('planted', at);
+    if (!box) return;
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      const height = hullHeight(p.state);
+      const exit = standExit(box, { ...p.state, height }, (x, z) => !this.world.hullOverlaps(x, p.state.y, z, height));
+      if (!exit) continue;
+      p.state.x = exit.x;
+      p.state.z = exit.z;
+    }
   }
 
   private scoreBomb(outcome: Exclude<BombOutcome, 'expired'>): void {
@@ -432,7 +447,7 @@ export class Game {
     const { x, y, z } = bombWirePosition(at);
     return [
       state, actorId, x, y, z,
-      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : 0,
+      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : bomb.kind === 'dropped' ? this.msAt(bomb.returnAtTick) : 0,
       bomb.kind === 'planted' && bomb.defuse ? this.msAt(bomb.defuse.doneAtTick) : 0,
       bomb.kind === 'planted' ? bomb.variant : this.bombRound.variant,
       this.attackers,

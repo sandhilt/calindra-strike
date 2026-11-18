@@ -59,7 +59,7 @@ import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import type { Connection } from './net.ts';
-import { DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombRole, bombStatus, bombView, carryNotice, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
+import { BLACK_FRIDAY_PITCH, BLACK_FRIDAY_TAG, DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombRole, bombStatus, bombView, carryNotice, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
@@ -518,7 +518,7 @@ export class ClientGame {
       const key = `${bomb.attackers}:${bomb.variant}`;
       if (bomb.blackFriday && key !== this.announcedBombRound) {
         this.hud.announceBlackFriday();
-        this.hud.info('BLACK FRIDAY! o pavio queima mais rápido', '#ffd54f');
+        this.hud.info(`${BLACK_FRIDAY_TAG}! ${BLACK_FRIDAY_PITCH}`, '#ffd54f');
         this.sfx.blackFriday();
       }
       if (!bomb.blackFriday && this.announcedBombRound !== '') this.hud.clearBlackFridayBanner();

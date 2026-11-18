@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -113,12 +113,14 @@ export const CTF_ENGAGE_DISTANCE_UNITS = 600;
 
 // --- debug defusion ---
 export const PLANT_TICKS = 3 * TICK_RATE;
-export const FUSE_TICKS = 35 * TICK_RATE;
+export const FUSE_TICKS = 30 * TICK_RATE;
 export const DEFUSE_TICKS = 7 * TICK_RATE;
-export const BOMB_RETURN_TICKS = 20 * TICK_RATE;
+/** A dropped bug left on the floor this long hands the round to the other team, like a closed plant window. */
+export const BOMB_DROPPED_TICKS = 20 * TICK_RATE;
+export const BOMB_DROPPED_MS = (BOMB_DROPPED_TICKS * 1000) / TICK_RATE;
 export const PLANT_MS = PLANT_TICKS * TICK_MS;
 export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
-export const FUSE_MS = FUSE_TICKS * TICK_MS;
+export const FUSE_MS = (FUSE_TICKS * 1000) / TICK_RATE;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
 export const DEBUG_SCENARIO_COUNT = 6;
@@ -128,8 +130,10 @@ export const BLACK_FRIDAY_CHANCE = 0.2;
 export const BLACK_FRIDAY_GUARANTEE_ROUND = 3;
 /** A Black Friday round switches on within this long after the round starts, or at the plant if that comes first. */
 export const BLACK_FRIDAY_WINDOW_TICKS = 30 * TICK_RATE;
-export const BLACK_FRIDAY_FUSE_TICKS = 20 * TICK_RATE;
-export const BLACK_FRIDAY_FUSE_MS = BLACK_FRIDAY_FUSE_TICKS * TICK_MS;
+/** Black Friday is "50% OFF" the fuse: half the normal one. */
+export const BLACK_FRIDAY_DISCOUNT_PERCENT = 50;
+export const BLACK_FRIDAY_FUSE_TICKS = (FUSE_TICKS * (100 - BLACK_FRIDAY_DISCOUNT_PERCENT)) / 100;
+export const BLACK_FRIDAY_FUSE_MS = (BLACK_FRIDAY_FUSE_TICKS * 1000) / TICK_RATE;
 /** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
 export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.

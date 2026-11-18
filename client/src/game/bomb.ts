@@ -1,10 +1,10 @@
-import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_DISCOUNT_PERCENT, BLACK_FRIDAY_FUSE_MS, BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
 
 export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean; plantByAt: number } & (
   | { state: 'home' }
   | { state: 'carried'; carrier: number }
   | { state: 'planting'; carrier: number; doneAt: number }
-  | { state: 'dropped' }
+  | { state: 'dropped'; handOverAt: number }
   | { state: 'planted'; explodeAt: number; defuser: number; defuseDoneAt: number }
 );
 
@@ -15,7 +15,7 @@ export function bombView(row: readonly number[]): BombView | null {
   const at = { x, y, z, variant, attackers, blackFriday: blackFriday === 1, plantByAt };
   if (state === 1) return { ...at, state: 'carried', carrier: actor };
   if (state === 2) return { ...at, state: 'planting', carrier: actor, doneAt: plantDoneAt };
-  if (state === 3) return { ...at, state: 'dropped' };
+  if (state === 3) return { ...at, state: 'dropped', handOverAt: explodeAt };
   if (state === 4) return { ...at, state: 'planted', explodeAt, defuser: actor, defuseDoneAt };
   return { ...at, state: 'home' };
 }
@@ -63,9 +63,15 @@ export function beepIntervalMs(urgency: number): number {
   return BEEP_SLOW_MS + (BEEP_FAST_MS - BEEP_SLOW_MS) * clamp01(urgency);
 }
 
+/** The Black Friday sale label: the fuse itself is on sale. */
+export const BLACK_FRIDAY_TAG = `BLACK FRIDAY ${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF`;
+
+/** What the Black Friday announcement says: how much of the fuse is left. */
+export const BLACK_FRIDAY_PITCH = `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF no pavio · só ${BLACK_FRIDAY_FUSE_MS / 1000}s para desarmar`;
+
 export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
   const status = roundStatus(bomb, now, viewerId, viewerTeam, name);
-  return bomb.blackFriday ? `BLACK FRIDAY · ${status}` : status;
+  return bomb.blackFriday ? `${BLACK_FRIDAY_TAG} · ${status}` : status;
 }
 
 function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
@@ -78,7 +84,10 @@ function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
   const attacking = viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
-  if (bomb.state === 'dropped') return attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão';
+  if (bomb.state === 'dropped') {
+    const left = Math.max(0, Math.ceil((bomb.handOverAt - now) / 1000));
+    return `${attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão'} · troca de lado em ${left}s`;
+  }
   if (bomb.state === 'carried' || bomb.state === 'planting') {
     if (bomb.carrier === viewerId) return bomb.state === 'planting' ? 'plantando…' : 'segure E no site para plantar';
     return bomb.state === 'planting' ? `${name(bomb.carrier)} está plantando` : `${name(bomb.carrier)} leva o bug`;
@@ -121,6 +130,7 @@ export function bombMessage(what: BombAction, team: number, name: string): strin
     case 'defused': return `${name} desarmou o bug · ponto dos ${winner}`;
     case 'exploded': return `o bug explodiu · ponto dos ${winner}`;
     case 'expired': return `o tempo acabou · o bug agora é dos ${winner}`;
+    case 'abandoned': return `o bug ficou no chão · agora é dos ${winner}`;
   }
 }
 

@@ -1,5 +1,5 @@
-import { TEAMS } from '@calindra-strike/shared';
-import type { BombRole, CarryNotice } from '../game/bomb.ts';
+import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_PITCH, type BombRole, type CarryNotice } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
@@ -66,7 +66,8 @@ export class Hud {
   private readonly bombStatus = h('div', { class: 'bomb-status glass hidden' });
   private readonly blackFridayBanner = h('div', { class: 'black-friday-banner hidden', role: 'alert' }, [
     h('b', { text: 'BLACK FRIDAY' }),
-    h('span', { text: 'o pavio queima mais rápido' }),
+    h('strong', { class: 'black-friday-off', text: `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF` }),
+    h('span', { text: BLACK_FRIDAY_PITCH }),
   ]);
   private blackFridayTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly bombCarry = h('div', { class: 'bomb-carry hidden', role: 'status' });

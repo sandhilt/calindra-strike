@@ -1,3 +1,4 @@
+import { BLACK_FRIDAY_DISCOUNT_PERCENT } from '@calindra-strike/shared';
 import { APP_ACCENT, allApps, dockApps, launchApp } from './apps.ts';
 import { SCREEN_W, SCREEN_H, easeOut, fillDisc, fillRound, glowDisc, lerp, line, pulse, span, spinner, strokeRound, write, type Ctx } from './canvas.ts';
 import { contentRect, drawChrome, drawProdBadge, drawWindowFrame, windowRadius, windowRect } from './chrome.ts';
@@ -224,7 +225,7 @@ export function drawBlackFridayRibbon(ctx: CanvasRenderingContext2D, width: numb
   ctx.restore();
   ctx.globalAlpha *= lerp(ribbon.tagMinAlpha, 1, pulse(timeMs, ribbon.tagPeriodMs));
   fillRound(ctx, tagX, ribbon.tagTop, ribbon.tagWidth, ribbon.tagHeight, ribbon.tagRadius, yellow);
-  write(ctx, 'tempo 1.75x', tagX + ribbon.tagWidth / 2, ribbon.tagTop + ribbon.tagLabelY, { color: black, size: ribbon.tagLabelSize, weight: 'bold', align: 'center' });
+  write(ctx, `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF`, tagX + ribbon.tagWidth / 2, ribbon.tagTop + ribbon.tagLabelY, { color: black, size: ribbon.tagLabelSize, weight: 'bold', align: 'center' });
   ctx.restore();
 }
 

@@ -662,7 +662,7 @@ test('bomb perception exposes roles, names, progress, positions and all named ev
   const state = JSON.parse(JSON.stringify(session.getState()));
   assert.partialDeepStrictEqual(state.bomb, {
     state: 'planted', defuserName: 'enemy', role: 'attacker',
-    attackersTeam: 0, blackFriday: true, fuseSeconds: 20, secondsToExplosion: 10, distance: 110, bearingDeg: 90,
+    attackersTeam: 0, blackFriday: true, fuseSeconds: 15, secondsToExplosion: 10, distance: 110, bearingDeg: 90,
     stand: { kind: 'desk', solid: true, size: [BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS] },
   });
   assert.ok(state.bomb.site.pos.length === 3);
@@ -686,7 +686,7 @@ test('bomb snapshots install and clear solid stands for move_to', async () => {
   assert.doesNotThrow(() => session.setIntent(target));
   snap([0, -1, x, 0, z, 0, 0, 0, 0, 0, 0]);
   assert.partialDeepStrictEqual(session.getState(), {
-    bomb: { blackFriday: false, fuseSeconds: 35, stand: {
+    bomb: { blackFriday: false, fuseSeconds: 30, stand: {
       kind: 'crate', solid: true, size: [BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS],
     } },
   });

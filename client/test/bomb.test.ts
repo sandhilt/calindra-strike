@@ -9,7 +9,7 @@ test('maps every wire state and clears outside the mode', () => {
   assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'home' });
   assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'carried', carrier: 7 });
   assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000, 0]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
-  assert.deepEqual(bombView([3, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'dropped' });
+  assert.deepEqual(bombView([3, -1, 10, 20, 30, 21000, 0, 2, 1, 0, 0]), { ...at, state: 'dropped', handOverAt: 21000 });
   assert.deepEqual(bombView([4, 9, 10, 20, 30, 40000, 8000, 2, 1, 0, 0]), { ...at, state: 'planted', explodeAt: 40000, defuser: 9, defuseDoneAt: 8000 });
 });
 
@@ -54,7 +54,7 @@ test('beeps speed up as the fuse burns down', () => {
   assert.ok(planted);
   assert.equal(fuseUrgency(planted, 100000 - FUSE_MS), 0);
   assert.equal(fuseUrgency(planted, 100000), 1);
-  assert.equal(fuseUrgency(planted, 100000 - FUSE_MS / 2), 0.5);
+  assert.ok(Math.abs(fuseUrgency(planted, 100000 - FUSE_MS / 2) - 0.5) < 1e-9);
   assert.equal(fuseUrgency({ ...planted, state: 'dropped' } as never, 0), 0);
   assert.ok(beepIntervalMs(0) > beepIntervalMs(0.5));
   assert.ok(beepIntervalMs(0.5) > beepIntervalMs(1));
@@ -89,6 +89,11 @@ test('the plant window counts down for the attackers and is absent once planted 
   assert.equal(bombMessage('expired', 1, 'ninguém'), 'o tempo acabou · o bug agora é dos ' + TEAMS[1].name);
 });
 
+test('Black Friday is 50% OFF the fuse', () => {
+  assert.equal(BLACK_FRIDAY_FUSE_MS, FUSE_MS / 2);
+  assert.equal(FUSE_MS, 30_000);
+});
+
 test('Black Friday uses the short fuse and labels the round in every state', () => {
   const explodeAt = 100000;
   const start = explodeAt - BLACK_FRIDAY_FUSE_MS;
@@ -97,13 +102,13 @@ test('Black Friday uses the short fuse and labels the round in every state', () 
     'pegue o bug na base',
     'segure E no site para plantar',
     'plantando…',
-    'o bug caiu · pegue-o',
-    'bug plantado · 20s',
+    'o bug caiu · pegue-o · troca de lado em 15s',
+    'bug plantado · 15s',
   ];
   for (const [state, status] of expectedStatuses.entries()) {
     const bomb = bombView([state, state === 4 ? -1 : 7, 0, 0, 0, explodeAt, 0, 0, 0, 0, 1]);
     assert.ok(bomb?.blackFriday);
-    assert.equal(bombStatus(bomb, start, 7, 0, name), 'BLACK FRIDAY · ' + status);
+    assert.equal(bombStatus(bomb, start, 7, 0, name), 'BLACK FRIDAY 50% OFF · ' + status);
   }
   const planted = bombView([4, -1, 0, 0, 0, explodeAt, 0, 0, 0, 0, 1]);
   assert.ok(planted);

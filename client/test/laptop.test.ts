@@ -166,7 +166,7 @@ test('the Black Friday ribbon overlays every calm, incident and defuse screen wi
       drawBlackFridayRibbon(ctx, 512, 320, 1234);
       const overlay = log.slice(screenEnd);
       assert.ok(overlay.some((entry) => entry.startsWith('fillText(BLACK FRIDAY,')), title);
-      assert.ok(overlay.some((entry) => entry.startsWith('fillText(tempo 1.75x,')), title);
+      assert.ok(overlay.some((entry) => entry.startsWith('fillText(50% OFF,')), title);
       assert.ok(!overlay.some((entry) => entry.startsWith('clearRect(')), title);
     }
   }

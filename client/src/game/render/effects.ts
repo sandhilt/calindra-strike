@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { SPRAY_SIZE } from '@calindra-strike/shared';
 import { brandImage } from '../../brand.ts';
 import { flashTexture } from './viewmodel.ts';
+import type { GroundAt } from './debris-sim.ts';
+import { GunFx } from './gun-fx.ts';
+import { FX_LIMITS, type FxQuality, TRACER } from './fx-tuning.ts';
 
 interface Tracer {
   mesh: THREE.Mesh;
@@ -24,7 +27,6 @@ interface Particle {
   max: number;
 }
 
-const TRACER_SPEED = 14000;
 const MAX_SPARKS = 500;
 const MAX_CUBES = 240;
 
@@ -62,12 +64,18 @@ export class Effects {
   private readonly tmpM = new THREE.Matrix4();
   private readonly tmpQ = new THREE.Quaternion();
   private readonly tmpS = new THREE.Vector3();
+  private readonly tmpA = new THREE.Vector3();
+  private readonly tmpB = new THREE.Vector3();
+  private tracerCap: number = FX_LIMITS.high.tracers;
+  /** Spent magazines, casings, barrel smoke and the tracer pattern. */
+  readonly gun: GunFx;
 
   constructor(private readonly scene: THREE.Scene) {
     const tgeo = new THREE.BoxGeometry(0.6, 0.6, 1);
     tgeo.translate(0, 0, -0.5);
     const tmat = new THREE.MeshBasicMaterial({ color: '#fff3b0', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-    for (let i = 0; i < 48; i++) {
+    this.gun = new GunFx(scene);
+    for (let i = 0; i < FX_LIMITS.high.tracers; i++) {
       const mesh = new THREE.Mesh(tgeo, tmat);
       mesh.visible = false;
       mesh.frustumCulled = false;
@@ -151,13 +159,25 @@ export class Effects {
     mesh.visible = true;
   }
 
+  /** Fewer particles on low quality. */
+  setQuality(quality: FxQuality): void {
+    this.tracerCap = FX_LIMITS[quality].tracers;
+    this.gun.setQuality(quality);
+  }
+
   tracer(from: THREE.Vector3, to: THREE.Vector3): void {
-    const tr = this.tracers.find((t) => !t.active);
+    let tr: Tracer | null = null;
+    for (let i = 0; i < this.tracerCap; i++) {
+      if (!this.tracers[i].active) {
+        tr = this.tracers[i];
+        break;
+      }
+    }
     if (!tr) return;
     tr.from.copy(from);
     tr.dir.subVectors(to, from);
     tr.len = tr.dir.length();
-    if (tr.len < 40) return;
+    if (tr.len < TRACER.minDistanceUnits) return;
     tr.dir.divideScalar(tr.len);
     tr.t = 0;
     tr.active = true;
@@ -212,21 +232,23 @@ export class Effects {
     void yaw;
   }
 
-  update(dt: number): void {
+  update(dt: number, groundAt: GroundAt): void {
+    this.gun.update(dt, groundAt);
     for (const tr of this.tracers) {
       if (!tr.active) continue;
       tr.t += dt;
-      const head = Math.min(tr.len, tr.t * TRACER_SPEED);
-      const seg = Math.min(220, head);
-      if (head >= tr.len && tr.t * TRACER_SPEED - tr.len > 220) {
+      const flown = tr.t * TRACER.speedUnitsPerS;
+      const head = Math.min(tr.len, flown);
+      const seg = Math.min(TRACER.lengthUnits, head);
+      if (head >= tr.len && flown - tr.len > TRACER.lengthUnits) {
         tr.active = false;
         tr.mesh.visible = false;
         continue;
       }
-      const tail = Math.max(0, tr.t * TRACER_SPEED - 220);
-      const start = tr.from.clone().addScaledVector(tr.dir, Math.min(tail, tr.len));
+      const tail = Math.max(0, flown - TRACER.lengthUnits);
+      const start = this.tmpA.copy(tr.from).addScaledVector(tr.dir, Math.min(tail, tr.len));
       tr.mesh.position.copy(start);
-      tr.mesh.lookAt(start.clone().sub(tr.dir));
+      tr.mesh.lookAt(this.tmpB.copy(start).sub(tr.dir));
       tr.mesh.scale.z = Math.max(1, Math.min(seg, tr.len - Math.min(tail, tr.len)));
     }
 
@@ -304,6 +326,11 @@ export class Effects {
   }
 
   clear(): void {
+    this.gun.clear();
+    for (const tr of this.tracers) {
+      tr.active = false;
+      tr.mesh.visible = false;
+    }
     for (const c of this.corpses) this.scene.remove(c.obj);
     this.corpses.length = 0;
     for (const mesh of this.sprays) mesh.visible = false;

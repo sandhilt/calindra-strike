@@ -185,6 +185,14 @@ export class ViewModel {
     return this.model.muzzle.getWorldPosition(out);
   }
 
+  /** Magazine position in this viewmodel's own scene, or false when the weapon has none. */
+  magazineWorld(out: THREE.Vector3): boolean {
+    const magazine = this.model?.rig.magazine;
+    if (!magazine) return false;
+    magazine.getWorldPosition(out);
+    return true;
+  }
+
   fire(heavy: boolean): void {
     if (this.weaponId === WEAPON.HAMMER) {
       this.swing = 1;

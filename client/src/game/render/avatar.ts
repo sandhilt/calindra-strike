@@ -191,6 +191,13 @@ export class Avatar {
     return this.weapon.muzzle.getWorldPosition(out);
   }
 
+  /** Where the held weapon's magazine is, or the middle of the torso for a weapon without one. */
+  magazineWorld(out: THREE.Vector3): THREE.Vector3 {
+    const magazine = this.weapon?.rig.magazine;
+    if (!magazine) return this.root.getWorldPosition(out).setY(out.y + 40);
+    return magazine.getWorldPosition(out);
+  }
+
   kick(): void {
     this.recoil = 1;
   }

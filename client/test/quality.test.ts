@@ -80,7 +80,7 @@ test('each lighter tier never has more effects than the one above it', () => {
   for (let i = 1; i < order.length; i++) {
     const heavier = order[i - 1];
     const lighter = order[i];
-    for (const key of ['magazines', 'casings', 'smokePuffs', 'tracers', 'casingChance'] as const) {
+    for (const key of ['magazines', 'casings', 'smokePuffs', 'tracers', 'casingChance', 'beltLinks'] as const) {
       assert.ok(lighter[key] <= heavier[key], `${QUALITY_TIERS[i]} ${key}`);
     }
   }

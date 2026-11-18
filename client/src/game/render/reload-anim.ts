@@ -28,6 +28,10 @@ export interface ReloadPose {
   shellVisible: boolean;
   /** Supporting hand reaches for the magazine or the loading port, 0..1. */
   hand: number;
+  /** Feed cover over the receiver, 0 shut .. 1 wide open. Only the machine gun has one. */
+  cover: number;
+  /** The ammo belt on the feed tray, 0 lifted off it .. 1 laid in. */
+  beltLaid: number;
 }
 
 export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
@@ -44,6 +48,8 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   shellLift: 1,
   shellVisible: false,
   hand: 0,
+  cover: 0,
+  beltLaid: 1,
 };
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
@@ -61,6 +67,11 @@ const SPARE_APPEARS_AT = 0.55;
 const SPARE_ARRIVES_BELOW_WELL = 0.25;
 const TILT_WHILE_SEATING = 0.8;
 const SHELL_TILT = 0.55;
+/** Machine gun: the cover opens before the box falls away, the belt goes onto the tray as the box seats, then the cover shuts. */
+const COVER_OPENS = { from: 0.05, to: 0.3 } as const;
+const BELT_LIFTS = { from: 0.2, to: 0.4 } as const;
+const BELT_LAYS = { from: 0.55, to: 0.8 } as const;
+const COVER_SHUTS = { from: 0.85 } as const;
 
 function boltCurve(t: number): { pull: number; lift: number } {
   const pull = ramp(t, 0.1, 0.4) * (1 - ramp(t, 0.4, 0.58));
@@ -81,6 +92,8 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
       pose.magGone = fall >= 1;
       pose.spareVisible = t >= SPARE_APPEARS_AT;
       pose.spareLift = 1 - (1 - SPARE_ARRIVES_BELOW_WELL) * ramp(t, SPARE_APPEARS_AT, 1);
+      pose.cover = ramp(t, COVER_OPENS.from, COVER_OPENS.to);
+      pose.beltLaid = 1 - ramp(t, BELT_LIFTS.from, BELT_LIFTS.to);
       break;
     }
     case 'in': {
@@ -91,6 +104,8 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
       pose.spareLift = SPARE_ARRIVES_BELOW_WELL * (1 - ramp(t, 0, RELOAD_CUE_AT.in));
       pose.seatKick = pulse(t, RELOAD_CUE_AT.in, 1);
       pose.boltHand = ramp(t, 0.85, 1);
+      pose.beltLaid = ramp(t, BELT_LAYS.from, BELT_LAYS.to);
+      pose.cover = 1 - ramp(t, COVER_SHUTS.from, 1);
       break;
     }
     case 'bolt': {

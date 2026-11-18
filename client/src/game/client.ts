@@ -310,8 +310,8 @@ export class ClientGame {
     this.sfx = new Sfx(settings.volume, settings.soundPack);
     this.sfx.setAnnouncer(settings.announcer);
     this.effects = new Effects(this.scene);
+    this.view = new ViewModel(PLAYER_COLORS[settings.color], settings.quality);
     this.applyQuality();
-    this.view = new ViewModel(PLAYER_COLORS[settings.color]);
     this.scene.add(this.camera, this.muzzleLight);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[settings.quality].envMapPx }).texture;
@@ -432,6 +432,7 @@ export class ClientGame {
     this.appliedQuality = quality;
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
     this.effects.setQuality(quality);
+    this.view.setQuality(quality);
     if (this.world) applyShadowQuality(this.world.sun, profile);
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }

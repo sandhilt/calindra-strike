@@ -1,7 +1,8 @@
 import { TICK_MS, WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
-import { buildWeapon, type WeaponModel } from './weapons3d.ts';
+import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
+import { QUALITY, type Quality } from './quality.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
@@ -12,6 +13,8 @@ const RELOAD_PITCH = 0.12;
 /** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
 const RELOAD_DIP_UNITS = 6;
 const SEAT_KICK_UNITS = 1.2;
+/** How fast the drawn belt closes on the fed rounds, per second. */
+const BELT_GLIDE_PER_S = 25;
 /** Where the shooting hand's glove sits on the grip, in weapon units. */
 const GRIP_HAND = new THREE.Vector3(0.2, -2, 0.6);
 /** How far a bolt-action gun is brought toward the centre while its bolt is worked, so the hand on the handle is in view. */
@@ -81,13 +84,18 @@ export class ViewModel {
   private boltCycle = -1;
   private swing = 0;
   private swingHeavy = false;
+  /** Rounds the machine gun's belt has fed (what the gun has shot) and the eased amount drawn; only the fraction shows. */
+  private beltTarget = 0;
+  private beltFeed = 0;
+  private beltLinks: number;
   private readonly baseRot = new THREE.Euler();
   private readonly basePos = new THREE.Vector3();
   private readonly sleeve: THREE.MeshStandardMaterial;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
 
-  constructor(color: string) {
+  constructor(color: string, quality: Quality) {
+    this.beltLinks = QUALITY[quality].fx.beltLinks;
     this.sleeve = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.55), roughness: 0.85 });
     this.hemi = new THREE.HemisphereLight('#ffffff', '#444444', 1.4);
     this.sun = new THREE.DirectionalLight('#ffffff', 2.2);
@@ -104,6 +112,14 @@ export class ViewModel {
   /** Sleeves follow the player's identity colour (team colour in TDM). */
   setSleeveColor(color: string): void {
     this.sleeve.color.set(color).multiplyScalar(0.55);
+  }
+
+  /** A tier with another belt length rebuilds the machine gun the next time it is set. */
+  setQuality(quality: Quality): void {
+    const links = QUALITY[quality].fx.beltLinks;
+    if (links === this.beltLinks) return;
+    this.beltLinks = links;
+    if (this.weaponId === WEAPON.LMG) this.weaponId = -1;
   }
 
   setLighting(sky: string, ground: string, sun: string, sunIntensity: number): void {
@@ -159,7 +175,7 @@ export class ViewModel {
   setWeapon(id: WeaponId): void {
     if (id === this.weaponId) return;
     if (this.model) this.kickGroup.remove(this.model.group);
-    const m = buildWeapon(id);
+    const m = buildWeapon(id, this.beltLinks);
     m.group.traverse((o) => {
       o.castShadow = false;
     });
@@ -216,6 +232,7 @@ export class ViewModel {
       return;
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
+    if (this.weaponId === WEAPON.LMG) this.beltTarget += 1;
     const k = this.weaponId === WEAPON.SNIPER || this.weaponId === WEAPON.SHOTGUN ? 1.6 : this.weaponId === WEAPON.PISTOL ? 1.1 : 0.7;
     this.kick = Math.min(1.8, this.kick + k);
     this.flashT = 0.045;
@@ -241,6 +258,7 @@ export class ViewModel {
     this.swayY = THREE.MathUtils.clamp(this.swayY, -2.5, 2.5);
     // recoil spring
     this.kick = Math.max(0, this.kick - dt * 7);
+    this.feedBelt(dt);
     // reload / deploy dips
     const reload = this.currentReloadPose(p);
     let dip = reload.dip * RELOAD_DIP_UNITS;
@@ -282,6 +300,14 @@ export class ViewModel {
     }
   }
 
+  /** The belt catches up with the shots in a quick glide, so twelve rounds a second read as a moving belt and not a flicker. */
+  private feedBelt(dt: number): void {
+    this.beltFeed += (this.beltTarget - this.beltFeed) * Math.min(1, dt * BELT_GLIDE_PER_S);
+    const whole = Math.floor(this.beltFeed);
+    this.beltFeed -= whole;
+    this.beltTarget -= whole;
+  }
+
   private currentReloadPose(p: ViewPose): ReloadPose {
     const timing = this.weaponId === -1 ? null : weaponDef(this.weaponId).reloadTiming;
     if (timing && p.reloadElapsed >= 0) {
@@ -320,6 +346,7 @@ export class ViewModel {
         this.rightHand?.position.copy(rig.boltGrip).sub(GRIP_HAND).add(rig.bolt.position).multiplyScalar(pose.boltHand);
       }
     }
+    poseFeed(rig, pose, this.beltFeed, MAG_FALL_UNITS);
     if (rig.shell) {
       rig.shell.visible = pose.shellVisible;
       rig.shell.position.copy(this.shellRest);

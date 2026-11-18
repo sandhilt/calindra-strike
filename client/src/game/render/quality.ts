@@ -22,6 +22,8 @@ export interface FxProfile {
   tracers: number;
   /** Share of shots (0..1) that eject a casing. */
   casingChance: number;
+  /** Rounds drawn on the machine gun's ammo belt in first person. Zero draws no belt. */
+  beltLinks: number;
 }
 
 export interface QualityProfile {
@@ -54,7 +56,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 2048,
     envMapPx: 256,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1 },
+    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10 },
   },
   low: {
     label: 'leve',
@@ -65,7 +67,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 256,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4 },
+    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6 },
   },
   performance: {
     label: 'desempenho',
@@ -76,7 +78,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 64,
     laptopScreenRefreshMs: 250,
-    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0 },
+    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 0 },
   },
 };
 

@@ -48,6 +48,7 @@ import {
   lerpAngle,
   rayHitbox,
   recoilOffset,
+  shellsToLoad,
   unpackState,
   weaponDef,
 } from '@calindra-strike/shared';
@@ -58,6 +59,7 @@ import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow }
 import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
+import { ReloadPlayback } from './reload-playback.ts';
 import type { Connection } from './net.ts';
 import { DEFUSE_BANNER_MS, useRefusal, beepIntervalMs, bombMessage, bombRole, bombStatus, bombView, carryNotice, defuseBannerScene, defuseProgress, fuseUrgency, plantProgress, scoreUnit, type BombView, type DefuseBanner } from './bomb.ts';
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
@@ -96,6 +98,7 @@ interface Remote {
   step: number;
   ground: boolean;
   dropping: boolean;
+  reload: ReloadPlayback;
 }
 
 export interface Welcome {
@@ -191,8 +194,7 @@ export class ClientGame {
   private eye = STAND_EYE;
   private punch = 0;
   private stepAcc = 0;
-  private reloadStarted = 0;
-  private reloadStages = 0;
+  private readonly localReload = new ReloadPlayback();
 
   private readonly remotes = new Map<number, Remote>();
   private flags: FlagView[] = [];
@@ -567,7 +569,7 @@ export class ClientGame {
       let r = this.remotes.get(id);
       if (!r) {
         const n = this.nameOf(id);
-        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false };
+        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false, reload: new ReloadPlayback() };
         this.scene.add(r.avatar.root);
         this.remotes.set(id, r);
       }
@@ -967,15 +969,7 @@ export class ClientGame {
       this.view.setWeapon(s.weapon);
       this.sfx.deploy();
     }
-    if (before.reload === 0 && s.reload > 0) {
-      this.reloadStarted = s.reload;
-      this.reloadStages = 0;
-    }
-    if (s.reload > 0 && this.reloadStarted > 0) {
-      const frac = 1 - s.reload / this.reloadStarted;
-      const marks = [0.15, 0.6, 0.88];
-      while (this.reloadStages < 3 && frac >= marks[this.reloadStages]) this.sfx.reload(this.reloadStages++);
-    }
+    this.localReloadSounds(before.reload, before.weapon);
     if (!shot && cmd.buttons & BTN.ATTACK && s.nextFire !== before.nextFire && s.reload === 0) this.sfx.dryFire();
     const speed = Math.hypot(s.vx, s.vz);
     if (s.onGround && speed > 150) {
@@ -985,6 +979,15 @@ export class ClientGame {
         this.sfx.footstep(null, 0.55);
       }
     }
+  }
+
+  /** Starts, plays and stops the local reload from the predicted state, so sound and viewmodel follow the simulation. */
+  private localReloadSounds(reloadBefore: number, weaponBefore: WeaponId): void {
+    const s = this.me;
+    const def = weaponDef(s.weapon);
+    if (s.reload === 0 || weaponBefore !== s.weapon) this.localReload.end();
+    if (reloadBefore === 0 && s.reload > 0) this.localReload.begin(def, shellsToLoad(def, s.mag[def.id], s.reserve[def.id]), s.tick);
+    for (const cue of this.localReload.due(s.tick)) this.sfx.reload(s.weapon, cue);
   }
 
   private gunOrigin(out: THREE.Vector3): THREE.Vector3 {
@@ -1146,7 +1149,8 @@ export class ClientGame {
         onGround: this.me.onGround,
         lookDX: ldx,
         lookDY: ldy,
-        reloadFrac: this.me.reload > 0 ? 1 - this.me.reload / def.reloadTicks : -1,
+        reloadElapsed: this.me.reload > 0 ? this.localReload.elapsed(this.me.tick) : -1,
+        reloadShells: this.localReload.shells,
         deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
         hidden: !showView,
       });
@@ -1171,7 +1175,14 @@ export class ClientGame {
     }
     const { weapon, ...pose } = this.followedView.pose(
       remote.id,
-      { weapon: sample.w as WeaponId, flags: sample.flags, speed: remote.speed, onGround: (sample.flags & RF_GROUND) !== 0 },
+      {
+        weapon: sample.w as WeaponId,
+        flags: sample.flags,
+        speed: remote.speed,
+        onGround: (sample.flags & RF_GROUND) !== 0,
+        reloadElapsed: (sample.flags & RF_RELOAD) !== 0 ? remote.reload.elapsed(performance.now() / TICK_MS) : -1,
+        reloadShells: remote.reload.shells,
+      },
       performance.now(),
       dt,
     );
@@ -1260,6 +1271,7 @@ export class ClientGame {
       if (!visible || !s) {
         r.avatar.root.visible = false;
         r.visible = false;
+        r.reload.end();
         continue;
       }
       const pos = r.avatar.root.position;
@@ -1285,6 +1297,7 @@ export class ClientGame {
       r.ground = ground;
       r.dropping = dropping;
       r.avatar.setWeapon(s.w as WeaponId);
+      this.remoteReloadSounds(r, s);
       r.avatar.update(dt, {
         speed: r.speed,
         ducked: (s.flags & RF_DUCK) !== 0,
@@ -1300,6 +1313,14 @@ export class ClientGame {
       const aim = to.divideScalar(dist || 1).dot(camFwd);
       r.avatar.showTag(this.isTeammate(r.id) || dist < 380 || aim > 0.9985 || dropping);
     }
+  }
+
+  /** Snapshots only carry the reload flag, so another player's reload is timed locally from the moment it turns on. */
+  private remoteReloadSounds(r: Remote, s: Snap): void {
+    const nowTicks = performance.now() / TICK_MS;
+    r.reload.follow((s.flags & RF_RELOAD) !== 0, weaponDef(s.w), nowTicks);
+    const at = { x: s.x, y: s.y + 40, z: s.z };
+    for (const cue of r.reload.due(nowTicks)) this.sfx.reload(s.w as WeaponId, cue, at);
   }
 
   private updateHud(zoomed: boolean): void {
@@ -1366,7 +1387,7 @@ export class ClientGame {
       { key: '3', label: 'MARTELO', active: s.weapon === WEAPON.HAMMER },
     ];
     hud.setWeapon(def.name, def.tag, s.mag[def.id], s.reserve[def.id], def.legendary, def.slot === 3, slots);
-    hud.setReload(s.reload > 0 ? 1 - s.reload / def.reloadTicks : -1);
+    hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
     hud.setScope(zoomed);
     hud.setProtect(s.protect > 0 || s.dropping);
 

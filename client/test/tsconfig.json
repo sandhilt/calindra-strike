@@ -1,1 +1,1 @@
-{ "extends": "../../tsconfig.base.json", "compilerOptions": { "lib": ["ES2023", "DOM"], "types": ["node"], "erasableSyntaxOnly": true }, "include": ["../src/settings.ts", "../src/game/sound-packs", "."] }
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "lib": ["ES2023", "DOM"], "types": ["node"], "erasableSyntaxOnly": true }, "include": ["../src/settings.ts", "../src/game/sound-packs", "../src/game/reload-playback.ts", "../src/game/reload-sounds.ts", "../src/game/render/reload-anim.ts", "."] }

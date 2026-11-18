@@ -1,13 +1,14 @@
 /**
  * Dev-only load/behaviour test: spawns simple bots that strafe around and shoot
- * at the nearest player, or play the objective in debug defusion. Usage:
+ * at the nearest player, or play the objective in debug defusion and capture the flag. Usage:
  *   node tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
 import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
-import { DefuseDriver } from './defuse-driver.ts';
+import { BotDriver } from './bot-driver.ts';
+import { brainFor } from './brains.ts';
 
 const { positionals } = parseArgs({ allowPositionals: true });
 const count = Number(positionals[0] ?? 3);
@@ -27,11 +28,12 @@ function bot(i: number): void {
   let mode = 'ffa';
   let map = -1;
   let snap: Extract<ServerMsg, { t: 'snap' }> | null = null;
-  let defuse = new DefuseDriver();
+  let driver: BotDriver | null = null;
   const setMatch = (match: MatchInfo) => {
     if (mode !== match.mode || map !== match.map) {
       snap = null;
-      defuse = new DefuseDriver();
+      const brain = brainFor(match.mode);
+      driver = brain ? new BotDriver(brain) : null;
     }
     mode = match.mode;
     map = match.map;
@@ -67,9 +69,9 @@ function bot(i: number): void {
     t++;
     const cmds = [];
     const interp = Math.max(0, serverTime - 100);
-    if (mode === 'defuse' && !passive) {
+    if (driver && !passive) {
       if (!snap) return;
-      const input = defuse.drive(snap, map, id, teams, t);
+      const input = driver.drive(snap, map, id, teams, t);
       for (let k = 0; k < 2; k++) cmds.push(encodeCmd({ ...input, seq: ++seq, interp }));
       ws.send(JSON.stringify({ t: 'in', c: cmds }));
       return;

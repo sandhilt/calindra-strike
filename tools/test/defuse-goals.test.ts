@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canHoldUse, checkProgress, patrolPoint, pickDefuseGoal, readBombRow } from '../defuse-goals.ts';
+import { canHoldUse, defuseGoal, pickDefuseGoal, readBombRow } from '../defuse-goals.ts';
+import { checkProgress, patrolPoint } from '../drive-goals.ts';
 
 const home = { x: 0, y: 0, z: 0 };
 const site = { x: 700, y: 0, z: 0 };
@@ -31,11 +32,11 @@ test('attackers fetch the bomb, escort its carrier, and guard it after planting'
   for (const state of [1, 2]) {
     assert.deepEqual(pickDefuseGoal(bomb(state, 1), places, attacker, players, 0), { role: 'plant', point: site });
     assert.deepEqual(pickDefuseGoal(bomb(state, 1), places, escort, players, 0), {
-      role: 'patrol', point: patrolPoint(site, 2, 0),
+      role: 'patrol', point: patrolPoint(site, 2, 0), roam: true,
     });
   }
   assert.deepEqual(pickDefuseGoal(bomb(4), places, attacker, players, 1), {
-    role: 'patrol', point: patrolPoint(site, 1, 1),
+    role: 'patrol', point: patrolPoint(site, 1, 1), roam: true,
   });
 });
 
@@ -72,6 +73,19 @@ test('recover after 1.5 seconds of little movement and reset on progress', () =>
   const moved = checkProgress(sample, { ...home, x: 25 }, 1400);
   assert.equal(moved.stuck, false);
   assert.equal(checkProgress(moved.sample, moved.sample.point, 1500).stuck, false);
+});
+
+test('defender goals carry the combat decisions: use, duel and interception', () => {
+  const intruder = { x: 600, y: 0, z: 0 };
+  const intercept = defuseGoal(bomb(0), places, cover, players, 0, intruder, false);
+  assert.equal(intercept.role, 'patrol');
+  assert.deepEqual(intercept.intercept, intruder);
+  assert.equal(defuseGoal(bomb(0), places, cover, players, 0, intruder, true).intercept, undefined);
+  assert.equal(defuseGoal(bomb(4), places, cover, players, 0, intruder, false).intercept, undefined);
+  assert.equal(defuseGoal(bomb(0, -1, 1), { ...places, attackers: 1 }, defender, players, 0, intruder, false).intercept, undefined);
+  const defusing = defuseGoal(bomb(4), places, defender, players, 0, null, false);
+  assert.deepEqual([defusing.role, defusing.use, defusing.duel], ['defuse', true, true]);
+  assert.equal(defuseGoal(bomb(4), places, defender, players, 0, intruder, true).use, false);
 });
 
 test('a dead defender next to the bug is not elected to defuse', () => {

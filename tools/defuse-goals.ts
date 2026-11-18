@@ -2,24 +2,13 @@ import {
   BOMB_SITE_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, inBombReach,
   type BombPlaces, type BombPoint,
 } from '../shared/src/index.ts';
+import { patrolPoint, type BotPlayer, type Goal } from './drive-goals.ts';
 
 const BOMB_STATES = ['home', 'carried', 'planting', 'dropped', 'planted'] as const;
-const PATROL_RADIUS_UNITS = 320;
-const PATROL_REACHED_UNITS = 28;
-const STUCK_MS = 1500;
-const STUCK_DISTANCE_UNITS = 20;
+const DEFENDER_PURSUIT_UNITS = 650;
 
-export interface DefusePlayer extends BombPoint {
-  id: number;
-  team: number;
-  dropping: boolean;
-  /** Dead players stay in snapshots until they respawn. */
-  alive: boolean;
-}
-
-export interface DefuseGoal {
+export interface DefuseGoal extends Goal {
   role: 'fetch' | 'plant' | 'defuse' | 'patrol';
-  point: BombPoint;
 }
 
 export function readBombRow(row: readonly number[]) {
@@ -32,14 +21,9 @@ export function readBombRow(row: readonly number[]) {
   };
 }
 
-export function patrolPoint(center: BombPoint, id: number, leg: number): BombPoint {
-  const angle = id * Math.PI * (3 - Math.sqrt(5)) + leg * Math.PI / 3;
-  return { x: center.x + Math.cos(angle) * PATROL_RADIUS_UNITS, y: center.y, z: center.z + Math.sin(angle) * PATROL_RADIUS_UNITS };
-}
-
 export function pickDefuseGoal(
   bomb: NonNullable<ReturnType<typeof readBombRow>>, places: BombPlaces,
-  self: DefusePlayer, players: readonly DefusePlayer[], leg: number,
+  self: BotPlayer, players: readonly BotPlayer[], leg: number,
 ): DefuseGoal {
   if (self.team === bomb.attackers) {
     if (bomb.kind === 'home') return { role: 'fetch', point: places.home };
@@ -57,28 +41,30 @@ export function pickDefuseGoal(
   }
   const followingCarrier = self.team === bomb.attackers && (bomb.kind === 'carried' || bomb.kind === 'planting');
   const center = bomb.kind === 'planted' || followingCarrier ? bomb : places.site;
-  return { role: 'patrol', point: patrolPoint(center, self.id, leg) };
+  return { role: 'patrol', point: patrolPoint(center, self.id, leg), roam: true };
 }
 
-export function canHoldUse(self: DefusePlayer, goal: DefuseGoal, closeEnemy: boolean): boolean {
+export function canHoldUse(self: BotPlayer, goal: DefuseGoal, closeEnemy: boolean): boolean {
   if (self.dropping || closeEnemy) return false;
   if (goal.role === 'plant') return inBombReach(self, goal.point, BOMB_SITE_RADIUS_UNITS - 12);
   return goal.role === 'defuse' && inBombReach(self, goal.point, DEFUSE_RADIUS_UNITS - 5);
 }
 
-export function reachedPatrolPoint(self: BombPoint, point: BombPoint): boolean {
-  return inBombReach(self, point, PATROL_REACHED_UNITS);
-}
-
-export interface ProgressSample {
-  point: BombPoint;
-  at: number;
-}
-
-export function checkProgress(previous: ProgressSample | null, point: BombPoint, now: number) {
-  if (!previous || !inBombReach(previous.point, point, STUCK_DISTANCE_UNITS)) {
-    return { sample: { point, at: now }, stuck: false };
-  }
-  if (now - previous.at < STUCK_MS) return { sample: previous, stuck: false };
-  return { sample: { point, at: now }, stuck: true };
+/** Adds the per-tick combat decisions to the objective: use, duel and defender interception. */
+export function defuseGoal(
+  bomb: NonNullable<ReturnType<typeof readBombRow>>, places: BombPlaces,
+  self: BotPlayer, players: readonly BotPlayer[], leg: number,
+  enemy: BombPoint | null, closeEnemy: boolean,
+): DefuseGoal {
+  const objective = pickDefuseGoal(bomb, places, self, players, leg);
+  const duel = objective.role === 'plant' || objective.role === 'defuse';
+  // Defenders intercept visible intruders near the site before returning to the perimeter.
+  const intercepting = enemy && !closeEnemy && self.team !== bomb.attackers && bomb.kind !== 'planted'
+    && Math.hypot(enemy.x - places.site.x, enemy.z - places.site.z) < DEFENDER_PURSUIT_UNITS;
+  return {
+    ...objective,
+    use: canHoldUse(self, objective, closeEnemy),
+    duel,
+    ...(intercepting ? { intercept: enemy } : {}),
+  };
 }

@@ -3,6 +3,7 @@ import '@fontsource/fragment-mono';
 import './styles.css';
 import { KICK_CLOSE_CODE, type KickReason, PROTOCOL_VERSION, type ServerMsg } from '@calindra-strike/shared';
 import { loadBrand } from './brand.ts';
+import { KONAMI_CODE, sequenceMatcher } from './easter-egg.ts';
 import { SERVER_HTTP, SERVER_WS } from './config.ts';
 import { ClientGame, type Welcome } from './game/client.ts';
 import { Connection } from './game/net.ts';
@@ -48,6 +49,25 @@ class Rejected extends Error {
 function lobby(error = ''): void {
   stopLobby?.();
   stopLobby = renderLobby(app, settings, error, (s, spectate) => void play(s, spectate));
+}
+
+/** Easter egg: the Konami code on the lobby opens the weapon viewer. It is fetched only then, so it costs the normal game nothing. */
+const konami = sequenceMatcher(KONAMI_CODE);
+document.addEventListener('keydown', (e) => {
+  const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+  if (!stopLobby || typing || !konami(e.code)) return;
+  void openDebug();
+});
+
+async function openDebug(): Promise<void> {
+  stopLobby?.();
+  stopLobby = null;
+  try {
+    const { openWeaponViewer } = await import('./debug/weapon-viewer.ts');
+    openWeaponViewer(app, settings, () => lobby());
+  } catch {
+    lobby('Não foi possível abrir o modo debug.');
+  }
 }
 
 function waitWelcome(net: Connection, ms: number): Promise<Welcome> {

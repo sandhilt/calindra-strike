@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
 import { QUALITY, type Quality } from './quality.ts';
+import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
 
@@ -87,6 +88,7 @@ export class ViewModel {
   private swing = 0;
   private swingHeavy = false;
   private readonly belt: BeltFlow = { feed: 0, speed: 0, burst: 0 };
+  private placementNow: GunPlacement = placementFor(WEAPON.RIFLE);
   private beltLinks: number;
   private readonly baseRot = new THREE.Euler();
   private readonly basePos = new THREE.Vector3();
@@ -194,22 +196,28 @@ export class ViewModel {
     this.boltCycle = -1;
     this.flashT = 0;
     this.flash.visible = false;
-    m.group.scale.setScalar(0.62);
-    if (id === WEAPON.HAMMER) {
-      m.group.scale.setScalar(0.5);
-      m.group.position.set(7.5, -5.5, -19.5);
-      m.group.rotation.set(0.12, -0.3, 0.25);
-    } else if (id === WEAPON.PISTOL) {
-      m.group.position.set(5.2, -5.6, -15);
-      m.group.rotation.set(0, 0.05, 0);
-    } else {
-      m.group.position.set(6, -6.4, -13);
-      m.group.rotation.set(0, 0.045, 0);
-    }
-    this.baseRot.copy(m.group.rotation);
-    this.basePos.copy(m.group.position);
+    this.applyPlacement(m.group, placementFor(id));
     m.muzzle.add(this.flash);
     this.kickGroup.add(m.group);
+  }
+
+  private applyPlacement(group: THREE.Group, p: GunPlacement): void {
+    this.placementNow = p;
+    group.scale.setScalar(p.scale);
+    group.position.set(...p.position);
+    group.rotation.set(...p.rotation);
+    this.baseRot.copy(group.rotation);
+    this.basePos.copy(group.position);
+  }
+
+  /** Where the weapon on show sits in the view. */
+  placement(): GunPlacement {
+    return this.placementNow;
+  }
+
+  /** Moves the weapon on show; the next `setWeapon` puts a weapon back at its own placement. Used by the debug viewer. */
+  setPlacement(p: GunPlacement): void {
+    if (this.model) this.applyPlacement(this.model.group, p);
   }
 
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {

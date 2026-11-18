@@ -1,4 +1,5 @@
 import { browserEngine } from '../game/speech.ts';
+import { checkRow, choiceRow, group, rangeRow } from './controls.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
@@ -80,55 +81,12 @@ export class Overlays {
       saveSettings(s);
       this.hooks.settingsChanged(s);
     };
-    const row = (label: string, control: HTMLElement, value?: HTMLElement, hint?: string) =>
-      h('div', { class: value ? 'row row-value' : 'row' }, [
-        h('span', { class: 'row-label', text: label }),
-        h('div', { class: 'row-control' }, hint ? [control, h('small', { class: 'hint', text: hint })] : [control]),
-        ...(value ? [value] : []),
-      ]);
-    const slider = (label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) => {
-      const out = h('output', { text: fmt(get()) });
-      const input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': label });
-      input.addEventListener('input', () => {
-        set(Number(input.value));
-        out.textContent = fmt(get());
-        changed();
-      });
-      return row(label, input, out);
-    };
-    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) => {
-      const wrap = h('div', { class: 'seg' });
-      const draw = () =>
-        wrap.replaceChildren(
-          ...options.map((o) =>
-            h('button', {
-              type: 'button',
-              style: o.style,
-              'aria-pressed': String(get() === o.v),
-              text: o.label,
-              onclick: () => {
-                set(o.v);
-                changed();
-                draw();
-              },
-            }),
-          ),
-        );
-      draw();
-      return row(label, wrap, undefined, hint);
-    };
-    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) => {
-      const input = h('input', { type: 'checkbox' }) as HTMLInputElement;
-      // Unavailable: shown off and locked, while the saved choice stays as it was for a browser that can speak.
-      input.disabled = !available;
-      input.checked = available && get();
-      input.addEventListener('change', () => {
-        set(input.checked);
-        changed();
-      });
-      return row(label, h('label', { class: 'toggle' }, [input, h('span', { text: available ? text : 'este navegador não tem voz sintetizada' })]));
-    };
-    const group = (title: string, ...rows: HTMLElement[]) => h('section', { class: 'menu-group' }, [h('h3', { text: title }), ...rows]);
+    const slider = (label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) =>
+      rangeRow(label, { min, max, step }, get, set, fmt, changed);
+    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) =>
+      choiceRow(label, options, get, set, changed, hint);
+    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) =>
+      checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada');
     const canSpeak = browserEngine() !== null;
 
     return h('div', { class: 'menu glass' }, [

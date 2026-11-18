@@ -31,6 +31,16 @@ Run `node --run test` and `node --run typecheck` before finishing a change.
 
 To see a change working in the real app, use the project skill `.claude/skills/verify-calindra-strike` (isolated server + client, doctor, dev bots, feature map). The MCP browser has no WebGL, so the in-game 3D view and HUD cannot be verified there; the skill says how to prove the server side instead.
 
+## Debug mode (weapon viewer)
+
+A hidden mode of the client for trying a weapon, its animations and its angle without joining a match. It is an easter egg: on the lobby screen (not while typing in a field) press the Konami code, `↑ ↑ ↓ ↓ ← → ← → B A`. The lobby is replaced by a full-screen viewer that renders the real first-person `ViewModel`, so what you see is what the game draws.
+
+- **Controls.** Pick any weapon and graphics tier, fire once or hold the trigger at the weapon's cadence, play a reload (speed 0.25× to 2×, loop) or drag the reload slider to hold one pose, turn the walking bob on, change the field of view, and move, rotate and scale the gun.
+- **Tuning an angle.** `copiar para o código` copies the current placement as one line to paste into `client/src/game/render/weapon-placement.ts`, the table the game reads. `restaurar` goes back to the weapon's own placement.
+- **Where it lives.** The trigger is in `client/src/main.ts` with the matcher in `client/src/easter-egg.ts`. The viewer is `client/src/debug/weapon-viewer.ts` (DOM and render loop) and `weapon-debug.ts` (pure reload and auto-fire logic, tested). It is loaded with a dynamic import only when the code is typed, so the normal bundle does not carry it. Its rows come from `client/src/ui/controls.ts`, shared with the pause menu.
+- **Needs WebGL.** Without it the viewer only shows a notice and the way back to the lobby, which is what the MCP browser gets. An agent cannot judge the animation there: ask the user to look, or render frames in software from `ViewModel` (stub `document.createElement('canvas')`, then rasterize `view.scene` with `view.camera`), which shows geometry and framing but not motion.
+- **When to use it.** Any change to a weapon model, a reload or fire animation, or where the gun sits in the view. Put new weapon-specific controls in the viewer, not in the game.
+
 ## Node standard library first
 
 Server, shared code, tests and tools use only what Node (>= 24) ships, plus the exceptions below. Before adding a package or a hand-rolled helper, check whether Node already has it.

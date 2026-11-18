@@ -783,6 +783,17 @@ test('a kick tells the agent why it was removed and how to come back, a plain cl
   await assert.rejects(async () => session.getState(), { message: 'idle' }, 'only the kick code is translated');
 });
 
+test('the session confirms "pronto" again whenever the server asks, so an agent is never kicked between matches', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const sent = socket.sent.length;
+  socket.message({ t: 'readiness', ready: { kind: 'pending', kickAt: 20_000 } });
+  assert.deepEqual(socket.sent.slice(sent).map((s) => JSON.parse(s)), [{ t: 'ready' }]);
+  session.close();
+});
+
 test('received radio lines appear in chat with their text and a radio flag', async () => {
   const { session, socket } = setup();
   const joined = session.join(args);

@@ -209,7 +209,9 @@ export type ServerMsg =
   | { t: 'match'; match: MatchInfo }
   | { t: 'pong'; c: number; s: number }
   | { t: 'chat'; id: number; text: string }
-  | { t: 'radio'; id: number; line: number };
+  | { t: 'radio'; id: number; line: number }
+  // The next match asks everybody to confirm "pronto" again, with a fresh kick deadline.
+  | { t: 'readiness'; ready: Readiness };
 
 /** A pending player waits on the "pronto" screen, out of the world. kickAt: server ms of the kick, null when the server does not kick. */
 export type Readiness = { kind: 'confirmed' } | { kind: 'pending'; kickAt: number | null };

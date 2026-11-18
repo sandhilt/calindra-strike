@@ -228,6 +228,7 @@ export class GameSession {
         this.send({ t: 'vote', option });
       }
     }
+    if (m.t === 'readiness') this.send({ t: 'ready' });
     if (m.t === 'score') {
       v.scores = m.s;
       v.match.teams = m.ts;

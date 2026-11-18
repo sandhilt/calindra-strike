@@ -59,6 +59,7 @@ function bot(i: number): void {
       setMatch(m.match);
       setRoster(m.roster);
     }
+    if (m.t === 'readiness') ws.send(JSON.stringify({ t: 'ready' }));
     if (m.t === 'roster') setRoster(m.roster);
     if (m.t === 'match') setMatch(m.match);
     if (m.t === 'snap') {

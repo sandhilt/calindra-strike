@@ -556,6 +556,12 @@ export class ClientGame {
       case 'match':
         this.onMatch(m.match);
         break;
+      case 'readiness':
+        if (this.spectator) break;
+        this.ready = m.ready;
+        // Still holding the mouse (clicked during the podium): that click already was the "pronto".
+        if (this.input.locked) this.confirmReady();
+        break;
       case 'votes':
         this.voteCounts = m.counts;
         this.ui.updateVotes(m.counts, this.myVote);

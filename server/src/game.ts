@@ -690,8 +690,23 @@ export class Game {
   /** A player joining during the podium gets the full window once the next match starts. */
   private initialReadiness(): Readiness {
     if (!this.opts.requireReady) return CONFIRMED;
+    return this.pendingFrom(this.phase === 'podium' ? this.phaseEnds : this.now());
+  }
+
+  private pendingFrom(start: number): Readiness {
     const kickMs = this.opts.readyKickMs;
-    return { kind: 'pending', kickAt: kickMs ? (this.phase === 'podium' ? this.phaseEnds : this.now()) + kickMs : null };
+    return { kind: 'pending', kickAt: kickMs ? start + kickMs : null };
+  }
+
+  /** Every match starts like a first join. The podium frees the mouse, so the click on "pronto" is how people come back. */
+  private askForReady(): void {
+    if (!this.opts.requireReady) return;
+    const ready = this.pendingFrom(this.now());
+    for (const p of this.players.values()) {
+      if (p.brain) continue;
+      p.ready = ready;
+      p.send(JSON.stringify({ t: 'readiness', ready }));
+    }
   }
 
   ready(p: ServerPlayer): void {
@@ -1071,6 +1086,7 @@ export class Game {
     this.voteOptions = [];
     this.votes.clear();
     for (const p of this.players.values()) this.clearHistory(p);
+    this.askForReady();
     if (this.readyToStart()) this.startMatch();
     else {
       this.phase = 'warmup';

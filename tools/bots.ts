@@ -1,12 +1,13 @@
 /**
  * Dev-only load/behaviour test: spawns simple bots that strafe around and shoot
- * at the nearest player. Usage:
+ * at the nearest player, or play the objective in debug defusion. Usage:
  *   node tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
-import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd } from '../shared/src/index.ts';
+import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
+import { DefuseDriver } from './defuse-driver.ts';
 
 const { positionals } = parseArgs({ allowPositionals: true });
 const count = Number(positionals[0] ?? 3);
@@ -24,8 +25,19 @@ function bot(i: number): void {
   let t = 0;
   let serverTime = 0;
   let mode = 'ffa';
+  let map = -1;
+  let snap: Extract<ServerMsg, { t: 'snap' }> | null = null;
+  let defuse = new DefuseDriver();
+  const setMatch = (match: MatchInfo) => {
+    if (mode !== match.mode || map !== match.map) {
+      snap = null;
+      defuse = new DefuseDriver();
+    }
+    mode = match.mode;
+    map = match.map;
+  };
   const teams = new Map<number, number>();
-  const setRoster = (r: [number, string, number, number][]) => {
+  const setRoster = (r: RosterEntry[]) => {
     teams.clear();
     for (const [pid, , , team] of r) teams.set(pid, team);
   };
@@ -33,15 +45,16 @@ function bot(i: number): void {
     ws.send(JSON.stringify({ t: 'hello', v: PROTOCOL_VERSION, name: `bot ${NAMES[i % NAMES.length]}`, color: (i * 5) % 12, primary: [WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN][i % 3] })),
   );
   ws.addEventListener('message', (e) => {
-    const m = JSON.parse(String(e.data));
+    const m: ServerMsg = JSON.parse(String(e.data));
     if (m.t === 'welcome') {
       id = m.id;
-      mode = m.match.mode;
+      setMatch(m.match);
       setRoster(m.roster);
     }
     if (m.t === 'roster') setRoster(m.roster);
-    if (m.t === 'match') mode = m.match.mode;
+    if (m.t === 'match') setMatch(m.match);
     if (m.t === 'snap') {
+      snap = m;
       me = m.me;
       serverTime = m.time;
       others = m.ps.filter((p: number[]) => p[0] !== id && !(mode !== 'ffa' && teams.get(p[0]) === teams.get(id)));
@@ -49,10 +62,18 @@ function bot(i: number): void {
     if (m.t === 'reject') console.log('rejected', m.reason);
   });
   ws.addEventListener('close', (e) => console.log(`bot ${i} closed`, e.code, e.reason));
-  setInterval(() => {
+  const timer = setInterval(() => {
     if (ws.readyState !== WebSocket.OPEN || id < 0) return;
     t++;
     const cmds = [];
+    const interp = Math.max(0, serverTime - 100);
+    if (mode === 'defuse' && !passive) {
+      if (!snap) return;
+      const input = defuse.drive(snap, map, id, teams, t);
+      for (let k = 0; k < 2; k++) cmds.push(encodeCmd({ ...input, seq: ++seq, interp }));
+      ws.send(JSON.stringify({ t: 'in', c: cmds }));
+      return;
+    }
     for (let k = 0; k < 2; k++) {
       let yaw = (t * 0.01 + i) % (Math.PI * 2);
       let pitch = 0;
@@ -81,10 +102,11 @@ function bot(i: number): void {
           } else if (t % 50 < 20) buttons |= BTN.ATTACK;
         } else buttons |= BTN.FWD;
       }
-      cmds.push(encodeCmd({ seq: ++seq, buttons, yaw, pitch, weapon: 0, interp: Math.max(0, serverTime - 100) }));
+      cmds.push(encodeCmd({ seq: ++seq, buttons, yaw, pitch, weapon: 0, interp }));
     }
     ws.send(JSON.stringify({ t: 'in', c: cmds }));
   }, TICK_MS * 2);
+  ws.addEventListener('close', () => clearInterval(timer));
 }
 
 for (let i = 0; i < count; i++) setTimeout(() => bot(i), i * 300);

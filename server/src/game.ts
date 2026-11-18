@@ -1341,7 +1341,7 @@ export class Game {
 
   private randomBot(team = -1): ServerPlayer | undefined {
     const bots = [...this.players.values()].filter((p) => p.botChat && (team < 0 || p.team === team));
-    return bots[Math.floor(this.random() * bots.length)];
+    return bots.length === 0 ? undefined : bots[Math.floor(this.random() * bots.length)];
   }
 
   /** A bot's occasional comment, gated per bot and across the room so matches stay lively but not noisy. */

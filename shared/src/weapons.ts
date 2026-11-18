@@ -47,7 +47,10 @@ export interface WeaponDef {
   auto: boolean;
   mag: number;
   reserve: number;
+  /** Ticks to reload from an empty magazine. Derived from `reloadTiming`, never set by hand. */
   reloadTicks: number;
+  /** Null when the weapon cannot reload. */
+  reloadTiming: ReloadTiming | null;
   deployTicks: number;
   speed: number;
   scopedSpeed: number;
@@ -59,7 +62,97 @@ export interface WeaponDef {
   heavy?: { damage: number; ticks: number }; // melee alt attack
 }
 
-const W = (d: WeaponDef) => d;
+/**
+ * Reload phases in ticks (60 per second), one row per weapon. Magazine weapons
+ * swap the magazine out, push the fresh one in, then rack the slide or bolt.
+ * The shotgun loads one shell per step like the CS 1.6 M3: a short start, one
+ * shell step per round and a pump after the last one.
+ */
+export type ReloadTiming =
+  | { kind: 'magazine'; outTicks: number; inTicks: number; boltTicks: number }
+  | { kind: 'shells'; startTicks: number; shellTicks: number; pumpTicks: number };
+
+export type ShellReloadTiming = Extract<ReloadTiming, { kind: 'shells' }>;
+
+export const RELOAD_TIMING: Readonly<Record<WeaponId, ReloadTiming | null>> = {
+  [WEAPON.HAMMER]: null,
+  [WEAPON.PISTOL]: { kind: 'magazine', outTicks: 42, inTicks: 52, boltTicks: 36 },
+  [WEAPON.RIFLE]: { kind: 'magazine', outTicks: 55, inTicks: 55, boltTicks: 40 },
+  [WEAPON.SMG]: { kind: 'magazine', outTicks: 45, inTicks: 45, boltTicks: 35 },
+  [WEAPON.SHOTGUN]: { kind: 'shells', startTicks: 20, shellTicks: 20, pumpTicks: 20 },
+  [WEAPON.SNIPER]: { kind: 'magazine', outTicks: 50, inTicks: 55, boltTicks: 45 },
+  [WEAPON.LMG]: { kind: 'magazine', outTicks: 100, inTicks: 110, boltTicks: 70 },
+};
+
+/** Total ticks of a reload that loads `shells` rounds (ignored by magazine weapons). */
+export function reloadTotalTicks(t: ReloadTiming, shells: number): number {
+  return t.kind === 'magazine' ? t.outTicks + t.inTicks + t.boltTicks : t.startTicks + shells * t.shellTicks + t.pumpTicks;
+}
+
+/** Ticks of one shell step. The step that loads the last round also includes the pump. */
+export function shellStepTicks(t: ShellReloadTiming, shellsLeft: number): number {
+  return t.shellTicks + (shellsLeft === 1 ? t.pumpTicks : 0);
+}
+
+export type ReloadPhase = 'out' | 'in' | 'bolt' | 'start' | 'shell' | 'pump';
+
+export interface ReloadCursor {
+  phase: ReloadPhase;
+  /** 0..1 inside the phase. */
+  t: number;
+  /** Shell step index while phase is 'shell', 0 otherwise. */
+  shell: number;
+}
+
+/** Where a reload that began `elapsedTicks` ago is, or null before it starts and after it ends. */
+export function reloadCursor(timing: ReloadTiming, elapsedTicks: number, shells: number): ReloadCursor | null {
+  if (elapsedTicks < 0 || elapsedTicks >= reloadTotalTicks(timing, shells)) return null;
+  const at = (phase: ReloadPhase, from: number, len: number, shell = 0): ReloadCursor => ({ phase, t: (elapsedTicks - from) / len, shell });
+  if (timing.kind === 'magazine') {
+    const { outTicks, inTicks, boltTicks } = timing;
+    if (elapsedTicks < outTicks) return at('out', 0, outTicks);
+    if (elapsedTicks < outTicks + inTicks) return at('in', outTicks, inTicks);
+    return at('bolt', outTicks + inTicks, boltTicks);
+  }
+  const { startTicks, shellTicks, pumpTicks } = timing;
+  if (elapsedTicks < startTicks) return at('start', 0, startTicks);
+  const loadEnd = startTicks + shells * shellTicks;
+  if (elapsedTicks >= loadEnd) return at('pump', loadEnd, pumpTicks);
+  const shell = Math.floor((elapsedTicks - startTicks) / shellTicks);
+  return at('shell', startTicks + shell * shellTicks, shellTicks, shell);
+}
+
+/** Moments of a reload that make a sound, as a fraction of the phase they belong to. */
+export const RELOAD_CUE_AT = { out: 0.35, in: 0.75, bolt: 0.08, shell: 0.85, pump: 0.05 } as const;
+export type ReloadCue = keyof typeof RELOAD_CUE_AT;
+export interface ReloadCueAt {
+  tick: number;
+  cue: ReloadCue;
+}
+
+/** Every sound of a reload that loads `shells` rounds, in order, as ticks since the reload began. */
+export function reloadCues(timing: ReloadTiming, shells: number): ReloadCueAt[] {
+  if (timing.kind === 'magazine') {
+    const { outTicks, inTicks, boltTicks } = timing;
+    return [
+      { tick: outTicks * RELOAD_CUE_AT.out, cue: 'out' },
+      { tick: outTicks + inTicks * RELOAD_CUE_AT.in, cue: 'in' },
+      { tick: outTicks + inTicks + boltTicks * RELOAD_CUE_AT.bolt, cue: 'bolt' },
+    ];
+  }
+  const { startTicks, shellTicks, pumpTicks } = timing;
+  const cues: ReloadCueAt[] = [];
+  for (let i = 0; i < shells; i++) cues.push({ tick: startTicks + (i + RELOAD_CUE_AT.shell) * shellTicks, cue: 'shell' });
+  cues.push({ tick: startTicks + shells * shellTicks + pumpTicks * RELOAD_CUE_AT.pump, cue: 'pump' });
+  return cues;
+}
+
+type WeaponSpec = Omit<WeaponDef, 'reloadTicks' | 'reloadTiming'>;
+
+const W = (d: WeaponSpec): WeaponDef => {
+  const reloadTiming = RELOAD_TIMING[d.id];
+  return { ...d, reloadTiming, reloadTicks: reloadTiming ? reloadTotalTicks(reloadTiming, d.mag) : 0 };
+};
 
 export const WEAPONS: readonly WeaponDef[] = [
   W({
@@ -78,7 +171,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: true,
     mag: 0,
     reserve: 0,
-    reloadTicks: 0,
     deployTicks: 30,
     speed: 280,
     scopedSpeed: 280,
@@ -103,7 +195,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: false,
     mag: 12,
     reserve: 48,
-    reloadTicks: 130,
     deployTicks: 40,
     speed: 250,
     scopedSpeed: 250,
@@ -127,7 +218,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: true,
     mag: 30,
     reserve: 90,
-    reloadTicks: 150,
     deployTicks: 60,
     speed: 221,
     scopedSpeed: 221,
@@ -151,7 +241,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: true,
     mag: 30,
     reserve: 120,
-    reloadTicks: 125,
     deployTicks: 45,
     speed: 240,
     scopedSpeed: 240,
@@ -175,7 +264,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: false,
     mag: 7,
     reserve: 28,
-    reloadTicks: 180,
     deployTicks: 50,
     speed: 230,
     scopedSpeed: 230,
@@ -199,7 +287,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: false,
     mag: 10,
     reserve: 20,
-    reloadTicks: 150,
     deployTicks: 70,
     speed: 210,
     scopedSpeed: 150,
@@ -224,7 +311,6 @@ export const WEAPONS: readonly WeaponDef[] = [
     auto: true,
     mag: 100,
     reserve: 100,
-    reloadTicks: 280,
     deployTicks: 75,
     speed: 215,
     scopedSpeed: 215,
@@ -256,6 +342,11 @@ export function csSniperSpread(onGround: boolean, speed: number, ducked: boolean
 
 export function weaponDef(id: number): WeaponDef {
   return WEAPONS[id] ?? WEAPONS[WEAPON.HAMMER];
+}
+
+/** Rounds a reload still has to load: the room in the magazine, limited by the reserve. */
+export function shellsToLoad(def: WeaponDef, mag: number, reserve: number): number {
+  return Math.max(0, Math.min(def.mag - mag, reserve));
 }
 
 export function isWeaponId(v: unknown): v is WeaponId {

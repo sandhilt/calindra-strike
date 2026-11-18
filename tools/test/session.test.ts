@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
-  listeners = new Map<string, Set<(event: { data?: unknown; reason?: string }) => void>>();
-  addEventListener(t: string, fn: (event: { data?: unknown; reason?: string }) => void) {
+  listeners = new Map<string, Set<(event: { data?: unknown; reason?: string; code?: number }) => void>>();
+  addEventListener(t: string, fn: (event: { data?: unknown; reason?: string; code?: number }) => void) {
     if (!this.listeners.has(t)) this.listeners.set(t, new Set());
     this.listeners.get(t)!.add(fn);
   }
-  removeEventListener(t: string, fn: (event: { data?: unknown; reason?: string }) => void) {
+  removeEventListener(t: string, fn: (event: { data?: unknown; reason?: string; code?: number }) => void) {
     this.listeners.get(t)?.delete(fn);
   }
   send(s: string) {
@@ -22,7 +22,7 @@ class Socket implements SocketLike {
     this.readyState = 3;
     this.emit('close', {});
   }
-  emit(t: string, e: { data?: unknown; reason?: string }) {
+  emit(t: string, e: { data?: unknown; reason?: string; code?: number }) {
     for (const fn of this.listeners.get(t) ?? []) fn(e);
   }
   message(m: object) {
@@ -764,6 +764,23 @@ test('radio tool sends the line id from a menu and slot, and rejects unknown men
   }
   assert.equal(socket.sent.length, sent, 'a rejected call sends nothing');
   session.close();
+});
+
+test('a kick tells the agent why it was removed and how to come back, a plain close keeps its reason', async () => {
+  for (const [reason, expected] of [['idle', /inactivity.*join/], ['afk', /ready.*join/], ['podium', /match ended.*join/], ['mystery', /Kicked by the server.*join/]] as const) {
+    const { session, socket } = setup();
+    const joined = session.join(args);
+    socket.message(welcome);
+    await joined;
+    socket.emit('close', { code: KICK_CLOSE_CODE, reason });
+    await assert.rejects(async () => session.getState(), expected, reason);
+  }
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  socket.emit('close', { code: 1006, reason: 'idle' });
+  await assert.rejects(async () => session.getState(), { message: 'idle' }, 'only the kick code is translated');
 });
 
 test('received radio lines appear in chat with their text and a radio flag', async () => {

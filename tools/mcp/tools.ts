@@ -183,7 +183,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'radio',
-    description: `Send a radio line to your team (everyone in free-for-all), shown and spoken in the game; 1.5 s cooldown per player. Menus and lines: ${RADIO_MENUS.map((m) => `${m.id} (${m.keyLabel}): ${m.lines.map((l, i) => `${i + 1} ${l.text}`).join(' · ')}`).join('. ')}. Received lines appear in get_state chat with radio: true.`,
+    description: `Send a prepared radio line (CS 1.6 style) to your team only, or to everyone in free-for-all; teammates see it in their feed and hear it, enemies never do. The server drops lines over its spam guard (defaults: 1.5 s between lines, 3 per 10 s) without telling you, so a success here does not mean it was delivered. Menus and lines: ${RADIO_MENUS.map((m) => `${m.id} (${m.keyLabel}): ${m.lines.map((l, i) => `${i + 1} ${l.text}`).join(' · ')}`).join('. ')}. Received lines appear in get_state chat with radio: true.`,
     properties: {
       menu: { type: 'string', enum: [...RADIO_MENU_IDS] },
       line: { type: 'integer', minimum: 1, maximum: 9 },

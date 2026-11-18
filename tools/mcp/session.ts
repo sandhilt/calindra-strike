@@ -5,6 +5,8 @@ import {
   PROTOCOL_VERSION,
   RF_DROP,
   radioLine,
+  KICK_CLOSE_CODE,
+  type KickReason,
   STAND_HEIGHT,
   TICK_MS,
   encodeCmd,
@@ -23,9 +25,21 @@ export interface SocketLike {
   readyState: number;
   send(data: string): void;
   close(): void;
-  addEventListener(type: string, listener: (event: { data?: unknown; reason?: string }) => void): void;
-  removeEventListener(type: string, listener: (event: { data?: unknown; reason?: string }) => void): void;
+  addEventListener(type: string, listener: (event: { data?: unknown; reason?: string; code?: number }) => void): void;
+  removeEventListener(type: string, listener: (event: { data?: unknown; reason?: string; code?: number }) => void): void;
 }
+/** What a kicked agent reads on its next tool call: the bare close reason ("idle") says nothing about what to do. */
+const KICKED = new Map<string, string>([
+  ['idle', 'Kicked for inactivity: no tool call for too long. Call join to play again.'],
+  ['afk', 'Kicked: never confirmed ready in time. Call join to play again.'],
+  ['podium', 'Kicked: the match ended before you confirmed ready. Call join to play again.'],
+] satisfies [KickReason, string][]);
+
+function closeReason(e: { reason?: string; code?: number }): string {
+  if (e.code === KICK_CLOSE_CODE) return KICKED.get(e.reason ?? '') ?? 'Kicked by the server. Call join to play again.';
+  return e.reason || 'Socket closed';
+}
+
 export interface Clock {
   now(): number;
   setInterval(fn: () => void, ms: number): ReturnType<typeof setInterval>;
@@ -142,8 +156,8 @@ export class GameSession {
           else finish(reason);
         }
       };
-      const closed = (e: { reason?: string }) => {
-        const reason = e.reason || 'Socket closed';
+      const closed = (e: { reason?: string; code?: number }) => {
+        const reason = closeReason(e);
         if (!settled) finish(reason);
         else this.close(reason);
       };

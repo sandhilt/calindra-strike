@@ -26,7 +26,18 @@ import {
 } from './constants.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
-import { WEAPON, WEAPON_COUNT, type WeaponDef, type WeaponId, csSniperSpread, recoilOffset, weaponDef } from './weapons.ts';
+import {
+  WEAPON,
+  WEAPON_COUNT,
+  type ShellReloadTiming,
+  type WeaponDef,
+  type WeaponId,
+  csSniperSpread,
+  recoilOffset,
+  shellStepTicks,
+  shellsToLoad,
+  weaponDef,
+} from './weapons.ts';
 
 export interface PlayerState {
   x: number;
@@ -436,19 +447,51 @@ export function computeSpread(s: PlayerState, def: WeaponDef = weaponDef(s.weapo
   return spread;
 }
 
+/**
+ * Magazine weapons count the whole reload down in `s.reload` and swap magazines
+ * at the end, so the rounds left in the old magazine are kept. The shotgun
+ * counts one shell step at a time instead: `s.reload` is the ticks left in the
+ * current step and every shell lands in the magazine as soon as it is loaded.
+ */
 function startReload(s: PlayerState, def: WeaponDef): void {
-  if (def.mag <= 0 || s.reload > 0) return;
-  if (s.mag[def.id] >= def.mag || s.reserve[def.id] <= 0) return;
-  s.reload = def.reloadTicks;
+  const timing = def.reloadTiming;
+  if (!timing || s.reload > 0) return;
+  const shells = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
+  if (shells <= 0) return;
+  s.reload = timing.kind === 'shells' ? timing.startTicks + shellStepTicks(timing, shells) : def.reloadTicks;
   s.zoom = 0;
   s.resumeZoom = 0;
 }
 
-function finishReload(s: PlayerState, def: WeaponDef): void {
-  const need = def.mag - s.mag[def.id];
-  const take = Math.min(need, s.reserve[def.id]);
+function finishMagazineReload(s: PlayerState, def: WeaponDef): void {
+  const take = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
   s.mag[def.id] += take;
   s.reserve[def.id] -= take;
+}
+
+/** The shell goes in where its step ends, or before the pump when it is the last one. */
+function loadShell(s: PlayerState, def: WeaponDef, timing: ShellReloadTiming): void {
+  const left = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
+  if (left <= 0) return;
+  const insertAt = left === 1 ? timing.pumpTicks : 0;
+  if (s.reload > insertAt) return;
+  s.mag[def.id]++;
+  s.reserve[def.id]--;
+  if (left > 1) s.reload = shellStepTicks(timing, left - 1);
+}
+
+function reloadTick(s: PlayerState, def: WeaponDef): void {
+  s.reload--;
+  const timing = def.reloadTiming;
+  if (timing?.kind === 'shells') loadShell(s, def, timing);
+  else if (s.reload === 0) finishMagazineReload(s, def);
+}
+
+/** CS 1.6 shotgun: pulling the trigger mid-reload stops it and fires the shells already loaded. */
+function interruptShellReload(s: PlayerState, def: WeaponDef, attack: boolean): void {
+  if (def.reloadTiming?.kind !== 'shells' || s.reload === 0) return;
+  if (!attack || s.attackHeld || s.mag[def.id] <= 0) return;
+  if (s.deploy === 0 && s.tick >= s.nextFire) s.reload = 0;
 }
 
 function slotWeapon(s: PlayerState, req: number): WeaponId | -1 {
@@ -526,10 +569,7 @@ function weaponTick(s: PlayerState, buttons: number, seedBase: number): ShotInfo
   let shot: ShotInfo | null = null;
 
   if (s.deploy > 0) s.deploy--;
-  if (s.reload > 0) {
-    s.reload--;
-    if (s.reload === 0) finishReload(s, def);
-  }
+  if (s.reload > 0) reloadTick(s, def);
   if (s.recoil > 0 && s.tick - s.lastFire > def.fireTicks + 1) {
     s.recoil = Math.max(0, s.recoil - def.recoil.recovery * TICK_DT);
   }
@@ -543,6 +583,7 @@ function weaponTick(s: PlayerState, buttons: number, seedBase: number): ShotInfo
     else s.zoom = (s.zoom + 1) % (def.zoomFov.length + 1);
   }
   if (buttons & BTN.RELOAD) startReload(s, def);
+  interruptShellReload(s, def, attack);
 
   const ready = !s.dropping && s.deploy === 0 && s.reload === 0 && s.tick >= s.nextFire;
   if (def.slot === 3) {

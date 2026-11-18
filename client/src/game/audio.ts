@@ -1,6 +1,7 @@
 import { flagVoice } from './sound-packs/classic.ts';
-import { SPRAY_EMPTY_BURSTS, WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { SPRAY_EMPTY_BURSTS, WEAPON, type ReloadCue, type WeaponId } from '@calindra-strike/shared';
 
+import { playReloadCue } from './reload-sounds.ts';
 import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
 import type { Pos, SoundKit, Sounds, StreakSound } from './sound-packs/types.ts';
 import { VOICES } from './sound-packs/voices.ts';
@@ -247,11 +248,8 @@ export class Sfx {
     this.noiseBurst(this.master, this.ctx.currentTime, 3000, 3, 0.001, 0.03, 0.15);
   }
 
-  reload(stage: number): void {
-    const t = this.ctx.currentTime;
-    const f = [1800, 2400, 3100][stage] ?? 2000;
-    this.noiseBurst(this.master, t, f, 3, 0.001, 0.05, 0.2);
-    this.tone(this.master, t, 'square', f / 4, f / 5, 0.03, 0.04);
+  reload(weapon: WeaponId, cue: ReloadCue, pos: Pos = null): void {
+    playReloadCue(this.kit, weapon, cue, pos);
   }
 
   /** Scope zoom click, like the CS 1.6 zoom sound. */

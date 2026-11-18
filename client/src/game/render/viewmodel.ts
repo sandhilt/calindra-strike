@@ -1,6 +1,16 @@
-import { WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import { RESTING_RELOAD_POSE, type ReloadPose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
+
+/** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
+const MAG_FALL_UNITS = 12;
+/** Roll and pitch of the gun at full tilt while reloading, in radians. */
+const RELOAD_ROLL = 0.5;
+const RELOAD_PITCH = 0.12;
+/** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
+const RELOAD_DIP_UNITS = 6;
+const SEAT_KICK_UNITS = 1.2;
 
 export function flashTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -35,7 +45,8 @@ export interface ViewPose {
   dt: number;
   lookDX: number;
   lookDY: number;
-  reloadFrac: number; // 0..1 while reloading, -1 otherwise
+  reloadElapsed: number; // ticks since the reload began, -1 when not reloading
+  reloadShells: number; // rounds the reload loads (shotgun), ignored by magazine weapons
   deployFrac: number; // 0..1 while deploying, -1 otherwise
   hidden: boolean;
 }
@@ -47,6 +58,11 @@ export class ViewModel {
   private readonly holder = new THREE.Group();
   private readonly kickGroup = new THREE.Group();
   private model: WeaponModel | null = null;
+  private spareMagazine: THREE.Object3D | null = null;
+  private leftHand: THREE.Group | null = null;
+  private readonly handRest = new THREE.Vector3();
+  private readonly magRest = new THREE.Vector3();
+  private readonly shellRest = new THREE.Vector3();
   private weaponId: WeaponId | -1 = -1;
   private readonly flash: THREE.Sprite;
   private flashT = 0;
@@ -88,21 +104,23 @@ export class ViewModel {
     this.sun.intensity = Math.min(2.6, sunIntensity * 0.8);
   }
 
-  private arms(g: THREE.Group, id: WeaponId): void {
+  /** Adds the hands to the weapon; returns the supporting hand when it can move on its own. */
+  private arms(g: THREE.Group, id: WeaponId): THREE.Group | null {
     const glove = new THREE.MeshStandardMaterial({ color: '#1c1c1b', roughness: 0.9 });
     const geo = new THREE.BoxGeometry(1, 1, 1);
+    let into: THREE.Group = g;
     const add = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, ry = 0, rx = 0) => {
       const mesh = new THREE.Mesh(geo, m);
       mesh.scale.set(w, h, d);
       mesh.position.set(x, y, z);
       mesh.rotation.set(rx, ry, 0);
-      g.add(mesh);
+      into.add(mesh);
     };
     if (id === WEAPON.HAMMER) {
       // Closed fist around the vertical shaft, wrist attached for the entire swing.
       add(4.1, 4.6, 4.2, glove, 0, 0, 0);
       add(4, 4, 14, this.sleeve, 2.2, -4.3, 5, 0.3, 0.62);
-      return;
+      return null;
     }
     // right hand on the grip; forearm leaves the screen toward the bottom-right
     add(4.2, 4.2, 4.2, glove, 0.2, -2, 0.6);
@@ -110,12 +128,17 @@ export class ViewModel {
     if (id === WEAPON.PISTOL) {
       add(4, 4, 4, glove, -2.2, -2.6, 0.4);
       add(4.2, 4.2, 17, this.sleeve, -4.8, -7.4, 7.2, -0.32, 0.6);
-    } else {
-      // left hand under the handguard; forearm goes down-left and back toward the camera
-      const z = id === WEAPON.SMG ? -9 : id === WEAPON.SHOTGUN ? -17 : -16;
-      add(4, 3.6, 4.6, glove, -0.4, -1.4, z);
-      add(4.2, 4.2, 19, this.sleeve, -3.6, -8.2, z + 6.4, -0.3, 0.84);
+      return null;
     }
+    // left hand under the handguard; forearm goes down-left and back toward the camera
+    const z = id === WEAPON.SMG ? -9 : id === WEAPON.SHOTGUN ? -17 : -16;
+    const support = new THREE.Group();
+    g.add(support);
+    into = support;
+    add(4, 3.6, 4.6, glove, -0.4, -1.4, z);
+    add(4.2, 4.2, 19, this.sleeve, -3.6, -8.2, z + 6.4, -0.3, 0.84);
+    this.handRest.set(-0.4, -1.4, z);
+    return support;
   }
 
   setWeapon(id: WeaponId): void {
@@ -125,7 +148,15 @@ export class ViewModel {
     m.group.traverse((o) => {
       o.castShadow = false;
     });
-    this.arms(m.group, id);
+    this.leftHand = this.arms(m.group, id);
+    this.spareMagazine = null;
+    if (m.rig.magazine) {
+      this.magRest.copy(m.rig.magazine.position);
+      this.spareMagazine = m.rig.magazine.clone();
+      this.spareMagazine.visible = false;
+      m.group.add(this.spareMagazine);
+    }
+    if (m.rig.shell) this.shellRest.copy(m.rig.shell.position);
     this.model = m;
     this.weaponId = id;
     this.swing = 0;
@@ -186,19 +217,14 @@ export class ViewModel {
     // recoil spring
     this.kick = Math.max(0, this.kick - dt * 7);
     // reload / deploy dips
-    let dip = 0;
-    let tilt = 0;
-    if (p.reloadFrac >= 0) {
-      const s = Math.sin(Math.min(1, p.reloadFrac) * Math.PI);
-      dip = s * 7;
-      tilt = s * 0.6;
-    }
+    const reload = this.currentReloadPose(p);
+    let dip = reload.dip * RELOAD_DIP_UNITS;
     if (p.deployFrac >= 0) dip = Math.max(dip, (1 - p.deployFrac) * 14);
     const air = p.onGround ? 0 : 1.2;
 
     this.holder.position.set(bobX + this.swayX, bobY - dip - this.swayY + air, 0);
-    this.kickGroup.position.set(0, this.kick * 0.4, this.kick * 2.4);
-    this.kickGroup.rotation.set(this.kick * 0.09 + tilt * 0.3, 0, -tilt);
+    this.kickGroup.position.set(0, this.kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, this.kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);
+    this.kickGroup.rotation.set(this.kick * 0.09 + reload.tilt * RELOAD_PITCH, 0, -reload.tilt * RELOAD_ROLL);
 
     if (this.model) {
       // hammer swing pivots around the grip: head comes down across the centre of the view
@@ -217,12 +243,45 @@ export class ViewModel {
         g.position.y -= s * 0.5;
         g.position.z -= s * 2;
       }
+      this.applyReloadPose(reload);
     }
 
     if (this.flashT > 0) {
       this.flashT -= dt;
       if (this.flashT <= 0) this.flash.visible = false;
     }
+  }
+
+  private currentReloadPose(p: ViewPose): ReloadPose {
+    const timing = this.weaponId === -1 ? null : weaponDef(this.weaponId).reloadTiming;
+    if (!timing || p.reloadElapsed < 0) return RESTING_RELOAD_POSE;
+    return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells));
+  }
+
+  /** Sets every moving part of the weapon each frame, so nothing stays displaced once the reload ends. */
+  private applyReloadPose(pose: ReloadPose): void {
+    const rig = this.model?.rig;
+    if (!rig) return;
+    if (rig.magazine) {
+      rig.magazine.visible = !pose.magGone;
+      rig.magazine.position.copy(this.magRest).addScaledVector(rig.magDown, pose.magDrop * MAG_FALL_UNITS);
+      rig.magazine.rotation.z = pose.magDrop * 0.7;
+    }
+    if (rig.magazine && this.spareMagazine) {
+      this.spareMagazine.visible = pose.spareVisible;
+      this.spareMagazine.position.copy(this.magRest).addScaledVector(rig.magDown, pose.spareLift * MAG_FALL_UNITS);
+    }
+    if (rig.bolt) {
+      rig.bolt.position.copy(rig.boltPull).multiplyScalar(pose.boltPull);
+      rig.bolt.position.y += rig.boltLift * pose.boltLift;
+    }
+    if (rig.shell) {
+      rig.shell.visible = pose.shellVisible;
+      rig.shell.position.copy(this.shellRest);
+      rig.shell.position.y -= pose.shellLift * 6;
+    }
+    this.leftHand?.position.copy(rig.handTarget).sub(this.handRest).multiplyScalar(pose.hand);
+    if (rig.shell && rig.bolt) this.leftHand?.position.addScaledVector(rig.boltPull, pose.boltPull);
   }
 
   render(renderer: THREE.WebGLRenderer): void {

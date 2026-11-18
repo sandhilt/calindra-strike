@@ -5,9 +5,10 @@
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
-import { BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
+import { BTN, PROTOCOL_VERSION, newBotChatMemory, pickBotChat, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
 import { DefuseDriver } from './defuse-driver.ts';
+import { reactionTrigger } from './bot-reaction.ts';
 
 const { positionals } = parseArgs({ allowPositionals: true });
 const count = Number(positionals[0] ?? 3);
@@ -16,7 +17,11 @@ const origin = positionals[2] ?? 'http://localhost:5173';
 const passive = positionals[3] === 'passive';
 const NAMES = ['Brokkr', 'Sindri', 'Freya', 'Loki', 'Tyr', 'Skadi', 'Odin', 'Heimdall'];
 
+// Shared by every dev bot in this process, like the server's room-wide gate.
+let lastAnyChatAt = -Infinity;
+
 function bot(i: number): void {
+  const chatMemory = newBotChatMemory();
   const ws = new WebSocket(url, { headers: { Origin: origin } });
   let id = -1;
   let me: number[] | null = null;
@@ -58,6 +63,19 @@ function bot(i: number): void {
       me = m.me;
       serverTime = m.time;
       others = m.ps.filter((p: number[]) => p[0] !== id && !(mode !== 'ffa' && teams.get(p[0]) === teams.get(id)));
+    }
+    if (m.t === 'ev') {
+      for (const ev of m.e) {
+        const trigger = reactionTrigger(ev, id);
+        if (!trigger) continue;
+        const now = performance.now();
+        const text = pickBotChat(trigger, chatMemory, lastAnyChatAt, now, Math.random(), Math.random());
+        if (!text) continue;
+        chatMemory.lastAt = lastAnyChatAt = now;
+        chatMemory.lastLine = text;
+        ws.send(JSON.stringify({ t: 'chat', text }));
+        break;
+      }
     }
     if (m.t === 'reject') console.log('rejected', m.reason);
   });

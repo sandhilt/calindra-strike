@@ -74,12 +74,12 @@ export const MAGAZINE_COLOR = '#474d55';
 /** Casing look per weapon, as a variant and a scale on the base model. */
 export const CASING_BY_WEAPON: Readonly<Record<WeaponId, { variant: number; scale: number } | null>> = {
   [WEAPON.HAMMER]: null,
-  [WEAPON.PISTOL]: { variant: CASING_BRASS.variant, scale: 0.8 },
-  [WEAPON.RIFLE]: { variant: CASING_BRASS.variant, scale: 1 },
-  [WEAPON.SMG]: { variant: CASING_BRASS.variant, scale: 0.8 },
+  [WEAPON.PISTOL]: { variant: CASING_BRASS.variant, scale: 1 },
+  [WEAPON.RIFLE]: { variant: CASING_BRASS.variant, scale: 1.3 },
+  [WEAPON.SMG]: { variant: CASING_BRASS.variant, scale: 1.1 },
   [WEAPON.SHOTGUN]: { variant: CASING_SHELL.variant, scale: 1.6 },
   [WEAPON.SNIPER]: { variant: CASING_BRASS.variant, scale: 1.5 },
-  [WEAPON.LMG]: { variant: CASING_BRASS.variant, scale: 1 },
+  [WEAPON.LMG]: { variant: CASING_BRASS.variant, scale: 1.3 },
 };
 
 export interface SmokeStyle {
@@ -190,12 +190,12 @@ export const IMPACT_DUST = {
 
 export const SMOKE_BY_WEAPON: Readonly<Record<WeaponId, { heatPerShot: number; sizeScale: number } | null>> = {
   [WEAPON.HAMMER]: null,
-  [WEAPON.PISTOL]: { heatPerShot: 0.25, sizeScale: 0.8 },
-  [WEAPON.RIFLE]: { heatPerShot: 0.14, sizeScale: 1 },
-  [WEAPON.SMG]: { heatPerShot: 0.12, sizeScale: 0.9 },
+  [WEAPON.PISTOL]: { heatPerShot: 0.3, sizeScale: 1 },
+  [WEAPON.RIFLE]: { heatPerShot: 0.22, sizeScale: 1.2 },
+  [WEAPON.SMG]: { heatPerShot: 0.2, sizeScale: 1.1 },
   [WEAPON.SHOTGUN]: { heatPerShot: 0.45, sizeScale: 1.4 },
   [WEAPON.SNIPER]: { heatPerShot: 0.5, sizeScale: 1.4 },
-  [WEAPON.LMG]: { heatPerShot: 0.11, sizeScale: 1.1 },
+  [WEAPON.LMG]: { heatPerShot: 0.2, sizeScale: 1.3 },
 };
 
 /** Tracer streak: length of the visible segment and how fast it flies. Shorter and quicker than a full-length beam. */
@@ -205,9 +205,9 @@ export const TRACER = { lengthUnits: 120, speedUnitsPerS: 16000, minDistanceUnit
 export const TRACER_RULES: Readonly<Record<WeaponId, { everyNthShot: number; pelletsPerShot: number }>> = {
   [WEAPON.HAMMER]: { everyNthShot: 0, pelletsPerShot: 0 },
   [WEAPON.PISTOL]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.RIFLE]: { everyNthShot: 3, pelletsPerShot: 1 },
-  [WEAPON.SMG]: { everyNthShot: 3, pelletsPerShot: 1 },
+  [WEAPON.RIFLE]: { everyNthShot: 1, pelletsPerShot: 1 },
+  [WEAPON.SMG]: { everyNthShot: 1, pelletsPerShot: 1 },
   [WEAPON.SHOTGUN]: { everyNthShot: 1, pelletsPerShot: 3 },
   [WEAPON.SNIPER]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.LMG]: { everyNthShot: 3, pelletsPerShot: 1 },
+  [WEAPON.LMG]: { everyNthShot: 1, pelletsPerShot: 1 },
 };

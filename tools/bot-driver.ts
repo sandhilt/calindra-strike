@@ -1,31 +1,55 @@
 import {
-  BTN, CollisionWorld, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON, bombStandBox,
+  BTN, CollisionWorld, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
   createPlayerState, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
 import { hasLineOfSight } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
-import {
-  canHoldUse, checkProgress, pickDefuseGoal, reachedPatrolPoint, readBombRow,
-  type DefuseGoal, type ProgressSample,
-} from './defuse-goals.ts';
+import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
 
-type DriveInput = Pick<Cmd, 'buttons' | 'yaw' | 'pitch' | 'weapon'>;
+export type Snap = Extract<ServerMsg, { t: 'snap' }>;
+export type DriveInput = Pick<Cmd, 'buttons' | 'yaw' | 'pitch' | 'weapon'>;
+
 const WAYPOINT_RADIUS_UNITS = 16;
 const REPATH_DISTANCE_UNITS = 48;
 const CLOSE_ENEMY_UNITS = 300;
 const SIGHT_RANGE_UNITS = 1500;
-const DEFENDER_PURSUIT_UNITS = 650;
 const RECOVERY_MS = 500;
 const STEER_BUTTONS = [
   BTN.FWD, BTN.FWD | BTN.LEFT, BTN.LEFT, BTN.BACK | BTN.LEFT,
   BTN.BACK, BTN.BACK | BTN.RIGHT, BTN.RIGHT, BTN.FWD | BTN.RIGHT,
 ];
+const IDLE: DriveInput = { buttons: 0, yaw: 0, pitch: 0, weapon: 0 };
 const bearing = (from: BombPoint, to: BombPoint) => Math.atan2(from.x - to.x, from.z - to.z);
 
-const maps = new Map<number, { world: CollisionWorld; nav: NavGrid; bases: [BombPoint, BombPoint] }>();
+export interface Terrain {
+  world: CollisionWorld;
+  nav: NavGrid;
+  /** Flag bases lowered to the floor, team i's flag sits at `bases[i]`. */
+  bases: [BombPoint, BombPoint];
+}
 
-function navigation(index: number) {
+/** What a mode sees of one bot's surroundings when it picks a goal. */
+export interface DriveView {
+  snap: Snap;
+  terrain: Terrain;
+  self: BotPlayer;
+  players: readonly BotPlayer[];
+  /** Counts up each time the bot reaches a patrol point. */
+  leg: number;
+  enemy: BombPoint | null;
+  closeEnemy: boolean;
+}
+
+/** A mode's decisions. `decide` returns null while the match has nothing for the bot to do. */
+export interface Brain {
+  prepare?(terrain: Terrain, snap: Snap): void;
+  decide(view: DriveView): Goal | null;
+}
+
+const maps = new Map<number, Terrain>();
+
+function navigation(index: number): Terrain {
   const cached = maps.get(index);
   if (cached) return cached;
   const map = getMap(index);
@@ -33,37 +57,36 @@ function navigation(index: number) {
   const atFloor = ({ x, z }: { x: number; z: number }) => ({
     x, y: Math.max(0, world.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS)), z,
   });
-  const bases: [BombPoint, BombPoint] = [atFloor(map.flagBases[0]), atFloor(map.flagBases[1])];
-  const terrain = { world, nav: new NavGrid(world, map), bases };
+  const terrain: Terrain = {
+    world, nav: new NavGrid(world, map), bases: [atFloor(map.flagBases[0]), atFloor(map.flagBases[1])],
+  };
   maps.set(index, terrain);
   return terrain;
 }
 
-export class DefuseDriver {
+/** Walks nav-grid paths to the goal a `Brain` picks, shoots visible enemies and recovers when stuck. */
+export class BotDriver {
   private leg = 0;
-  private goal: DefuseGoal | null = null;
+  private goal: Goal | null = null;
   private path: { node: NavNode; jump: boolean }[] = [];
   private progress: ProgressSample | null = null;
   private recoverUntil = 0;
   private recoveryYaw = 0;
   private recoverySide = 1;
   private readonly state = createPlayerState();
+  private readonly brain: Brain;
 
-  drive(
-    snap: Extract<ServerMsg, { t: 'snap' }>, map: number, id: number,
-    teams: ReadonlyMap<number, number>, tick: number,
-  ): DriveInput {
-    const bomb = readBombRow(snap.bm);
+  constructor(brain: Brain) {
+    this.brain = brain;
+  }
+
+  drive(snap: Snap, map: number, id: number, teams: ReadonlyMap<number, number>, tick: number): DriveInput {
     const team = teams.get(id);
-    if (!snap.me || !bomb || team === undefined) {
-      this.progress = null;
-      this.goal = null;
-      this.recoverUntil = 0;
-      return { buttons: 0, yaw: 0, pitch: 0, weapon: 0 };
-    }
+    if (!snap.me || team === undefined) return this.idle();
 
-    const { world, nav, bases } = navigation(map);
-    world.setProp(bombStandBox(bomb.kind, bomb));
+    const terrain = navigation(map);
+    const { world, nav } = terrain;
+    this.brain.prepare?.(terrain, snap);
     const players = snap.ps.map(([pid, x, y, z, , , flags]) => ({
       id: pid, x, y, z, team: teams.get(pid) ?? -1, dropping: Boolean(flags & RF_DROP), alive: Boolean(flags & RF_ALIVE), flags,
     }));
@@ -71,20 +94,11 @@ export class DefuseDriver {
     const { x, y, z, dropping } = this.state;
     const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
-    const places = { home: bases[bomb.attackers], site: bases[1 - bomb.attackers], attackers: bomb.attackers };
-    let goal = pickDefuseGoal(bomb, places, self, players, this.leg);
-    if (self.dropping) {
-      this.goal = null;
-      this.progress = null;
-      this.recoverUntil = 0;
-      const buttons = Math.hypot(x - goal.point.x, z - goal.point.z) > 120 ? BTN.FWD : BTN.DUCK;
-      return { buttons, yaw: bearing(self, goal.point), pitch: -0.6, weapon: 0 };
-    }
 
     let enemy: (BombPoint & { aimY: number }) | null = null;
     let enemyDistance = SIGHT_RANGE_UNITS;
-    for (const player of players) {
-      // A dead enemy stays in snapshots until respawn; treating the body as a threat kept carriers from ever planting.
+    for (const player of dropping ? [] : players) {
+      // A dead enemy stays in snapshots until respawn; treating the body as a threat kept bots from ever finishing the objective.
       if (player.team === team || player.team < 0 || player.dropping || !player.alive) continue;
       const distance = Math.hypot(player.x - x, player.y - y, player.z - z);
       if (distance >= enemyDistance) continue;
@@ -93,20 +107,28 @@ export class DefuseDriver {
       enemy = { x: player.x, y: player.y, z: player.z, aimY: player.y + heights[0] };
       enemyDistance = distance;
     }
-
     const closeEnemy = enemyDistance < CLOSE_ENEMY_UNITS;
-    if (canHoldUse(self, goal, closeEnemy)) {
-      this.progress = null;
-      this.goal = null;
-      this.recoverUntil = 0;
+
+    const view = (leg: number): DriveView => ({ snap, terrain, self, players, leg, enemy, closeEnemy });
+    let goal = this.brain.decide(view(this.leg));
+    if (!goal) return this.idle();
+    if (self.dropping) {
+      this.reset();
+      const buttons = Math.hypot(x - goal.point.x, z - goal.point.z) > 120 ? BTN.FWD : BTN.DUCK;
+      return { buttons, yaw: bearing(self, goal.point), pitch: -0.6, weapon: 0 };
+    }
+
+    if (goal.use) {
+      this.reset();
       return { buttons: BTN.USE, yaw: bearing(self, goal.point), pitch: 0, weapon: 0 };
     }
 
     const progress = checkProgress(this.progress, self, snap.time);
     this.progress = progress.sample;
-    const patrolNode = goal.role === 'patrol' ? nav.nearest(goal.point.x, goal.point.y, goal.point.z) : null;
-    if (goal.role === 'patrol' && (progress.stuck || (patrolNode && reachedPatrolPoint(self, patrolNode)))) {
-      goal = pickDefuseGoal(bomb, places, self, players, ++this.leg);
+    const patrolNode = goal.roam ? nav.nearest(goal.point.x, goal.point.y, goal.point.z) : null;
+    if (goal.roam && (progress.stuck || (patrolNode && reachedPatrolPoint(self, patrolNode)))) {
+      const next = this.brain.decide(view(++this.leg));
+      if (next) goal = next;
     }
 
     if (progress.stuck) {
@@ -116,23 +138,17 @@ export class DefuseDriver {
       this.recoveryYaw = bearing(self, goal.point) + this.recoverySide * Math.PI / 2;
     }
 
-    const fightingForObjective = closeEnemy && (goal.role === 'plant' || goal.role === 'defuse');
     let moveYaw: number;
     let buttons = 0;
     if (snap.time < this.recoverUntil) {
       moveYaw = this.recoveryYaw;
       buttons |= BTN.JUMP;
-    } else if (enemy && fightingForObjective) {
+    } else if (enemy && closeEnemy && goal.duel) {
       this.goal = null;
       const side = (Math.floor(tick / 30) + id) % 2 ? 1 : -1;
       moveYaw = bearing(self, enemy) + side * Math.PI / 2;
     } else {
-      let destination = goal.point;
-      // Defenders intercept visible intruders near the site before returning to the perimeter.
-      if (enemy && !closeEnemy && team !== bomb.attackers && bomb.kind !== 'planted'
-        && Math.hypot(enemy.x - places.site.x, enemy.z - places.site.z) < DEFENDER_PURSUIT_UNITS) {
-        destination = enemy;
-      }
+      const destination = goal.intercept ?? goal.point;
       const changed = this.goal?.role !== goal.role
         || Math.hypot(destination.x - this.goal.point.x, destination.y - this.goal.point.y, destination.z - this.goal.point.z) >= REPATH_DISTANCE_UNITS;
       if (changed) this.route(nav, self, { role: goal.role, point: destination });
@@ -157,7 +173,18 @@ export class DefuseDriver {
     return { buttons, yaw, pitch, weapon: slot };
   }
 
-  private route(nav: NavGrid, self: BombPoint, goal: DefuseGoal): void {
+  private idle(): DriveInput {
+    this.reset();
+    return IDLE;
+  }
+
+  private reset(): void {
+    this.goal = null;
+    this.progress = null;
+    this.recoverUntil = 0;
+  }
+
+  private route(nav: NavGrid, self: BombPoint, goal: Goal): void {
     this.goal = goal;
     const start = nav.nearest(self.x, self.y, self.z);
     const end = nav.nearest(goal.point.x, goal.point.y + 4, goal.point.z);

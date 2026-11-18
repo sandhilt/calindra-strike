@@ -15,6 +15,8 @@ import {
   type MapDef,
   type MatchInfo,
   PLAYER_COLORS,
+  radioLine,
+  radioMenuById,
   TEAMS,
   ZOOM_SENSITIVITY_RATIO,
   PROTOCOL_VERSION,
@@ -57,6 +59,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
+import { radioMenuKey, type OpenRadioMenu, type RadioKeyResult } from './radio-menu.ts';
+import { RADIO_VOICE, createSpeaker } from './speech.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
 import { ReloadPlayback } from './reload-playback.ts';
@@ -236,6 +240,8 @@ export class ClientGame {
   private killerId = -1;
   private scoreboardOpen = false;
   private chatOpen = false;
+  private radioMenu: OpenRadioMenu = null;
+  private readonly speakRadio = createSpeaker(RADIO_VOICE, 'radio');
   private podiumActive = false;
   private menuOpen = false;
   private elapsed = 0;
@@ -341,6 +347,7 @@ export class ClientGame {
 
   private onLockChange = (): void => {
     if (!this.running) return;
+    if (!this.input.locked) this.setRadioMenu(null); // losing the pointer (Esc) closes the radio menu
     if (this.input.locked) {
       this.menuOpen = false;
       this.ui.showMenu(false);
@@ -504,6 +511,14 @@ export class ClientGame {
       case 'chat': {
         const n = this.nameOf(m.id);
         this.hud.chatLine(n.name, n.color, m.text);
+        break;
+      }
+      case 'radio': {
+        const line = radioLine(m.line);
+        if (!line) break;
+        const n = this.nameOf(m.id);
+        this.hud.radioLine(n.name, n.color, line.text);
+        this.speakRadio(line.speech, this.settings.volume);
         break;
       }
       default:
@@ -847,6 +862,7 @@ export class ClientGame {
     // free the mouse so people can click a map in the vote
     if (document.pointerLockElement) document.exitPointerLock();
     this.menuOpen = false;
+    this.setRadioMenu(null);
     this.ui.showMenu(false);
     this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: this.spectator ? null : info.vote ?? null }, next);
   }
@@ -877,6 +893,13 @@ export class ClientGame {
       this.vote(Number(code.slice(-1)) - 1);
       return true;
     }
+    if (down) {
+      const radio = radioMenuKey(this.radioMenu, code, this.canUseRadio());
+      if (radio.consumed) {
+        if (!e.repeat) this.applyRadioKey(radio);
+        return true;
+      }
+    }
     if (code === 'KeyG') {
       if (down && !e.repeat && this.input.locked && !this.menuOpen && !this.podiumActive) this.net.send({ t: 'spray' });
       return true;
@@ -889,12 +912,27 @@ export class ClientGame {
     if (down && this.input.locked && (code === 'Enter' || code === 'KeyY' || code === 'KeyT')) {
       e.preventDefault();
       this.chatOpen = true;
+      this.setRadioMenu(null);
       this.input.enabled = false;
       this.input.releaseAll();
       this.hud.openChat(true);
       return true;
     }
     return false;
+  }
+
+  private canUseRadio(): boolean {
+    return this.input.locked && !this.chatOpen && !this.podiumActive && !this.spectator && !this.menuOpen;
+  }
+
+  private applyRadioKey(r: RadioKeyResult): void {
+    this.setRadioMenu(r.open);
+    if (r.pick !== undefined) this.net.send({ t: 'radio', line: r.pick });
+  }
+
+  private setRadioMenu(open: OpenRadioMenu): void {
+    this.radioMenu = open;
+    this.hud.showRadioMenu(open === null ? null : (radioMenuById(open) ?? null));
   }
 
   private onSpectatorKey(code: string, down: boolean, e: KeyboardEvent): boolean {

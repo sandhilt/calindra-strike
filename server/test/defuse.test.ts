@@ -343,3 +343,22 @@ it('a match without a lucky roll still gets a Black Friday, and only one is forc
   }
   assert.deepEqual(seen, [false, false, true, false, false], 'the 3rd round is Black Friday by the time its window closes, the others are not');
 });
+
+it('the planter steps back off the desk that appears under their feet', () => {
+  const { game, attacker, defender } = setup();
+  const yaw = Math.PI / 2;
+  attacker.state.yaw = yaw;
+  plant(game, attacker, defender);
+  const bomb = (game as any).bomb as BombState;
+  assert.equal(bomb.kind, 'planted');
+  const box = bombStandBox('planted', bomb as Extract<BombState, { kind: 'planted' }>);
+  assert.ok(box);
+  const s = attacker.state;
+  const clearX = s.x + PLAYER_RADIUS <= box.min.x || s.x - PLAYER_RADIUS >= box.max.x;
+  const clearZ = s.z + PLAYER_RADIUS <= box.min.z || s.z - PLAYER_RADIUS >= box.max.z;
+  assert.ok(clearX || clearZ, 'the planter is outside the desk footprint');
+  assert.ok(!game.world.hullOverlaps(s.x, s.y, s.z, STAND_HEIGHT), 'the planter is not stuck in any solid');
+  const back = { x: Math.sin(yaw), z: Math.cos(yaw) };
+  assert.ok((s.x - bomb.x) * back.x + (s.z - bomb.z) * back.z > 0, 'pushed behind where they faced');
+  assert.ok(Math.hypot(s.x - bomb.x, s.z - bomb.z) < BOMB_DESK_SIZE_UNITS, 'still right next to the laptop');
+});

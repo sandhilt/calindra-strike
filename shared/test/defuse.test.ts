@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { stepBomb, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
 import { BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
@@ -243,4 +243,16 @@ it('marks a Black Friday round by chance, and always by the guaranteed round whe
   assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND, false), true);
   assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND + 4, false), true);
   assert.equal(blackFridayMarked(0.99, BLACK_FRIDAY_GUARANTEE_ROUND, true), false, 'no pity once the match had one');
+});
+
+it('standExit moves a trapped player backwards, fans out around walls and leaves clear players alone', () => {
+  const box = { stand: 'desk' as const, min: { x: -25, y: 0, z: -25 }, max: { x: 25, y: 30, z: 25 } };
+  const player = { x: 0, y: 0, z: 0, yaw: 0, height: 72 };
+  const back = standExit(box, player, () => true);
+  assert.ok(back && Math.abs(back.x) < 1e-9 && back.z > 25, 'yaw 0 faces -z, so the back is +z');
+  const blockedBehind = standExit(box, player, (_x, z) => z < 25);
+  assert.ok(blockedBehind && blockedBehind.z <= 25 && Math.hypot(blockedBehind.x, blockedBehind.z) > 25, 'another side when the back is a wall');
+  assert.equal(standExit(box, { ...player, x: 100 }, () => true), null, 'nothing to do away from the desk');
+  assert.equal(standExit(box, { ...player, y: 40 }, () => true), null, 'nothing to do standing on top of it');
+  assert.equal(standExit(box, player, () => false), null, 'no room anywhere');
 });

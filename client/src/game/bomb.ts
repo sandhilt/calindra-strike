@@ -1,4 +1,4 @@
-import { BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_DISCOUNT_PERCENT, BLACK_FRIDAY_FUSE_MS, BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
 
 export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean; plantByAt: number } & (
   | { state: 'home' }
@@ -63,9 +63,15 @@ export function beepIntervalMs(urgency: number): number {
   return BEEP_SLOW_MS + (BEEP_FAST_MS - BEEP_SLOW_MS) * clamp01(urgency);
 }
 
+/** The Black Friday sale label: the fuse itself is on sale. */
+export const BLACK_FRIDAY_TAG = `BLACK FRIDAY ${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF`;
+
+/** What the Black Friday announcement says: how much of the fuse is left. */
+export const BLACK_FRIDAY_PITCH = `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF no pavio · só ${BLACK_FRIDAY_FUSE_MS / 1000}s para desarmar`;
+
 export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
   const status = roundStatus(bomb, now, viewerId, viewerTeam, name);
-  return bomb.blackFriday ? `BLACK FRIDAY · ${status}` : status;
+  return bomb.blackFriday ? `${BLACK_FRIDAY_TAG} · ${status}` : status;
 }
 
 function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {

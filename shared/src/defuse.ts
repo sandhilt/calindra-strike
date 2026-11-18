@@ -1,6 +1,6 @@
 import {
-  BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS,
-  BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, TICK_MS,
+  BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_FUSE_MS, BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS,
+  BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_MS, FUSE_TICKS, PLANT_TICKS,
 } from './constants.ts';
 
 export interface BombPoint { x: number; y: number; z: number }
@@ -51,7 +51,7 @@ export function fuseTicks(blackFriday: boolean): number {
 }
 
 export function fuseMs(blackFriday: boolean): number {
-  return fuseTicks(blackFriday) * TICK_MS;
+  return blackFriday ? BLACK_FRIDAY_FUSE_MS : FUSE_MS;
 }
 
 /** What the bug rests on: a desk once planted, a crate at the attackers' base, nothing while held or dropped. */
@@ -70,6 +70,34 @@ export function bombStandBox(kind: BombState['kind'], at: BombPoint): BombStandB
   const { size, height } = BOMB_STAND_SIZE[stand];
   const half = size / 2;
   return { stand, min: { x: at.x - half, y: at.y, z: at.z - half }, max: { x: at.x + half, y: at.y + height, z: at.z + half } };
+}
+
+/** Gap left between a player pushed off a stand and the stand, so the next move does not start in contact. */
+const STAND_EXIT_GAP_UNITS = 2;
+/** Directions tried around the player's back, in eighths of a turn: straight back, then fanning out to straight ahead. */
+const STAND_EXIT_TURNS = [0, 1, -1, 2, -2, 3, -3, 4] as const;
+
+/**
+ * Where a player caught inside a stand's footprint steps to, so the desk that appears under a planter does not trap them.
+ * Tries backwards from where they face first, then fans out; `fits` says whether the hull can stand at a spot.
+ * Null when the player is clear of the stand already, or when no direction has room.
+ */
+export function standExit(box: BombStandBox, player: BombPoint & { yaw: number; height: number }, fits: (x: number, z: number) => boolean): { x: number; z: number } | null {
+  const reach = PLAYER_RADIUS + STAND_EXIT_GAP_UNITS;
+  const minX = box.min.x - reach, maxX = box.max.x + reach, minZ = box.min.z - reach, maxZ = box.max.z + reach;
+  const inside = player.x > minX && player.x < maxX && player.z > minZ && player.z < maxZ && player.y < box.max.y && player.y + player.height > box.min.y;
+  if (!inside) return null;
+  for (const turn of STAND_EXIT_TURNS) {
+    // yaw 0 faces -z, so the player's back points along (sin yaw, cos yaw).
+    const angle = player.yaw + (turn * Math.PI) / 4;
+    const dx = Math.sin(angle), dz = Math.cos(angle);
+    const tx = dx > 0 ? (maxX - player.x) / dx : dx < 0 ? (minX - player.x) / dx : Infinity;
+    const tz = dz > 0 ? (maxZ - player.z) / dz : dz < 0 ? (minZ - player.z) / dz : Infinity;
+    const t = Math.min(tx, tz);
+    const x = player.x + dx * t, z = player.z + dz * t;
+    if (fits(x, z)) return { x, z };
+  }
+  return null;
 }
 
 export function inBombReach(a: BombPoint, b: BombPoint, radius: number): boolean {

@@ -3,7 +3,7 @@ import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_TICKS, SPECTATOR_PICK_MS, type SpectatorInfo,
-  AIRDROP_FALL_SPEED,
+  AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
   AIRDROP_HALF,
   AIRDROP_PICKUP_RADIUS,
   type Cmd,
@@ -190,6 +190,7 @@ export interface ServerPlayer {
   events: GameEvent[];
   send: (data: string) => void;
   brain: BotBrain | null; // server bot when set
+  botChat: BotChatMemory | null; // table-talk memory, bots only
   token: string; // secret used to rejoin after a drop
 }
 
@@ -223,6 +224,7 @@ export interface GameOptions {
 
 export class Game {
   tick = 0;
+  private lastBotChatAt = -Infinity;
   readonly players = new Map<number, ServerPlayer>();
   private nextId = 1;
   mapIndex = 0;
@@ -627,6 +629,7 @@ export class Game {
       events: [],
       send,
       brain: null,
+      botChat: null,
       token: randomBytes(16).toString('hex'),
     };
     if (isTeamMode(this.mode)) p.team = this.pickTeam();
@@ -762,6 +765,7 @@ export class Game {
       events: [],
       send: () => {},
       brain: new BotBrain(skill),
+      botChat: newBotChatMemory(),
       token: '',
     };
     this.players.set(id, p);
@@ -938,6 +942,7 @@ export class Game {
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);
     this.broadcastMatch();
+    this.botSay(this.randomBot(), 'roundStart');
   }
 
   private endMatch(): void {
@@ -947,6 +952,7 @@ export class Game {
     this.endPending = false;
     const [a, b] = this.teamScores;
     this.winner = !isTeamMode(this.mode) || a === b ? -1 : a > b ? 0 : 1;
+    if (this.winner >= 0) this.botSay(this.randomBot(this.winner), 'teamWin');
     this.results = [...this.players.values()]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.headshots - a.headshots || a.joinedAt - b.joinedAt)
       .map((p) => ({
@@ -1306,6 +1312,48 @@ export class Game {
 
   private emit(ev: GameEvent, except = -1): void {
     this.globalEvents.push({ ev, except });
+    this.botsReactTo(ev);
+  }
+
+  private botsReactTo(ev: GameEvent): void {
+    switch (ev.k) {
+      case 'kill': {
+        const killer = this.players.get(ev.by);
+        const victim = this.players.get(ev.to);
+        if (!killer || !victim || killer === victim || this.sameTeam(killer, victim)) return;
+        this.botSay(killer, ev.hs ? 'headshot' : ev.w === WEAPON.HAMMER ? 'hammer' : 'kill');
+        this.botSay(victim, 'death');
+        return;
+      }
+      case 'bomb':
+        if (ev.what === 'plant') this.botSay(this.players.get(ev.by), 'plant');
+        else if (ev.what === 'defused') this.botSay(this.players.get(ev.by), 'defused');
+        else if (ev.what === 'exploded') this.botSay(this.randomBot(ev.team), 'exploded');
+        return;
+      case 'flag':
+        if (ev.what === 'take') this.botSay(this.players.get(ev.by), 'flagTake');
+        else if (ev.what === 'capture') this.botSay(this.players.get(ev.by), 'capture');
+        return;
+      default:
+        return;
+    }
+  }
+
+  private randomBot(team = -1): ServerPlayer | undefined {
+    const bots = [...this.players.values()].filter((p) => p.botChat && (team < 0 || p.team === team));
+    return bots[Math.floor(this.random() * bots.length)];
+  }
+
+  /** A bot's occasional comment, gated per bot and across the room so matches stay lively but not noisy. */
+  private botSay(bot: ServerPlayer | undefined, trigger: BotChatTrigger): void {
+    if (!bot?.botChat) return;
+    const now = this.now();
+    const text = pickBotChat(trigger, bot.botChat, this.lastBotChatAt, now, this.random(), this.random());
+    if (!text) return;
+    bot.botChat.lastAt = now;
+    bot.botChat.lastLine = text;
+    this.lastBotChatAt = now;
+    this.chat(bot, text);
   }
 
   private flushEvents(): void {

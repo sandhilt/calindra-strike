@@ -2,6 +2,7 @@ import { WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike
 import * as THREE from 'three';
 import { RESTING_RELOAD_POSE, type ReloadPose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
+import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
 const MAG_FALL_UNITS = 12;
@@ -70,6 +71,7 @@ export class ViewModel {
   private swayX = 0;
   private swayY = 0;
   private kick = 0;
+  private readonly jump = restingJumpPose();
   private swing = 0;
   private swingHeavy = false;
   private readonly baseRot = new THREE.Euler();
@@ -228,7 +230,7 @@ export class ViewModel {
     const reload = this.currentReloadPose(p);
     let dip = reload.dip * RELOAD_DIP_UNITS;
     if (p.deployFrac >= 0) dip = Math.max(dip, (1 - p.deployFrac) * 14);
-    const air = p.onGround ? 0 : 1.2;
+    const air = stepJumpPose(this.jump, p.onGround, dt);
 
     this.holder.position.set(bobX + this.swayX, bobY - dip - this.swayY + air, 0);
     this.kickGroup.position.set(0, this.kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, this.kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);

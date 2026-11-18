@@ -119,4 +119,22 @@ test('between AWP shots the gun rolls, the bolt is lifted, drawn back and pushed
   assert.ok(samples.some((p) => p.tilt > 0.4), 'the gun rolls to show the action');
   const end = boltCyclePose(0.99);
   assert.ok(end && end.boltPull < 0.01 && end.boltLift < 0.01 && end.tilt < 0.05, 'bolt home and gun back by the end');
+  assert.ok(end && end.boltHand === 0, 'the hand is back on the grip by the end');
+  assert.ok(
+    samples.every((p) => p.boltLift < 0.01 || p.boltHand > 0.99),
+    'the hand holds the handle whenever it is off its rest',
+  );
+});
+
+test('at the end of an AWP reload the shooting hand takes the bolt, works it and returns to the grip', () => {
+  const timing = weaponDef(WEAPON.SNIPER).reloadTiming;
+  assert.ok(timing?.kind === 'magazine');
+  const boltStart = timing.outTicks + timing.inTicks;
+  const at = (tick: number) => reloadPose(reloadCursor(timing, tick, 0));
+  assert.equal(at(timing.outTicks * 0.5).boltHand, 0, 'on the grip while the magazine comes out');
+  for (let tick = boltStart; tick < boltStart + timing.boltTicks; tick++) {
+    const pose = at(tick);
+    assert.ok(pose.boltLift < 0.01 || pose.boltHand > 0.99, `hand on the handle while it moves (tick ${tick})`);
+  }
+  assert.ok(at(boltStart + timing.boltTicks - 1).boltHand < 0.01, 'back on the grip when the reload ends');
 });

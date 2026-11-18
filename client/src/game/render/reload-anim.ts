@@ -21,6 +21,8 @@ export interface ReloadPose {
   boltPull: number;
   /** Bolt handle raised before it is pulled, 0..1. */
   boltLift: number;
+  /** Shooting hand off the grip and on the bolt handle, 0..1. Only rigs with a grip on the handle use it. */
+  boltHand: number;
   /** The shell below the loading port, 1 far below .. 0 at the port. */
   shellLift: number;
   shellVisible: boolean;
@@ -38,6 +40,7 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   seatKick: 0,
   boltPull: 0,
   boltLift: 0,
+  boltHand: 0,
   shellLift: 1,
   shellVisible: false,
   hand: 0,
@@ -87,6 +90,7 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
       pose.hand = 1 - ramp(t, 0.8, 1);
       pose.spareLift = SPARE_ARRIVES_BELOW_WELL * (1 - ramp(t, 0, RELOAD_CUE_AT.in));
       pose.seatKick = pulse(t, RELOAD_CUE_AT.in, 1);
+      pose.boltHand = ramp(t, 0.85, 1);
       break;
     }
     case 'bolt': {
@@ -97,6 +101,7 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
       const bolt = boltCurve(t);
       pose.boltPull = bolt.pull;
       pose.boltLift = bolt.lift;
+      pose.boltHand = 1 - ramp(t, 0.8, 0.95);
       break;
     }
     case 'start': {
@@ -124,16 +129,33 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
 }
 
 /** Shares of the AWP bolt cycle after a shot, CS 1.6 style: the kick settles, the gun rolls, the bolt is worked, it returns. */
-const BOLT_CYCLE = { rollFrom: 0.08, rollIn: 0.22, workFrom: 0.2, workTo: 0.82, rollOut: 0.84, roll: 0.55 } as const;
+const BOLT_CYCLE = {
+  rollFrom: 0.08,
+  rollIn: 0.22,
+  reachFrom: 0.08,
+  workFrom: 0.2,
+  releaseFrom: 0.72,
+  releaseTo: 0.86,
+  workTo: 0.82,
+  rollOut: 0.84,
+  roll: 0.55,
+} as const;
 
 /**
- * The gun between two AWP shots, t running 0..1 over the bolt cycle: it rolls to show the action, the handle is lifted,
- * drawn back and pushed home, then the gun settles. Null outside the cycle.
+ * The gun between two AWP shots, t running 0..1 over the bolt cycle: it rolls to show the action, the shooting hand takes
+ * the handle, lifts it, draws it back and pushes it home, goes back to the grip, then the gun settles. Null outside the cycle.
  */
 export function boltCyclePose(t: number): ReloadPose | null {
   if (t < 0 || t >= 1) return null;
   const c = BOLT_CYCLE;
   const roll = ramp(t, c.rollFrom, c.rollIn) * (1 - ramp(t, c.rollOut, 1));
   const bolt = boltCurve((t - c.workFrom) / (c.workTo - c.workFrom));
-  return { ...RESTING_RELOAD_POSE, tilt: c.roll * roll, dip: 0.35 * roll, boltPull: t < c.workFrom ? 0 : bolt.pull, boltLift: t < c.workFrom ? 0 : bolt.lift };
+  return {
+    ...RESTING_RELOAD_POSE,
+    tilt: c.roll * roll,
+    dip: 0.35 * roll,
+    boltPull: t < c.workFrom ? 0 : bolt.pull,
+    boltLift: t < c.workFrom ? 0 : bolt.lift,
+    boltHand: ramp(t, c.reachFrom, c.workFrom) * (1 - ramp(t, c.releaseFrom, c.releaseTo)),
+  };
 }

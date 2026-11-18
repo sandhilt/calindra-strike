@@ -12,6 +12,10 @@ const RELOAD_PITCH = 0.12;
 /** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
 const RELOAD_DIP_UNITS = 6;
 const SEAT_KICK_UNITS = 1.2;
+/** Where the shooting hand's glove sits on the grip, in weapon units. */
+const GRIP_HAND = new THREE.Vector3(0.2, -2, 0.6);
+/** How far a bolt-action gun is brought toward the centre while its bolt is worked, so the hand on the handle is in view. */
+const BOLT_PRESENT = { leftUnits: 3.5, upUnits: 3 } as const;
 
 export function flashTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -61,6 +65,7 @@ export class ViewModel {
   private model: WeaponModel | null = null;
   private spareMagazine: THREE.Object3D | null = null;
   private leftHand: THREE.Group | null = null;
+  private rightHand: THREE.Group | null = null;
   private readonly handRest = new THREE.Vector3();
   private readonly magRest = new THREE.Vector3();
   private readonly shellRest = new THREE.Vector3();
@@ -120,6 +125,7 @@ export class ViewModel {
       mesh.rotation.set(rx, ry, 0);
       into.add(mesh);
     };
+    this.rightHand = null;
     if (id === WEAPON.HAMMER) {
       // Closed fist around the vertical shaft, wrist attached for the entire swing.
       add(4.1, 4.6, 4.2, glove, 0, 0, 0);
@@ -127,8 +133,13 @@ export class ViewModel {
       return null;
     }
     // right hand on the grip; forearm leaves the screen toward the bottom-right
-    add(4.2, 4.2, 4.2, glove, 0.2, -2, 0.6);
+    const shooting = new THREE.Group();
+    g.add(shooting);
+    into = shooting;
+    add(4.2, 4.2, 4.2, glove, GRIP_HAND.x, GRIP_HAND.y, GRIP_HAND.z);
     add(4.4, 4.4, 17, this.sleeve, 2.6, -7, 7.5, 0.3, 0.62);
+    this.rightHand = shooting;
+    into = g;
     if (id === WEAPON.PISTOL) {
       add(4, 4, 4, glove, -2.2, -2.6, 0.4);
       add(4.2, 4.2, 17, this.sleeve, -4.8, -7.4, 7.2, -0.32, 0.6);
@@ -236,7 +247,12 @@ export class ViewModel {
     if (p.deployFrac >= 0) dip = Math.max(dip, (1 - p.deployFrac) * 14);
     const air = stepJumpPose(this.jump, p.onGround, dt);
 
-    this.holder.position.set(bobX + this.swayX, bobY - dip - this.swayY + air, 0);
+    const present = this.model?.rig.boltGrip ? reload.boltHand : 0;
+    this.holder.position.set(
+      bobX + this.swayX - present * BOLT_PRESENT.leftUnits,
+      bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits,
+      0,
+    );
     this.kickGroup.position.set(0, this.kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, this.kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);
     this.kickGroup.rotation.set(this.kick * 0.09 + reload.tilt * RELOAD_PITCH, 0, -reload.tilt * RELOAD_ROLL);
 
@@ -300,6 +316,9 @@ export class ViewModel {
     if (rig.bolt) {
       rig.bolt.position.copy(rig.boltPull).multiplyScalar(pose.boltPull);
       rig.bolt.position.y += rig.boltLift * pose.boltLift;
+      if (rig.boltGrip) {
+        this.rightHand?.position.copy(rig.boltGrip).sub(GRIP_HAND).add(rig.bolt.position).multiplyScalar(pose.boltHand);
+      }
     }
     if (rig.shell) {
       rig.shell.visible = pose.shellVisible;

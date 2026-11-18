@@ -45,6 +45,8 @@ export interface ReloadRig {
   boltPull: THREE.Vector3;
   /** Extra upward travel of `bolt` (the bolt handle of the sniper rifle is lifted before it is pulled). */
   boltLift: number;
+  /** Where the shooting hand holds the bolt handle at rest, on guns that hand works (bolt action); null otherwise. */
+  boltGrip: THREE.Vector3 | null;
   /** Shotgun shell, hidden at rest. */
   shell: THREE.Object3D | null;
   /** Where the supporting hand goes to swap the magazine or feed a shell. */
@@ -79,6 +81,7 @@ export function buildWeapon(id: WeaponId): WeaponModel {
     bolt: null,
     boltPull: new THREE.Vector3(),
     boltLift: 0,
+    boltGrip: null,
     shell: null,
     handTarget: new THREE.Vector3(),
   };
@@ -162,6 +165,7 @@ export function buildWeapon(id: WeaponId): WeaponModel {
       rig.bolt = boltHandle;
       rig.boltPull.set(0, 0, 5.5);
       rig.boltLift = 1.8;
+      rig.boltGrip = new THREE.Vector3(4.4, 2.2, 1.8);
       muzzle.position.set(0, 1.8, -42);
       break;
     case WEAPON.LMG:

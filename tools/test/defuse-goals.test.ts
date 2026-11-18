@@ -5,9 +5,9 @@ import { canHoldUse, checkProgress, patrolPoint, pickDefuseGoal, readBombRow } f
 const home = { x: 0, y: 0, z: 0 };
 const site = { x: 700, y: 0, z: 0 };
 const places = { home, site, attackers: 0 };
-const attacker = { ...home, id: 1, team: 0, dropping: false };
+const attacker = { ...home, id: 1, team: 0, dropping: false, alive: true };
 const escort = { ...attacker, id: 2 };
-const defender = { ...site, id: 3, team: 1, dropping: false };
+const defender = { ...site, id: 3, team: 1, dropping: false, alive: true };
 const cover = { ...defender, id: 4, x: 800 };
 const players = [attacker, escort, defender, cover];
 
@@ -72,4 +72,11 @@ test('recover after 1.5 seconds of little movement and reset on progress', () =>
   const moved = checkProgress(sample, { ...home, x: 25 }, 1400);
   assert.equal(moved.stuck, false);
   assert.equal(checkProgress(moved.sample, moved.sample.point, 1500).stuck, false);
+});
+
+test('a dead defender next to the bug is not elected to defuse', () => {
+  const planted = bomb(4);
+  const body = { ...defender, alive: false };
+  const goal = pickDefuseGoal(planted, places, cover, [attacker, escort, body, cover], 0);
+  assert.equal(goal.role, 'defuse', 'the living defender goes for the bug');
 });

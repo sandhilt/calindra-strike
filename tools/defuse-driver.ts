@@ -1,5 +1,5 @@
 import {
-  BTN, CollisionWorld, PLAYER_RADIUS, RF_DROP, RF_DUCK, WEAPON, bombStandBox,
+  BTN, CollisionWorld, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON, bombStandBox,
   createPlayerState, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
@@ -65,11 +65,11 @@ export class DefuseDriver {
     const { world, nav, bases } = navigation(map);
     world.setProp(bombStandBox(bomb.kind, bomb));
     const players = snap.ps.map(([pid, x, y, z, , , flags]) => ({
-      id: pid, x, y, z, team: teams.get(pid) ?? -1, dropping: Boolean(flags & RF_DROP), flags,
+      id: pid, x, y, z, team: teams.get(pid) ?? -1, dropping: Boolean(flags & RF_DROP), alive: Boolean(flags & RF_ALIVE), flags,
     }));
     unpackState(snap.me, this.state);
     const { x, y, z, dropping } = this.state;
-    const self = { x, y, z, team, id, dropping };
+    const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
     const places = { home: bases[bomb.attackers], site: bases[1 - bomb.attackers], attackers: bomb.attackers };
     let goal = pickDefuseGoal(bomb, places, self, players, this.leg);
@@ -84,7 +84,8 @@ export class DefuseDriver {
     let enemy: (BombPoint & { aimY: number }) | null = null;
     let enemyDistance = SIGHT_RANGE_UNITS;
     for (const player of players) {
-      if (player.team === team || player.team < 0 || player.dropping) continue;
+      // A dead enemy stays in snapshots until respawn; treating the body as a threat kept carriers from ever planting.
+      if (player.team === team || player.team < 0 || player.dropping || !player.alive) continue;
       const distance = Math.hypot(player.x - x, player.y - y, player.z - z);
       if (distance >= enemyDistance) continue;
       const heights = player.flags & RF_DUCK ? [24, 36] : [44, 64];

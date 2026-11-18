@@ -13,6 +13,8 @@ export interface DefusePlayer extends BombPoint {
   id: number;
   team: number;
   dropping: boolean;
+  /** Dead players stay in snapshots until they respawn. */
+  alive: boolean;
 }
 
 export interface DefuseGoal {
@@ -47,7 +49,7 @@ export function pickDefuseGoal(
     }
   } else if (bomb.kind === 'planted') {
     // Continue an interaction already in progress. Otherwise all clients elect from the same snapshot rows.
-    const defenders = players.filter((p) => p.team === self.team && !p.dropping);
+    const defenders = players.filter((p) => p.team === self.team && p.alive && !p.dropping);
     const distance = (p: BombPoint) => Math.hypot(p.x - bomb.x, p.y - bomb.y, p.z - bomb.z);
     const nearest = defenders.find((p) => p.id === bomb.actor)
       ?? defenders.toSorted((a, b) => distance(a) - distance(b) || a.id - b.id)[0];

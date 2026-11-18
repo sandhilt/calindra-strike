@@ -89,30 +89,89 @@ export const CASING_BY_WEAPON: Readonly<Record<WeaponId, { variant: number; scal
   [WEAPON.LMG]: { variant: CASING_BRASS.variant, scale: 1 },
 };
 
-/** Barrel smoke. Heat runs 0..1 per shooter, rises per shot and falls with time. */
-export const SMOKE = {
-  heatDecayPerS: 0.6,
+export interface SmokeStyle {
+  heatDecayPerS: number;
   /** Forward drift out of the barrel, units per second. */
-  forwardSpeedUnitsPerS: [30, 55],
-  riseSpeedUnitsPerS: 14,
-  jitterUnitsPerS: 8,
-  dragPerS: 2.5,
-  lifeSeconds: [0.35, 0.65],
+  forwardSpeedUnitsPerS: readonly [number, number];
+  riseSpeedUnitsPerS: number;
+  jitterUnitsPerS: number;
+  dragPerS: number;
+  /** Sideways curl: a slow sway of the drift, so a wisp snakes up instead of rising in a line. */
+  swayAccelUnitsPerS2: number;
+  swayHz: number;
+  lifeSeconds: readonly [number, number];
   /** Extra life at full heat, as a share of the base life. */
-  lifeHeatBonus: 0.5,
-  startSizeUnits: [1.2, 2],
-  growthUnits: 4,
-  growthHeatUnits: 4,
-  alphaCalm: 0.14,
-  alphaHot: 0.2,
+  lifeHeatBonus: number;
+  startSizeUnits: readonly [number, number];
+  growthUnits: number;
+  growthHeatUnits: number;
+  alphaCalm: number;
+  alphaHot: number;
   /** Share of the life spent fading in before the fade out. */
-  attackShare: 0.12,
-  color: 0.82,
+  attackShare: number;
+  /** Grey level of the smoke, 0..1. */
+  color: number;
   /** Puffs per shot, as [heat from, puffs] steps. */
-  puffsByHeat: {
-    high: [[0, 1], [0.35, 2], [0.7, 3]],
-    low: [[0, 1], [0.6, 2]],
+  puffsByHeat: readonly (readonly [number, number])[];
+  /** Dust puffs where a bullet hits; 0 skips impact dust. */
+  impactDustPuffs: number;
+}
+
+/**
+ * Barrel smoke per quality. High is the CS 1.6 look: grey wisps that leave the muzzle slowly, rise, curl sideways,
+ * swell and linger about a second, thicker on sustained fire, plus dust where bullets hit. Low keeps the lighter,
+ * short-lived puffs. Heat runs 0..1 per shooter, rises per shot and falls with time.
+ */
+export const SMOKE_STYLES: Readonly<Record<FxQuality, SmokeStyle>> = {
+  high: {
+    heatDecayPerS: 0.45,
+    forwardSpeedUnitsPerS: [10, 24],
+    riseSpeedUnitsPerS: 26,
+    jitterUnitsPerS: 5,
+    dragPerS: 1.6,
+    swayAccelUnitsPerS2: 30,
+    swayHz: 1.1,
+    lifeSeconds: [0.8, 1.25],
+    lifeHeatBonus: 0.6,
+    startSizeUnits: [2.5, 3.5],
+    growthUnits: 10,
+    growthHeatUnits: 8,
+    alphaCalm: 0.24,
+    alphaHot: 0.34,
+    attackShare: 0.08,
+    color: 0.74,
+    puffsByHeat: [[0, 1], [0.35, 2], [0.7, 3]],
+    impactDustPuffs: 2,
   },
+  low: {
+    heatDecayPerS: 0.6,
+    forwardSpeedUnitsPerS: [30, 55],
+    riseSpeedUnitsPerS: 14,
+    jitterUnitsPerS: 8,
+    dragPerS: 2.5,
+    swayAccelUnitsPerS2: 0,
+    swayHz: 0,
+    lifeSeconds: [0.35, 0.65],
+    lifeHeatBonus: 0.5,
+    startSizeUnits: [1.2, 2],
+    growthUnits: 4,
+    growthHeatUnits: 4,
+    alphaCalm: 0.14,
+    alphaHot: 0.2,
+    attackShare: 0.12,
+    color: 0.82,
+    puffsByHeat: [[0, 1], [0.6, 2]],
+    impactDustPuffs: 0,
+  },
+};
+
+/** Dust where a bullet hits a surface: a grey puff blown off along the surface normal. */
+export const IMPACT_DUST = {
+  speedUnitsPerS: [18, 40],
+  lifeSeconds: [0.6, 0.95],
+  startSizeUnits: [3, 4.5],
+  growthUnits: 12,
+  alpha: 0.3,
 } as const;
 
 export const SMOKE_BY_WEAPON: Readonly<Record<WeaponId, { heatPerShot: number; sizeScale: number } | null>> = {

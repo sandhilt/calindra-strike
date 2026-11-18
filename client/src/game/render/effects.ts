@@ -203,6 +203,7 @@ export class Effects {
       d.age = 0;
     }
     const n = normal ?? new THREE.Vector3(0, 1, 0);
+    this.gun.dust(pos, n);
     for (let i = 0; i < 6; i++) {
       if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
       const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize().add(n).multiplyScalar(120 + Math.random() * 220);

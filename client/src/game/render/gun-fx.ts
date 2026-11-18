@@ -14,7 +14,7 @@ import {
   MAGAZINE_DROP,
   MAGAZINE_SIZE_UNITS,
   MAGAZINE_SPEC,
-  SMOKE,
+  SMOKE_STYLES,
   SMOKE_BY_WEAPON,
 } from './fx-tuning.ts';
 import { HeatTracker, SmokePool, puffsForHeat, smokeAlpha, smokeSize } from './smoke-sim.ts';
@@ -23,16 +23,28 @@ import { TracerPolicy } from './tracer-policy.ts';
 const HIGH = FX_LIMITS.high;
 const CASING_COLORS: readonly THREE.Color[] = [new THREE.Color(CASING_BRASS.color), new THREE.Color(CASING_SHELL.color)];
 
+/** Soft blobs piled off-centre make a wisp with a ragged edge, not a perfect disc. */
+const SMOKE_TEXTURE_BLOBS = 14;
+
 function smokeTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const g = c.getContext('2d') as CanvasRenderingContext2D;
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 31);
-  grd.addColorStop(0, 'rgba(255,255,255,1)');
-  grd.addColorStop(0.5, 'rgba(255,255,255,0.45)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
+  let seed = 7;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < SMOKE_TEXTURE_BLOBS; i++) {
+    const angle = rand() * Math.PI * 2;
+    const reach = rand() * 12;
+    const x = 32 + Math.cos(angle) * reach;
+    const y = 32 + Math.sin(angle) * reach;
+    const r = 9 + rand() * 11;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,0.32)');
+    grd.addColorStop(0.6, 'rgba(255,255,255,0.12)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+  }
   return new THREE.CanvasTexture(c);
 }
 
@@ -66,7 +78,7 @@ export class GunFx {
     this.now = now;
     this.magazines = new DebrisPool(MAGAZINE_SPEC, HIGH.magazines, random);
     this.casings = new DebrisPool(CASING_SPEC, HIGH.casings, random);
-    this.smoke = new SmokePool(HIGH.smokePuffs, random);
+    this.smoke = new SmokePool(HIGH.smokePuffs, random, SMOKE_STYLES.high);
 
     this.magazineMesh = new THREE.InstancedMesh(
       new THREE.BoxGeometry(MAGAZINE_SIZE_UNITS.w, MAGAZINE_SIZE_UNITS.l, MAGAZINE_SIZE_UNITS.d),
@@ -112,6 +124,7 @@ export class GunFx {
 
   setQuality(quality: FxQuality): void {
     this.quality = quality;
+    this.smoke.style = SMOKE_STYLES[quality];
     const limits = FX_LIMITS[quality];
     this.magazines.setCapacity(limits.magazines);
     this.casings.setCapacity(limits.casings);
@@ -127,8 +140,9 @@ export class GunFx {
   fire(shooter: number, weapon: WeaponId, muzzle: THREE.Vector3, dir: THREE.Vector3, vx: number, vz: number): void {
     const smoke = SMOKE_BY_WEAPON[weapon];
     if (smoke) {
-      const heat = this.heat.shot(shooter, this.now(), smoke.heatPerShot);
-      const puffs = puffsForHeat(heat, this.quality);
+      const style = this.smoke.style;
+      const heat = this.heat.shot(shooter, this.now(), smoke.heatPerShot, style.heatDecayPerS);
+      const puffs = puffsForHeat(heat, style);
       for (let i = 0; i < puffs; i++) this.smoke.emit(muzzle.x, muzzle.y, muzzle.z, dir.x, dir.y, dir.z, heat, smoke.sizeScale);
     }
     const casing = CASING_BY_WEAPON[weapon];
@@ -150,6 +164,11 @@ export class GunFx {
       casing.variant,
       casing.scale,
     );
+  }
+
+  /** Grey dust where a bullet hit, blown off along the surface normal. */
+  dust(at: THREE.Vector3, normal: THREE.Vector3): void {
+    for (let i = 0; i < this.smoke.style.impactDustPuffs; i++) this.smoke.emitDust(at.x, at.y, at.z, normal.x, normal.y, normal.z);
   }
 
   /** A spent magazine leaving the gun at `at`; `vx`, `vz` carry the shooter's own movement. */
@@ -197,6 +216,7 @@ export class GunFx {
 
   private drawSmoke(): void {
     const n = this.smoke.count;
+    const style = this.smoke.style;
     if (n === 0 && this.smokeGeo.drawRange.count === 0) return;
     const pos = this.smokeGeo.attributes.position.array as Float32Array;
     const col = this.smokeGeo.attributes.color.array as Float32Array;
@@ -206,8 +226,8 @@ export class GunFx {
       pos[i * 3] = p.x;
       pos[i * 3 + 1] = p.y;
       pos[i * 3 + 2] = p.z;
-      col[i * 4] = col[i * 4 + 1] = col[i * 4 + 2] = SMOKE.color;
-      col[i * 4 + 3] = smokeAlpha(p.age / p.life, p.alphaPeak);
+      col[i * 4] = col[i * 4 + 1] = col[i * 4 + 2] = style.color;
+      col[i * 4 + 3] = smokeAlpha(p.age / p.life, p.alphaPeak, style.attackShare);
       size[i] = smokeSize(p);
     }
     this.smokeGeo.setDrawRange(0, n);

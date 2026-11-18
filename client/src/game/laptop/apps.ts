@@ -49,6 +49,7 @@ export const APP_ACCENT: Readonly<Record<AppName, string>> = {
   WezTerm: '#b48cff',
   'Windows Terminal': '#9fb4ff',
   Chrome: '#4f9bff',
+  Postman: '#FF6C37',
   Firefox: '#ff8a3d',
   Edge: '#2fd1b6',
   Explorer: '#ffc94d',

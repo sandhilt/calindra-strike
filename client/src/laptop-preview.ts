@@ -4,6 +4,8 @@ import { BLACK_FRIDAY_FUSE_MS } from '@calindra-strike/shared';
 import { drawLidBadge } from './game/laptop/badge.ts';
 import { BombRenderer } from './game/render/bomb.ts';
 import { LAPTOP_MODELS, chassisColor, drawBlackFridayRibbon, drawCalmScreen, drawIdleScreen, drawLaptop, drawLaptopScreen } from './game/laptop/draw.ts';
+import type { AppName } from './game/laptop/apps.ts';
+import { drawIcon, ICONS } from './game/laptop/icons.ts';
 import { SCENARIOS } from './game/laptop/scenarios.ts';
 
 const PREVIEW_W = 720;
@@ -27,6 +29,10 @@ style.textContent = `
   button { background: #80e5c2; border: 0; padding: 9px 20px; border-radius: 6px; margin-right: 20px; }
   output { margin-left: 16px; font-variant-numeric: tabular-nums; }
   #scenarios, #textures, #idles, #badges, #calms, #black-friday { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 24px; }
+  #icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+  #icons section { background: #182539; border-radius: 8px; padding: 12px; }
+  #icons h2 { margin: 0 0 8px; font-size: 14px; }
+  #icons canvas { width: auto; background: transparent; }
   canvas { width: 100%; max-width: 720px; background: #101c2d; border-radius: 12px; }
   h2 { font-size: 18px; }
 `;
@@ -45,6 +51,41 @@ function mountCanvas(container: Element | null, label: string, width: number, he
   container?.append(section);
   return canvas.getContext('2d');
 }
+
+const iconGallery = document.querySelector('#icons');
+const iconSizes = [16, 32, 64];
+const iconWidth = 176;
+const iconHeight = 86;
+const iconPreviews = (Object.keys(ICONS) as AppName[]).sort().map((app) => {
+  const ctx = mountCanvas(iconGallery, app, iconWidth, iconHeight);
+  if (ctx) {
+    ctx.canvas.style.width = `${iconWidth}px`;
+    ctx.canvas.style.height = `${iconHeight}px`;
+    ctx.canvas.setAttribute('aria-label', `${app} · ${iconSizes.join(', ')} px`);
+  }
+  return { app, ctx };
+});
+
+function drawIconGallery(): void {
+  for (const { app, ctx } of iconPreviews) {
+    if (!ctx) continue;
+    scaled(ctx, iconWidth, iconHeight, (w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      let x = 4;
+      for (const size of iconSizes) {
+        drawIcon(ctx, app, x, 64 - size, size);
+        ctx.font = '11px system-ui';
+        ctx.fillStyle = '#a0b6d0';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(size), x + size / 2, 80);
+        x += size + 20;
+      }
+    });
+  }
+}
+
+drawIconGallery();
+window.addEventListener('load', drawIconGallery, { once: true });
 
 const laptops = SCENARIOS.map((scenario) => mountCanvas(document.querySelector('#scenarios'), scenario.title, PREVIEW_W, PREVIEW_H));
 const textures = SCENARIOS.map((scenario) => mountCanvas(document.querySelector('#textures'), scenario.title, TEXTURE_W, TEXTURE_H));

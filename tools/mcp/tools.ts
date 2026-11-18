@@ -238,6 +238,7 @@ export function createTools(session: GameSession, code = ''): McpTool[] {
           d.required?.some((k) => !Object.hasOwn(a, k))
         )
           throw new Error('Unexpected or missing argument');
+        session.markPresent();
         return result(await d.run(session, a, code));
       } catch (e) {
         return failure(e);

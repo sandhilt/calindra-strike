@@ -97,6 +97,34 @@ it('turns friendly fire on only when the operator asks for it', () => {
   assert.throws(() => loadConfig(), /FRIENDLY_FIRE/);
 });
 
+it('kicks unready and idle players by default and lets the operator turn each off or retime it', () => {
+  stubEnv('READY_KICK', '');
+  stubEnv('READY_KICK_SECONDS', '');
+  stubEnv('IDLE_KICK', '');
+  stubEnv('IDLE_KICK_SECONDS', '');
+  assert.equal(loadConfig().readyKickMs, 20_000);
+  assert.equal(loadConfig().idleKickMs, 30_000);
+  stubEnv('READY_KICK_SECONDS', '45');
+  stubEnv('IDLE_KICK_SECONDS', '120');
+  assert.equal(loadConfig().readyKickMs, 45_000);
+  assert.equal(loadConfig().idleKickMs, 120_000);
+  stubEnv('READY_KICK', '0');
+  stubEnv('IDLE_KICK', 'false');
+  assert.equal(loadConfig().readyKickMs, 0);
+  assert.equal(loadConfig().idleKickMs, 0);
+  stubEnv('READY_KICK', '1');
+  for (const [name, value] of [['READY_KICK_SECONDS', '4'], ['READY_KICK_SECONDS', '601'], ['READY_KICK', 'yes']]) {
+    stubEnv(name, value);
+    assert.throws(() => loadConfig(), new RegExp(name));
+    stubEnv(name, name === 'READY_KICK' ? '1' : '20');
+  }
+  stubEnv('IDLE_KICK', '1');
+  for (const value of ['9', '3601']) {
+    stubEnv('IDLE_KICK_SECONDS', value);
+    assert.throws(() => loadConfig(), /IDLE_KICK_SECONDS/);
+  }
+});
+
 it('configures the debug defusion plant timeout in seconds within 0..3600', () => {
   stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
   assert.equal(loadConfig().plantTimeoutMs, 60_000);

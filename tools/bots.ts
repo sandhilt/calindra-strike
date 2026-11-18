@@ -54,6 +54,7 @@ function bot(i: number): void {
   ws.addEventListener('message', (e) => {
     const m: ServerMsg = JSON.parse(String(e.data));
     if (m.t === 'welcome') {
+      ws.send(JSON.stringify({ t: 'ready' }));
       id = m.id;
       setMatch(m.match);
       setRoster(m.roster);

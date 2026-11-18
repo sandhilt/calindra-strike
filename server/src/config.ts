@@ -21,6 +21,8 @@ export interface Config {
   botSkill: number;
   trustProxy: boolean;
   friendlyFire: boolean;
+  readyKickMs: number; // 0 = never kick players who do not confirm "pronto"
+  idleKickMs: number; // 0 = never kick idle players
 }
 
 function int(name: string, def: number, lo: number, hi: number): number {
@@ -31,10 +33,11 @@ function int(name: string, def: number, lo: number, hi: number): number {
   return v;
 }
 
-/** A switch that is off unless the operator sets it: empty, 0 and false are off, 1 and true are on, anything else is a typo. */
-function flag(name: string): boolean {
+/** A switch: empty keeps the default, 0 and false are off, 1 and true are on, anything else is a typo. */
+function flag(name: string, def = false): boolean {
   const raw = (process.env[name] ?? '').trim().toLowerCase();
-  if (raw === '' || raw === '0' || raw === 'false') return false;
+  if (raw === '') return def;
+  if (raw === '0' || raw === 'false') return false;
   if (raw === '1' || raw === 'true') return true;
   throw new Error(`Invalid ${name}: ${process.env[name]} (use 1 or 0)`);
 }
@@ -105,5 +108,7 @@ export function loadConfig(): Config {
     botSkill: int('BOT_SKILL', 50, 0, 100) / 100,
     trustProxy: process.env.TRUST_PROXY === '1',
     friendlyFire: flag('FRIENDLY_FIRE'),
+    readyKickMs: flag('READY_KICK', true) ? int('READY_KICK_SECONDS', 20, 5, 600) * 1000 : 0,
+    idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', 30, 10, 3600) * 1000 : 0,
   };
 }

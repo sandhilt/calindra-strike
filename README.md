@@ -66,6 +66,8 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `CTF_CAPTURE_LIMIT` | `3` | Captures to win; `0` uses the timer only |
 | `DEFUSE_SCORE_LIMIT` | `5` | Rounds to win debug defusion; `0` uses the timer only |
 | `FRIENDLY_FIRE` | `0` | `1` lets bullets hurt teammates in team modes (a teamkill earns no kill or score); only this setting turns it on |
+| `READY_KICK` / `READY_KICK_SECONDS` | `1` / `20` | New players wait on the "pronto" screen, out of the map and untouchable. With `1`, whoever has not confirmed after `READY_KICK_SECONDS` (5-600), or when the match ends, goes back to the lobby; `0` never kicks |
+| `IDLE_KICK` / `IDLE_KICK_SECONDS` | `1` / `30` | With `1`, a player with no input (keys, mouse, weapon change; for MCP agents, any tool call) for `IDLE_KICK_SECONDS` (10-3600) goes back to the lobby, warned 10 s before; the podium does not count. `0` never kicks |
 | `DEFUSE_PLANT_TIMEOUT_SECONDS` | `60` | Seconds the attackers have to plant before the laptop goes to the other team with a new variation; `0` means no limit |
 | `TDM_SCORE_LIMIT` | `50` | Team kill target; `0` uses the timer only |
 | `MATCH_SECONDS` / `PODIUM_SECONDS` | `300` / `15` | Match and podium duration |

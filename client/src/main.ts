@@ -1,7 +1,7 @@
 import '@fontsource-variable/inter';
 import '@fontsource/fragment-mono';
 import './styles.css';
-import { PROTOCOL_VERSION, type ServerMsg } from '@calindra-strike/shared';
+import { KICK_CLOSE_CODE, type KickReason, PROTOCOL_VERSION, type ServerMsg } from '@calindra-strike/shared';
 import { loadBrand } from './brand.ts';
 import { SERVER_HTTP, SERVER_WS } from './config.ts';
 import { ClientGame, type Welcome } from './game/client.ts';
@@ -129,6 +129,12 @@ async function play(s: Settings, spectate: boolean): Promise<void> {
   }
 }
 
+const KICKED = new Map<string, string>([
+  ['afk', 'Você não deu pronto a tempo e voltou para a tela inicial.'],
+  ['podium', 'A partida acabou antes de você dar pronto.'],
+  ['idle', 'Você ficou parado tempo demais e voltou para a tela inicial.'],
+] satisfies [KickReason, string][]);
+
 /** Close codes worth retrying: server restart (deploy), network drop, going away, server error. */
 const TRANSIENT = new Set([1001, 1006, 1011, 1012]);
 
@@ -236,8 +242,14 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
     showPodium: (r, next) => overlays.showPodium(r, next),
     updateVotes: (counts, mine) => overlays.updateVotes(counts, mine),
     updatePodiumCountdown: (sec) => overlays.podiumCountdown(sec),
+    updateReadyCountdown: (sec) => overlays.readyCountdown(sec),
     disconnected: (reason, code) => {
-      if (TRANSIENT.has(code)) void reconnect();
+      if (code === KICK_CLOSE_CODE) {
+        stopped = true;
+        game?.dispose();
+        game = null;
+        lobby(KICKED.get(reason) ?? 'Você foi removido da partida.');
+      } else if (TRANSIENT.has(code)) void reconnect();
       else overlays.disconnected(reason, leave);
     },
   });

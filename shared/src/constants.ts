@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -39,6 +39,7 @@ export const DROP_DIVE_SPEED = 980;
 export const DROP_AIR_SPEED = 520;
 export const DROP_ACCEL = 4;
 export const SPAWN_PROTECT_TICKS = 90; // 1.5s after landing
+export const IDLE_WARNING_LEAD_MS = 10_000; // how long before the idle kick the client warns the player
 
 // --- match ---
 export const MAX_HEALTH = 100;

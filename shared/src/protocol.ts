@@ -11,6 +11,9 @@ export const MAX_MESSAGE_BYTES = 4096;
 
 export type ClientMsg =
   | { t: 'spray' }
+  | { t: 'ready' }
+  // At the controls without moving, e.g. an agent's wait: counts as activity for the idle kick.
+  | { t: 'active' }
   | { t: 'hello'; v: number; name: string; color: number; primary: WeaponId; code: string; token: string; spectate?: boolean }
   | { t: 'watch'; team: 0 | 1 }
   | { t: 'in'; c: Cmd[] }
@@ -58,6 +61,10 @@ export function parseClientMessage(raw: string): ClientMsg | null {
     }
     case 'spray':
       return Object.keys(o).length === 1 ? { t: 'spray' } : null;
+    case 'ready':
+      return Object.keys(o).length === 1 ? { t: 'ready' } : null;
+    case 'active':
+      return Object.keys(o).length === 1 ? { t: 'active' } : null;
     case 'ping':
       return isNum(o.c, 0, 1e13) ? { t: 'ping', c: o.c } : null;
     case 'hello': {
@@ -186,7 +193,8 @@ export type SpectatorInfo =
 
 export type ServerMsg =
   | { t: 'spectate'; state: SpectatorInfo }
-  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null }
+  // idleKickMs: how long a player in play may send no input before being kicked, null when the server never kicks idle players.
+  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null; ready: Readiness; idleKickMs: number | null }
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
   // fl rows: [state, carrierId, x, y, z, returnAtMs]; x,y,z = current world position, carrier position when carried.
@@ -202,6 +210,13 @@ export type ServerMsg =
   | { t: 'pong'; c: number; s: number }
   | { t: 'chat'; id: number; text: string }
   | { t: 'radio'; id: number; line: number };
+
+/** A pending player waits on the "pronto" screen, out of the world. kickAt: server ms of the kick, null when the server does not kick. */
+export type Readiness = { kind: 'confirmed' } | { kind: 'pending'; kickAt: number | null };
+
+/** Why the server removed a player (never confirmed "pronto", or stood idle). Sent as the close reason with KICK_CLOSE_CODE. */
+export type KickReason = 'afk' | 'podium' | 'idle';
+export const KICK_CLOSE_CODE = 4004;
 
 export type RosterEntry = [id: number, name: string, color: number, team: number, bot: number];
 

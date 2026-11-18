@@ -28,6 +28,8 @@ function fixture() {
     maxPlayers: 16,
     token: '',
     spectator: null,
+    ready: { kind: 'confirmed' },
+    idleKickMs: null,
   });
   const s = createPlayerState();
   view.self = s;

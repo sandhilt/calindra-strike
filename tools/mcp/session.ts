@@ -57,6 +57,7 @@ export class GameSession {
   private readonly actions = new ActionOverlay();
   private names = new Map<number, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
+  private lastPresentAt = -Infinity;
   private cancelJoin: (() => void) | undefined;
   private cleanup: (() => void) | undefined;
   private options: {
@@ -114,6 +115,7 @@ export class GameSession {
             return;
           }
           if (m.t === 'welcome' && this.state.phase === 'connecting') {
+            socket.send(JSON.stringify({ t: 'ready' }));
             const map = getMap(m.match.map);
             const world = new CollisionWorld(map);
             this.state = {
@@ -278,6 +280,14 @@ export class GameSession {
     } catch (e) {
       this.close(String(e));
     }
+  }
+  /** Every tool call proves the agent is still answering, even a wait that leaves the pilot standing still. */
+  markPresent(): void {
+    if (this.state.phase !== 'playing' || this.state.socket.readyState !== 1) return;
+    const now = this.options.clock.now();
+    if (now - this.lastPresentAt < 1000) return;
+    this.lastPresentAt = now;
+    this.send({ t: 'active' });
   }
   requirePlaying(): Extract<State, { phase: 'playing' }> {
     if (this.state.phase !== 'playing')

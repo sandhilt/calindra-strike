@@ -1524,6 +1524,11 @@ input:focus-visible {
   color: var(--muted);
 }
 
+.click-to-play .ready-countdown {
+  color: #ffd54f;
+  font-variant-numeric: tabular-nums;
+}
+
 /* podium */
 .podium-ui {
   position: absolute;

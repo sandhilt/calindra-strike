@@ -45,6 +45,7 @@ export class Overlays {
   private readonly menuTitle = h('h2', { text: 'pausado' });
   private nextMap = '';
   private lastSeconds = -1;
+  private readonly readyCountdownEl = h('p', { class: 'ready-countdown hidden' });
 
   constructor(
     private readonly root: HTMLElement,
@@ -58,6 +59,7 @@ export class Overlays {
         h('h2', { class: 'wordmark', text: 'pronto?' }),
         h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
         play,
+        this.readyCountdownEl,
         h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),
       ]),
     ]);
@@ -268,6 +270,13 @@ export class Overlays {
     if (seconds === this.lastSeconds) return;
     this.lastSeconds = seconds;
     this.podiumNext.replaceChildren('próxima partida em ', h('b', { text: `${seconds}s` }), this.vote ? ' · vote no próximo mapa (1, 2 ou 3)' : this.nextMap ? ` · ${this.nextMap}` : '');
+  }
+
+  readyCountdown(seconds: number | null): void {
+    this.readyCountdownEl.classList.toggle('hidden', seconds === null);
+    if (seconds === null) return;
+    const text = `${seconds}s para dar pronto ou você volta para a tela inicial`;
+    if (this.readyCountdownEl.textContent !== text) this.readyCountdownEl.textContent = text;
   }
 
   /** Map vote panel on the podium. */

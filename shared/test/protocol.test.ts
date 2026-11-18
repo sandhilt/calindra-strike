@@ -9,6 +9,11 @@ describe('parseClientMessage', () => {
     assert.deepEqual(m, { t: 'in', c: [{ seq: 1, buttons: 129, yaw: 0.5, pitch: -0.1, weapon: 0, interp: 12345 }] });
   });
 
+  it('accepts a bare ready', () => {
+    assert.deepEqual(parseClientMessage('{"t":"ready"}'), { t: 'ready' });
+    assert.deepEqual(parseClientMessage('{"t":"active"}'), { t: 'active' });
+  });
+
   for (const raw of [
     'not json',
     '[]',
@@ -24,6 +29,8 @@ describe('parseClientMessage', () => {
     '{"t":"loadout","primary":6}',
     '{"t":"chat","text":""}',
     '{"t":"__proto__"}',
+    '{"t":"ready","now":true}',
+    '{"t":"active","x":1}',
   ]) {
     it(`rejects ${raw}`, () => {
       assert.equal(parseClientMessage(raw), null);

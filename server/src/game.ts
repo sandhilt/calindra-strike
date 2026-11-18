@@ -10,6 +10,8 @@ import {
   CollisionWorld,
   type GameEvent,
   type GameMode,
+  type KickReason,
+  type Readiness,
   LAGCOMP_MAX_MS,
   MAX_ARMOR,
   MAX_HEALTH,
@@ -59,6 +61,9 @@ import {
 } from '@calindra-strike/shared';
 import { BOT_NAMES, type BotEnv, BotBrain } from './bot.ts';
 import { NavGrid } from './nav.ts';
+
+const CONFIRMED: Readiness = { kind: 'confirmed' };
+const isPending = (p: ServerPlayer): boolean => p.ready.kind === 'pending';
 
 const HISTORY = 64; // ~1s of positions for lag compensation
 const MAX_QUEUE = 48;
@@ -192,6 +197,8 @@ export interface ServerPlayer {
   brain: BotBrain | null; // server bot when set
   botChat: BotChatMemory | null; // table-talk memory, bots only
   token: string; // secret used to rejoin after a drop
+  lastActiveAt: number; // server ms of the last command with a button, look or weapon change
+  ready: Readiness; // pending players stay out of the world until they confirm
 }
 
 interface Airdrop {
@@ -220,6 +227,10 @@ export interface GameOptions {
   botFill?: number; // keep at least this many players (bots fill the gap while someone is online)
   botSkill?: number; // 0..1
   random?: () => number;
+  requireReady?: boolean; // new players wait on the "pronto" screen until they confirm (unset: they join in play)
+  readyKickMs?: number; // pending players are kicked after this, and when the match ends (0 or unset: never)
+  idleKickMs?: number; // players in play with no input for this long are kicked (0 or unset: never)
+  onKick?: (id: number, reason: KickReason) => void; // the transport closes the kicked player's connection
 }
 
 export class Game {
@@ -560,7 +571,7 @@ export class Game {
     const s: Spectator = { id: this.nextId++, name, send, view: !isTeamMode(this.mode)
       ? { kind: 'watching', team: -1 } : { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS } };
     this.spectators.set(s.id, s);
-    send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s) }));
+    send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s), ready: CONFIRMED, idleKickMs: null }));
     return s;
   }
 
@@ -631,6 +642,8 @@ export class Game {
       brain: null,
       botChat: null,
       token: randomBytes(16).toString('hex'),
+      lastActiveAt: this.now(),
+      ready: this.initialReadiness(),
     };
     if (isTeamMode(this.mode)) p.team = this.pickTeam();
     if (ghost && ghost.expires >= this.tick && ghost.matchId === this.matchId) {
@@ -652,6 +665,8 @@ export class Game {
         maxPlayers: this.opts.maxPlayers,
         token: p.token,
         spectator: null,
+        ready: p.ready,
+        idleKickMs: this.opts.idleKickMs || null,
       }),
     );
     this.broadcastRoster();
@@ -661,6 +676,47 @@ export class Game {
     this.fillBots();
     if (this.phase === 'warmup' && this.readyToStart()) this.startMatch();
     return p;
+  }
+
+  /** A player joining during the podium gets the full window once the next match starts. */
+  private initialReadiness(): Readiness {
+    if (!this.opts.requireReady) return CONFIRMED;
+    const kickMs = this.opts.readyKickMs;
+    return { kind: 'pending', kickAt: kickMs ? (this.phase === 'podium' ? this.phaseEnds : this.now()) + kickMs : null };
+  }
+
+  ready(p: ServerPlayer): void {
+    if (!isPending(p) || this.players.get(p.id) !== p) return;
+    p.ready = CONFIRMED;
+    p.lastActiveAt = this.now();
+    if (this.phase !== 'podium') this.spawn(p);
+    if (this.phase === 'warmup' && this.readyToStart()) this.startMatch();
+  }
+
+  markActive(p: ServerPlayer): void {
+    p.lastActiveAt = this.now();
+  }
+
+  private kick(p: ServerPlayer, reason: KickReason): void {
+    this.leave(p.id);
+    this.opts.onKick?.(p.id, reason);
+    // The bot that took the slot may complete the warmup the pending player was holding back.
+    if (this.phase === 'warmup' && this.readyToStart()) this.startMatch();
+  }
+
+  private kickUnready(reason: KickReason, due: (kickAt: number) => boolean): void {
+    for (const p of [...this.players.values()]) if (p.ready.kind === 'pending' && p.ready.kickAt !== null && due(p.ready.kickAt)) this.kick(p, reason);
+  }
+
+  /** The podium clock does not count: nobody can move there. */
+  private kickIdle(now: number): void {
+    const timeout = this.opts.idleKickMs;
+    if (!timeout) return;
+    for (const p of [...this.players.values()]) {
+      if (p.brain || isPending(p)) continue;
+      if (this.phase === 'podium') p.lastActiveAt = now;
+      else if (now - p.lastActiveAt >= timeout) this.kick(p, 'idle');
+    }
   }
 
   leave(id: number): void {
@@ -767,6 +823,8 @@ export class Game {
       brain: new BotBrain(skill),
       botChat: newBotChatMemory(),
       token: '',
+      lastActiveAt: 0,
+      ready: CONFIRMED,
     };
     this.players.set(id, p);
     this.emit({ k: 'join', id });
@@ -816,7 +874,7 @@ export class Game {
   /** Records the vote and returns the option voted for, or null when it was ignored (not the podium, a server bot, a bad option or a repeat). */
   vote(p: ServerPlayer, option: number): VoteOption | null {
     const chosen = this.voteOptions[option];
-    if (this.phase !== 'podium' || p.brain || !chosen) return null;
+    if (this.phase !== 'podium' || p.brain || isPending(p) || !chosen) return null;
     if (this.votes.get(p.id) === option) return null;
     this.votes.set(p.id, option);
     const msg = JSON.stringify({ t: 'votes', counts: this.voteCounts() });
@@ -954,6 +1012,7 @@ export class Game {
     this.winner = !isTeamMode(this.mode) || a === b ? -1 : a > b ? 0 : 1;
     if (this.winner >= 0) this.botSay(this.randomBot(this.winner), 'teamWin');
     this.results = [...this.players.values()]
+      .filter((p) => !isPending(p))
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.headshots - a.headshots || a.joinedAt - b.joinedAt)
       .map((p) => ({
         id: p.id,
@@ -973,6 +1032,8 @@ export class Game {
     this.airdrops = [];
     this.buildVote();
     this.broadcastMatch();
+    // After the results: a kick refills bots, and those must not show up on a podium they never played.
+    this.kickUnready('podium', () => true); // only players with a kick deadline: the ready kick is on
   }
 
   private nextMap(): void {
@@ -1014,6 +1075,7 @@ export class Game {
   // ------------------------------------------------------------ spawning
 
   private spawn(p: ServerPlayer): void {
+    if (isPending(p)) return;
     this.dropObjective(p);
     const a = this.map.dropArea;
     const teams = isTeamMode(this.mode);
@@ -1239,7 +1301,9 @@ export class Game {
   }
 
   private readyToStart(): boolean {
-    return this.players.size >= this.opts.warmupMinPlayers;
+    let ready = 0;
+    for (const p of this.players.values()) if (!isPending(p)) ready++;
+    return ready >= this.opts.warmupMinPlayers;
   }
 
   // ------------------------------------------------------------ main tick
@@ -1251,6 +1315,9 @@ export class Game {
     for (const s of this.spectators.values()) {
       if (s.view.kind === 'choosing' && now >= s.view.deadline) this.watch(s, this.pickTeam());
     }
+
+    this.kickUnready('afk', (kickAt) => now >= kickAt);
+    this.kickIdle(now);
 
     // phase transitions
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();
@@ -1269,6 +1336,7 @@ export class Game {
         p.tokens -= 1;
         n++;
         p.lastSeq = cmd.seq;
+        if (cmd.buttons !== 0 || cmd.weapon !== 0 || cmd.yaw !== p.state.yaw || cmd.pitch !== p.state.pitch) p.lastActiveAt = now;
         p.using = (cmd.buttons & BTN.USE) !== 0;
         if (p.alive && this.phase !== 'podium') {
           const shot = applyCmd(this.world, p.state, cmd, p.id);

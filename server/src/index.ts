@@ -1,13 +1,14 @@
 import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import type { Duplex } from 'node:stream';
-import { MAX_SPECTATORS, MAX_MESSAGE_BYTES, PROTOCOL_VERSION, TICK_MS, parseClientMessage, sanitizeChat, sanitizeName } from '@calindra-strike/shared';
+import { KICK_CLOSE_CODE, MAX_SPECTATORS, MAX_MESSAGE_BYTES, PROTOCOL_VERSION, TICK_MS, parseClientMessage, sanitizeChat, sanitizeName } from '@calindra-strike/shared';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { loadConfig } from './config.ts';
 import { Game, type ServerPlayer, type Spectator } from './game.ts';
 import { KeyedLimiter, TokenBucket } from './ratelimit.ts';
 
 const cfg = loadConfig();
+const playerSockets = new Map<number, WebSocket>();
 const game = new Game({
   maxPlayers: cfg.maxPlayers,
   matchMs: cfg.matchMs,
@@ -23,6 +24,13 @@ const game = new Game({
   airdropFirstMs: cfg.airdropFirstMs,
   botFill: cfg.botFill,
   botSkill: cfg.botSkill,
+  requireReady: true,
+  readyKickMs: cfg.readyKickMs,
+  idleKickMs: cfg.idleKickMs,
+  onKick: (id, reason) => {
+    log('kick', reason, `id=${id}`);
+    playerSockets.get(id)?.close(KICK_CLOSE_CODE, reason);
+  },
 });
 
 const sockets = new Set<WebSocket>();
@@ -216,6 +224,7 @@ function onConnection(ws: WebSocket, ip: string): void {
           return;
         }
         player = res;
+        playerSockets.set(res.id, ws);
         clearTimeout(helloTimer);
         log('join', JSON.stringify(player.name), `players=${game.players.size}`);
         return;
@@ -236,6 +245,12 @@ function onConnection(ws: WebSocket, ip: string): void {
           break;
         case 'spray':
           game.spray(player);
+          break;
+        case 'ready':
+          game.ready(player);
+          break;
+        case 'active':
+          game.markActive(player);
           break;
         case 'loadout':
           game.setLoadout(player, msg.primary);
@@ -283,8 +298,9 @@ function onConnection(ws: WebSocket, ip: string): void {
       spectator = null;
     }
     if (player) {
-      log('leave', JSON.stringify(player.name), `players=${game.players.size - 1}`);
+      playerSockets.delete(player.id);
       game.leave(player.id);
+      log('leave', JSON.stringify(player.name), `players=${game.players.size}`);
       player = null;
     }
   });

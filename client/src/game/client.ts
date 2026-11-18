@@ -1,5 +1,7 @@
 import {
   BTN,
+  IDLE_WARNING_LEAD_MS,
+  type Readiness,
   isTeamMode,
   PLAYER_RADIUS,
   type SpectatorInfo,
@@ -124,6 +126,8 @@ export interface Welcome {
   match: MatchInfo;
   maxPlayers: number;
   token: string;
+  ready: Readiness;
+  idleKickMs: number | null;
 }
 
 export interface PodiumData {
@@ -150,6 +154,8 @@ export interface UiHooks {
   showPodium(data: PodiumData | null, next: string): void;
   updateVotes(counts: number[], mine: number): void;
   updatePodiumCountdown(seconds: number): void;
+  /** Seconds left to confirm "pronto" before the server kicks the player, null once confirmed. */
+  updateReadyCountdown(seconds: number | null): void;
   disconnected(reason: string, code: number): void;
 }
 
@@ -209,6 +215,14 @@ export class ClientGame {
   private readonly serverState: PlayerState = createPlayerState();
   private prev = new THREE.Vector3();
   private spectator: SpectatorInfo | null;
+  /** Until 'ready' is sent the player stays out of the world. */
+  private ready: Readiness;
+  private readonly idleKickMs: number | null;
+  /** Local mirror of the server's idle clock, only to warn before the kick. */
+  private lastActiveAt = performance.now();
+  private idleWarned = false;
+  private lastCmdYaw = 0;
+  private lastCmdPitch = 0;
   private followedId = -1;
   private cameraMode: CameraMode = 'first';
   /** Where the spectator camera stood last frame: the start of the free camera and the view while nobody can be followed. */
@@ -273,6 +287,8 @@ export class ClientGame {
     private readonly ui: UiHooks,
   ) {
     this.spectator = welcome.spectator;
+    this.ready = welcome.spectator ? { kind: 'confirmed' } : welcome.ready;
+    this.idleKickMs = welcome.spectator ? null : welcome.idleKickMs;
     this.myId = welcome.id;
     this.match = welcome.match;
     this.clockOffset = welcome.time - performance.now();
@@ -385,7 +401,15 @@ export class ClientGame {
   async requestPlay(): Promise<void> {
     this.sfx.resume();
     if (this.spectator) { this.menuOpen = false; this.ui.showMenu(false); return; }
+    this.confirmReady();
     await this.input.lock();
+  }
+
+  private confirmReady(): void {
+    if (this.ready.kind === 'confirmed') return;
+    this.ready = { kind: 'confirmed' };
+    this.net.send({ t: 'ready' });
+    this.ui.updateReadyCountdown(null);
   }
 
   applySettings(s: Settings): void {
@@ -1069,6 +1093,7 @@ export class ClientGame {
     this.lastButtons = buttons;
     const req = this.resolveWeaponRequest(this.input.takeWeaponRequest());
     const cmd: Cmd = { seq: ++this.seq, buttons, yaw: this.input.yaw, pitch: this.input.pitch, weapon: req, interp: Math.round(renderTime) };
+    this.warnIdle(cmd);
     if (canPlay) {
       const s = this.me;
       const before = { ground: s.onGround, drop: s.dropping, reload: s.reload, weapon: s.weapon, nextFire: s.nextFire, vy: s.vy, zoom: s.zoom };
@@ -1081,6 +1106,23 @@ export class ClientGame {
     }
     this.outbox.push(cmd);
     if (this.tickCount % 2 === 0) this.flush();
+  }
+
+  private warnIdle(cmd: Cmd): void {
+    const now = performance.now();
+    const active = cmd.buttons !== 0 || cmd.weapon !== 0 || cmd.yaw !== this.lastCmdYaw || cmd.pitch !== this.lastCmdPitch;
+    this.lastCmdYaw = cmd.yaw;
+    this.lastCmdPitch = cmd.pitch;
+    if (active || this.idleKickMs === null || this.ready.kind === 'pending' || this.match.phase === 'podium') {
+      this.lastActiveAt = now;
+      this.idleWarned = false;
+      return;
+    }
+    const lead = Math.min(IDLE_WARNING_LEAD_MS, this.idleKickMs / 2);
+    if (this.idleWarned || now - this.lastActiveAt < this.idleKickMs - lead) return;
+    this.idleWarned = true;
+    const left = Math.round(lead / 1000);
+    this.hud.info(`Você está parado: mexa-se ou volta para a tela inicial em ${left}s`, '#ffd54f');
   }
 
   private flush(): void {
@@ -1286,6 +1328,8 @@ export class ClientGame {
       n++;
     }
     if (n === 15) this.accum = 0;
+
+    if (this.ready.kind === 'pending' && this.ready.kickAt !== null) this.ui.updateReadyCountdown(Math.max(0, Math.ceil((this.ready.kickAt - this.serverNow()) / 1000)));
 
     if (this.podiumActive) {
       this.podium.update(dt);

@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombState, type ServerMsg } from '@calindra-strike/shared';
-import { BotBrain, pickBombGoal, type BotAgent, type BotEnv } from '../src/bot.ts';
+import { BotBrain, guardPatrolPoint, pickBombGoal, type BotAgent, type BotEnv } from '../src/bot.ts';
 import { NavGrid } from '../src/nav.ts';
 import { Game } from '../src/game.ts';
 
@@ -19,18 +19,37 @@ function setup(bomb: BombState) {
   return { carrier, escort, defender, env };
 }
 
-it('attackers fetch the bomb, the carrier heads for the site, escorts follow, defenders hold the site', () => {
+it('attackers fetch the bomb, the carrier heads for the site, escorts follow, defenders guard the site', () => {
   const { carrier, escort, defender, env } = setup({ kind: 'home' });
   assert.deepEqual(pickBombGoal(escort, env), { ...bases[0], holdRadiusUnits: null });
-  assert.deepEqual(pickBombGoal(defender, env), { ...bases[1], holdRadiusUnits: null });
+  assert.deepEqual(pickBombGoal(defender, env), { ...guardPatrolPoint(bases[1], defender, env.tick), holdRadiusUnits: null });
   env.bomb = { kind: 'carried', carrier: carrier.id };
   assert.ok(pickBombGoal(carrier, env)?.holdRadiusUnits);
   assert.partialDeepStrictEqual(pickBombGoal(carrier, env), bases[1]);
-  assert.deepEqual(pickBombGoal(escort, env), { ...carrier.state, holdRadiusUnits: null });
+  assert.deepEqual(pickBombGoal(escort, env), { x: carrier.state.x, y: carrier.state.y, z: carrier.state.z, holdRadiusUnits: null });
   env.bomb = { kind: 'dropped', x: 12, y: 0, z: 34, returnAtTick: 100 };
   assert.deepEqual(pickBombGoal(escort, env), { x: 12, y: 0, z: 34, holdRadiusUnits: null });
   env.mode = 'tdm';
   assert.equal(pickBombGoal(escort, env), null);
+});
+
+it('players who only wait patrol a ring around the spot instead of parking on it', () => {
+  const { carrier, escort, defender, env } = setup({ kind: 'home' });
+  const ringDistance = (p: { x: number; z: number } | null, c: { x: number; z: number }) => Math.round(Math.hypot(p!.x - c.x, p!.z - c.z));
+  const first = pickBombGoal(defender, env);
+  assert.ok(ringDistance(first, bases[1]) > 160, 'defender waits outside the plant radius');
+  env.tick += 60 * 3;
+  const next = pickBombGoal(defender, env);
+  assert.equal(ringDistance(next, bases[1]), ringDistance(first, bases[1]));
+  assert.notDeepEqual(next, first, 'defender moves to another patrol point');
+  env.bomb = { kind: 'planting', carrier: carrier.id, doneAtTick: env.tick + 180 };
+  const escortGoal = pickBombGoal(escort, env);
+  assert.ok(ringDistance(escortGoal, carrier.state) > 160, 'escorts cover a planting carrier from around it');
+  assert.notDeepEqual(escortGoal, guardPatrolPoint(carrier.state, carrier, env.tick), 'teammates spread over the ring');
+  env.bomb = { kind: 'planted', x: 10, y: 0, z: 20, explodeAtTick: 999, variant: 0, defuse: null };
+  const guard = pickBombGoal(escort, env);
+  assert.equal(guard?.holdRadiusUnits, null);
+  assert.ok(ringDistance(guard, { x: 10, z: 20 }) > 160, 'attackers guard a planted bomb from around it');
 });
 
 it('defenders walk to the planted bomb and hold use next to it', () => {

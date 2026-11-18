@@ -76,19 +76,37 @@ export interface BombGoal extends FlagBase {
   holdRadiusUnits: number | null;
 }
 
-/** Attackers fetch the bomb, the carrier plants at the site and the rest escort. Defenders hold the site and defuse once it is planted. */
+/**
+ * Attackers fetch the bomb, the carrier plants at the site and the rest escort. Defenders guard the site and defuse once
+ * it is planted. Players who only wait (defenders before the plant, escorts during it, attackers guarding a planted bomb)
+ * patrol a ring around the spot instead of parking on it, which made them easy targets that looked idle.
+ */
 export function pickBombGoal(self: BotAgent, env: BotEnv): BombGoal | null {
   if (env.mode !== 'defuse' || !env.bomb || !env.bombPlaces || (self.team !== 0 && self.team !== 1)) return null;
   const { bomb, bombPlaces: places } = env;
   if (self.team !== places.attackers) {
     if (bomb.kind === 'planted') return { x: bomb.x, y: bomb.y, z: bomb.z, holdRadiusUnits: DEFUSE_HOLD_RADIUS_UNITS };
-    return { ...places.site, holdRadiusUnits: null };
+    return { ...guardPatrolPoint(places.site, self, env.tick), holdRadiusUnits: null };
   }
   if (bomb.kind === 'home') return { ...places.home, holdRadiusUnits: null };
-  if (bomb.kind === 'dropped' || bomb.kind === 'planted') return { x: bomb.x, y: bomb.y, z: bomb.z, holdRadiusUnits: null };
+  if (bomb.kind === 'dropped') return { x: bomb.x, y: bomb.y, z: bomb.z, holdRadiusUnits: null };
+  if (bomb.kind === 'planted') return { ...guardPatrolPoint(bomb, self, env.tick), holdRadiusUnits: null };
   if (bomb.carrier === self.id) return { ...places.site, holdRadiusUnits: PLANT_HOLD_RADIUS_UNITS };
   const carrier = [...env.players].find(p => p.id === bomb.carrier);
-  return { ...(carrier?.state ?? places.site), holdRadiusUnits: null };
+  const anchor = carrier?.state ?? places.site;
+  if (bomb.kind === 'planting') return { ...guardPatrolPoint(anchor, self, env.tick), holdRadiusUnits: null };
+  return { x: anchor.x, y: anchor.y, z: anchor.z, holdRadiusUnits: null };
+}
+
+const GUARD_RING_UNITS = 240; // outside the plant radius, close enough to shoot a planter
+const GUARD_PATROL_TICKS = 180; // 3 s at 60 Hz on each patrol point
+const GOLDEN_ANGLE_RAD = Math.PI * (3 - Math.sqrt(5)); // spreads teammates' points around the ring
+
+/** A point on a ring around `anchor` that differs per player and moves on every patrol step. */
+export function guardPatrolPoint(anchor: { x: number; y: number; z: number }, self: BotAgent, tick: number): FlagBase {
+  const step = Math.floor(tick / GUARD_PATROL_TICKS);
+  const angle = (self.id + step) * GOLDEN_ANGLE_RAD;
+  return { x: anchor.x + Math.cos(angle) * GUARD_RING_UNITS, y: anchor.y, z: anchor.z + Math.sin(angle) * GUARD_RING_UNITS };
 }
 
 function bombRole(self: BotAgent, env: BotEnv): CtfRole {

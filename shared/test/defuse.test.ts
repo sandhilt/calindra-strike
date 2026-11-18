@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
 import { stepBomb, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
-import { BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_RETURN_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
+import { BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
 const actor = (team: number, at: { x: number; y: number; z: number }, extra: Partial<BombActor> = {}): BombActor =>
@@ -45,15 +45,16 @@ it('a vanished or dead carrier sends the bomb home and death drops it where it s
   const carried: BombState = { kind: 'carried', carrier: 7 };
   assert.deepEqual(stepBomb(carried, places, [], 1, { variant: 0, blackFriday: false }).bomb, home);
   const drop = dropBomb({ kind: 'planting', carrier: 7, doneAtTick: 5 }, 7, { x: 1, y: 2, z: 3 }, 10, 0);
-  assert.deepEqual(drop.bomb, { kind: 'dropped', x: 1, y: 2, z: 3, returnAtTick: 10 + BOMB_RETURN_TICKS });
+  assert.deepEqual(drop.bomb, { kind: 'dropped', x: 1, y: 2, z: 3, returnAtTick: 10 + BOMB_DROPPED_TICKS });
   assert.deepEqual(drop.events, [{ k: 'bomb', what: 'drop', team: 0, by: 7 }]);
   assert.deepEqual(dropBomb(carried, 8, { x: 1, y: 2, z: 3 }, 10, 0).bomb, carried);
   assert.deepEqual(dropBomb(home, 7, { x: 1, y: 2, z: 3 }, 10, 0).events, []);
   const dropped = drop.bomb;
-  assert.equal(stepBomb(dropped, places, [], 9 + BOMB_RETURN_TICKS, { variant: 0, blackFriday: false }).bomb.kind, 'dropped');
-  const back = stepBomb(dropped, places, [], 10 + BOMB_RETURN_TICKS, { variant: 0, blackFriday: false });
-  assert.deepEqual(back.bomb, home);
-  assert.deepEqual(back.events, [{ k: 'bomb', what: 'return', team: 0, by: -1 }]);
+  assert.equal(stepBomb(dropped, places, [], 9 + BOMB_DROPPED_TICKS, { variant: 0, blackFriday: false }).bomb.kind, 'dropped');
+  const abandoned = stepBomb(dropped, places, [], 10 + BOMB_DROPPED_TICKS, { variant: 0, blackFriday: false });
+  assert.deepEqual(abandoned.bomb, home);
+  assert.equal(abandoned.outcome, 'expired', 'nobody scores and the sides swap');
+  assert.deepEqual(abandoned.events, [{ k: 'bomb', what: 'abandoned', team: 1, by: -1 }], 'the defenders get the laptop');
 });
 
 it('the fuse explodes for the attackers exactly at the deadline', () => {

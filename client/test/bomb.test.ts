@@ -9,7 +9,7 @@ test('maps every wire state and clears outside the mode', () => {
   assert.deepEqual(bombView([0, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'home' });
   assert.deepEqual(bombView([1, 7, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'carried', carrier: 7 });
   assert.deepEqual(bombView([2, 7, 10, 20, 30, 0, 0, 2, 1, 5000, 0]), { ...at, state: 'planting', carrier: 7, doneAt: 5000 });
-  assert.deepEqual(bombView([3, -1, 10, 20, 30, 0, 0, 2, 1, 0, 0]), { ...at, state: 'dropped' });
+  assert.deepEqual(bombView([3, -1, 10, 20, 30, 21000, 0, 2, 1, 0, 0]), { ...at, state: 'dropped', handOverAt: 21000 });
   assert.deepEqual(bombView([4, 9, 10, 20, 30, 40000, 8000, 2, 1, 0, 0]), { ...at, state: 'planted', explodeAt: 40000, defuser: 9, defuseDoneAt: 8000 });
 });
 
@@ -102,7 +102,7 @@ test('Black Friday uses the short fuse and labels the round in every state', () 
     'pegue o bug na base',
     'segure E no site para plantar',
     'plantando…',
-    'o bug caiu · pegue-o',
+    'o bug caiu · pegue-o · troca de lado em 15s',
     'bug plantado · 15s',
   ];
   for (const [state, status] of expectedStatuses.entries()) {

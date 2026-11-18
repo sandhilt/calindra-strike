@@ -447,7 +447,7 @@ export class Game {
     const { x, y, z } = bombWirePosition(at);
     return [
       state, actorId, x, y, z,
-      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : 0,
+      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : bomb.kind === 'dropped' ? this.msAt(bomb.returnAtTick) : 0,
       bomb.kind === 'planted' && bomb.defuse ? this.msAt(bomb.defuse.doneAtTick) : 0,
       bomb.kind === 'planted' ? bomb.variant : this.bombRound.variant,
       this.attackers,

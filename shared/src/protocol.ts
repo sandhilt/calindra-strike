@@ -186,7 +186,7 @@ export type ServerMsg =
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
   // fl rows: [state, carrierId, x, y, z, returnAtMs]; x,y,z = current world position, carrier position when carried.
-  // bm (debug defusion only, [] otherwise): [state, actorId, x, y, z, explodeAtMs, defuseDoneAtMs, variant, attackers, plantDoneAtMs, blackFriday (0|1), plantByMs].
+  // bm (debug defusion only, [] otherwise): [state, actorId, x, y, z, explodeAtMs (handOverAtMs while dropped), defuseDoneAtMs, variant, attackers, plantDoneAtMs, blackFriday (0|1), plantByMs].
   // plantByMs: server ms when the attackers lose the laptop to the other team, 0 once planted or when the limit is off.
   // state: 0 home, 1 carried, 2 planting, 3 dropped, 4 planted. actorId is the carrier (carried, planting) or the defuser (planted), -1 if none.
   // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.

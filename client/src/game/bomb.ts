@@ -4,7 +4,7 @@ export type BombView = { x: number; y: number; z: number; variant: number; attac
   | { state: 'home' }
   | { state: 'carried'; carrier: number }
   | { state: 'planting'; carrier: number; doneAt: number }
-  | { state: 'dropped' }
+  | { state: 'dropped'; handOverAt: number }
   | { state: 'planted'; explodeAt: number; defuser: number; defuseDoneAt: number }
 );
 
@@ -15,7 +15,7 @@ export function bombView(row: readonly number[]): BombView | null {
   const at = { x, y, z, variant, attackers, blackFriday: blackFriday === 1, plantByAt };
   if (state === 1) return { ...at, state: 'carried', carrier: actor };
   if (state === 2) return { ...at, state: 'planting', carrier: actor, doneAt: plantDoneAt };
-  if (state === 3) return { ...at, state: 'dropped' };
+  if (state === 3) return { ...at, state: 'dropped', handOverAt: explodeAt };
   if (state === 4) return { ...at, state: 'planted', explodeAt, defuser: actor, defuseDoneAt };
   return { ...at, state: 'home' };
 }
@@ -84,7 +84,10 @@ function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
   const attacking = viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
-  if (bomb.state === 'dropped') return attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão';
+  if (bomb.state === 'dropped') {
+    const left = Math.max(0, Math.ceil((bomb.handOverAt - now) / 1000));
+    return `${attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão'} · troca de lado em ${left}s`;
+  }
   if (bomb.state === 'carried' || bomb.state === 'planting') {
     if (bomb.carrier === viewerId) return bomb.state === 'planting' ? 'plantando…' : 'segure E no site para plantar';
     return bomb.state === 'planting' ? `${name(bomb.carrier)} está plantando` : `${name(bomb.carrier)} leva o bug`;
@@ -127,6 +130,7 @@ export function bombMessage(what: BombAction, team: number, name: string): strin
     case 'defused': return `${name} desarmou o bug · ponto dos ${winner}`;
     case 'exploded': return `o bug explodiu · ponto dos ${winner}`;
     case 'expired': return `o tempo acabou · o bug agora é dos ${winner}`;
+    case 'abandoned': return `o bug ficou no chão · agora é dos ${winner}`;
   }
 }
 

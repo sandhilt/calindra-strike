@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_RETURN_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
 import { bombStandBox, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
@@ -108,7 +108,7 @@ it('releasing use while defusing resets the progress', () => {
   assert.deepEqual(game.teamScores, [0, 0]);
 });
 
-it('a dead carrier drops the bomb where it fell and it returns home on time', () => {
+it('a dead carrier drops the bomb where it fell and, left on the floor, it goes to the other team', () => {
   const { game, attacker, defender, messages } = setup();
   place(game, attacker, attacker.team);
   game.update();
@@ -119,10 +119,15 @@ it('a dead carrier drops the bomb where it fell and it returns home on time', ()
   assert.equal(dropped.bm[0], 3);
   assert.equal(dropped.bm[2], attacker.state.x);
   assert.equal(attacker.kills, 0);
+  assert.ok(dropped.bm[5] > game.now(), 'the hand-over deadline is published');
+  const attackers = attacker.team;
   attacker.respawnAt = Infinity;
-  run(game, BOMB_RETURN_TICKS);
-  assert.equal(snapshot(game, messages).bm[0], 0);
-  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'return')));
+  run(game, BOMB_DROPPED_TICKS);
+  const after = snapshot(game, messages);
+  assert.equal(after.bm[0], 0);
+  assert.equal(after.bm[8], 1 - attackers, 'sides swapped');
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'abandoned' && e.team === 1 - attackers)));
 });
 
 it('leaving the match drops a carried bomb', () => {

@@ -264,7 +264,7 @@ export function bombState(v: WorldView): BombState | undefined {
   if (!v.bomb.length || v.match.mode !== 'defuse') return undefined;
   if (state === 1) return { kind: 'carried', carrier: actor };
   if (state === 2) return { kind: 'planting', carrier: actor, doneAtTick: plantDoneAt / TICK_MS };
-  if (state === 3) return { kind: 'dropped', x, y, z, returnAtTick: Infinity };
+  if (state === 3) return { kind: 'dropped', x, y, z, returnAtTick: explodeAt / TICK_MS };
   if (state === 4) return { kind: 'planted', x, y, z, explodeAtTick: explodeAt / TICK_MS,
     variant, defuse: actor < 0 ? null : { by: actor, doneAtTick: defuseDoneAt / TICK_MS } };
   return { kind: 'home' };

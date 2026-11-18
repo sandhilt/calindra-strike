@@ -21,6 +21,10 @@ export const BELT_PATH: readonly BeltPoint[] = [
 const TRAY_SHARE = 0.38;
 /** How far the rounds on the tray rise above it while the belt is not laid. */
 export const TRAY_LIFT_UNITS = 5;
+/** How far the tray end of the belt is swung out to the left, past the receiver, while it is pulled clear of the gun. */
+export const TRAY_CLEAR_UNITS = 6;
+/** One round in this many is a tracer. */
+export const TRACER_EVERY = 4;
 
 export interface LinkPlacement {
   position: BeltPoint;
@@ -51,13 +55,44 @@ export function pointAlong(path: readonly BeltPoint[], u: number): BeltPoint {
   return { ...path[0] };
 }
 
+/** Slots per second the belt travels while the gun fires, how quickly it gets to and from that pace, and how long one shot keeps it going. */
+export const BELT_FLOW_SLOTS_PER_S = 5;
+const BELT_FLOW_EASE_PER_S = 14;
+export const BELT_BURST_S = 0.12;
+
+/** The belt of a firing gun: rounds fed so far (the fraction is where it sits, the whole part picks the tracers), its pace now, and how long the gun keeps it fed. */
+export interface BeltFlow {
+  feed: number;
+  speed: number;
+  burst: number;
+}
+
+/**
+ * The belt runs at a steady, readable pace while the gun fires and coasts to a stop after. Moving it one slot per shot
+ * (twelve a second) made identical rounds repeat the same picture every shot and read as a shimmer, not a flow.
+ */
+export function stepBeltFlow(flow: BeltFlow, dt: number): void {
+  flow.burst = Math.max(0, flow.burst - dt);
+  const target = flow.burst > 0 ? BELT_FLOW_SLOTS_PER_S : 0;
+  flow.speed += (target - flow.speed) * Math.min(1, dt * BELT_FLOW_EASE_PER_S);
+  flow.feed += flow.speed * dt;
+}
+
+/** Whether the round in link `index` is a tracer. A fed round keeps its look as it moves, so the whole part of `feed` shifts the pattern. */
+export function isTracer(index: number, feed: number): boolean {
+  return (((index - Math.floor(feed)) % TRACER_EVERY) + TRACER_EVERY) % TRACER_EVERY === 0;
+}
+
 /**
  * Where link `index` of `count` sits. `feed` counts the rounds fed so far: every whole number moves each round one slot toward
- * the tray, so the pattern repeats and only the fraction matters. `laid` is 1 with the belt lying on the tray and 0 with its end lifted.
+ * the tray, so the pattern repeats and only the fraction matters. `laid` is 1 with the belt lying on the tray and 0 with its end lifted,
+ * `clear` is 0 with the end over the tray and 1 with it swung out to the left of the gun.
  */
-export function linkPlacement(index: number, count: number, feed: number, laid: number, path: readonly BeltPoint[] = BELT_PATH): LinkPlacement {
+export function linkPlacement(index: number, count: number, feed: number, laid: number, clear = 0, path: readonly BeltPoint[] = BELT_PATH): LinkPlacement {
   const u = (index + (feed - Math.floor(feed))) / count;
   const position = pointAlong(path, u);
-  position.y += (1 - laid) * TRAY_LIFT_UNITS * smooth((u - (1 - TRAY_SHARE)) / TRAY_SHARE);
+  const tray = smooth((u - (1 - TRAY_SHARE)) / TRAY_SHARE);
+  position.y += (1 - laid) * TRAY_LIFT_UNITS * tray;
+  position.x -= clear * TRAY_CLEAR_UNITS * tray;
   return { position, scale: Math.min(clamp01(u * count), clamp01((1 - u) * count)) };
 }

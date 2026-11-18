@@ -1,6 +1,6 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
-import { linkPlacement } from './belt-anim.ts';
+import { isTracer, linkPlacement } from './belt-anim.ts';
 import type { ReloadPose } from './reload-anim.ts';
 
 const mats = {
@@ -18,8 +18,9 @@ const mats = {
 };
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-/** One round of the ammo belt, lying across the gun (axis X). */
+/** One round of the ammo belt, lying across the gun (axis X), and the glowing base of a tracer, on the end that faces outward. */
 const roundGeo = new THREE.CylinderGeometry(0.42, 0.42, 2.6, 8).rotateZ(Math.PI / 2);
+const tracerTipGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.7, 8).rotateZ(Math.PI / 2);
 
 function bx(g: THREE.Group, w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): THREE.Mesh {
   const mesh = new THREE.Mesh(boxGeo, m);
@@ -55,6 +56,8 @@ export interface ReloadRig {
   shell: THREE.Object3D | null;
   /** Where the supporting hand goes to swap the magazine or feed a shell. */
   handTarget: THREE.Vector3;
+  /** Where the supporting hand goes instead of the magazine, on a gun whose reload is worked at the cover and the belt. */
+  supportHandReach: THREE.Vector3 | null;
   /** Feed cover over the receiver, hinged on its right edge and opened by rotating about Z by `coverOpenRad`, so it swings out of the way of the sights. */
   cover: THREE.Object3D | null;
   coverOpenRad: number;
@@ -85,19 +88,27 @@ function beltRound(into: THREE.Group): THREE.Group {
   clip.scale.set(0.6, 0.95, 0.95);
   clip.position.x = 0.4;
   link.add(clip);
+  const tip = new THREE.Mesh(tracerTipGeo, mats.lime);
+  tip.position.x = -1.15;
+  link.add(tip);
   into.add(link);
   return link;
 }
 
-/** Sets every round of the belt: `feed` counts the rounds fed so far, `laid` is 1 with the belt on the tray and 0 lifted off it. */
-export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: number): void {
+/**
+ * Sets every round of the belt: `feed` counts the rounds fed so far, `laid` is 1 with the belt on the tray and 0 lifted off it,
+ * `clear` is 1 with its end swung out to the left of the gun. The tip of every fourth round glows, so the flow reads while firing.
+ */
+export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: number, clear: number): void {
   links.forEach((link, i) => {
-    const { position, scale } = linkPlacement(i, links.length, feed, laid);
+    const { position, scale } = linkPlacement(i, links.length, feed, laid, clear);
     link.position.set(position.x, position.y, position.z);
     link.scale.setScalar(scale);
     link.visible = scale > 0.02;
+    link.children[TRACER_TIP].visible = isTracer(i, feed);
   });
 }
+const TRACER_TIP = 2;
 
 /**
  * Moves the feed cover and the ammo belt for one moment of a reload. The belt follows the box: it falls with the old one
@@ -105,14 +116,14 @@ export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: 
  */
 export function poseFeed(
   rig: ReloadRig,
-  pose: Pick<ReloadPose, 'cover' | 'beltLaid' | 'magGone' | 'magDrop' | 'spareLift'>,
+  pose: Pick<ReloadPose, 'cover' | 'beltLaid' | 'beltClear' | 'magGone' | 'magDrop' | 'spareLift'>,
   feed: number,
   fallUnits: number,
 ): void {
   if (rig.cover) rig.cover.rotation.z = rig.coverOpenRad * pose.cover;
   if (!rig.belt) return;
   rig.belt.group.position.copy(rig.magDown).multiplyScalar((pose.magGone ? pose.spareLift : pose.magDrop) * fallUnits);
-  placeBelt(rig.belt.links, feed, pose.beltLaid);
+  placeBelt(rig.belt.links, feed, pose.beltLaid, pose.beltClear);
 }
 
 /** Direction a magazine hanging below a pivot tilted by `rx` leaves the gun. */
@@ -131,6 +142,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
     boltGrip: null,
     shell: null,
     handTarget: new THREE.Vector3(),
+    supportHandReach: null,
     cover: null,
     coverOpenRad: 0,
     belt: null,
@@ -226,17 +238,21 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       const box = part(g, -0.6, -3.8, -4);
       bx(box, 4.2, 6.5, 6.5, mats.limeDim, 0, 0, 0);
       bx(box, 4.3, 1, 6.6, mats.lime, 0, 1.8, 0);
-      bx(g, 1, 3, 8, mats.gun, 0, 5.8, 2);
+      // Carry handle: two short posts and a bridge, open in the middle, so it never walls off the view over the gun.
+      bx(g, 1, 1.8, 0.9, mats.gun, 0, 5.4, -1.5);
+      bx(g, 1, 1.8, 0.9, mats.gun, 0, 5.4, 2.5);
+      bx(g, 1.1, 0.7, 5, mats.gun2, 0, 6.35, 0.5);
       const cover = part(g, 2.3, 4.5, -7.5);
       bx(cover, 4.6, 0.7, 9, mats.gun2, -2.3, 0.35, 0);
       bx(cover, 0.9, 0.18, 9.1, mats.lime, -1, 0.72, 0);
       rig.cover = cover;
       rig.coverOpenRad = -1.75;
+      rig.supportHandReach = new THREE.Vector3(-4.5, 4, -6);
       if (beltLinks > 0) {
         const group = part(g, 0, 0, 0);
         const links = Array.from({ length: beltLinks }, () => beltRound(group));
         rig.belt = { group, links };
-        placeBelt(links, 0, 1);
+        placeBelt(links, 0, 1, 0);
       }
       const lmgHandle = part(g, 0, 0, 0);
       bx(lmgHandle, 1.6, 1.4, 3.2, mats.steel, 3.1, 3, -1);
@@ -290,6 +306,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
   }
   g.add(muzzle);
   if (rig.magazine) rig.handTarget.copy(rig.magazine.position).add(new THREE.Vector3(0, -3.2, 0));
+  if (rig.supportHandReach) rig.handTarget.copy(rig.supportHandReach);
   g.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = true;
   });

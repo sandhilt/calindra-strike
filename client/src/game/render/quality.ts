@@ -22,7 +22,7 @@ export interface FxProfile {
   tracers: number;
   /** Share of shots (0..1) that eject a casing. */
   casingChance: number;
-  /** Rounds drawn on the machine gun's ammo belt in first person. Zero draws no belt. */
+  /** Rounds drawn on the machine gun's ammo belt in first person. */
   beltLinks: number;
 }
 
@@ -78,7 +78,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 64,
     laptopScreenRefreshMs: 250,
-    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 0 },
+    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4 },
   },
 };
 

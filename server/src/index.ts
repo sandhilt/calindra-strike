@@ -253,6 +253,9 @@ function onConnection(ws: WebSocket, ip: string): void {
           if (text) game.chat(player, text);
           break;
         }
+        case 'radio':
+          game.radio(player, msg.line);
+          break;
         case 'watch':
           strike(5, 'player watch');
           break;

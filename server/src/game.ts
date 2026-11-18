@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
-  MAX_SPECTATORS, SPECTATOR_PICK_MS, type SpectatorInfo,
+  MAX_SPECTATORS, RADIO_COOLDOWN_TICKS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED,
   AIRDROP_HALF,
   AIRDROP_PICKUP_RADIUS,
@@ -183,6 +183,7 @@ export interface ServerPlayer {
   joinedAt: number;
   ping: number;
   lastChat: number;
+  lastRadio: number;
   history: HistoryEntry[];
   histHead: number;
   events: GameEvent[];
@@ -619,6 +620,7 @@ export class Game {
       joinedAt: this.tick,
       ping: 0,
       lastChat: -Infinity,
+      lastRadio: -Infinity,
       history: [],
       histHead: 0,
       events: [],
@@ -753,6 +755,7 @@ export class Game {
       joinedAt: this.tick,
       ping: 0,
       lastChat: -Infinity,
+      lastRadio: -Infinity,
       history: [],
       histHead: 0,
       events: [],
@@ -860,6 +863,18 @@ export class Game {
     p.lastChat = this.tick;
     const msg = JSON.stringify({ t: 'chat', id: p.id, text });
     for (const q of this.recipients()) q.send(msg);
+  }
+
+  /** A radio line goes to the sender's team (everyone in free-for-all) and to spectators watching that side. */
+  radio(p: ServerPlayer, line: number): void {
+    if (this.tick - p.lastRadio < RADIO_COOLDOWN_TICKS) return;
+    p.lastRadio = this.tick;
+    const msg = JSON.stringify({ t: 'radio', id: p.id, line });
+    const teams = isTeamMode(this.mode);
+    for (const q of this.players.values()) if (!teams || q.team === p.team) q.send(msg);
+    for (const s of this.spectators.values()) {
+      if (s.view.kind === 'watching' && (!teams || s.view.team === -1 || s.view.team === p.team)) s.send(msg);
+    }
   }
 
   private uniqueName(base: string): string {

@@ -6,6 +6,7 @@ import { allApps, dockApps, launchApp, postLabs, sceneApps, type AppName } from 
 import { drawBlackFridayRibbon, drawCalmScreen, drawIdleScreen, drawLaptop, drawLaptopScreen } from '../src/game/laptop/draw.ts';
 import { ICONS, drawIcon } from '../src/game/laptop/icons.ts';
 import { SCENARIOS, sceneAt } from '../src/game/laptop/scenarios.ts';
+import { drawScene } from '../src/game/laptop/scenes/index.ts';
 import { TOAST_PLANS } from '../src/game/laptop/toasts.ts';
 
 /** Records every canvas call so tests can compare frames without a real canvas. */
@@ -47,7 +48,7 @@ test('six complete stories cover laptops, operating systems, tools, logins and i
   const required = [
     'Cursor', 'VS Code', 'Xcode', 'Grok', 'Claude Code', 'Jira', 'Slack', 'Codex', 'Gemini', 'Chrome', 'Firefox', 'Spotify', 'Netflix',
     'Google Workspace', 'Google Calendar', 'GitHub', 'Bitbucket', 'GitHub Actions', 'Bitbucket Pipelines', 'WezTerm', 'iTerm2', 'Node.js',
-    'Windows Terminal', 'Edge', 'Explorer', 'wsl.localhost', 'console.eitri.tech', 'matrix.eitri.tech', 'calindra.tech',
+    'Windows Terminal', 'Edge', 'Postman', 'Explorer', 'wsl.localhost', 'console.eitri.tech', 'matrix.eitri.tech', 'calindra.tech',
   ];
   for (const app of required) assert.ok(content.includes(app), app);
   const feeds = SCENARIOS.flatMap((s) => s.scenes).filter((e) => e.scene.kind === 'browser' && e.scene.page === 'feed');
@@ -206,4 +207,23 @@ test('ThinkPads run Linux and Windows scenarios run on the Dell Inspiron', () =>
     if (scenario.laptop === 'thinkpad') assert.equal(scenario.os, 'linux', scenario.title);
     if (scenario.os === 'windows') assert.equal(scenario.laptop, 'inspiron', scenario.title);
   }
+});
+
+test('Postman launches from the hotfix dock and shows a 500 JSON response after sending', () => {
+  const hotfix = SCENARIOS.find(({ id }) => id === 'friday');
+  assert.ok(hotfix);
+  assert.ok(dockApps(hotfix).includes('Postman'));
+  const scene = hotfix.scenes.find(({ scene }) => scene.kind === 'request')?.scene;
+  assert.ok(scene?.kind === 'request');
+  assert.equal(launchApp(scene), 'Postman');
+
+  const sending = recordingContext();
+  drawScene(sending.ctx, scene, { p: 0.35, timeMs: 0, os: hotfix.os });
+  assert.ok(sending.log.some((entry) => entry.startsWith('fillText(Enviando requisição…,')));
+  assert.ok(!sending.log.some((entry) => entry.includes('500 Internal Server Error')));
+
+  const response = recordingContext();
+  drawScene(response.ctx, scene, { p: 0.8, timeMs: 0, os: hotfix.os });
+  assert.ok(response.log.some((entry) => entry.startsWith('fillText(500 Internal Server Error,')));
+  assert.ok(response.log.some((entry) => entry.includes('"error": "SESSION_REFRESH_FAILED"')));
 });

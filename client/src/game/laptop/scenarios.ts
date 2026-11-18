@@ -9,6 +9,7 @@ type BrowserApp = 'Chrome' | 'Firefox' | 'Edge';
 type BrowserPage = 'login' | 'dashboard' | 'pr' | 'feed' | 'docs' | 'calendar';
 
 export type Scene =
+  | { kind: 'request'; app: 'Postman'; url: string; response: { error: string; message: string } }
   | { kind: 'editor'; app: EditorApp; file: string; lines: Lines; remote?: 'WSL'; ai?: { prompt: string; answer: string } }
   | { kind: 'agent'; app: AgentApp; lines: Lines }
   | { kind: 'terminal'; app: TerminalApp; lines: Lines; tests: { failing: string; passing: string } }
@@ -82,6 +83,12 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
     scenes: [
       { kind: 'chat', app: 'Slack', lines: ['# incidente-prod', 'Bia: caiu bem na hora do café.', 'Dev: já estou olhando.'] },
       login('console.eitri.tech'),
+      {
+        kind: 'request',
+        app: 'Postman',
+        url: 'https://api.example/v1/session',
+        response: { error: 'SESSION_REFRESH_FAILED', message: 'Token expirado' },
+      },
       terminal('iTerm2'),
       editor('Xcode', 'Session.swift'),
       agent('Claude Code'),

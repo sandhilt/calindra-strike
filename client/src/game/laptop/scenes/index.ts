@@ -4,6 +4,7 @@ import { drawBrowser } from './browser.ts';
 import { drawAgent, drawEditor } from './editor.ts';
 import { drawFiles } from './files.ts';
 import type { SceneFrame, SceneOf, SceneRenderer } from './frame.ts';
+import { drawRequest } from './request.ts';
 import { drawTerminal } from './terminal.ts';
 import { drawBoard, drawChat, drawMedia, drawPipeline } from './workspace.ts';
 
@@ -15,6 +16,7 @@ const RENDERERS: RendererTable = {
   agent: drawAgent,
   terminal: drawTerminal,
   browser: drawBrowser,
+  request: drawRequest,
   files: drawFiles,
   board: drawBoard,
   chat: drawChat,

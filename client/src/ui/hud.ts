@@ -1,4 +1,4 @@
-import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS, type RadioMenu } from '@calindra-strike/shared';
 import { BLACK_FRIDAY_PITCH, type BombRole, type CarryNotice } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
@@ -139,6 +139,7 @@ export class Hud {
   private readonly markerPool: HTMLElement[] = [];
   readonly chat = h('div', { class: 'chat' });
   readonly chatInput = h('input', { class: 'chat-input hidden', maxlength: 100, placeholder: 'mensagem para todos…', autocomplete: 'off', spellcheck: 'false' });
+  private readonly radioMenu = h('div', { class: 'radio-menu glass hidden' });
   private readonly sbBody = h('tbody');
   private readonly sbTitle = h('span', { class: 'label', text: '' });
   readonly scoreboard = h('div', { class: 'scoreboard glass hidden' }, [
@@ -190,6 +191,7 @@ export class Hud {
       this.drop,
       this.death,
       this.chat,
+      this.radioMenu,
       this.scoreboard,
       this.netstat,
     );
@@ -488,6 +490,28 @@ export class Hud {
     this.chat.insertBefore(line, this.chatInput);
     const lines = this.chat.querySelectorAll('.chat-line');
     if (lines.length > 7) lines[0].remove();
+  }
+
+  /** A radio line in the chat column, tagged and tinted with the sender's team colour. */
+  radioLine(name: string, color: string, text: string): void {
+    const line = h('div', { class: 'chat-line radio' }, [h('b', { style: `color:${color}`, text: `(RÁDIO) ${name}:` }), text]);
+    this.chat.insertBefore(line, this.chatInput);
+    const lines = this.chat.querySelectorAll('.chat-line');
+    if (lines.length > 7) lines[0].remove();
+  }
+
+  /** The numbered radio menu on the left, or hidden when `menu` is null. */
+  showRadioMenu(menu: RadioMenu | null): void {
+    this.radioMenu.classList.toggle('hidden', !menu);
+    if (!menu) return;
+    const rows = menu.lines.map((line, i) =>
+      h('div', { class: 'radio-row' }, [h('span', { class: 'kbd', text: String(i + 1) }), h('span', { text: line.text })]),
+    );
+    this.radioMenu.replaceChildren(
+      h('div', { class: 'label', text: `rádio · ${menu.label}` }),
+      ...rows,
+      h('div', { class: 'radio-row radio-close' }, [h('span', { class: 'kbd', text: '0' }), h('span', { text: 'fechar' })]),
+    );
   }
 
   openChat(open: boolean): void {

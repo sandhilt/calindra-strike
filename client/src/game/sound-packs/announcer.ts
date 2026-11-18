@@ -1,3 +1,4 @@
+import { createSpeaker, type Speak } from '../speech.ts';
 import type { SoundKit, SoundPack, Sounds, StreakSound } from './types.ts';
 
 /**
@@ -22,26 +23,8 @@ const VOICE = { lang: 'pt-BR', pitch: 0.5, rate: 0.95 } as const;
 /** Settings volume maps to master gain as volume * 0.9 (see Sfx.setVolume); the voice follows the same knob. */
 const MASTER_GAIN_PER_VOLUME = 0.9;
 
-export type Speak = (text: string, volume: number) => void;
-
 /** Speaks through the browser's speech synthesis; silent where it is missing (tests, old browsers). */
-export function browserSpeaker(): Speak {
-  const synth = (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
-  const Utterance = (globalThis as { SpeechSynthesisUtterance?: typeof SpeechSynthesisUtterance }).SpeechSynthesisUtterance;
-  if (!synth || !Utterance) return () => {};
-  return (text, volume) => {
-    const line = new Utterance(text);
-    line.lang = VOICE.lang;
-    line.pitch = VOICE.pitch;
-    line.rate = VOICE.rate;
-    line.volume = volume;
-    const voice = synth.getVoices().find((v) => v.lang.toLowerCase().startsWith('pt'));
-    if (voice) line.voice = voice;
-    // A new streak replaces the line still being read, so announcements never queue up behind the action.
-    synth.cancel();
-    synth.speak(line);
-  };
-}
+export const browserSpeaker = (): Speak => createSpeaker(VOICE, 'announcer');
 
 /** Kill announcer: a synthesized arena hit under a spoken line. */
 export function announcerKill(kit: SoundKit, speak: Speak): Sounds['kill'] {

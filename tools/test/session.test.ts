@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -745,5 +745,38 @@ test('manual use duration is bounded and releases on timeout', async () => {
   advance(99);
   advance(1);
   assert.deepEqual(await using, { outcome: 'interrupted', reason: 'Duration elapsed' });
+  session.close();
+});
+
+test('radio tool sends the line id from a menu and slot, and rejects unknown menus and slots', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  const radio = createTools(session).find((t) => t.name === 'radio')!;
+  assert.equal((await radio.call({ menu: 'comandos', line: 1 })).isError, undefined);
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!), { t: 'radio', line: radioLineAt('comandos', 1)!.id });
+  assert.equal((await radio.call({ menu: 'calindra', line: 5 })).isError, undefined);
+  assert.deepEqual(JSON.parse(socket.sent.at(-1)!), { t: 'radio', line: radioLineAt('calindra', 5)!.id });
+  const sent = socket.sent.length;
+  for (const bad of [{ menu: 'calindra', line: 6 }, { menu: 'nope', line: 1 }, { menu: 'comandos', line: 0 }, { menu: 'comandos', line: 1.5 }, { menu: 'comandos' }, { line: 1 }]) {
+    assert.equal((await radio.call(bad)).isError, true, JSON.stringify(bad));
+  }
+  assert.equal(socket.sent.length, sent, 'a rejected call sends nothing');
+  session.close();
+});
+
+test('received radio lines appear in chat with their text and a radio flag', async () => {
+  const { session, socket } = setup();
+  const joined = session.join(args);
+  socket.message(welcome);
+  await joined;
+  socket.message({ t: 'radio', id: 2, line: radioLineAt('respostas', 2)!.id });
+  socket.message({ t: 'radio', id: 2, line: 9999 });
+  socket.message({ t: 'chat', id: 2, text: 'oi' });
+  const { chat } = JSON.parse(JSON.stringify(session.getState()));
+  assert.equal(chat.length, 2);
+  assert.partialDeepStrictEqual(chat[0], { id: 2, text: 'Inimigo à vista!', radio: true });
+  assert.equal(chat[1].radio, undefined);
   session.close();
 });

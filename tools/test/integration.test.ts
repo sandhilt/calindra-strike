@@ -129,10 +129,12 @@ test('stdio MCP plays against the real authoritative WebSocket server', { timeou
   }
   await rpc('initialize', { protocolVersion: '2025-06-18' });
   mcp.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
-  assert.equal((await rpc('tools/list')).tools.length, 19);
+  assert.equal((await rpc('tools/list')).tools.length, 20);
   await tool('join', { name: 'mcp-integration' });
   await tool('hunt');
+  await tool('radio', { menu: 'comandos', line: 1 });
   const before = await tool('wait', { ms: 500 });
+  assert.partialDeepStrictEqual(before.chat.find((c: { radio?: boolean }) => c.radio), { text: 'Me cobre!', name: 'mcp-integration' });
   const afterWait = await tool('wait', { ms: 3000 });
   assert.notDeepEqual(afterWait.you.pos, before.you.pos);
   assert.equal(afterWait.you.name, 'mcp-integration');

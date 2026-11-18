@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 14;
+export const PROTOCOL_VERSION = 15;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -61,6 +61,9 @@ export const TEAMS = [
 
 export const ZOOM_SENSITIVITY_RATIO = 1.2; // CS 1.6 default
 export const CHAT_MAX_LEN = 100;
+/** Minimum gap between two radio lines from one player, so the menu cannot be spammed. */
+export const RADIO_COOLDOWN_MS = 1500;
+export const RADIO_COOLDOWN_TICKS = Math.ceil(RADIO_COOLDOWN_MS / TICK_MS);
 
 /** Player colours: vivid, readable against the arena palette. Lime is reserved for UI. */
 export const PLAYER_COLORS = [

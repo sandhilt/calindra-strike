@@ -87,6 +87,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
 | `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
+| `radio` | A radio line to the team: `{ menu, line }` from the Z, X, V and B menus (`comandos`, `grupo`, `respostas`, `calindra`) |
 
 The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.
 
@@ -118,7 +119,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 ## Controls
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Esc` menu
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu
 
 ### Watching a match
 

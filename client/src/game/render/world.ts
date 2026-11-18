@@ -1,5 +1,6 @@
 import type { Box, MapDef, Mat } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import type { QualityProfile } from './quality.ts';
 import { TEX, TEX_SCALE } from './textures.ts';
 
 interface Bucket {
@@ -41,8 +42,7 @@ function faceUV(n: [number, number, number], p: number[], scale: number, b: Box,
   return [(p[0] * n[2]) / scale, p[1] / scale];
 }
 
-function materialFor(mat: Mat, quality: 'high' | 'low'): THREE.Material {
-  void quality;
+function materialFor(mat: Mat): THREE.Material {
   switch (mat) {
     case 'lime':
       return new THREE.MeshStandardMaterial({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 1.8, roughness: 0.4 });
@@ -206,7 +206,7 @@ function glowSprite(color: string): THREE.SpriteMaterial {
   return new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 });
 }
 
-export function buildWorld(map: MapDef, scene: THREE.Scene, quality: 'high' | 'low'): WorldView {
+export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProfile): WorldView {
   const group = new THREE.Group();
   const buckets = new Map<Mat, Bucket>();
 
@@ -246,7 +246,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, quality: 'high' | 'l
     geo.setAttribute('color', new THREE.Float32BufferAttribute(bk.col, 3));
     geo.setIndex(bk.idx);
     geo.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geo, materialFor(mat, quality));
+    const mesh = new THREE.Mesh(geo, materialFor(mat));
     const caster = !['glass', 'lime', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);
     mesh.castShadow = caster;
     mesh.receiveShadow = mat !== 'lime' && mat !== 'glass';
@@ -272,9 +272,6 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, quality: 'high' | 'l
   const sun = new THREE.DirectionalLight(t.sun, t.sunIntensity);
   const sd = new THREE.Vector3(t.sunDir.x, t.sunDir.y, t.sunDir.z).normalize();
   sun.position.copy(sd).multiplyScalar(2500);
-  sun.castShadow = true;
-  const sm = quality === 'high' ? 2048 : 1024;
-  sun.shadow.mapSize.set(sm, sm);
   const cam = sun.shadow.camera;
   cam.left = -1100;
   cam.right = 1100;
@@ -284,6 +281,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, quality: 'high' | 'l
   cam.far = 6000;
   sun.shadow.bias = -0.0006;
   sun.shadow.normalBias = 1.2;
+  applyShadowQuality(sun, profile);
   group.add(sun);
   group.add(sun.target);
 
@@ -312,6 +310,18 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, quality: 'high' | 'l
       });
     },
   };
+}
+
+/**
+ * Turns the sun's shadows on or off and resizes their map. Safe to call while
+ * playing: three recompiles lit materials when the number of shadow casters changes.
+ */
+export function applyShadowQuality(sun: THREE.DirectionalLight, profile: QualityProfile): void {
+  sun.castShadow = profile.shadows;
+  if (sun.shadow.mapSize.x === profile.shadowMapPx) return;
+  sun.shadow.mapSize.set(profile.shadowMapPx, profile.shadowMapPx);
+  sun.shadow.map?.dispose();
+  sun.shadow.map = null;
 }
 
 /** Keeps a crisp shadow frustum centred on the player, snapped to texels to avoid shimmering. */

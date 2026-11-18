@@ -1,3 +1,4 @@
+import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
@@ -86,7 +87,7 @@ export class Overlays {
       });
       return h('div', { class: 'row' }, [h('span', { text: label }), input, out]);
     };
-    const seg = <T>(label: string, options: { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void) => {
+    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void) => {
       const wrap = h('div', { class: 'seg' });
       const draw = () =>
         wrap.replaceChildren(
@@ -123,6 +124,8 @@ export class Overlays {
       ]),
       slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
       slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
+      seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v)),
+      h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'bordas suaves aplicam ao reentrar' }),
       seg('pacote de sons', SOUND_PACKS.map(p => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
       slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
       slider('mira: tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),

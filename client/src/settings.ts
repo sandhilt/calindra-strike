@@ -1,5 +1,6 @@
 import { PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId } from '@calindra-strike/shared';
 
+import { type Quality, parseQuality } from './game/render/quality.ts';
 import { DEFAULT_SOUND_PACK, isSoundPackId } from './game/sound-packs/index.ts';
 
 export interface Settings {
@@ -15,7 +16,7 @@ export interface Settings {
   crosshairSize: number;
   crosshairGap: number;
   dynamicCrosshair: boolean;
-  quality: 'high' | 'low';
+  quality: Quality;
   showNet: boolean;
 }
 
@@ -65,7 +66,7 @@ export function loadSettings(): Settings {
     crosshairSize: num(o.crosshairSize, 2, 16, d.crosshairSize),
     crosshairGap: num(o.crosshairGap, 0, 12, d.crosshairGap),
     dynamicCrosshair: typeof o.dynamicCrosshair === 'boolean' ? o.dynamicCrosshair : d.dynamicCrosshair,
-    quality: o.quality === 'low' ? 'low' : 'high',
+    quality: parseQuality(o.quality),
     showNet: o.showNet === true,
   };
 }

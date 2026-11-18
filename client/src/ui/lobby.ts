@@ -1,5 +1,6 @@
 import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId, sanitizeName, weaponDef } from '@calindra-strike/shared';
 import { SERVER_HTTP } from '../config.ts';
+import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
 
@@ -110,6 +111,25 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   };
   drawWeapons();
 
+  const graphics = h('div', { class: 'seg', role: 'group', 'aria-label': 'Gráficos' });
+  const drawGraphics = () => {
+    graphics.replaceChildren(
+      ...QUALITY_OPTIONS.map((o) =>
+        h('button', {
+          type: 'button',
+          'aria-pressed': String(settings.quality === o.v),
+          text: o.label,
+          onclick: () => {
+            settings.quality = o.v;
+            saveSettings(settings);
+            drawGraphics();
+          },
+        }),
+      ),
+    );
+  };
+  drawGraphics();
+
   const codeInput = h('input', { class: 'input', maxlength: 64, placeholder: 'código do escritório', autocomplete: 'off', value: settings.code });
   const codeField = h('div', { class: 'field hidden' }, [h('label', { class: 'label', text: 'código de acesso' }), codeInput]);
 
@@ -123,6 +143,11 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     h('div', { class: 'field' }, [h('label', { class: 'label', for: 'nick', text: 'apelido' }), nameInput]),
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'sua cor' }), swatches]),
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'arma principal' }), weapons]),
+    h('div', { class: 'field' }, [
+      h('span', { class: 'label', text: 'gráficos' }),
+      graphics,
+      h('p', { class: 'field-hint', text: 'PC fraco ou jogo travando? Use desempenho: a tela inteira com menos detalhes.' }),
+    ]),
     codeField,
     h('div', { class: 'join-actions' }, [play, watch]),
     err,

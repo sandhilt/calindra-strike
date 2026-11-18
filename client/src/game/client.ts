@@ -74,6 +74,8 @@ import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
 import { Effects } from './render/effects.ts';
+import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
+import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
@@ -81,11 +83,14 @@ import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePos
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { easeFov } from './render/zoom.ts';
-import { type WorldView, buildWorld, followShadow } from './render/world.ts';
+import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
 // Typing rhythm of the bug keyboard while planting or defusing, in ms between keystrokes.
 const KEYSTROKE_MIN_MS = 55;
 const KEYSTROKE_JITTER_MS = 90;
+
+/** One per page, so the performance suggestion shows at most once however many matches are joined. */
+const performanceHint = new FpsHintWatch();
 
 interface Snap {
   t: number;
@@ -246,6 +251,7 @@ export class ClientGame {
   private fps = 0;
   private fpsAcc = 0;
   private fpsN = 0;
+  private appliedQuality: Quality | null = null;
   private lastBeep = -1;
 
   private deathAt = 0;
@@ -271,8 +277,7 @@ export class ClientGame {
     this.match = welcome.match;
     this.clockOffset = welcome.time - performance.now();
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: settings.quality === 'high', powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.quality === 'high' ? 1.75 : 1));
+    this.renderer = new THREE.WebGLRenderer({ antialias: QUALITY[settings.quality].antialias, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -288,11 +293,11 @@ export class ClientGame {
     this.hud = new Hud(container);
     this.sfx = new Sfx(settings.volume, settings.soundPack);
     this.effects = new Effects(this.scene);
-    this.effects.setQuality(settings.quality);
+    this.applyQuality();
     this.view = new ViewModel(PLAYER_COLORS[settings.color]);
     this.scene.add(this.camera, this.muzzleLight);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[settings.quality].envMapPx }).texture;
     this.view.setEnvironment(env);
     this.podium.scene.environment = env;
     this.podium.scene.environmentIntensity = 0.4;
@@ -331,6 +336,7 @@ export class ClientGame {
     this.ui.showClickToPlay(!this.spectator);
     if (this.match.phase === 'podium') this.enterPodium(this.match);
     this.lastFrame = performance.now();
+    performanceHint.restart();
     this.raf = requestAnimationFrame(this.frame);
   }
 
@@ -383,11 +389,25 @@ export class ClientGame {
 
   applySettings(s: Settings): void {
     this.settings = s;
-    this.effects.setQuality(s.quality);
+    if (s.quality !== this.appliedQuality) {
+      this.applyQuality();
+      this.onResize();
+    }
     this.input.sensitivity = s.sensitivity;
     this.sfx.setVolume(s.volume);
     if (this.sfx.setPack(s.soundPack)) this.sfx.shot(s.primary, null, false);
     if (!this.spectator) this.net.send({ t: 'loadout', primary: s.primary });
+  }
+
+  /** The parts of a tier that can change mid-match. Edge smoothing needs a new renderer, so it waits for the next join. */
+  private applyQuality(): void {
+    const quality = this.settings.quality;
+    const profile = QUALITY[quality];
+    this.appliedQuality = quality;
+    this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
+    this.effects.setQuality(quality);
+    if (this.world) applyShadowQuality(this.world.sun, profile);
+    this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }
 
   private setRoster(roster: RosterEntry[]): void {
@@ -458,7 +478,7 @@ export class ClientGame {
     this.collision = new CollisionWorld(this.map);
     this.spectatorPose = overviewPose(this.map.bounds);
     this.world?.dispose();
-    this.world = buildWorld(this.map, this.scene, this.settings.quality);
+    this.world = buildWorld(this.map, this.scene, QUALITY[this.settings.quality]);
     const t = this.map.theme;
     this.sunDir.set(t.sunDir.x, t.sunDir.y, t.sunDir.z).normalize();
     this.view.setLighting(t.hemiSky, t.hemiGround, t.sun, t.sunIntensity);
@@ -475,7 +495,7 @@ export class ClientGame {
     this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
     this.bombRenderer?.dispose();
-    this.bombRenderer = new BombRenderer(bases);
+    this.bombRenderer = new BombRenderer(bases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
     for (const r of this.remotes.values()) r.buf.length = 0;
     this.effects.clear();
@@ -1238,7 +1258,8 @@ export class ClientGame {
   private frame = (now: number): void => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.frame);
-    let dt = (now - this.lastFrame) / 1000;
+    const frameSeconds = (now - this.lastFrame) / 1000;
+    let dt = frameSeconds;
     this.lastFrame = now;
     if (dt > 0.25) dt = 0.25;
     this.elapsed += dt;
@@ -1271,6 +1292,8 @@ export class ClientGame {
       this.ui.updatePodiumCountdown(left);
       return;
     }
+
+    if (performanceHint.sample(frameSeconds, this.settings.quality)) this.hud.info(FPS_HINT_TEXT);
 
     const [ldx, ldy] = this.input.takeLook();
     this.updateCamera(dt);

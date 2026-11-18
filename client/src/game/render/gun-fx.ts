@@ -8,8 +8,6 @@ import {
   CASING_SHELL,
   CASING_SIZE_UNITS,
   CASING_SPEC,
-  FX_LIMITS,
-  type FxQuality,
   MAGAZINE_COLOR,
   MAGAZINE_DROP,
   MAGAZINE_SIZE_UNITS,
@@ -18,9 +16,10 @@ import {
   SMOKE_BY_WEAPON,
 } from './fx-tuning.ts';
 import { HeatTracker, SmokePool, puffsForHeat, smokeAlpha, smokeSize } from './smoke-sim.ts';
+import { QUALITY, type FxProfile, type Quality } from './quality.ts';
 import { TracerPolicy } from './tracer-policy.ts';
 
-const HIGH = FX_LIMITS.high;
+const HIGH = QUALITY.high.fx;
 const CASING_COLORS: readonly THREE.Color[] = [new THREE.Color(CASING_BRASS.color), new THREE.Color(CASING_SHELL.color)];
 
 /** Soft blobs piled off-centre make a wisp with a ragged edge, not a perfect disc. */
@@ -54,7 +53,7 @@ function smokeTexture(): THREE.CanvasTexture {
  * meshes that draw them, so everything is pooled and nothing allocates per frame.
  */
 export class GunFx {
-  private quality: FxQuality = 'high';
+  private fx: FxProfile = HIGH;
   private readonly magazines: DebrisPool;
   private readonly casings: DebrisPool;
   private readonly smoke: SmokePool;
@@ -122,13 +121,13 @@ export class GunFx {
     scene.add(this.smokePoints);
   }
 
-  setQuality(quality: FxQuality): void {
-    this.quality = quality;
+  setQuality(quality: Quality): void {
+    const fx = QUALITY[quality].fx;
+    this.fx = fx;
     this.smoke.style = SMOKE_STYLES[quality];
-    const limits = FX_LIMITS[quality];
-    this.magazines.setCapacity(limits.magazines);
-    this.casings.setCapacity(limits.casings);
-    this.smoke.setCapacity(limits.smokePuffs);
+    this.magazines.setCapacity(fx.magazines);
+    this.casings.setCapacity(fx.casings);
+    this.smoke.setCapacity(fx.smokePuffs);
   }
 
   /** How many pellets of this shot should draw a tracer (usually 0 or 1). */
@@ -146,7 +145,7 @@ export class GunFx {
       for (let i = 0; i < puffs; i++) this.smoke.emit(muzzle.x, muzzle.y, muzzle.z, dir.x, dir.y, dir.z, heat, smoke.sizeScale);
     }
     const casing = CASING_BY_WEAPON[weapon];
-    if (!casing || this.random() >= FX_LIMITS[this.quality].casingChance) return;
+    if (!casing || this.random() >= this.fx.casingChance) return;
     const r = this.random;
     const flat = Math.hypot(dir.x, dir.z);
     const rightX = flat > 1e-3 ? -dir.z / flat : 1;

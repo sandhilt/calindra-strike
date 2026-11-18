@@ -1,15 +1,8 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
-
-export type FxQuality = 'high' | 'low';
+import type { Quality } from './quality.ts';
 
 /** Same pull the existing sparks and gibs use, so every particle falls alike. */
 export const GRAVITY_UNITS_PER_S2 = 800;
-
-/** Hard caps on live particles per pool, and how often a shot sheds a casing. */
-export const FX_LIMITS: Readonly<Record<FxQuality, { magazines: number; casings: number; smokePuffs: number; tracers: number; casingChance: number }>> = {
-  high: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1 },
-  low: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4 },
-};
 
 export interface DebrisSpec {
   /** Distance from the centre to the floor when lying on its side. */
@@ -122,7 +115,7 @@ export interface SmokeStyle {
  * swell and linger about a second, thicker on sustained fire, plus dust where bullets hit. Low keeps the lighter,
  * short-lived puffs. Heat runs 0..1 per shooter, rises per shot and falls with time.
  */
-export const SMOKE_STYLES: Readonly<Record<FxQuality, SmokeStyle>> = {
+export const SMOKE_STYLES: Readonly<Record<Quality, SmokeStyle>> = {
   high: {
     heatDecayPerS: 0.45,
     forwardSpeedUnitsPerS: [10, 24],
@@ -161,6 +154,27 @@ export const SMOKE_STYLES: Readonly<Record<FxQuality, SmokeStyle>> = {
     attackShare: 0.12,
     color: 0.82,
     puffsByHeat: [[0, 1], [0.6, 2]],
+    impactDustPuffs: 0,
+  },
+  // No smoke at all: the performance tier's smoke budget is zero, so this style is never emitted.
+  performance: {
+    heatDecayPerS: 0.6,
+    forwardSpeedUnitsPerS: [30, 55],
+    riseSpeedUnitsPerS: 14,
+    jitterUnitsPerS: 8,
+    dragPerS: 2.5,
+    swayAccelUnitsPerS2: 0,
+    swayHz: 0,
+    lifeSeconds: [0.35, 0.65],
+    lifeHeatBonus: 0,
+    startSizeUnits: [1.2, 2],
+    growthUnits: 4,
+    growthHeatUnits: 0,
+    alphaCalm: 0,
+    alphaHot: 0,
+    attackShare: 0.12,
+    color: 0.82,
+    puffsByHeat: [],
     impactDustPuffs: 0,
   },
 };

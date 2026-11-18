@@ -140,6 +140,7 @@ export class Overlays {
       h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'bordas suaves aplicam ao reentrar' }),
       seg('pacote de sons', SOUND_PACKS.map(p => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
       toggle('anunciador', 'voz sintetizada nas sequências de kills', () => s.announcer, (v) => (s.announcer = v)),
+      toggle('voz do rádio', 'fala em voz alta o rádio do seu time (desligada, só o texto)', () => s.radioVoice, (v) => (s.radioVoice = v)),
       slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
       slider('mira: tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
       slider('mira: abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),

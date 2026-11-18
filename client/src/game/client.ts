@@ -579,7 +579,7 @@ export class ClientGame {
         if (!line) break;
         const n = this.nameOf(m.id);
         this.hud.radioLine(n.name, n.color, line.text);
-        this.speakRadio(line.speech, this.settings.volume);
+        if (this.settings.radioVoice) this.speakRadio(line.speech, this.settings.volume);
         break;
       }
       default:

@@ -13,6 +13,8 @@ export interface Settings {
   soundPack: string;
   /** Spoken kill-streak lines on top of the chosen sound pack. */
   announcer: boolean;
+  /** Other players' radio lines spoken aloud; off keeps only the text in the feed (CS 1.6 ignorerad, for sound). */
+  radioVoice: boolean;
   fov: number; // horizontal FOV at 4:3, like CS
   crosshairColor: string;
   crosshairSize: number;
@@ -35,6 +37,7 @@ export const defaults = (): Settings => ({
   volume: 0.7,
   soundPack: DEFAULT_SOUND_PACK,
   announcer: false,
+  radioVoice: true,
   fov: 90,
   crosshairColor: CROSSHAIR_COLORS[0],
   crosshairSize: 6,
@@ -66,6 +69,7 @@ export function loadSettings(): Settings {
     soundPack: isSoundPackId(o.soundPack) ? o.soundPack : d.soundPack,
     // The announcer used to be a sound pack of its own; whoever picked it keeps the voice on top of the classic pack.
     announcer: typeof o.announcer === 'boolean' ? o.announcer : o.soundPack === 'announcer',
+    radioVoice: typeof o.radioVoice === 'boolean' ? o.radioVoice : d.radioVoice,
     fov: num(o.fov, 70, 115, d.fov),
     crosshairColor: CROSSHAIR_COLORS.includes(o.crosshairColor as string) ? (o.crosshairColor as string) : d.crosshairColor,
     crosshairSize: num(o.crosshairSize, 2, 16, d.crosshairSize),

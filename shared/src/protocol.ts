@@ -1,6 +1,7 @@
 import type { FlagEvent } from './ctf.ts';
 import type { BombEvent } from './defuse.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
+import { radioLine } from './radio.ts';
 import type { Cmd, PlayerState } from './sim.ts';
 import { PRIMARY_CHOICES, WEAPON_COUNT, type WeaponId } from './weapons.ts';
 
@@ -16,6 +17,7 @@ export type ClientMsg =
   | { t: 'loadout'; primary: WeaponId }
   | { t: 'ping'; c: number }
   | { t: 'chat'; text: string }
+  | { t: 'radio'; line: number }
   | { t: 'team'; team: number }
   | { t: 'vote'; option: number };
 
@@ -72,6 +74,8 @@ export function parseClientMessage(raw: string): ClientMsg | null {
       return isPrimary(o.primary) ? { t: 'loadout', primary: o.primary } : null;
     case 'chat':
       return isStr(o.text, 400) && o.text.length > 0 ? { t: 'chat', text: o.text } : null;
+    case 'radio':
+      return typeof o.line === 'number' && radioLine(o.line) ? { t: 'radio', line: o.line } : null;
     case 'watch':
       return o.team === 0 || o.team === 1 ? { t: 'watch', team: o.team } : null;
     case 'team':
@@ -196,7 +200,8 @@ export type ServerMsg =
   | { t: 'score'; s: number[][]; ts: number[] }
   | { t: 'match'; match: MatchInfo }
   | { t: 'pong'; c: number; s: number }
-  | { t: 'chat'; id: number; text: string };
+  | { t: 'chat'; id: number; text: string }
+  | { t: 'radio'; id: number; line: number };
 
 export type RosterEntry = [id: number, name: string, color: number, team: number, bot: number];
 

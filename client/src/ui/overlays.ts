@@ -1,3 +1,4 @@
+import { browserEngine } from '../game/speech.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
@@ -111,15 +112,18 @@ export class Overlays {
       return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), wrap]);
     };
 
-    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void) => {
+    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) => {
       const input = h('input', { type: 'checkbox' }) as HTMLInputElement;
-      input.checked = get();
+      // Unavailable: shown off and locked, while the saved choice stays as it was for a browser that can speak.
+      input.disabled = !available;
+      input.checked = available && get();
       input.addEventListener('change', () => {
         set(input.checked);
         changed();
       });
-      return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), h('label', { class: 'toggle' }, [input, h('span', { text })])]);
+      return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), h('label', { class: 'toggle' }, [input, h('span', { text: available ? text : 'este navegador não tem voz sintetizada' })])]);
     };
+    const canSpeak = browserEngine() !== null;
 
     return h('div', { class: 'menu glass' }, [
       this.menuTitle,
@@ -139,8 +143,8 @@ export class Overlays {
       seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v)),
       h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'bordas suaves aplicam ao reentrar' }),
       seg('pacote de sons', SOUND_PACKS.map(p => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
-      toggle('anunciador', 'voz sintetizada nas sequências de kills', () => s.announcer, (v) => (s.announcer = v)),
-      toggle('voz do rádio', 'fala em voz alta o rádio do seu time (desligada, só o texto)', () => s.radioVoice, (v) => (s.radioVoice = v)),
+      toggle('anunciador', 'voz sintetizada nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
+      toggle('voz do rádio', 'fala em voz alta o rádio do seu time (desligada, só o texto)', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
       slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
       slider('mira: tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
       slider('mira: abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),

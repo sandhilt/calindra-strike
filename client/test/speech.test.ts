@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { RADIO_VOICE, createSpeaker, type SpeechEngine } from '../src/game/speech.ts';
+import { RADIO_VOICE, browserEngine, createSpeaker, type SpeechEngine } from '../src/game/speech.ts';
 
 class FakeUtterance {
   text: string;
@@ -56,6 +56,44 @@ test('a speaker uses its voice profile, the pt voice and the given volume', () =
 
 test('without an engine a speaker is silent instead of failing', () => {
   assert.doesNotThrow(() => createSpeaker(RADIO_VOICE, 'radio', null)('oi', 1));
+});
+
+test('a synthesizer that throws never reaches the caller, on either channel', () => {
+  const broken = {
+    synth: {
+      speaking: false,
+      getVoices: () => {
+        throw new Error('no voices');
+      },
+      speak: () => {
+        throw new Error('blocked');
+      },
+      cancel: () => {
+        throw new Error('broken');
+      },
+    },
+    Utterance: FakeUtterance,
+  } as unknown as SpeechEngine;
+  assert.doesNotThrow(() => createSpeaker(RADIO_VOICE, 'radio', broken)('oi', 1));
+  assert.doesNotThrow(() => createSpeaker({ lang: 'pt-BR', pitch: 0.5, rate: 0.95 }, 'announcer', broken)('Dobradinha!', 1));
+});
+
+test('the browser engine is missing, not an error, when the API is absent or even reaching for it throws', () => {
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'speechSynthesis');
+  try {
+    Reflect.deleteProperty(globalThis, 'speechSynthesis');
+    assert.equal(browserEngine(), null, 'absent');
+    Object.defineProperty(globalThis, 'speechSynthesis', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    assert.equal(browserEngine(), null, 'throws on access');
+  } finally {
+    if (had) Object.defineProperty(globalThis, 'speechSynthesis', had);
+    else Reflect.deleteProperty(globalThis, 'speechSynthesis');
+  }
 });
 
 test('a new radio line replaces the radio line being read', () => {

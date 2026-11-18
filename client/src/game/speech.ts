@@ -19,10 +19,26 @@ export interface SpeechEngine {
   readonly Utterance: typeof SpeechSynthesisUtterance;
 }
 
+/** Null where the browser has no speech synthesis, or where merely reaching for it throws (sandboxed frames, some embedded views). */
 export function browserEngine(): SpeechEngine | null {
-  const synth = (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
-  const Utterance = (globalThis as { SpeechSynthesisUtterance?: typeof SpeechSynthesisUtterance }).SpeechSynthesisUtterance;
-  return synth && Utterance ? { synth, Utterance } : null;
+  try {
+    const synth = (globalThis as { speechSynthesis?: SpeechSynthesis }).speechSynthesis;
+    const Utterance = (globalThis as { SpeechSynthesisUtterance?: typeof SpeechSynthesisUtterance }).SpeechSynthesisUtterance;
+    return synth && Utterance ? { synth, Utterance } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Speech is garnish: a synthesizer that throws (no voices, a blocked or broken engine) must never reach the game loop. */
+function silentOnError(speak: Speak): Speak {
+  return (text, volume) => {
+    try {
+      speak(text, volume);
+    } catch {
+      // the line is simply not spoken
+    }
+  };
 }
 
 /** What is queued on one synthesizer, shared by every speaker built on it. */
@@ -62,7 +78,7 @@ export function createSpeaker(voice: VoiceProfile, channel: SpeechChannel, engin
     if (floor.radioWaiting === line) floor.radioWaiting = null;
   };
   if (channel === 'announcer') {
-    return (text, volume) => {
+    return silentOnError((text, volume) => {
       const line = build(text, volume);
       line.onend = line.onerror = () => release(line);
       // A new streak replaces the line still being read, so announcements never queue up behind the action.
@@ -70,9 +86,9 @@ export function createSpeaker(voice: VoiceProfile, channel: SpeechChannel, engin
       floor.radioWaiting = null;
       floor.announcing = line;
       synth.speak(line);
-    };
+    });
   }
-  return (text, volume) => {
+  return silentOnError((text, volume) => {
     const line = build(text, volume);
     line.onstart = line.onend = line.onerror = () => {
       if (floor.radioWaiting === line) floor.radioWaiting = null;
@@ -89,7 +105,7 @@ export function createSpeaker(voice: VoiceProfile, channel: SpeechChannel, engin
     floor.radioWaiting = null;
     synth.cancel();
     synth.speak(line);
-  };
+  });
 }
 
 /** Teammate voice: natural pitch, a touch fast, so it reads as a quick radio call next to the deep announcer. */

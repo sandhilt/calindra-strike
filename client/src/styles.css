@@ -1505,6 +1505,13 @@ input:focus-visible {
   accent-color: var(--lime);
   cursor: pointer;
 }
+.toggle:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.toggle input:disabled {
+  cursor: not-allowed;
+}
 
 .click-to-play {
   text-align: center;

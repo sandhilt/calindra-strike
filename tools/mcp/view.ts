@@ -55,6 +55,8 @@ export interface ChatLine {
   id: number;
   text: string;
   name?: string;
+  /** True for a radio menu line, so agents can tell it from typed chat. */
+  radio?: true;
 }
 export interface ViewSpray {
   id: number;

@@ -1,4 +1,4 @@
-import { CHAT_MAX_LEN, WEAPON, type WeaponId } from '../../shared/src/index.ts';
+import { CHAT_MAX_LEN, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
 import { WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
@@ -179,6 +179,22 @@ export const toolDefinitions: Definition[] = [
     run: (s, a) => {
       s.send({ t: 'chat', text: string(a, 'text', CHAT_MAX_LEN) });
       return 'Chat sent';
+    },
+  },
+  {
+    name: 'radio',
+    description: `Send a radio line to your team (everyone in free-for-all), shown and spoken in the game; 1.5 s cooldown per player. Menus and lines: ${RADIO_MENUS.map((m) => `${m.id} (${m.keyLabel}): ${m.lines.map((l, i) => `${i + 1} ${l.text}`).join(' · ')}`).join('. ')}. Received lines appear in get_state chat with radio: true.`,
+    properties: {
+      menu: { type: 'string', enum: [...RADIO_MENU_IDS] },
+      line: { type: 'integer', minimum: 1, maximum: 9 },
+    },
+    required: ['menu', 'line'],
+    run: (s, a) => {
+      const menu = radioMenuById(string(a, 'menu', Infinity));
+      const line = menu && radioLineAt(menu.id, number(a, 'line', 1, 9, true));
+      if (!line) throw new Error('Invalid radio line');
+      s.send({ t: 'radio', line: line.id });
+      return { radio: line.text };
     },
   },
   {

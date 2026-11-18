@@ -4,6 +4,7 @@ import {
   getMap,
   PROTOCOL_VERSION,
   RF_DROP,
+  radioLine,
   STAND_HEIGHT,
   TICK_MS,
   encodeCmd,
@@ -218,6 +219,10 @@ export class GameSession {
     if (m.t === 'votes' && v.match.vote) v.match.vote.counts = m.counts;
     if (m.t === 'pong') v.time = m.s;
     if (m.t === 'chat') v.chat.push({ name: this.names.get(m.id), ...m });
+    if (m.t === 'radio') {
+      const line = radioLine(m.line);
+      if (line) v.chat.push({ t: 'chat', id: m.id, name: this.names.get(m.id), text: line.text, radio: true });
+    }
     if (m.t === 'ev')
       for (const e of m.e) {
         if (e.k === 'spray') {

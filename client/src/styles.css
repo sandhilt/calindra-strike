@@ -1492,6 +1492,20 @@ input:focus-visible {
   background: var(--lime-soft);
 }
 
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--lime);
+  cursor: pointer;
+}
+
 .click-to-play {
   text-align: center;
   display: flex;

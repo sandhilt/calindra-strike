@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANNOUNCER_LINES, announcer, announcerKill } from '../src/game/sound-packs/announcer.ts';
+import { ANNOUNCER_LINES, announceStreak } from '../src/game/sound-packs/announcer.ts';
 import { DEFAULT_SOUND_PACK, SOUND_PACKS, findSoundPack, isSoundPackId } from '../src/game/sound-packs/index.ts';
 import { loadSettings } from '../src/settings.ts';
 
@@ -50,40 +50,30 @@ test('old saved settings without a sound pack use the default', () => {
   assert.equal(settings.volume, 0.4);
 });
 
-function recordingKit(gain = 0.9) {
-  const calls: string[] = [];
-  const kit = {
-    ctx: { currentTime: 0 },
-    master: { gain: { value: gain } },
-    out: () => ({}),
-    tone: () => calls.push('tone'),
-    noiseBurst: () => calls.push('noise'),
-    release: () => {},
-  };
-  return { kit: kit as unknown as Parameters<typeof announcerKill>[0], calls };
-}
-
-test('the announcer speaks an original line for every streak tier past a single kill, at the settings volume', () => {
-  const { kit, calls } = recordingKit(0.45);
+test('the announcer speaks an original line for every streak tier past a single kill, at the given volume', () => {
   const spoken: [string, number][] = [];
-  const kill = announcerKill(kit, (text, volume) => spoken.push([text, volume]));
-  kill(1, 'kill');
-  assert.equal(spoken.length, 0, 'a single kill gets only the stinger');
-  assert.ok(calls.length > 0);
-  for (const sound of ['double', 'triple', 'multi', 'rampage', 'unstoppable', 'godlike'] as const) kill(2, sound);
+  const speak = (text: string, volume: number) => spoken.push([text, volume]);
+  announceStreak('kill', speak, 0.5);
+  assert.equal(spoken.length, 0, 'a single kill stays silent');
+  for (const sound of ['double', 'triple', 'multi', 'rampage', 'unstoppable', 'godlike'] as const) announceStreak(sound, speak, 0.5);
   assert.deepEqual(spoken.map(([text]) => text), ['Dobradinha!', 'Trinca na forja!', 'Fornalha acesa!', 'Martelada geral!', 'Ninguém segura!', 'Deus da forja!']);
-  assert.ok(spoken.every(([, volume]) => Math.abs(volume - 0.5) < 1e-9), 'voice volume follows the master volume');
+  assert.ok(spoken.every(([, volume]) => volume === 0.5));
   assert.ok(Object.values(ANNOUNCER_LINES).every((line) => line === null || line.length <= 24));
 });
 
-test('the announcer changes only kill sounds, so shots and flags sound the same as the classic pack', () => {
-  const { kit } = recordingKit();
-  assert.deepEqual(Object.keys(announcer.create(kit)), ['kill']);
-  assert.ok(findSoundPack('announcer'));
+test('the announcer is a separate switch, not a sound pack', () => {
+  assert.equal(findSoundPack('announcer'), undefined);
+  saved({});
+  assert.equal(loadSettings().announcer, false, 'off by default');
+  saved({ soundPack: 'sound-new', announcer: true });
+  assert.deepEqual([loadSettings().soundPack, loadSettings().announcer], ['sound-new', true], 'any pack with the voice');
+  saved({ soundPack: 'classic', announcer: false });
+  assert.equal(loadSettings().announcer, false);
 });
 
-test('without speech synthesis the announcer stays silent instead of failing', () => {
-  const { kit, calls } = recordingKit();
-  assert.doesNotThrow(() => announcer.create(kit).kill?.(5, 'rampage'));
-  assert.ok(calls.length > 0, 'the stinger still plays');
+test('whoever picked the old announcer pack keeps the voice on top of the classic pack', () => {
+  saved({ soundPack: 'announcer' });
+  const settings = loadSettings();
+  assert.equal(settings.soundPack, DEFAULT_SOUND_PACK);
+  assert.equal(settings.announcer, true);
 });

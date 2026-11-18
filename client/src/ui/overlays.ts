@@ -109,6 +109,16 @@ export class Overlays {
       return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), wrap]);
     };
 
+    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void) => {
+      const input = h('input', { type: 'checkbox' }) as HTMLInputElement;
+      input.checked = get();
+      input.addEventListener('change', () => {
+        set(input.checked);
+        changed();
+      });
+      return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), h('label', { class: 'toggle' }, [input, h('span', { text })])]);
+    };
+
     return h('div', { class: 'menu glass' }, [
       this.menuTitle,
       h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' }),
@@ -127,6 +137,7 @@ export class Overlays {
       seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v)),
       h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'bordas suaves aplicam ao reentrar' }),
       seg('pacote de sons', SOUND_PACKS.map(p => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
+      toggle('anunciador', 'voz sintetizada nas sequências de kills', () => s.announcer, (v) => (s.announcer = v)),
       slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
       slider('mira: tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
       slider('mira: abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),

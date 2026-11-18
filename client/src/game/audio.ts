@@ -2,7 +2,9 @@ import { flagVoice } from './sound-packs/classic.ts';
 import { SPRAY_EMPTY_BURSTS, WEAPON, type ReloadCue, type WeaponId } from '@calindra-strike/shared';
 
 import { playReloadCue } from './reload-sounds.ts';
+import { announceStreak, browserSpeaker } from './sound-packs/announcer.ts';
 import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
+import type { Speak } from './speech.ts';
 import type { Pos, SoundKit, Sounds, StreakSound } from './sound-packs/types.ts';
 import { VOICES } from './sound-packs/voices.ts';
 
@@ -11,6 +13,8 @@ const VOICE_LIFETIME_MS = 2000;
 
 /** Length of the shared noise buffer, in seconds. */
 const NOISE_BUFFER_SEC = 4;
+/** Settings volume 0..1 maps to master gain by this factor; the announcer voice reads the same knob back. */
+const MASTER_GAIN_PER_VOLUME = 0.9;
 
 /**
  * All sound effects are synthesized with WebAudio at runtime: no sampled
@@ -27,6 +31,7 @@ export class Sfx {
   private readonly packs = new Map<string, Partial<Sounds>>();
   private packId: string = '';
   private overrides: Partial<Sounds> = {};
+  private announcer: Speak | null = null;
 
   constructor(volume: number, packId: string) {
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
@@ -76,7 +81,7 @@ export class Sfx {
   }
 
   setVolume(v: number): void {
-    this.master.gain.value = v * 0.9;
+    this.master.gain.value = v * MASTER_GAIN_PER_VOLUME;
   }
 
   setListener(x: number, y: number, z: number, fx: number, fy: number, fz: number): void {
@@ -230,7 +235,17 @@ export class Sfx {
     this.noiseBurst(this.master, t, 5000, 2, 0.001, 0.03, 0.12);
   }
 
+  /** Turns the spoken kill-streak announcer on or off, on top of whichever sound pack is chosen. */
+  setAnnouncer(on: boolean): void {
+    this.announcer = on ? (this.announcer ?? browserSpeaker()) : null;
+  }
+
   kill(streak: number, sound: StreakSound): void {
+    this.killSound(streak, sound);
+    if (this.announcer) announceStreak(sound, this.announcer, Math.min(1, this.master.gain.value / MASTER_GAIN_PER_VOLUME));
+  }
+
+  private killSound(streak: number, sound: StreakSound): void {
     if (this.overrides.kill) return this.overrides.kill(streak, sound);
     const t = this.ctx.currentTime;
     const base = 660 * 2 ** (Math.min(streak - 1, 5) / 12);

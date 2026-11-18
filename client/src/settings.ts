@@ -11,6 +11,8 @@ export interface Settings {
   sensitivity: number; // CS 1.6 scale (m_yaw 0.022)
   volume: number;
   soundPack: string;
+  /** Spoken kill-streak lines on top of the chosen sound pack. */
+  announcer: boolean;
   fov: number; // horizontal FOV at 4:3, like CS
   crosshairColor: string;
   crosshairSize: number;
@@ -32,6 +34,7 @@ export const defaults = (): Settings => ({
   sensitivity: 2,
   volume: 0.7,
   soundPack: DEFAULT_SOUND_PACK,
+  announcer: false,
   fov: 90,
   crosshairColor: CROSSHAIR_COLORS[0],
   crosshairSize: 6,
@@ -61,6 +64,8 @@ export function loadSettings(): Settings {
     sensitivity: num(o.sensitivity, 0.1, 15, d.sensitivity),
     volume: num(o.volume, 0, 1, d.volume),
     soundPack: isSoundPackId(o.soundPack) ? o.soundPack : d.soundPack,
+    // The announcer used to be a sound pack of its own; whoever picked it keeps the voice on top of the classic pack.
+    announcer: typeof o.announcer === 'boolean' ? o.announcer : o.soundPack === 'announcer',
     fov: num(o.fov, 70, 115, d.fov),
     crosshairColor: CROSSHAIR_COLORS.includes(o.crosshairColor as string) ? (o.crosshairColor as string) : d.crosshairColor,
     crosshairSize: num(o.crosshairSize, 2, 16, d.crosshairSize),

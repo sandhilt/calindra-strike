@@ -67,6 +67,7 @@ import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
+import type { GroundAt } from './render/debris-sim.ts';
 import { Effects } from './render/effects.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
@@ -156,6 +157,16 @@ const STREAKS: Record<number, { text: string; sound: StreakSound }> = {
 
 const v3 = new THREE.Vector3();
 const v3b = new THREE.Vector3();
+const fxPoint = new THREE.Vector3();
+const fxDir = new THREE.Vector3();
+
+/** Shooter key of the local player in the per-shooter gun effects; remote players use their id. */
+const LOCAL_SHOOTER = -1;
+/** Units in front of the camera where a viewmodel point is re-created in the world scene. */
+const VIEWMODEL_MUZZLE_FX_DISTANCE_UNITS = 30;
+const VIEWMODEL_MAGAZINE_FX_DISTANCE_UNITS = 22;
+/** Half-width of the floor probe under a magazine or casing. */
+const DEBRIS_PROBE_HALF_SIZE_UNITS = 2;
 
 export class ClientGame {
   readonly renderer: THREE.WebGLRenderer;
@@ -269,6 +280,7 @@ export class ClientGame {
     this.hud = new Hud(container);
     this.sfx = new Sfx(settings.volume, settings.soundPack);
     this.effects = new Effects(this.scene);
+    this.effects.setQuality(settings.quality);
     this.view = new ViewModel(PLAYER_COLORS[settings.color]);
     this.scene.add(this.camera, this.muzzleLight);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -362,6 +374,7 @@ export class ClientGame {
 
   applySettings(s: Settings): void {
     this.settings = s;
+    this.effects.setQuality(s.quality);
     this.input.sensitivity = s.sensitivity;
     this.sfx.setVolume(s.volume);
     if (this.sfx.setPack(s.soundPack)) this.sfx.shot(s.primary, null, false);
@@ -1047,7 +1060,37 @@ export class ClientGame {
     if (s.reload === 0 || weaponBefore !== s.weapon) this.localReload.end();
     // Also restarts after a weapon switch that starts a new reload on the same tick, or a replay that skipped the start.
     if (s.reload > 0 && !this.localReload.active) this.localReload.begin(def, shellsToLoad(def, s.mag[def.id], s.reserve[def.id]), s.tick);
-    for (const cue of this.localReload.due(s.tick)) this.sfx.reload(s.weapon, cue);
+    for (const cue of this.localReload.due(s.tick)) {
+      this.sfx.reload(s.weapon, cue);
+      if (cue === 'out') this.dropLocalMagazine();
+    }
+  }
+
+  private readonly debrisGround: GroundAt = (x, y, z) => Math.max(0, this.collision.groundBelow(x, y, z, DEBRIS_PROBE_HALF_SIZE_UNITS));
+
+  /** A viewmodel point as it appears on screen, re-created in the world `distance` units in front of the camera. */
+  private viewmodelPointInWorld(point: THREE.Vector3, distance: number): THREE.Vector3 {
+    point.project(this.view.camera);
+    point.set(point.x, point.y, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
+    return point.multiplyScalar(distance).add(this.camera.position);
+  }
+
+  /** Gun effects are anchored to the viewmodel, so they are skipped while it is hidden (scoped in or parachuting). */
+  private viewmodelVisible(): boolean {
+    const scoped = this.me.zoom > 0 && weaponDef(this.me.weapon).zoomFov.length > 0;
+    return !scoped && !this.me.dropping;
+  }
+
+  private dropLocalMagazine(): void {
+    if (!this.viewmodelVisible() || !this.view.magazineWorld(fxPoint)) return;
+    this.effects.gun.dropMagazine(this.viewmodelPointInWorld(fxPoint, VIEWMODEL_MAGAZINE_FX_DISTANCE_UNITS), this.me.vx, this.me.vz);
+  }
+
+  private localGunFx(weapon: WeaponId): void {
+    if (!this.viewmodelVisible()) return;
+    const muzzle = this.viewmodelPointInWorld(this.view.muzzleWorld(fxPoint), VIEWMODEL_MUZZLE_FX_DISTANCE_UNITS);
+    fxDir.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    this.effects.gun.fire(LOCAL_SHOOTER, weapon, muzzle, fxDir, this.me.vx, this.me.vz);
   }
 
   private gunOrigin(out: THREE.Vector3): THREE.Vector3 {
@@ -1065,6 +1108,8 @@ export class ClientGame {
     if (!melee) this.muzzleLight.intensity = 3.5;
     const origin = this.gunOrigin(new THREE.Vector3());
     const renderT = this.serverNow() - INTERP_DELAY_MS;
+    const tracers = melee ? 0 : this.effects.gun.tracerPellets(LOCAL_SHOOTER, shot.weapon);
+    if (!melee) this.localGunFx(shot.weapon);
     for (let i = 0; i < shot.dirs.length; i += 3) {
       const dx = shot.dirs[i];
       const dy = shot.dirs[i + 1];
@@ -1083,7 +1128,7 @@ export class ClientGame {
         }
       }
       const end = new THREE.Vector3(shot.ox + dx * dist, shot.oy + dy * dist, shot.oz + dz * dist);
-      if (!melee) this.effects.tracer(origin, end);
+      if (i / 3 < tracers) this.effects.tracer(origin, end);
       if (!hitPlayer && wall && wall.t <= dist + 0.01 && (!melee || wall.t < def.range)) {
         this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz));
       }
@@ -1103,9 +1148,14 @@ export class ClientGame {
       r.avatar.kick();
     }
     this.effects.muzzleFlash(origin);
+    const tracers = this.effects.gun.tracerPellets(e.id, e.w as WeaponId);
+    if (r?.visible && e.e.length >= 3) {
+      fxDir.set(e.e[0] - origin.x, e.e[1] - origin.y, e.e[2] - origin.z).normalize();
+      this.effects.gun.fire(e.id, e.w as WeaponId, origin, fxDir, 0, 0);
+    }
     for (let i = 0; i < e.e.length; i += 3) {
       const end = new THREE.Vector3(e.e[i], e.e[i + 1], e.e[i + 2]);
-      this.effects.tracer(origin, end);
+      if (i / 3 < tracers) this.effects.tracer(origin, end);
       const dir = v3.copy(end).sub(v3b.set(ox, oy, oz));
       const len = dir.length();
       dir.divideScalar(len || 1);
@@ -1183,7 +1233,7 @@ export class ClientGame {
     this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
     this.beepBomb(this.serverNow());
     this.typeOnBomb();
-    this.effects.update(dt);
+    this.effects.update(dt, this.debrisGround);
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
@@ -1386,7 +1436,10 @@ export class ClientGame {
     const nowTicks = performance.now() / TICK_MS;
     r.reload.follow((s.flags & RF_RELOAD) !== 0, weaponDef(s.w), nowTicks);
     const at = { x: s.x, y: s.y + 40, z: s.z };
-    for (const cue of r.reload.due(nowTicks)) this.sfx.reload(s.w as WeaponId, cue, at);
+    for (const cue of r.reload.due(nowTicks)) {
+      this.sfx.reload(s.w as WeaponId, cue, at);
+      if (cue === 'out') this.effects.gun.dropMagazine(r.avatar.magazineWorld(fxPoint), 0, 0);
+    }
   }
 
   private updateHud(zoomed: boolean): void {

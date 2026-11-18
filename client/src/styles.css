@@ -1948,43 +1948,88 @@ input:focus-visible {
 
 .join-actions { display: flex; gap: 12px; }
 .spectating .vitals, .spectating .ammo { display: none; }
-.watch-badge {
+.watch-bar {
   position: absolute;
   left: 50%;
-  bottom: 22px;
+  bottom: 14px;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  white-space: nowrap;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 8px 12px;
   border-color: color-mix(in srgb, var(--team) 55%, transparent);
+  pointer-events: auto;
 }
-.watch-badge .watch-dot {
+.watch-bar .watch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+}
+.watch-bar .watch-dot {
+  flex: none;
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--danger);
   animation: pulse 1.4s ease-in-out infinite;
 }
-.watch-badge.idle .watch-dot { background: var(--muted); animation: none; }
-.watch-badge .label {
+.watch-bar.idle .watch-dot { background: var(--muted); animation: none; }
+.watch-bar .watch-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.watch-bar .label {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.watch-badge .watch-name { font-size: 15px; color: var(--team); }
-.watch-badge .watch-hint {
-  display: flex;
+.watch-bar .watch-name { font-size: 15px; color: var(--team); overflow-wrap: anywhere; }
+.watch-bar[data-mode="free"] .watch-who { display: none; }
+.watch-bar[data-mode="free"] .watch-dot { background: var(--lime); }
+.watch-btn {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--bg-3);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.watch-btn:hover { border-color: rgba(165, 250, 0, 0.45); }
+.watch-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.watch-btn .kbd { min-width: 20px; height: 20px; padding: 0 5px; font-size: 10px; }
+.watch-team { color: var(--team); }
+.watch-team[aria-pressed="true"] { border-color: var(--team); background: color-mix(in srgb, var(--team) 20%, var(--bg-3)); }
+.watch-join { background: var(--lime); color: var(--lime-ink); border-color: transparent; font-weight: 800; }
+.watch-join .kbd { color: var(--text); }
+.watch-teams { display: flex; align-items: center; gap: 6px; }
+.watch-countdown { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.watch-bar .watch-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 6px;
   font-size: 11px;
   color: var(--muted);
 }
-.watch-badge.idle .watch-hint { display: none; }
+@media (max-width: 600px) {
+  .watch-bar { bottom: 8px; padding: 6px 8px; }
+  .watch-bar .watch-hint { display: none; }
+  .watch-btn { padding: 5px 8px; }
+}
 .spectator-menu .primary-settings, .spectator-menu .spectate-action { display: none; }
+.menu .join-action { display: none; }
+.spectator-menu .join-action { display: inline-flex; }
 
 .flag-status, .flag-banner {
   position: absolute;
@@ -2104,6 +2149,26 @@ input:focus-visible {
 }
 .bomb-bar { top: 136px; width: 220px; height: 10px; padding: 2px; overflow: hidden; }
 .bomb-bar i { display: block; height: 100%; background: var(--lime, #a5fa00); border-radius: 3px; }
+.bomb-activity {
+  position: absolute;
+  top: 136px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 260px;
+  max-width: calc(100% - 24px);
+  padding: 8px 12px 10px;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--actor);
+  --fill: var(--lime, #a5fa00);
+}
+.bomb-activity[data-kind="defuse"] { --fill: #4fc3f7; }
+.bomb-activity .track { height: 10px; padding: 2px; overflow: hidden; border-radius: 6px; background: rgba(255, 255, 255, 0.1); }
+.bomb-activity i { display: block; height: 100%; background: var(--fill); border-radius: 3px; }
 .defuse-overlay {
   position: absolute;
   left: 50%;
@@ -2118,6 +2183,7 @@ input:focus-visible {
   .bomb-status { top: 82px; width: max-content; font-size: 12px; }
   .bomb-role { top: 170px; left: 8px; font-size: 12px; padding: 6px 10px; }
   .bomb-bar { top: 122px; }
+  .bomb-activity { top: 122px; }
   .bomb-carry { top: 142px; flex-wrap: wrap; justify-content: center; width: max-content; padding: 7px 12px; }
   .bomb-carry b { font-size: 13px; }
   .bomb-carry span { font-size: 12px; }

@@ -54,7 +54,7 @@ import {
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
-import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow } from '../ui/hud.ts';
+import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
 import type { StreakSound } from './sound-packs/types.ts';
 import { Input } from './input.ts';
@@ -68,6 +68,9 @@ import { Avatar } from './render/avatar.ts';
 import { Effects } from './render/effects.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
+import { bombActivity } from './spectate/activity.ts';
+import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
+import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { type WorldView, buildWorld, followShadow } from './render/world.ts';
 
@@ -122,10 +125,11 @@ export interface PodiumData {
 
 export type TeamPanel =
   | { kind: 'player'; team: number; canSwitch: boolean }
-  | { kind: 'pick'; secondsLeft: number }
-  | { kind: 'watching'; team: number };
+  | { kind: 'spectator' };
 
 export interface UiHooks {
+  /** Asks the shell to swap this spectator connection for a player one. */
+  joinGame(): void;
   showClickToPlay(show: boolean): void;
   showMenu(show: boolean, panel?: TeamPanel | null): void;
   showPodium(data: PodiumData | null, next: string): void;
@@ -181,6 +185,10 @@ export class ClientGame {
   private prev = new THREE.Vector3();
   private spectator: SpectatorInfo | null;
   private followedId = -1;
+  private cameraMode: CameraMode = 'first';
+  /** Where the spectator camera stood last frame: the start of the free camera and the view while nobody can be followed. */
+  private spectatorPose: Pose = { x: 0, y: 700, z: 0, yaw: 0, pitch: -0.6 };
+  private readonly heldKeys = new Set<string>();
   private readonly followedView = new FollowedViewTracker();
   private viewColorFor = -1;
   private alive = false;
@@ -228,7 +236,6 @@ export class ClientGame {
   private chatOpen = false;
   private podiumActive = false;
   private menuOpen = false;
-  private pickPanelKey = '';
   private elapsed = 0;
 
   constructor(
@@ -284,20 +291,23 @@ export class ClientGame {
     });
 
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.spectator) { if (!this.menuOpen) this.cycleTarget(); return; }
+      if (this.spectator) { this.onSpectatorClick(); return; }
       if (!this.input.locked && !this.menuOpen) void this.requestPlay();
     });
+    this.renderer.domElement.addEventListener('contextmenu', (e) => {
+      if (!this.spectator) return;
+      e.preventDefault();
+      if (!this.menuOpen && this.cameraMode !== 'free') this.stepTarget(-1);
+    });
+    this.hud.onSpectate = (action) => this.runSpectatorAction(action);
     document.addEventListener('pointerlockchange', this.onLockChange);
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('blur', this.onBlur);
     window.addEventListener('beforeunload', this.onBeforeUnload);
     this.hud.chatInput.addEventListener('keydown', this.onChatKey);
     this.onResize();
     this.ui.showClickToPlay(!this.spectator);
     if (this.match.phase === 'podium') this.enterPodium(this.match);
-    if (this.spectator?.kind === 'choosing') {
-      this.menuOpen = true;
-      this.ui.showMenu(true, this.teamPanel());
-    }
     this.lastFrame = performance.now();
     this.raf = requestAnimationFrame(this.frame);
   }
@@ -323,6 +333,10 @@ export class ClientGame {
     this.podium.resize(w, h);
   };
 
+  private onBlur = (): void => {
+    this.heldKeys.clear();
+  };
+
   private onLockChange = (): void => {
     if (!this.running) return;
     if (this.input.locked) {
@@ -330,6 +344,8 @@ export class ClientGame {
       this.ui.showMenu(false);
       this.ui.showClickToPlay(false);
       this.sfx.resume();
+    } else if (this.spectator) {
+      this.heldKeys.clear(); // Esc only frees the mouse for a spectator; the menu has its own press
     } else if (!this.chatOpen && !this.podiumActive) {
       this.menuOpen = true;
       this.ui.showMenu(true, this.teamPanel());
@@ -393,10 +409,7 @@ export class ClientGame {
   }
 
   teamPanel(): TeamPanel | null {
-    if (this.spectator?.kind === 'choosing') {
-      return { kind: 'pick', secondsLeft: Math.max(0, Math.ceil((this.spectator.pickEndsAt - this.serverNow()) / 1000)) };
-    }
-    if (this.spectator?.kind === 'watching') return { kind: 'watching', team: this.spectator.team };
+    if (this.spectator) return { kind: 'spectator' };
     if (!isTeamMode(this.match.mode) || this.myTeam < 0) return null;
     let mine = 0;
     let other = 0;
@@ -419,6 +432,7 @@ export class ClientGame {
     this.mapIndex = index;
     this.map = getMap(index);
     this.collision = new CollisionWorld(this.map);
+    this.spectatorPose = overviewPose(this.map.bounds);
     this.world?.dispose();
     this.world = buildWorld(this.map, this.scene, this.settings.quality);
     const t = this.map.theme;
@@ -451,16 +465,10 @@ export class ClientGame {
 
   private onMessage(m: ServerMsg): void {
     switch (m.t) {
-      case 'spectate': {
-        const wasChoosing = this.spectator?.kind === 'choosing';
+      case 'spectate':
         this.spectator = m.state;
-        this.pickPanelKey = '';
-        if (m.state.kind === 'choosing') this.menuOpen = true;
-        else if (wasChoosing) this.menuOpen = false;
-        this.ui.showMenu(this.menuOpen, this.teamPanel());
         this.followedId = -1;
         break;
-      }
       case 'snap':
         this.onSnap(m);
         break;
@@ -706,7 +714,7 @@ export class ClientGame {
     const remote = this.remotes.get(id);
     if (!remote?.visible) return undefined;
     const p = remote.avatar.root.position;
-    return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y, firstPerson: this.spectator !== null && id === this.followedId };
+    return { x: p.x, y: p.y, z: p.z, yaw: remote.avatar.root.rotation.y, firstPerson: this.spectator !== null && this.cameraMode === 'first' && id === this.followedId };
   };
 
   private onBombEvent(e: Extract<GameEvent, { k: 'bomb' }>): void {
@@ -763,7 +771,7 @@ export class ClientGame {
   private updateBombHud(hud: Hud, now: number): void {
     const bomb = this.bomb;
     if (!bomb) {
-      hud.setBomb({ text: null, plant: -1, role: null, blackFriday: false, carry: null });
+      hud.setBomb({ text: null, plant: -1, role: null, blackFriday: false, carry: null, activity: null });
       hud.setDefuse(defuseBannerScene(this.defuseBanner, now));
       return;
     }
@@ -773,8 +781,9 @@ export class ClientGame {
       role: bombRole(bomb, this.myTeam),
       blackFriday: bomb.blackFriday,
       carry: this.spectator ? null : carryNotice(bomb, this.myId),
+      activity: this.spectator ? bombActivity(bomb, now, id => this.nameOf(id)) : null,
     });
-    const viewerId = this.spectator ? this.followedId : this.myId;
+    const viewerId = this.spectator ? (this.cameraMode === 'first' ? this.followedId : -1) : this.myId;
     const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
     if (defusing) this.defuseVariant = bomb.variant;
     hud.setDefuse(defusing ? { variant: bomb.variant, progress: defuseProgress(bomb, now), timeMs: now } : defuseBannerScene(this.defuseBanner, now));
@@ -855,22 +864,7 @@ export class ClientGame {
 
   private onKey(code: string, down: boolean, e: KeyboardEvent): boolean {
     if (this.chatOpen) return true;
-    if (this.spectator && code === 'Tab') {
-      e.preventDefault();
-      this.scoreboardOpen = down;
-      return true;
-    }
-    if (this.spectator && down && code === 'Escape') {
-      this.menuOpen = !this.menuOpen;
-      this.ui.showMenu(this.menuOpen, this.teamPanel());
-      return true;
-    }
-    if (this.spectator && down && !this.menuOpen && (code === 'Space' || code.startsWith('Arrow'))) {
-      e.preventDefault();
-      this.cycleTarget();
-      return true;
-    }
-    if (this.spectator) return true;
+    if (this.spectator) return this.onSpectatorKey(code, down, e);
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
       return true;
@@ -893,6 +887,65 @@ export class ClientGame {
       return true;
     }
     return false;
+  }
+
+  private onSpectatorKey(code: string, down: boolean, e: KeyboardEvent): boolean {
+    if (code === 'Tab') {
+      e.preventDefault();
+      this.scoreboardOpen = down;
+      return true;
+    }
+    if (down) this.heldKeys.add(code);
+    else this.heldKeys.delete(code);
+    const action = spectatorAction(code);
+    if (!down || e.repeat) return true;
+    if (!this.menuOpen && scrollsPage(code)) e.preventDefault();
+    if (action) this.runSpectatorAction(action);
+    return true;
+  }
+
+  private onSpectatorClick(): void {
+    if (this.menuOpen) return;
+    if (this.cameraMode !== 'free') this.stepTarget(1);
+    else if (!this.input.locked) void this.input.lock();
+  }
+
+  private runSpectatorAction(action: SpectatorAction): void {
+    switch (action.kind) {
+      case 'join':
+        this.ui.joinGame();
+        return;
+      case 'menu':
+        if (this.input.locked) return; // the browser is already releasing the mouse for this press
+        this.menuOpen = !this.menuOpen;
+        this.ui.showMenu(this.menuOpen, this.teamPanel());
+        return;
+    }
+    if (this.menuOpen) return;
+    switch (action.kind) {
+      case 'mode':
+        this.setCameraMode(nextCameraMode(this.cameraMode));
+        return;
+      case 'next':
+        this.stepTarget(1);
+        return;
+      case 'prev':
+        this.stepTarget(-1);
+        return;
+      case 'team':
+        if (isTeamMode(this.match.mode)) this.net.send({ t: 'watch', team: action.team });
+        return;
+    }
+  }
+
+  private setCameraMode(mode: CameraMode): void {
+    this.cameraMode = mode;
+    if (mode === 'free') {
+      this.input.yaw = this.spectatorPose.yaw;
+      this.input.pitch = this.spectatorPose.pitch;
+    } else if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
   }
 
   private onChatKey = (e: KeyboardEvent): void => {
@@ -1104,14 +1157,6 @@ export class ClientGame {
     }
     if (n === 15) this.accum = 0;
 
-    const panel = this.spectator?.kind === 'choosing' ? this.teamPanel() : null;
-    if (this.menuOpen && panel?.kind === 'pick') {
-      const key = this.spectator?.kind === 'choosing' ? this.spectator.pickEndsAt + ':' + panel.secondsLeft : '';
-      if (key !== this.pickPanelKey) {
-        this.pickPanelKey = key;
-        this.ui.showMenu(true, panel);
-      }
-    }
     if (this.podiumActive) {
       this.podium.update(dt);
       this.podium.render(this.renderer);
@@ -1138,7 +1183,7 @@ export class ClientGame {
 
     const def = weaponDef(this.me.weapon);
     const zoomed = this.alive && this.me.zoom > 0 && def.zoomFov.length > 0;
-    const showView = this.spectator ? this.updateFollowedView(dt) : this.alive && !zoomed && !this.me.dropping;
+    const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !zoomed && !this.me.dropping;
     if (!this.spectator) {
       this.view.update({
         dt,
@@ -1191,12 +1236,33 @@ export class ClientGame {
     return [...this.remotes.values()].filter(r => {
       const s = this.sample(r, this.serverNow() - INTERP_DELAY_MS);
       return s && (s.flags & RF_ALIVE) && (state.team === -1 || this.names.get(r.id)?.team === state.team);
-    });
+    }).sort((a, b) => a.id - b.id);
   }
 
-  private cycleTarget(): void {
+  private stepTarget(dir: 1 | -1): void {
+    this.followedId = stepTarget(this.watchTargets().map(r => r.id), this.followedId, dir);
+  }
+
+  private followedPlayer(): FollowedPlayer | null {
+    const sample = this.followedSample();
+    return sample && { x: sample.x, y: sample.y, z: sample.z, yaw: sample.yaw, pitch: sample.pitch, ducked: (sample.flags & RF_DUCK) !== 0 };
+  }
+
+  /** Places the spectator camera for the current mode and remembers where it stands. */
+  private updateSpectatorCamera(dt: number): void {
     const targets = this.watchTargets();
-    this.followedId = targets[(targets.findIndex(r => r.id === this.followedId) + 1) % targets.length]?.id ?? -1;
+    if (!targets.some(r => r.id === this.followedId)) this.followedId = targets[0]?.id ?? -1;
+    if (this.cameraMode === 'free') {
+      const keys = this.menuOpen ? NO_FREE_KEYS : freeKeysFrom(this.heldKeys);
+      const limits = { bounds: this.map.bounds, maxY: this.map.dropHeight };
+      this.spectatorPose = stepFreeCam({ ...this.spectatorPose, yaw: this.input.yaw, pitch: this.input.pitch }, keys, dt, limits);
+    } else {
+      const followed = this.followedPlayer();
+      if (followed) this.spectatorPose = this.cameraMode === 'third' ? chasePose(followed, this.collision) : eyePose(followed);
+    }
+    const { x, y, z, yaw, pitch } = this.spectatorPose;
+    this.camera.position.set(x, y, z);
+    this.camera.rotation.set(pitch, yaw, 0, 'YXZ');
   }
 
   private updateCamera(dt: number): void {
@@ -1219,14 +1285,7 @@ export class ClientGame {
     this.input.zoomSensScale = zoomed ? (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO : 1;
 
     if (this.spectator) {
-      const targets = this.watchTargets();
-      if (!targets.some(r => r.id === this.followedId)) this.followedId = targets[0]?.id ?? -1;
-      const remote = this.remotes.get(this.followedId);
-      const sample = remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS);
-      if (sample) {
-        this.camera.position.set(sample.x, sample.y + (sample.flags & RF_DUCK ? DUCK_EYE : STAND_EYE), sample.z);
-        this.camera.rotation.set(sample.pitch, sample.yaw, 0, 'YXZ');
-      }
+      this.updateSpectatorCamera(dt);
     } else if (this.alive) {
       const alpha = clamp(this.accum / TICK_MS, 0, 1);
       const x = this.prev.x + (s.x - this.prev.x) * alpha + this.correction.x;
@@ -1266,7 +1325,7 @@ export class ClientGame {
       const wasVisible = r.visible;
       pos.set(s.x, s.y, s.z);
       r.avatar.root.rotation.y = s.yaw;
-      r.avatar.root.visible = !(this.spectator && r.id === this.followedId);
+      r.avatar.root.visible = !(this.spectator && this.cameraMode === 'first' && r.id === this.followedId);
       r.visible = true;
       const moved = wasVisible ? Math.hypot(s.x - r.last.x, s.z - r.last.z) : 0;
       const inst = dt > 0 ? moved / dt : 0;
@@ -1328,7 +1387,7 @@ export class ClientGame {
     if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, scoreUnit(this.match.mode));
     else hud.setLeaders(leaders, meRow);
     hud.setTeamBadge(tdm ? this.myTeam : -1);
-    hud.setWatching(this.watchingLabel());
+    hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
@@ -1337,7 +1396,7 @@ export class ClientGame {
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
-      const open = !!target && !(target.flags & (RF_ZOOM | RF_DROP)) && target.w !== WEAPON.SNIPER;
+      const open = this.cameraMode === 'first' && !!target && !(target.flags & (RF_ZOOM | RF_DROP)) && target.w !== WEAPON.SNIPER;
       hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
       hud.setDrop(null);
       hud.setScope(false);
@@ -1396,11 +1455,17 @@ export class ClientGame {
     } else hud.setNetstat(null);
   }
 
-  private watchingLabel(): { name: string; color: string } | null | undefined {
-    if (this.spectator?.kind !== 'watching') return undefined;
-    if (!this.remotes.has(this.followedId)) return null;
-    const { name, color } = this.nameOf(this.followedId);
-    return { name, color };
+  private spectatorBar(): SpectatorBar | undefined {
+    const state = this.spectator;
+    if (!state) return undefined;
+    const followed = this.remotes.has(this.followedId) ? this.nameOf(this.followedId) : null;
+    const teams = isTeamMode(this.match.mode)
+      ? {
+          active: state.kind === 'watching' ? state.team : -1,
+          pickSecondsLeft: state.kind === 'choosing' ? Math.max(0, Math.ceil((state.pickEndsAt - this.serverNow()) / 1000)) : null,
+        }
+      : null;
+    return { target: followed && { name: followed.name, color: followed.color }, mode: this.cameraMode, teams, pointerLocked: this.input.locked };
   }
 
   private markers(): Marker[] {
@@ -1471,6 +1536,7 @@ export class ClientGame {
     cancelAnimationFrame(this.raf);
     document.removeEventListener('pointerlockchange', this.onLockChange);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('blur', this.onBlur);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
     if (document.pointerLockElement) document.exitPointerLock();
     this.input.dispose();

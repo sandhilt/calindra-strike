@@ -1,6 +1,9 @@
 import { TEAMS } from '@calindra-strike/shared';
 import type { BombRole, CarryNotice } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
+import type { BombActivity } from '../game/spectate/activity.ts';
+import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
+import type { SpectatorAction } from '../game/spectate/controls.ts';
 import { ICONS, h, svg } from './dom.ts';
 
 export interface LeaderRow {
@@ -35,7 +38,16 @@ export interface Marker {
 export type FeedInvolvement = 'kill' | 'death' | null;
 
 /** What the bug HUD shows this frame; a null text hides the status line. */
-export interface BombHud { text: string | null; plant: number; role: BombRole | null; blackFriday: boolean; carry: CarryNotice | null }
+export interface BombHud { text: string | null; plant: number; role: BombRole | null; blackFriday: boolean; carry: CarryNotice | null; activity: BombActivity | null }
+
+/** What the always-visible spectator bar shows this frame. */
+export interface SpectatorBar {
+  target: { name: string; color: string } | null;
+  mode: CameraMode;
+  /** Team choice in team modes: the watched team (-1 until picked) and the pick countdown while the server waits. */
+  teams: { active: number; pickSecondsLeft: number | null } | null;
+  pointerLocked: boolean;
+}
 
 /** How long the Black Friday banner stays on screen, in ms. */
 const BLACK_FRIDAY_BANNER_MS = 4500;
@@ -60,6 +72,9 @@ export class Hud {
   private readonly bombCarry = h('div', { class: 'bomb-carry hidden', role: 'status' });
   private readonly plantFill = h('i', { style: 'width:0%' });
   private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
+  private readonly activityLabel = h('span', { class: 'activity-label' });
+  private readonly activityFill = h('i', { style: 'width:0%' });
+  private readonly bombActivity = h('div', { class: 'bomb-activity glass hidden', role: 'status' }, [this.activityLabel, h('div', { class: 'track' }, [this.activityFill])]);
   private readonly defuseCanvas = h('canvas', { class: 'defuse-overlay hidden' });
   private readonly feed = h('div', { class: 'killfeed' });
   private readonly hpV = h('div', { class: 'v', text: '100' });
@@ -83,12 +98,30 @@ export class Hud {
   private readonly protect = h('div', { class: 'protect-vignette' });
   private readonly scope = h('div', { class: 'scope hidden' });
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
+  /** Spectator controls call back here; the game decides what each action does. */
+  onSpectate: (action: SpectatorAction) => void = () => {};
   private readonly watchName = h('b', { class: 'watch-name' });
-  private readonly watchBadge = h('div', { class: 'watch-badge glass hidden' }, [
-    h('i', { class: 'watch-dot' }),
-    h('span', { class: 'label', text: 'assistindo' }),
-    this.watchName,
-    h('span', { class: 'watch-hint' }, [h('span', { class: 'kbd', text: 'Espaço' }), 'próximo']),
+  private readonly watchModeLabel = h('span');
+  private readonly watchTeamButtons = ([0, 1] as const).map(team =>
+    h('button', { class: 'watch-btn watch-team', type: 'button', style: `--team:${TEAMS[team].color}`, title: `Assistir os ${TEAMS[team].name} (${team + 1})`, onclick: () => this.onSpectate({ kind: 'team', team }) }, [
+      h('span', { class: 'kbd', text: String(team + 1) }),
+      TEAMS[team].name,
+    ]),
+  );
+  private readonly watchCountdown = h('span', { class: 'watch-countdown' });
+  private readonly watchTeams = h('div', { class: 'watch-teams hidden' }, [...this.watchTeamButtons, this.watchCountdown]);
+  private readonly watchHint = h('div', { class: 'watch-hint' });
+  private readonly watchBadge = h('div', { class: 'watch-bar glass hidden' }, [
+    h('div', { class: 'watch-row' }, [
+      h('i', { class: 'watch-dot' }),
+      h('span', { class: 'watch-who' }, [h('span', { class: 'label', text: 'assistindo' }), this.watchName]),
+      h('button', { class: 'watch-btn', type: 'button', title: 'Jogador anterior (seta esquerda)', 'aria-label': 'jogador anterior', text: '‹', onclick: () => this.onSpectate({ kind: 'prev' }) }),
+      h('button', { class: 'watch-btn', type: 'button', title: 'Próximo jogador (seta direita)', 'aria-label': 'próximo jogador', text: '›', onclick: () => this.onSpectate({ kind: 'next' }) }),
+      h('button', { class: 'watch-btn watch-mode', type: 'button', title: 'Trocar a câmera (Espaço)', onclick: () => this.onSpectate({ kind: 'mode' }) }, [h('span', { class: 'kbd', text: 'Espaço' }), this.watchModeLabel]),
+      this.watchTeams,
+      h('button', { class: 'watch-btn watch-join', type: 'button', title: 'Entrar na partida como jogador (J)', onclick: () => this.onSpectate({ kind: 'join' }) }, [h('span', { class: 'kbd', text: 'J' }), 'entrar no jogo']),
+    ]),
+    this.watchHint,
   ]);
   private readonly center = h('div', { class: 'center' });
   private readonly dropAlt = h('div', { class: 'alt', text: '' });
@@ -144,6 +177,7 @@ export class Hud {
       this.bombCarry,
       this.blackFridayBanner,
       this.plantBar,
+      this.bombActivity,
       this.defuseCanvas,
       h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
@@ -215,8 +249,16 @@ export class Hud {
   }
 
   /** Status line for the bug, the plant progress (0..1, negative hides the bar), the viewer's side and the warning for whoever carries the bug. */
-  setBomb({ text, plant, role, blackFriday, carry }: BombHud): void {
+  setBomb({ text, plant, role, blackFriday, carry, activity }: BombHud): void {
     const percent = Math.round(plant * 100);
+    this.set('bomb-activity', JSON.stringify(activity && [activity.kind, activity.label, activity.color, Math.round(activity.progress * 100)]), () => {
+      this.bombActivity.classList.toggle('hidden', activity === null);
+      if (!activity) return;
+      this.bombActivity.dataset.kind = activity.kind;
+      this.bombActivity.style.setProperty('--actor', activity.color);
+      this.activityLabel.textContent = activity.label;
+      this.activityFill.style.width = Math.round(activity.progress * 100) + '%';
+    });
     this.set('bomb-carry', JSON.stringify(carry), () => {
       this.bombCarry.classList.toggle('hidden', carry === null);
       if (carry) this.bombCarry.replaceChildren(svg(ICONS.target), h('b', { text: carry.title }), h('span', { text: carry.hint }));
@@ -227,11 +269,11 @@ export class Hud {
       this.bombRole.dataset.side = role.side;
       this.bombRole.replaceChildren(svg(role.side === 'attack' ? ICONS.target : ICONS.shield), h('b', { text: role.label }), h('span', { text: role.goal }));
     });
-    this.set('bomb', JSON.stringify([text, percent, blackFriday]), () => {
+    this.set('bomb', JSON.stringify([text, percent, blackFriday, activity !== null]), () => {
       this.bombStatus.classList.toggle('hidden', text === null);
       this.bombStatus.classList.toggle('black-friday', blackFriday);
       this.bombStatus.textContent = text ?? '';
-      this.plantBar.classList.toggle('hidden', percent < 0);
+      this.plantBar.classList.toggle('hidden', percent < 0 || activity !== null);
       this.plantFill.style.width = Math.max(0, percent) + '%';
     });
   }
@@ -264,13 +306,24 @@ export class Hud {
     });
   }
 
-  /** Spectator badge. `target` null while nobody is alive to follow; `undefined` hides it. */
-  setWatching(target: { name: string; color: string } | null | undefined): void {
-    this.set('watch', JSON.stringify(target ?? false), () => {
-      this.watchBadge.classList.toggle('hidden', target === undefined);
-      this.watchBadge.classList.toggle('idle', target === null);
-      this.watchName.textContent = target ? target.name : 'aguardando jogadores';
-      this.watchBadge.style.setProperty('--team', target?.color ?? 'var(--muted)');
+  /** Spectator bar at the bottom of the screen; `undefined` hides it for players. */
+  setSpectatorBar(bar: SpectatorBar | undefined): void {
+    this.set('watch', JSON.stringify(bar ?? false), () => {
+      this.watchBadge.classList.toggle('hidden', !bar);
+      if (!bar) return;
+      const choosing = bar.teams?.pickSecondsLeft != null;
+      this.watchBadge.classList.toggle('idle', bar.target === null);
+      this.watchBadge.dataset.mode = bar.mode;
+      this.watchBadge.style.setProperty('--team', bar.target?.color ?? 'var(--muted)');
+      this.watchName.textContent = bar.target ? bar.target.name : choosing ? 'escolha um time' : 'aguardando jogadores';
+      this.watchModeLabel.textContent = CAMERA_MODE_LABEL[bar.mode];
+      this.watchTeams.classList.toggle('hidden', bar.teams === null);
+      if (bar.teams) {
+        const { active, pickSecondsLeft: left } = bar.teams;
+        this.watchTeamButtons.forEach((button, team) => button.setAttribute('aria-pressed', String(active === team)));
+        this.watchCountdown.textContent = left === null ? '' : left > 0 ? `escolha em ${left} s` : 'o servidor escolhe…';
+      }
+      this.watchHint.replaceChildren(...spectatorHints(bar));
     });
   }
 
@@ -485,4 +538,14 @@ export class Hud {
   setVisible(v: boolean): void {
     this.root.style.display = v ? '' : 'none';
   }
+}
+
+const hintKey = (text: string): HTMLElement => h('span', { class: 'kbd', text });
+
+/** Key hints under the spectator bar; they depend on the camera mode. */
+function spectatorHints(bar: SpectatorBar): (Node | string)[] {
+  if (bar.mode === 'free') {
+    return [hintKey('WASD'), 'voar', hintKey('Shift'), 'rápido', hintKey('E'), hintKey('Q'), 'subir e descer', bar.pointerLocked ? 'Esc solta o mouse' : 'clique para travar o mouse'];
+  }
+  return ['clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', ...(bar.teams ? [hintKey('1'), hintKey('2'), 'time'] : [])];
 }

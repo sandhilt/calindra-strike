@@ -88,13 +88,13 @@ async function serverProtocol(): Promise<number | null> {
   }
 }
 
-async function connect(s: Settings): Promise<{ net: Connection; welcome: Welcome }> {
+async function connect(s: Settings, spectate: boolean): Promise<{ net: Connection; welcome: Welcome }> {
   const net = new Connection(SERVER_WS);
   try {
     await Promise.all([net.opened(), loadBrand()]);
-    net.send({ t: 'hello', v: PROTOCOL_VERSION, name: s.name, color: s.color, primary: s.primary, code: s.code, spectate: spectating, token: spectating ? undefined : token.get() });
+    net.send({ t: 'hello', v: PROTOCOL_VERSION, name: s.name, color: s.color, primary: s.primary, code: s.code, spectate, token: spectate ? undefined : token.get() });
     const welcome = await waitWelcome(net, 8000);
-    if (!spectating) token.set(welcome.token);
+    if (!spectate) token.set(welcome.token);
     return { net, welcome };
   } catch (e) {
     net.close();
@@ -102,11 +102,16 @@ async function connect(s: Settings): Promise<{ net: Connection; welcome: Welcome
   }
 }
 
+/** Remembers the role in this tab so a reload comes back the same way. */
+function setSpectating(value: boolean): void {
+  spectating = value;
+  try { sessionStorage.setItem('calindra-strike:spectate', String(value)); } catch {}
+}
+
 async function play(s: Settings, spectate: boolean): Promise<void> {
-  spectating = spectate;
-  try { sessionStorage.setItem('calindra-strike:spectate', String(spectate)); } catch {}
+  setSpectating(spectate);
   try {
-    const { net, welcome } = await connect(s);
+    const { net, welcome } = await connect(s, spectate);
     stopLobby?.();
     stopLobby = null;
     start(net, s, welcome);
@@ -148,6 +153,34 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
     void play(s, true);
   };
 
+  let joining = false;
+  /**
+   * Spectator to player. The new connection is opened beside the spectator one, so a full
+   * server leaves the spectator view untouched instead of dropping to the lobby.
+   */
+  const join = async () => {
+    if (joining || stopped) return;
+    joining = true;
+    game?.hud.info('Entrando no jogo…', '#a5fa00');
+    try {
+      const next = await connect(s, false);
+      if (stopped) {
+        next.net.close();
+        return;
+      }
+      setSpectating(false);
+      stopped = true;
+      game?.dispose();
+      game = null;
+      start(next.net, s, next.welcome);
+    } catch (e) {
+      const full = e instanceof Rejected && e.code === 'full';
+      game?.hud.info(full ? 'Servidor cheio: continue assistindo e tente de novo' : 'Não deu para entrar no jogo agora', '#ffd54f');
+    } finally {
+      joining = false;
+    }
+  };
+
   const reconnect = async () => {
     for (let attempt = 1; attempt <= 60 && !stopped; attempt++) {
       overlays.reconnecting(attempt === 1 ? 'A conexão com o servidor caiu. Voltando…' : `Tentativa ${attempt}…`, leave);
@@ -165,7 +198,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
         continue;
       }
       try {
-        const next = await connect(s);
+        const next = await connect(s, spectating);
         if (stopped) {
           next.net.close();
           return;
@@ -182,7 +215,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   };
 
   const overlays = new Overlays(root, s, {
-    watch: (team) => net.send({ t: 'watch', team }),
+    join: () => void join(),
     resume: () => void game?.requestPlay(),
     leave,
     spectate,
@@ -195,6 +228,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   });
   if (import.meta.env.DEV) (window as unknown as { __overlays: Overlays }).__overlays = overlays;
   game = new ClientGame(root, net, s, welcome, {
+    joinGame: () => void join(),
     showClickToPlay: (v) => overlays.showClick(v),
     showMenu: (v, panel) => overlays.showMenu(v, panel ?? game?.teamPanel() ?? null),
     showPodium: (r, next) => overlays.showPodium(r, next),

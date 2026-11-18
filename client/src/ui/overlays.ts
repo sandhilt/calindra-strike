@@ -5,7 +5,7 @@ import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { gameLogo, h } from './dom.ts';
 
 export interface OverlayHooks {
-  watch(team: 0 | 1): void;
+  join(): void;
   resume(): void;
   leave(): void;
   spectate(): void;
@@ -153,6 +153,7 @@ export class Overlays {
       ),
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),
+        h('button', { class: 'btn join-action', type: 'button', text: 'entrar no jogo', title: 'Entra na partida como jogador (J)', onclick: () => this.hooks.join() }),
         h('button', { class: 'btn spectate-action', type: 'button', text: 'assistir', title: 'Sai do jogo e entra só olhando', onclick: () => this.hooks.spectate() }),
         h('button', { class: 'btn', type: 'button', text: 'sair da partida', onclick: () => this.hooks.leave() }),
       ]),
@@ -166,49 +167,29 @@ export class Overlays {
   showMenu(v: boolean, team: TeamPanel | null = null): void {
     this.menu.classList.toggle('hidden', !v);
     if (v) this.click.classList.add('hidden');
-    this.menu.classList.toggle('spectator-menu', team !== null && team.kind !== 'player');
-    this.menuTitle.textContent = team !== null && team.kind !== 'player' ? 'assistindo' : 'pausado';
+    const spectating = team?.kind === 'spectator';
+    this.menu.classList.toggle('spectator-menu', spectating);
+    this.menuTitle.textContent = spectating ? 'assistindo' : 'pausado';
     if (v) this.renderTeamRow(team);
   }
 
+  /** Spectators pick their team on the HUD bar, so only players get a row here. */
   private renderTeamRow(team: TeamPanel | null): void {
-    this.teamRow.classList.toggle('hidden', !team || (team.kind === 'watching' && team.team < 0));
-    if (!team || (team.kind === 'watching' && team.team < 0)) return;
-    if (team.kind === 'pick') {
-      this.teamRow.replaceChildren(
-        h('div', {}, [
-          h('span', { class: 'label', text: 'escolha um time para assistir' }),
-          h('p', { text: team.secondsLeft > 0 ? 'Escolha em ' + team.secondsLeft + ' s' : 'Aguardando escolha do servidor…' }),
-          h('p', { class: 'label', text: 'Ao acabar o tempo, o servidor escolhe o time.' }),
-        ]),
-        ...([0, 1] as const).map(t => h('button', {
-          class: 'btn',
-          type: 'button',
-          style: 'color:' + TEAMS[t].color,
-          text: TEAMS[t].name,
-          disabled: team.secondsLeft === 0,
-          onclick: () => this.hooks.watch(t),
-        })),
-      );
-      return;
-    }
-    const canSwitch = team.kind === 'watching' || team.canSwitch;
+    this.teamRow.classList.toggle('hidden', team?.kind !== 'player');
+    if (team?.kind !== 'player') return;
     const otherTeam = team.team === 0 ? 1 : 0;
     const mine = TEAMS[team.team];
     const other = TEAMS[otherTeam];
     this.teamRow.replaceChildren(
-      h('div', { class: 'team-current', style: `--team:${mine.color}` }, [h('span', { class: 'label', text: team.kind === 'watching' ? 'assistindo' : 'seu time' }), h('b', { text: mine.name })]),
+      h('div', { class: 'team-current', style: `--team:${mine.color}` }, [h('span', { class: 'label', text: 'seu time' }), h('b', { text: mine.name })]),
       h('button', {
         class: 'btn',
         type: 'button',
         style: `--team:${other.color}`,
-        disabled: !canSwitch,
-        title: canSwitch ? '' : 'O outro time já tem a mesma quantidade ou mais jogadores',
-        text: canSwitch ? `ir para os ${other.name}` : `${other.name}: time cheio`,
-        onclick: () => {
-          if (team.kind === 'watching') this.hooks.watch(otherTeam);
-          else this.hooks.switchTeam();
-        },
+        disabled: !team.canSwitch,
+        title: team.canSwitch ? '' : 'O outro time já tem a mesma quantidade ou mais jogadores',
+        text: team.canSwitch ? `ir para os ${other.name}` : `${other.name}: time cheio`,
+        onclick: () => this.hooks.switchTeam(),
       }),
     );
   }

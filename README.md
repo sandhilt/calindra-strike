@@ -124,17 +124,28 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 Choose **só assistir** in the lobby to watch without taking a player slot. A
 player can also pick **assistir** in the Esc menu: it leaves the player slot and
-rejoins the same server as a spectator. In TDM,
-choose the first team in the Esc menu within 15 seconds; on timeout the server selects the smaller team
-(ties use the score, then chance). FFA starts watching immediately. Up to 16
-spectators can connect independently of the player limit. Spectators receive
-chat but cannot send it, play or vote. Later team switches in the Esc menu are
-free and have no time limit. Returning
-from FFA to TDM opens a fresh team choice.
+rejoins the same server as a spectator. In team modes the spectator bar at the
+bottom offers both teams (keys `1` and `2`); pick one within 15 seconds, or on
+timeout the server selects the smaller team (ties use the score, then chance).
+FFA starts watching immediately. A spectator watches one team at a time and can
+switch whenever they like. Returning from FFA to TDM opens a fresh team choice.
+Up to 16 spectators can connect independently of the player limit. Spectators
+receive chat but cannot send it, play or vote.
 
-The camera follows a player in first person: you see their weapon (with its
-recoil, reload and switch animations), and a badge at the bottom shows
-**assistindo** with the followed player's name in their colour. Your own crosshair
-style is drawn at the centre (other players' crosshair settings are not sent),
-and hidden while the target is scoped, skydiving or holding the sniper. Space or the
-arrow keys change the target.
+The always-visible bar shows who is followed, the camera mode, the team buttons
+and key hints. Spectator controls, as in CS 1.6:
+
+- `Space` cycles the camera: first person (you see their weapon with its recoil,
+  reload and switch animations, and your own crosshair style at the centre, hidden
+  while the target is scoped, skydiving or holding the sniper), third person
+  (chase camera behind and above the player, pulled in when a wall is in the way)
+  and free camera.
+- `Left click` or `→` follows the next player, `Right click` or `←` the previous one.
+- Free camera: `WASD` fly along the view, `Shift` faster, `E` up, `Q`/`C` down.
+  Click the screen to lock the mouse for looking around and `Esc` to release it.
+- `1` / `2` watch the first or second team, `Tab` shows the scoreboard, `Esc` opens the menu.
+- `J`, the **entrar no jogo** button on the bar or the one in the Esc menu joins
+  the match as a player. If the server is full you keep watching.
+
+Whatever player a spectator follows, planting or defusing the bug shows a progress
+bar with who is doing it.

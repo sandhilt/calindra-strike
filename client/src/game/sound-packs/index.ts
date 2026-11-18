@@ -1,9 +1,10 @@
+import { announcer } from './announcer.ts';
 import { classic } from './classic.ts';
 import { soundNew } from './sound-new.ts';
 import type { SoundPack } from './types.ts';
 
 /** Add a mod with one file exporting a SoundPack and one line in SOUND_PACKS. */
-export const SOUND_PACKS = [classic, soundNew] as const satisfies readonly SoundPack[];
+export const SOUND_PACKS = [classic, soundNew, announcer] as const satisfies readonly SoundPack[];
 
 export const DEFAULT_SOUND_PACK = classic.id;
 

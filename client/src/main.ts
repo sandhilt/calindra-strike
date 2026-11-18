@@ -203,6 +203,8 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
           next.net.close();
           return;
         }
+        // This closure is superseded: a join still in flight must not install a second game.
+        stopped = true;
         game?.dispose();
         game = null;
         start(next.net, s, next.welcome);

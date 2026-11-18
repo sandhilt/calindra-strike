@@ -77,10 +77,13 @@ export function bombStandBox(kind: BombState['kind'], at: BombPoint): BombStandB
 const STAND_EXIT_GAP_UNITS = 2;
 /** Directions tried around the player's back, in eighths of a turn: straight back, then fanning out to straight ahead. */
 const STAND_EXIT_TURNS = [0, 1, -1, 2, -2, 3, -3, 4] as const;
+/** Spacing of the hull checks along the push, under a hull radius so no thin wall is skipped. */
+const STAND_EXIT_STEP_UNITS = 8;
 
 /**
  * Where a player caught inside a stand's footprint steps to, so the desk that appears under a planter does not trap them.
- * Tries backwards from where they face first, then fans out; `fits` says whether the hull can stand at a spot.
+ * Tries backwards from where they face first, then fans out; `fits` says whether the hull can stand at a spot, and is
+ * checked along the whole push so the player is never moved through a wall.
  * Null when the player is clear of the stand already, or when no direction has room.
  */
 export function standExit(box: BombStandBox, player: BombPoint & { yaw: number; height: number }, fits: (x: number, z: number) => boolean): { x: number; z: number } | null {
@@ -95,8 +98,10 @@ export function standExit(box: BombStandBox, player: BombPoint & { yaw: number; 
     const tx = dx > 0 ? (maxX - player.x) / dx : dx < 0 ? (minX - player.x) / dx : Infinity;
     const tz = dz > 0 ? (maxZ - player.z) / dz : dz < 0 ? (minZ - player.z) / dz : Infinity;
     const t = Math.min(tx, tz);
-    const x = player.x + dx * t, z = player.z + dz * t;
-    if (fits(x, z)) return { x, z };
+    const steps = Math.ceil(t / STAND_EXIT_STEP_UNITS);
+    let clear = true;
+    for (let i = 1; i <= steps && clear; i++) clear = fits(player.x + (dx * t * i) / steps, player.z + (dz * t * i) / steps);
+    if (clear) return { x: player.x + dx * t, z: player.z + dz * t };
   }
   return null;
 }

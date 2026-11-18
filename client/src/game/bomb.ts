@@ -76,7 +76,7 @@ export function bombStatus(bomb: BombView, now: number, viewerId: number, viewer
 
 function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
   const status = phaseStatus(bomb, now, viewerId, viewerTeam, name);
-  const left = plantSecondsLeft(bomb, now);
+  const left = bomb.state === 'dropped' ? null : plantSecondsLeft(bomb, now);
   return left === null ? status : `${status} · ${left}s para plantar`;
 }
 
@@ -85,7 +85,9 @@ function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
   if (bomb.state === 'dropped') {
-    const left = Math.max(0, Math.ceil((bomb.handOverAt - now) / 1000));
+    // The plant window can close before the floor timer runs out; whichever comes first hands the bug over.
+    const handOverAt = bomb.plantByAt > 0 ? Math.min(bomb.handOverAt, bomb.plantByAt) : bomb.handOverAt;
+    const left = Math.max(0, Math.ceil((handOverAt - now) / 1000));
     return `${attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão'} · troca de lado em ${left}s`;
   }
   if (bomb.state === 'carried' || bomb.state === 'planting') {

@@ -724,7 +724,7 @@ export class ClientGame {
     this.hud.info(bombMessage(e.what, e.team, actor.name), e.by < 0 ? TEAMS[e.team].color : actor.color);
     if (e.what === 'plant' || e.what === 'defused') this.sfx.beep(true);
     if (e.what === 'take' && e.by === this.myId) this.sfx.bombTaken();
-    if (e.what === 'defused' && e.by === (this.spectator ? this.followedId : this.myId)) {
+    if (e.what === 'defused' && e.by === this.laptopViewerId()) {
       this.defuseBanner = { variant: this.defuseVariant, until: this.serverNow() + DEFUSE_BANNER_MS };
     }
     if (e.what !== 'exploded') return;
@@ -785,10 +785,15 @@ export class ClientGame {
       carry: this.spectator ? null : carryNotice(bomb, this.myId),
       activity: this.spectator ? bombActivity(bomb, now, id => this.nameOf(id)) : null,
     });
-    const viewerId = this.spectator ? (this.cameraMode === 'first' ? this.followedId : -1) : this.myId;
-    const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === viewerId;
+    const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === this.laptopViewerId();
     if (defusing) this.defuseVariant = bomb.variant;
     hud.setDefuse(defusing ? { variant: bomb.variant, progress: defuseProgress(bomb, now), timeMs: now } : defuseBannerScene(this.defuseBanner, now));
+  }
+
+  /** Whose hands the full-size laptop shows: yours, or the followed player's in first person; -1 for the other spectator cameras. */
+  private laptopViewerId(): number {
+    if (!this.spectator) return this.myId;
+    return this.cameraMode === 'first' ? this.followedId : -1;
   }
 
   private onMatch(info: MatchInfo): void {
@@ -841,6 +846,7 @@ export class ClientGame {
     this.voteCounts = info.vote?.counts ?? [];
     // free the mouse so people can click a map in the vote
     if (document.pointerLockElement) document.exitPointerLock();
+    this.menuOpen = false;
     this.ui.showMenu(false);
     this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: this.spectator ? null : info.vote ?? null }, next);
   }
@@ -1022,7 +1028,7 @@ export class ClientGame {
       this.view.setWeapon(s.weapon);
       this.sfx.deploy();
     }
-    this.localReloadSounds(before.reload, before.weapon);
+    this.localReloadSounds(before.weapon);
     if (!shot && cmd.buttons & BTN.ATTACK && s.nextFire !== before.nextFire && s.reload === 0) this.sfx.dryFire();
     const speed = Math.hypot(s.vx, s.vz);
     if (s.onGround && speed > 150) {
@@ -1035,11 +1041,12 @@ export class ClientGame {
   }
 
   /** Starts, plays and stops the local reload from the predicted state, so sound and viewmodel follow the simulation. */
-  private localReloadSounds(reloadBefore: number, weaponBefore: WeaponId): void {
+  private localReloadSounds(weaponBefore: WeaponId): void {
     const s = this.me;
     const def = weaponDef(s.weapon);
     if (s.reload === 0 || weaponBefore !== s.weapon) this.localReload.end();
-    if (reloadBefore === 0 && s.reload > 0) this.localReload.begin(def, shellsToLoad(def, s.mag[def.id], s.reserve[def.id]), s.tick);
+    // Also restarts after a weapon switch that starts a new reload on the same tick, or a replay that skipped the start.
+    if (s.reload > 0 && !this.localReload.active) this.localReload.begin(def, shellsToLoad(def, s.mag[def.id], s.reserve[def.id]), s.tick);
     for (const cue of this.localReload.due(s.tick)) this.sfx.reload(s.weapon, cue);
   }
 

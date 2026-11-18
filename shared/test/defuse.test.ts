@@ -257,3 +257,11 @@ it('standExit moves a trapped player backwards, fans out around walls and leaves
   assert.equal(standExit(box, { ...player, y: 40 }, () => true), null, 'nothing to do standing on top of it');
   assert.equal(standExit(box, player, () => false), null, 'no room anywhere');
 });
+
+it('standExit never pushes a player through a thin wall', () => {
+  const box = { stand: 'desk' as const, min: { x: -25, y: 0, z: -25 }, max: { x: 25, y: 30, z: 25 } };
+  const player = { x: 0, y: 0, z: 0, yaw: 0, height: 72 };
+  const wallBehind = (_x: number, z: number) => !(z > 20 && z < 26);
+  const exit = standExit(box, player, wallBehind);
+  assert.ok(exit && exit.z < 20, 'the wall behind is not crossed, another side is used');
+});

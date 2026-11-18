@@ -166,3 +166,11 @@ test('bombRole keeps each side on its goal all round and hides it from spectator
   assert.deepEqual(bombRole(row(4), 1), { side: 'defend', label: 'defesa', goal: 'desarme o bug' });
   assert.equal(bombRole(row(0), -1), null);
 });
+
+test('a dropped bug counts down to the hand-over, cut short by the plant window', () => {
+  const name = (id: number) => 'P' + id;
+  const dropped = bombView([3, -1, 0, 0, 0, 21000, 0, 0, 0, 0, 0, 60000]);
+  assert.ok(dropped);
+  assert.equal(bombStatus(dropped, 1000, 7, 0, name), 'o bug caiu · pegue-o · troca de lado em 20s');
+  assert.equal(bombStatus({ ...dropped, plantByAt: 6000 }, 1000, 7, 1, name), 'o bug caiu no chão · troca de lado em 5s');
+});

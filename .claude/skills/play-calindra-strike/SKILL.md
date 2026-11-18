@@ -69,7 +69,7 @@ Things you can play with:
 - Bursts and pauses: about a second without firing resets the recoil, so you can break a fight into bursts with a `stop` and a short `wait`, or keep firing and accept the drift.
 - Distance: from far away (over about 600 units) most shots miss and drain the magazine. You can let the enemy come, close in with `move_to`, or shoot anyway.
 - Stance: crouching tightens the spread and shrinks you, but slows you down. Moving, jumping and strafing widen the spread but are harder to hit. Crouch, move, or switch as the fight asks.
-- Ammo: `reload` when you choose to, in a lull or mid-fight, knowing a dry magazine costs time. The shotgun loads one shell per step (`you.mag` goes up by 1 each time) and firing interrupts the reload with the shells already loaded; other weapons add the whole magazine at the end and keep the rounds left in the old one.
+- Ammo: `reload` when you choose to, in a lull or mid-fight, knowing a dry magazine costs time.
 - Weapon: SMG has the lowest recoil, rifle is balanced, shotgun is strongest up close.
 
 ## Chat

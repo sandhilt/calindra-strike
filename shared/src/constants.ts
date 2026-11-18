@@ -62,9 +62,12 @@ export const TEAMS = [
 
 export const ZOOM_SENSITIVITY_RATIO = 1.2; // CS 1.6 default
 export const CHAT_MAX_LEN = 100;
-/** Minimum gap between two radio lines from one player, so the menu cannot be spammed. */
+/** Minimum gap between two radio lines from one player (CS 1.6 mp_radio_timeout), so the menu cannot be spammed. */
 export const RADIO_COOLDOWN_MS = 1500;
 export const RADIO_COOLDOWN_TICKS = Math.ceil(RADIO_COOLDOWN_MS / TICK_MS);
+/** At most this many radio lines per player in any RADIO_WINDOW_MS (0 = no cap). Lines over it are dropped silently. */
+export const RADIO_MAX_PER_WINDOW = 3;
+export const RADIO_WINDOW_MS = 10_000;
 
 /** Player colours: vivid, readable against the arena palette. Lime is reserved for UI. */
 export const PLAYER_COLORS = [

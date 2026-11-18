@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
-  MAX_SPECTATORS, RADIO_COOLDOWN_TICKS, SPECTATOR_PICK_MS, type SpectatorInfo,
+  MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
   AIRDROP_HALF,
   AIRDROP_PICKUP_RADIUS,
@@ -189,7 +189,8 @@ export interface ServerPlayer {
   joinedAt: number;
   ping: number;
   lastChat: number;
-  lastRadio: number;
+  lastRadio: number; // server ms
+  radioSentAt: number[]; // server ms of the lines inside the current radio window
   history: HistoryEntry[];
   histHead: number;
   events: GameEvent[];
@@ -211,6 +212,12 @@ interface Airdrop {
   landed: boolean;
 }
 
+export interface RadioLimits {
+  cooldownMs: number; // minimum gap between two lines from one player
+  maxPerWindow: number; // 0 = no cap
+  windowMs: number;
+}
+
 export interface GameOptions {
   maxPlayers: number;
   matchMs: number;
@@ -229,6 +236,7 @@ export interface GameOptions {
   random?: () => number;
   requireReady?: boolean; // new players wait on the "pronto" screen until they confirm (unset: they join in play)
   readyKickMs?: number; // pending players are kicked after this, and when the match ends (0 or unset: never)
+  radio?: RadioLimits; // unset: the CS 1.6 gap only, no window cap
   idleKickMs?: number; // players in play with no input for this long are kicked (0 or unset: never)
   onKick?: (id: number, reason: KickReason) => void; // the transport closes the kicked player's connection
 }
@@ -635,6 +643,7 @@ export class Game {
       ping: 0,
       lastChat: -Infinity,
       lastRadio: -Infinity,
+      radioSentAt: [],
       history: [],
       histHead: 0,
       events: [],
@@ -816,6 +825,7 @@ export class Game {
       ping: 0,
       lastChat: -Infinity,
       lastRadio: -Infinity,
+      radioSentAt: [],
       history: [],
       histHead: 0,
       events: [],
@@ -928,10 +938,23 @@ export class Game {
     for (const q of this.recipients()) q.send(msg);
   }
 
+  /** Spam guard: a minimum gap between lines, then a cap per sliding window. Refused lines are dropped silently, as in CS 1.6. */
+  private radioAllowed(p: ServerPlayer): boolean {
+    const { cooldownMs, maxPerWindow, windowMs } = this.opts.radio ?? { cooldownMs: RADIO_COOLDOWN_MS, maxPerWindow: 0, windowMs: 0 };
+    const now = this.now();
+    if (now - p.lastRadio < cooldownMs) return false;
+    if (maxPerWindow > 0) {
+      p.radioSentAt = p.radioSentAt.filter((at) => now - at < windowMs);
+      if (p.radioSentAt.length >= maxPerWindow) return false;
+      p.radioSentAt.push(now);
+    }
+    p.lastRadio = now;
+    return true;
+  }
+
   /** A radio line goes to the sender's team (everyone in free-for-all) and to spectators watching that side. */
   radio(p: ServerPlayer, line: number): void {
-    if (this.tick - p.lastRadio < RADIO_COOLDOWN_TICKS) return;
-    p.lastRadio = this.tick;
+    if (!this.radioAllowed(p)) return;
     const msg = JSON.stringify({ t: 'radio', id: p.id, line });
     const teams = isTeamMode(this.mode);
     for (const q of this.players.values()) if (!teams || q.team === p.team) q.send(msg);

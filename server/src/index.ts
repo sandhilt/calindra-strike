@@ -27,6 +27,7 @@ const game = new Game({
   requireReady: true,
   readyKickMs: cfg.readyKickMs,
   idleKickMs: cfg.idleKickMs,
+  radio: cfg.radio,
   onKick: (id, reason) => {
     log('kick', reason, `id=${id}`);
     playerSockets.get(id)?.close(KICK_CLOSE_CODE, reason);

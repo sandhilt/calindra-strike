@@ -103,7 +103,7 @@ it('kicks unready and idle players by default and lets the operator turn each of
   stubEnv('IDLE_KICK', '');
   stubEnv('IDLE_KICK_SECONDS', '');
   assert.equal(loadConfig().readyKickMs, 20_000);
-  assert.equal(loadConfig().idleKickMs, 30_000);
+  assert.equal(loadConfig().idleKickMs, 60_000);
   stubEnv('READY_KICK_SECONDS', '45');
   stubEnv('IDLE_KICK_SECONDS', '120');
   assert.equal(loadConfig().readyKickMs, 45_000);
@@ -122,6 +122,20 @@ it('kicks unready and idle players by default and lets the operator turn each of
   for (const value of ['9', '3601']) {
     stubEnv('IDLE_KICK_SECONDS', value);
     assert.throws(() => loadConfig(), /IDLE_KICK_SECONDS/);
+  }
+});
+
+it('configures the radio spam guard', () => {
+  for (const name of ['RADIO_COOLDOWN_SECONDS', 'RADIO_MAX_PER_WINDOW', 'RADIO_WINDOW_SECONDS']) stubEnv(name, '');
+  assert.deepEqual(loadConfig().radio, { cooldownMs: 1_500, maxPerWindow: 3, windowMs: 10_000 });
+  stubEnv('RADIO_COOLDOWN_SECONDS', '2.5');
+  stubEnv('RADIO_MAX_PER_WINDOW', '0');
+  stubEnv('RADIO_WINDOW_SECONDS', '30');
+  assert.deepEqual(loadConfig().radio, { cooldownMs: 2_500, maxPerWindow: 0, windowMs: 30_000 });
+  for (const [name, value] of [['RADIO_COOLDOWN_SECONDS', '-1'], ['RADIO_COOLDOWN_SECONDS', 'x'], ['RADIO_MAX_PER_WINDOW', '1.5'], ['RADIO_WINDOW_SECONDS', '0']]) {
+    stubEnv(name, value);
+    assert.throws(() => loadConfig(), new RegExp(name));
+    stubEnv(name, '');
   }
 });
 

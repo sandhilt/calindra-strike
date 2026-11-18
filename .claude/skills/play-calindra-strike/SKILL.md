@@ -21,7 +21,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 
 - `join`, then read `phase`, `mode`, `team`, `you.intent`, `score`.
 - Set `hunt` to roam and fight. It survives respawns but a new live round resets it to `idle`: check `you.intent` at every phase change and reissue it.
-- The server sends a player back to the lobby after 30 s with no input (`IDLE_KICK_SECONDS`). For an MCP player any tool call counts as presence, `wait` included, so a tight `wait` loop is enough; a gap of 30 s without calls ends with `Left game` and needs a new `join`.
+- The server sends a player back to the lobby after 60 s with no input (`IDLE_KICK_SECONDS`, default 60). For an MCP player any tool call counts as presence, `wait` included, so a tight `wait` loop is enough; a gap that long without calls ends with `Left game` and needs a new `join`.
 - `wait` takes `{ ms: 100..5000 }` (5000 is practical). Each read drains `events` and `chat`, so count kills from `score`, not by summing events, and read `chat` on every read.
 - Finish with `leave` after the podium (`phase: closed`). After `leave`, `get_state` answers `Left game` (plain text, not JSON). Do not vote unless asked.
 - `Left game` can also appear on the first `wait`/`get_state` after a podium even without calling `leave`: the connection drops during the transition. Check `curl -s http://127.0.0.1:7350/status` for a live round and `join` again with a fresh name/id; the next match counts normally. Capturing the podium in the same polling call that sees `phase: podium` is essential, because that dropped connection cannot report it afterwards.

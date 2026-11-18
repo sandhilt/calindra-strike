@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { RADIO_COOLDOWN_TICKS, WEAPON, radioLineAt, type GameMode, type ServerMsg } from '@calindra-strike/shared';
-import { Game, type ServerPlayer, type Spectator } from '../src/game.ts';
+import { RADIO_COOLDOWN_TICKS, TICK_MS, WEAPON, radioLineAt, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { Game, type GameOptions, type ServerPlayer, type Spectator } from '../src/game.ts';
 
 const LINE = radioLineAt('comandos', 1)!.id;
 const OTHER_LINE = radioLineAt('calindra', 5)!.id;
 
-function setup(mode: GameMode, players: number) {
-  const game = new Game({ maxPlayers: 16, matchMs: 120_000, podiumMs: 5_000, warmupMinPlayers: 2, modes: mode, random: () => 0.3 });
+function setup(mode: GameMode, players: number, opts: Partial<GameOptions> = {}) {
+  const game = new Game({ maxPlayers: 16, matchMs: 120_000, podiumMs: 5_000, warmupMinPlayers: 2, modes: mode, random: () => 0.3, ...opts });
   const inbox = new Map<number, ServerMsg[]>();
   const joined: ServerPlayer[] = [];
   for (let i = 0; i < players; i++) {
@@ -91,6 +91,21 @@ describe('radio cooldown', () => {
     game.tick += 1;
     game.radio(speaker, OTHER_LINE);
     assert.deepEqual(radios(inbox.get(speaker.id)!).map((m) => m.t === 'radio' && m.line), [LINE, OTHER_LINE]);
+  });
+
+  it('caps the lines in a sliding window and frees a slot when the oldest leaves it', () => {
+    const { game, joined, inbox, radios } = setup('ffa', 2, { radio: { cooldownMs: 1_500, maxPerWindow: 3, windowMs: 10_000 } });
+    const speaker = joined[0];
+    const sent = () => radios(inbox.get(speaker.id)!).length;
+    const at = (ms: number) => { game.tick = Math.round(ms / TICK_MS); };
+    for (const ms of [0, 1_500, 3_000, 4_500, 9_900]) {
+      at(ms);
+      game.radio(speaker, LINE);
+    }
+    assert.equal(sent(), 3, 'the 4th and 5th lines fall inside the 10 s window');
+    at(10_000);
+    game.radio(speaker, LINE);
+    assert.equal(sent(), 4, 'the line at 0 s has left the window');
   });
 
   it('is per player', () => {

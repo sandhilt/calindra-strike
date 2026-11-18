@@ -1,4 +1,4 @@
-import { BOMB_PLANT_TIMEOUT_SECONDS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { BOMB_PLANT_TIMEOUT_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -23,6 +23,7 @@ export interface Config {
   friendlyFire: boolean;
   readyKickMs: number; // 0 = never kick players who do not confirm "pronto"
   idleKickMs: number; // 0 = never kick idle players
+  radio: { cooldownMs: number; maxPerWindow: number; windowMs: number };
 }
 
 function int(name: string, def: number, lo: number, hi: number): number {
@@ -30,6 +31,15 @@ function int(name: string, def: number, lo: number, hi: number): number {
   if (raw === undefined || raw === '') return def;
   const v = Number(raw);
   if (!Number.isInteger(v) || v < lo || v > hi) throw new Error(`Invalid ${name}: ${raw}`);
+  return v;
+}
+
+/** Like int, but accepts decimals (e.g. 1.5 seconds). */
+function decimal(name: string, def: number, lo: number, hi: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return def;
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`Invalid ${name}: ${raw}`);
   return v;
 }
 
@@ -109,6 +119,11 @@ export function loadConfig(): Config {
     trustProxy: process.env.TRUST_PROXY === '1',
     friendlyFire: flag('FRIENDLY_FIRE'),
     readyKickMs: flag('READY_KICK', true) ? int('READY_KICK_SECONDS', 20, 5, 600) * 1000 : 0,
-    idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', 30, 10, 3600) * 1000 : 0,
+    radio: {
+      cooldownMs: Math.round(decimal('RADIO_COOLDOWN_SECONDS', RADIO_COOLDOWN_MS / 1000, 0, 30) * 1000),
+      maxPerWindow: int('RADIO_MAX_PER_WINDOW', RADIO_MAX_PER_WINDOW, 0, 100),
+      windowMs: int('RADIO_WINDOW_SECONDS', RADIO_WINDOW_MS / 1000, 1, 600) * 1000,
+    },
+    idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', 60, 10, 3600) * 1000 : 0,
   };
 }

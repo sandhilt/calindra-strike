@@ -377,7 +377,7 @@ export class Hud {
     });
   }
 
-  setWeapon(name: string, tag: string, mag: number, reserve: number, legendary: boolean, melee: boolean, slots: { key: string; label: string; active: boolean }[]): void {
+  setWeapon(name: string, tag: string, mag: number, reserve: number | '∞', legendary: boolean, melee: boolean, slots: { key: string; label: string; active: boolean }[]): void {
     this.set('weapon', JSON.stringify([name, mag, reserve, slots]), () => {
       this.wName.textContent = name;
       this.wTag.textContent = legendary ? 'LENDÁRIA' : tag;

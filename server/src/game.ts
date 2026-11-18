@@ -44,6 +44,7 @@ import {
   ZONE_LEGS,
   absorbArmor,
   applyCmd,
+  refillReserve,
   clamp,
   createPlayerState,
   getMap,
@@ -1265,6 +1266,7 @@ export class Game {
         p.using = (cmd.buttons & BTN.USE) !== 0;
         if (p.alive && this.phase !== 'podium') {
           const shot = applyCmd(this.world, p.state, cmd, p.id);
+          if (this.phase === 'warmup') refillReserve(p.state);
           if (shot) this.handleShot(p, shot, cmd.interp);
           this.keepInBounds(p);
         } else {

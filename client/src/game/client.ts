@@ -40,6 +40,7 @@ import {
   WEAPON,
   type WeaponId,
   applyCmd,
+  refillReserve,
   bombStandBox,
   clamp,
   computeSpread,
@@ -555,7 +556,7 @@ export class ClientGame {
       if (!this.alive) {
         this.alive = true;
         copyState(this.me, this.serverState);
-        for (const c of this.pending) applyCmd(this.collision, this.me, c, this.myId);
+        for (const c of this.pending) this.predict(this.me, c);
         this.prev.set(this.me.x, this.me.y, this.me.z);
         this.correction.set(0, 0, 0);
         // Skydivers face the centre of the arena below.
@@ -568,7 +569,7 @@ export class ClientGame {
         const oy = this.me.y;
         const oz = this.me.z;
         copyState(this.me, this.serverState);
-        for (const c of this.pending) applyCmd(this.collision, this.me, c, this.myId);
+        for (const c of this.pending) this.predict(this.me, c);
         const dx = ox - this.me.x;
         const dy = oy - this.me.y;
         const dz = oz - this.me.z;
@@ -1037,7 +1038,7 @@ export class ClientGame {
       const s = this.me;
       const before = { ground: s.onGround, drop: s.dropping, reload: s.reload, weapon: s.weapon, nextFire: s.nextFire, vy: s.vy, zoom: s.zoom };
       this.prev.set(s.x, s.y, s.z);
-      const shot = applyCmd(this.collision, s, cmd, this.myId);
+      const shot = this.predict(s, cmd);
       this.pending.push(cmd);
       if (this.pending.length > 180) this.pending.shift();
       if (shot) this.onLocalShot(shot);
@@ -1087,6 +1088,13 @@ export class ClientGame {
     // Also restarts after a weapon switch that starts a new reload on the same tick, or a replay that skipped the start.
     if (s.reload > 0 && !this.localReload.active) this.localReload.begin(def, shellsToLoad(def, s.mag[def.id], s.reserve[def.id]), s.tick);
     for (const cue of this.localReload.due(s.tick)) this.sfx.reload(s.weapon, cue);
+  }
+
+  /** One predicted command, with the same warmup ammo rule as the server so the reserve never mispredicts. */
+  private predict(s: PlayerState, cmd: Cmd): ShotInfo | null {
+    const shot = applyCmd(this.collision, s, cmd, this.myId);
+    if (this.match.phase === 'warmup') refillReserve(s);
+    return shot;
   }
 
   private gunOrigin(out: THREE.Vector3): THREE.Vector3 {
@@ -1491,7 +1499,7 @@ export class ClientGame {
       { key: '2', label: 'FAÍSCA', active: s.weapon === WEAPON.PISTOL },
       { key: '3', label: 'MARTELO', active: s.weapon === WEAPON.HAMMER },
     ];
-    hud.setWeapon(def.name, def.tag, s.mag[def.id], s.reserve[def.id], def.legendary, def.slot === 3, slots);
+    hud.setWeapon(def.name, def.tag, s.mag[def.id], this.match.phase === 'warmup' ? '∞' : s.reserve[def.id], def.legendary, def.slot === 3, slots);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
     hud.setScope(zoomed);
     hud.setProtect(s.protect > 0 || s.dropping);

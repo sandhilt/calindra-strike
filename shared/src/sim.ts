@@ -147,6 +147,11 @@ function fillAmmo(s: PlayerState, id: WeaponId): void {
   s.reserve[id] = d.reserve;
 }
 
+/** Warmup ammo: the reserve of the guns the player holds never runs out; magazines still empty and need reloading. */
+export function refillReserve(s: PlayerState): void {
+  for (const id of [s.primary, WEAPON.PISTOL]) s.reserve[id] = weaponDef(id).reserve;
+}
+
 /** Puts a freshly (re)spawned player in the sky above (x, z). */
 export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw: number, primary: WeaponId): void {
   s.x = x;

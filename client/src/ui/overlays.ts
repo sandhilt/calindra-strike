@@ -80,6 +80,12 @@ export class Overlays {
       saveSettings(s);
       this.hooks.settingsChanged(s);
     };
+    const row = (label: string, control: HTMLElement, value?: HTMLElement, hint?: string) =>
+      h('div', { class: value ? 'row row-value' : 'row' }, [
+        h('span', { class: 'row-label', text: label }),
+        h('div', { class: 'row-control' }, hint ? [control, h('small', { class: 'hint', text: hint })] : [control]),
+        ...(value ? [value] : []),
+      ]);
     const slider = (label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) => {
       const out = h('output', { text: fmt(get()) });
       const input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': label });
@@ -88,9 +94,9 @@ export class Overlays {
         out.textContent = fmt(get());
         changed();
       });
-      return h('div', { class: 'row' }, [h('span', { text: label }), input, out]);
+      return row(label, input, out);
     };
-    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void) => {
+    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) => {
       const wrap = h('div', { class: 'seg' });
       const draw = () =>
         wrap.replaceChildren(
@@ -109,9 +115,8 @@ export class Overlays {
           ),
         );
       draw();
-      return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), wrap]);
+      return row(label, wrap, undefined, hint);
     };
-
     const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) => {
       const input = h('input', { type: 'checkbox' }) as HTMLInputElement;
       // Unavailable: shown off and locked, while the saved choice stays as it was for a browser that can speak.
@@ -121,57 +126,73 @@ export class Overlays {
         set(input.checked);
         changed();
       });
-      return h('div', { class: 'row', style: 'grid-template-columns:150px 1fr' }, [h('span', { text: label }), h('label', { class: 'toggle' }, [input, h('span', { text: available ? text : 'este navegador não tem voz sintetizada' })])]);
+      return row(label, h('label', { class: 'toggle' }, [input, h('span', { text: available ? text : 'este navegador não tem voz sintetizada' })]));
     };
+    const group = (title: string, ...rows: HTMLElement[]) => h('section', { class: 'menu-group' }, [h('h3', { text: title }), ...rows]);
     const canSpeak = browserEngine() !== null;
 
     return h('div', { class: 'menu glass' }, [
-      this.menuTitle,
-      h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' }),
-      this.teamRow,
-      h('div', { class: 'primary-settings' }, [
-        seg(
-          'arma principal',
-          PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
-          () => s.primary,
-          (v) => (s.primary = v),
-        ),
-        h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'vale a partir do próximo salto' }),
+      h('header', { class: 'menu-head' }, [h('div', {}, [this.menuTitle, h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' })]), this.teamRow]),
+      h('div', { class: 'menu-body' }, [
+        h('div', { class: 'menu-col' }, [
+          group(
+            'jogo',
+            h('div', { class: 'primary-settings' }, [
+              seg(
+                'arma principal',
+                PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
+                () => s.primary,
+                (v) => (s.primary = v),
+                'vale a partir do próximo salto',
+              ),
+            ]),
+            slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
+            slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
+          ),
+          group(
+            'áudio',
+            slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
+            seg('pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
+            toggle('anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
+            toggle('voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
+          ),
+        ]),
+        h('div', { class: 'menu-col' }, [
+          group(
+            'vídeo',
+            seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
+            seg(
+              'estatísticas',
+              [
+                { v: false, label: 'ocultas' },
+                { v: true, label: 'fps + ping' },
+              ],
+              () => s.showNet,
+              (v) => (s.showNet = v),
+            ),
+          ),
+          group(
+            'mira',
+            slider('tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
+            slider('abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
+            seg(
+              'cor',
+              CROSSHAIR_COLORS.map((c) => ({ v: c, label: '●', style: `color:${c}` })),
+              () => s.crosshairColor,
+              (v) => (s.crosshairColor = v),
+            ),
+            seg(
+              'comportamento',
+              [
+                { v: true, label: 'dinâmica' },
+                { v: false, label: 'fixa' },
+              ],
+              () => s.dynamicCrosshair,
+              (v) => (s.dynamicCrosshair = v),
+            ),
+          ),
+        ]),
       ]),
-      slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
-      slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
-      seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v)),
-      h('p', { class: 'label', style: 'margin:-4px 0 10px 162px', text: 'bordas suaves aplicam ao reentrar' }),
-      seg('pacote de sons', SOUND_PACKS.map(p => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
-      toggle('anunciador', 'voz sintetizada nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
-      toggle('voz do rádio', 'fala em voz alta o rádio do seu time (desligada, só o texto)', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
-      slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
-      slider('mira: tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
-      slider('mira: abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
-      seg(
-        'cor da mira',
-        CROSSHAIR_COLORS.map((c) => ({ v: c, label: '●', style: `color:${c}` })),
-        () => s.crosshairColor,
-        (v) => (s.crosshairColor = v),
-      ),
-      seg(
-        'mira dinâmica',
-        [
-          { v: true, label: 'ligada' },
-          { v: false, label: 'fixa' },
-        ],
-        () => s.dynamicCrosshair,
-        (v) => (s.dynamicCrosshair = v),
-      ),
-      seg(
-        'estatísticas',
-        [
-          { v: false, label: 'ocultas' },
-          { v: true, label: 'fps + ping' },
-        ],
-        () => s.showNet,
-        (v) => (s.showNet = v),
-      ),
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),
         h('button', { class: 'btn join-action', type: 'button', text: 'entrar no jogo', title: 'Entra na partida como jogador (J)', onclick: () => this.hooks.join() }),

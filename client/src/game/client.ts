@@ -74,6 +74,7 @@ import { bombActivity } from './spectate/activity.ts';
 import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
+import { easeFov } from './render/zoom.ts';
 import { type WorldView, buildWorld, followShadow } from './render/world.ts';
 
 // Typing rhythm of the bug keyboard while planting or defusing, in ms between keystrokes.
@@ -1296,8 +1297,8 @@ export class ClientGame {
     const zoomed = this.alive && s.zoom > 0 && def.zoomFov.length > 0;
     if (zoomed) vfov = csToVertical(def.zoomFov[s.zoom - 1]);
     if (this.alive && s.dropping) vfov = baseV + 8;
-    if (Math.abs(this.camera.fov - vfov) > 0.01) {
-      this.camera.fov = vfov;
+    if (this.camera.fov !== vfov) {
+      this.camera.fov = easeFov(this.camera.fov, vfov, dt);
       this.camera.updateProjectionMatrix();
     }
     this.input.zoomSensScale = zoomed ? (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO : 1;

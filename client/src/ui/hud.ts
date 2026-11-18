@@ -97,7 +97,7 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly scope = h('div', { class: 'scope hidden' });
+  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
   /** Spectator controls call back here; the game decides what each action does. */
   onSpectate: (action: SpectatorAction) => void = () => {};
@@ -439,7 +439,7 @@ export class Hud {
   }
 
   setScope(on: boolean): void {
-    this.scope.classList.toggle('hidden', !on);
+    this.scope.classList.toggle('on', on);
   }
 
   announce(text: string, sub?: string, white = false): void {

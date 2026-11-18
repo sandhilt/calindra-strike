@@ -8,7 +8,6 @@ import type { LaptopModel } from '../laptop/scenarios.ts';
 
 const SCREEN_WIDTH_PX = 512;
 const SCREEN_HEIGHT_PX = 320;
-const SCREEN_REFRESH_MS = 100;
 const BADGE_WIDTH_PX = 256;
 const BADGE_HEIGHT_PX = 96;
 const BADGE_WIDTH_UNITS = 14;
@@ -175,10 +174,12 @@ export class BombRenderer {
   private readonly siteRing: THREE.Mesh;
   private readonly bases: readonly FlagBase[];
   private nextScreenAt = 0;
+  private screenRefreshMs: number;
   private siteOf = -1;
 
-  constructor(bases: readonly FlagBase[]) {
+  constructor(bases: readonly FlagBase[], screenRefreshMs: number) {
     this.bases = bases;
+    this.screenRefreshMs = screenRefreshMs;
     const canvas = document.createElement('canvas');
     canvas.width = SCREEN_WIDTH_PX;
     canvas.height = SCREEN_HEIGHT_PX;
@@ -245,6 +246,11 @@ export class BombRenderer {
     this.refreshScreen(bomb, now);
   }
 
+  /** Slower redraws spare weak GPUs the canvas texture upload; the same progress is also on the HUD. */
+  setScreenRefreshMs(ms: number): void {
+    this.screenRefreshMs = ms;
+  }
+
   position(): THREE.Vector3 { return this.station.position; }
 
   private placeSite(bomb: BombView): void {
@@ -308,7 +314,7 @@ export class BombRenderer {
   private refreshScreen(bomb: BombView, now: number): void {
     this.showModel(bomb.variant);
     if (now < this.nextScreenAt) return;
-    this.nextScreenAt = now + SCREEN_REFRESH_MS;
+    this.nextScreenAt = now + this.screenRefreshMs;
     const { ctx, texture } = this.screen;
     if (bomb.state === 'planted' && bomb.defuser >= 0) drawLaptopScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, defuseProgress(bomb, now), now);
     else if (bomb.state === 'planted') drawIdleScreen(ctx, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, bomb.variant, secondsLeft(bomb, now), now);

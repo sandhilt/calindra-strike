@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HeatTracker, SmokePool, puffsForHeat, smokeAlpha, smokeSize } from '../src/game/render/smoke-sim.ts';
 import { SMOKE } from '../src/game/render/fx-tuning.ts';
+import { QUALITY } from '../src/game/render/quality.ts';
 
 const middle = (): number => 0.5;
 
@@ -37,12 +38,14 @@ test('heat is tracked per shooter', () => {
   assert.equal(heat.shot(1, 0, 0.1), 0.1);
 });
 
-test('hotter barrels let out more puffs, and low quality lets out fewer', () => {
-  assert.equal(puffsForHeat(0, 'high'), 1);
-  assert.equal(puffsForHeat(0.5, 'high'), 2);
-  assert.equal(puffsForHeat(1, 'high'), 3);
-  assert.equal(puffsForHeat(0.5, 'low'), 1);
-  assert.equal(puffsForHeat(1, 'low'), 2);
+test('hotter barrels let out more puffs, and lighter tiers let out fewer', () => {
+  const { high, low, performance } = QUALITY;
+  assert.equal(puffsForHeat(0, high.fx.puffsByHeat), 1);
+  assert.equal(puffsForHeat(0.5, high.fx.puffsByHeat), 2);
+  assert.equal(puffsForHeat(1, high.fx.puffsByHeat), 3);
+  assert.equal(puffsForHeat(0.5, low.fx.puffsByHeat), 1);
+  assert.equal(puffsForHeat(1, low.fx.puffsByHeat), 2);
+  assert.equal(puffsForHeat(1, performance.fx.puffsByHeat), 0);
 });
 
 test('puffs drift forward, swell, and are gone before their life is over', () => {

@@ -1,0 +1,96 @@
+/**
+ * Graphics tiers. Every per-tier difference lives in this one table, so the
+ * renderer, the world builder and the effects read a profile instead of
+ * branching on the tier name. A tier only changes how things look: it never
+ * hides a player, an effect that tells where a shot came from, or the bug.
+ */
+
+export const QUALITY_TIERS = ['high', 'low', 'performance'] as const;
+export type Quality = (typeof QUALITY_TIERS)[number];
+
+export const DEFAULT_QUALITY: Quality = 'high';
+
+/** Barrel smoke and casing budgets. A zero turns the effect off. */
+export interface FxProfile {
+  /** Live spent magazines. */
+  magazines: number;
+  /** Live ejected casings. */
+  casings: number;
+  /** Live barrel-smoke puffs. */
+  smokePuffs: number;
+  /** Live tracer streaks. Which shots draw one is the same on every tier. */
+  tracers: number;
+  /** Share of shots (0..1) that eject a casing. */
+  casingChance: number;
+  /** Puffs per shot as [heat from, puffs] steps; empty when smoke is off. */
+  puffsByHeat: readonly (readonly [number, number])[];
+}
+
+export interface QualityProfile {
+  /** Label on the lobby and menu buttons. */
+  label: string;
+  /** Internal resolution as a share of the window size; the canvas still fills the window. */
+  renderScale: number;
+  /** Cap on the device pixel ratio before the render scale applies. */
+  maxPixelRatio: number;
+  /** Edge smoothing. Only read when the renderer is created, so it applies on the next join. */
+  antialias: boolean;
+  /** Sun shadows. */
+  shadows: boolean;
+  /** Sun shadow map side in pixels, used when shadows are on. */
+  shadowMapPx: number;
+  /** Side of the image-based lighting cube in pixels. */
+  envMapPx: number;
+  /** Minimum gap between redraws of the defuse laptop screen, in ms. */
+  laptopScreenRefreshMs: number;
+  fx: FxProfile;
+}
+
+export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
+  high: {
+    label: 'alta',
+    renderScale: 1,
+    maxPixelRatio: 1.75,
+    antialias: true,
+    shadows: true,
+    shadowMapPx: 2048,
+    envMapPx: 256,
+    laptopScreenRefreshMs: 100,
+    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, puffsByHeat: [[0, 1], [0.35, 2], [0.7, 3]] },
+  },
+  low: {
+    label: 'leve',
+    renderScale: 1,
+    maxPixelRatio: 1,
+    antialias: false,
+    shadows: true,
+    shadowMapPx: 1024,
+    envMapPx: 256,
+    laptopScreenRefreshMs: 100,
+    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, puffsByHeat: [[0, 1], [0.6, 2]] },
+  },
+  performance: {
+    label: 'desempenho',
+    renderScale: 0.65,
+    maxPixelRatio: 1,
+    antialias: false,
+    shadows: false,
+    shadowMapPx: 1024,
+    envMapPx: 64,
+    laptopScreenRefreshMs: 250,
+    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, puffsByHeat: [] },
+  },
+};
+
+/** Lobby and menu options, in the order they are shown. */
+export const QUALITY_OPTIONS: readonly { v: Quality; label: string }[] = QUALITY_TIERS.map((v) => ({ v, label: QUALITY[v].label }));
+
+/** Reads a saved or untrusted value; anything unknown falls back to the default tier. */
+export function parseQuality(value: unknown): Quality {
+  return QUALITY_TIERS.find((tier) => tier === value) ?? DEFAULT_QUALITY;
+}
+
+/** Pixels drawn per CSS pixel on one axis. The canvas keeps filling the window, so a value below 1 only blurs it. */
+export function renderPixelRatio(profile: QualityProfile, devicePixelRatio: number): number {
+  return Math.min(devicePixelRatio, profile.maxPixelRatio) * profile.renderScale;
+}

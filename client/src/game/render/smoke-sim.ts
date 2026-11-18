@@ -1,4 +1,5 @@
-import { type FxQuality, SMOKE } from './fx-tuning.ts';
+import { SMOKE } from './fx-tuning.ts';
+import type { FxProfile } from './quality.ts';
 import { oldestIndex, swapRemove } from './fx-pool.ts';
 
 export interface Puff {
@@ -30,9 +31,9 @@ export function smokeSize(p: Puff): number {
 }
 
 /** Puffs one shot lets out at this heat. */
-export function puffsForHeat(heat: number, quality: FxQuality): number {
-  let n = 1;
-  for (const [from, puffs] of SMOKE.puffsByHeat[quality]) if (heat >= from) n = puffs;
+export function puffsForHeat(heat: number, steps: FxProfile['puffsByHeat']): number {
+  let n = 0;
+  for (const [from, puffs] of steps) if (heat >= from) n = puffs;
   return n;
 }
 

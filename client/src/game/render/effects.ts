@@ -4,7 +4,8 @@ import { brandImage } from '../../brand.ts';
 import { flashTexture } from './viewmodel.ts';
 import type { GroundAt } from './debris-sim.ts';
 import { GunFx } from './gun-fx.ts';
-import { FX_LIMITS, type FxQuality, TRACER } from './fx-tuning.ts';
+import { TRACER } from './fx-tuning.ts';
+import { QUALITY, type Quality } from './quality.ts';
 
 interface Tracer {
   mesh: THREE.Mesh;
@@ -66,7 +67,7 @@ export class Effects {
   private readonly tmpS = new THREE.Vector3();
   private readonly tmpA = new THREE.Vector3();
   private readonly tmpB = new THREE.Vector3();
-  private tracerCap: number = FX_LIMITS.high.tracers;
+  private tracerCap: number = QUALITY.high.fx.tracers;
   /** Spent magazines, casings, barrel smoke and the tracer pattern. */
   readonly gun: GunFx;
 
@@ -75,7 +76,7 @@ export class Effects {
     tgeo.translate(0, 0, -0.5);
     const tmat = new THREE.MeshBasicMaterial({ color: '#fff3b0', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.gun = new GunFx(scene);
-    for (let i = 0; i < FX_LIMITS.high.tracers; i++) {
+    for (let i = 0; i < QUALITY.high.fx.tracers; i++) {
       const mesh = new THREE.Mesh(tgeo, tmat);
       mesh.visible = false;
       mesh.frustumCulled = false;
@@ -159,9 +160,9 @@ export class Effects {
     mesh.visible = true;
   }
 
-  /** Fewer particles on low quality. */
-  setQuality(quality: FxQuality): void {
-    this.tracerCap = FX_LIMITS[quality].tracers;
+  /** Fewer particles on the lighter tiers. */
+  setQuality(quality: Quality): void {
+    this.tracerCap = QUALITY[quality].fx.tracers;
     this.gun.setQuality(quality);
   }
 

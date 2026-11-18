@@ -1,15 +1,7 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 
-export type FxQuality = 'high' | 'low';
-
 /** Same pull the existing sparks and gibs use, so every particle falls alike. */
 export const GRAVITY_UNITS_PER_S2 = 800;
-
-/** Hard caps on live particles per pool, and how often a shot sheds a casing. */
-export const FX_LIMITS: Readonly<Record<FxQuality, { magazines: number; casings: number; smokePuffs: number; tracers: number; casingChance: number }>> = {
-  high: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1 },
-  low: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4 },
-};
 
 export interface DebrisSpec {
   /** Distance from the centre to the floor when lying on its side. */
@@ -108,11 +100,6 @@ export const SMOKE = {
   /** Share of the life spent fading in before the fade out. */
   attackShare: 0.12,
   color: 0.82,
-  /** Puffs per shot, as [heat from, puffs] steps. */
-  puffsByHeat: {
-    high: [[0, 1], [0.35, 2], [0.7, 3]],
-    low: [[0, 1], [0.6, 2]],
-  },
 } as const;
 
 export const SMOKE_BY_WEAPON: Readonly<Record<WeaponId, { heatPerShot: number; sizeScale: number } | null>> = {

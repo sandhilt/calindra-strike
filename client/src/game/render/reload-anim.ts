@@ -122,3 +122,18 @@ export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
   pose.dip = 0.5 * pose.tilt;
   return pose;
 }
+
+/** Shares of the AWP bolt cycle after a shot, CS 1.6 style: the kick settles, the gun rolls, the bolt is worked, it returns. */
+const BOLT_CYCLE = { rollFrom: 0.08, rollIn: 0.22, workFrom: 0.2, workTo: 0.82, rollOut: 0.84, roll: 0.55 } as const;
+
+/**
+ * The gun between two AWP shots, t running 0..1 over the bolt cycle: it rolls to show the action, the handle is lifted,
+ * drawn back and pushed home, then the gun settles. Null outside the cycle.
+ */
+export function boltCyclePose(t: number): ReloadPose | null {
+  if (t < 0 || t >= 1) return null;
+  const c = BOLT_CYCLE;
+  const roll = ramp(t, c.rollFrom, c.rollIn) * (1 - ramp(t, c.rollOut, 1));
+  const bolt = boltCurve((t - c.workFrom) / (c.workTo - c.workFrom));
+  return { ...RESTING_RELOAD_POSE, tilt: c.roll * roll, dip: 0.35 * roll, boltPull: t < c.workFrom ? 0 : bolt.pull, boltLift: t < c.workFrom ? 0 : bolt.lift };
+}

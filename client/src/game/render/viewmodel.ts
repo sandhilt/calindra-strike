@@ -1,6 +1,6 @@
-import { WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
+import { TICK_MS, WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import * as THREE from 'three';
-import { RESTING_RELOAD_POSE, type ReloadPose, reloadPose } from './reload-anim.ts';
+import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
 
@@ -72,6 +72,8 @@ export class ViewModel {
   private swayY = 0;
   private kick = 0;
   private readonly jump = restingJumpPose();
+  /** Seconds since the last AWP shot while its bolt is being worked, -1 when idle. */
+  private boltCycle = -1;
   private swing = 0;
   private swingHeavy = false;
   private readonly baseRot = new THREE.Euler();
@@ -162,6 +164,7 @@ export class ViewModel {
     this.model = m;
     this.weaponId = id;
     this.swing = 0;
+    this.boltCycle = -1;
     this.flashT = 0;
     this.flash.visible = false;
     m.group.scale.setScalar(0.62);
@@ -201,6 +204,7 @@ export class ViewModel {
       this.swingHeavy = heavy;
       return;
     }
+    if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
     const k = this.weaponId === WEAPON.SNIPER || this.weaponId === WEAPON.SHOTGUN ? 1.6 : this.weaponId === WEAPON.PISTOL ? 1.1 : 0.7;
     this.kick = Math.min(1.8, this.kick + k);
     this.flashT = 0.045;
@@ -264,8 +268,20 @@ export class ViewModel {
 
   private currentReloadPose(p: ViewPose): ReloadPose {
     const timing = this.weaponId === -1 ? null : weaponDef(this.weaponId).reloadTiming;
-    if (!timing || p.reloadElapsed < 0) return RESTING_RELOAD_POSE;
-    return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells));
+    if (timing && p.reloadElapsed >= 0) {
+      this.boltCycle = -1;
+      return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells));
+    }
+    return this.boltCyclePose(p.dt);
+  }
+
+  /** CS 1.6 AWP: after each shot the bolt is worked on screen for as long as the gun cannot fire again. */
+  private boltCyclePose(dt: number): ReloadPose {
+    if (this.boltCycle < 0) return RESTING_RELOAD_POSE;
+    this.boltCycle += dt;
+    const pose = boltCyclePose(this.boltCycle / (weaponDef(WEAPON.SNIPER).fireTicks * TICK_MS / 1000));
+    if (!pose) this.boltCycle = -1;
+    return pose ?? RESTING_RELOAD_POSE;
   }
 
   /** Sets every moving part of the weapon each frame, so nothing stays displaced once the reload ends. */

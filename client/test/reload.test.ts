@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WEAPON, WEAPONS, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import { ReloadPlayback } from '../src/game/reload-playback.ts';
-import { RESTING_RELOAD_POSE, reloadPose } from '../src/game/render/reload-anim.ts';
+import { RESTING_RELOAD_POSE, reloadPose, boltCyclePose } from '../src/game/render/reload-anim.ts';
 import { playReloadCue } from '../src/game/reload-sounds.ts';
 import type { SoundKit } from '../src/game/sound-packs/types.ts';
 
@@ -105,4 +105,18 @@ test('every reloadable weapon has a synthesized sound for each of its cues', () 
   calls.length = 0;
   playReloadCue(kit, WEAPON.HAMMER, 'out', null);
   assert.equal(calls.length, 0);
+});
+
+test('between AWP shots the gun rolls, the bolt is lifted, drawn back and pushed home, then it settles', () => {
+  assert.equal(boltCyclePose(-0.1), null);
+  assert.equal(boltCyclePose(1), null, 'idle once the gun can fire again');
+  const start = boltCyclePose(0);
+  assert.ok(start && start.boltPull === 0 && start.boltLift === 0 && start.tilt === 0, 'the kick plays before the bolt moves');
+  const samples = Array.from({ length: 100 }, (_, i) => boltCyclePose(i / 100)).filter((p) => p !== null);
+  const firstLift = samples.findIndex((p) => p.boltLift > 0.5);
+  const firstPull = samples.findIndex((p) => p.boltPull > 0.5);
+  assert.ok(firstLift >= 0 && firstPull > firstLift, 'the handle is lifted before it is drawn back');
+  assert.ok(samples.some((p) => p.tilt > 0.4), 'the gun rolls to show the action');
+  const end = boltCyclePose(0.99);
+  assert.ok(end && end.boltPull < 0.01 && end.boltLift < 0.01 && end.tilt < 0.05, 'bolt home and gun back by the end');
 });

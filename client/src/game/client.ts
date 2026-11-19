@@ -946,6 +946,8 @@ export class ClientGame {
 
   private exitPodium(): void {
     this.podiumActive = false;
+    this.deathAt = 0;
+    this.hud.setDeath(null);
     this.hud.setVisible(true);
     this.ui.showPodium(null, '');
     this.effects.clear();

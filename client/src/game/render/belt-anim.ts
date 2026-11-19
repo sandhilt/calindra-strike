@@ -19,10 +19,10 @@ export const BELT_PATH: readonly BeltPoint[] = [
 
 /** Share of the belt, counted from the feed end, that lies on the tray and rises off it while the belt is not laid. */
 const TRAY_SHARE = 0.38;
-/** How far the rounds on the tray rise above it while the belt is not laid. */
-export const TRAY_LIFT_UNITS = 5;
+/** How far the tray end of the belt rises above the tray while it is not laid: just enough to clear the cover's hinge and rest on the supporting hand. */
+export const TRAY_LIFT_UNITS = 1.8;
 /** How far the tray end of the belt is swung out to the left, past the receiver, while it is pulled clear of the gun. */
-export const TRAY_CLEAR_UNITS = 6;
+export const TRAY_CLEAR_UNITS = 4.5;
 /** One round in this many is a tracer. */
 export const TRACER_EVERY = 4;
 
@@ -55,6 +55,34 @@ export function pointAlong(path: readonly BeltPoint[], u: number): BeltPoint {
   return { ...path[0] };
 }
 
+/** Share of the box's fall that the tray end does not follow while the supporting hand holds it, so the belt hangs from the hand instead of dropping out of view with the box. */
+export const BELT_END_HELD = 0.7;
+const NO_FALL: BeltPoint = { x: 0, y: 0, z: 0 };
+
+/**
+ * The belt path with its tray end lifted and swung out, and its box end carried by the box. The waypoints move, not the rounds,
+ * so the rounds stay evenly spaced along the bent belt and the chain never tears or bunches. `laid` is 1 with the belt on the tray
+ * and 0 lifted off it, `clear` is 0 with the end over the tray and 1 swung out to the left of the gun, `fall` is how far the box has
+ * moved from its seat: the box end follows it all the way, and the tray end follows it only while the belt lies on the tray.
+ */
+export function reachedPath(laid: number, clear: number, fall: BeltPoint = NO_FALL, path: readonly BeltPoint[] = BELT_PATH): BeltPoint[] {
+  const lengths = path.slice(1).map((p, i) => Math.hypot(p.x - path[i].x, p.y - path[i].y, p.z - path[i].z));
+  const total = lengths.reduce((sum, l) => sum + l, 0);
+  const held = Math.max(1 - laid, clear);
+  let along = 0;
+  return path.map((p, i) => {
+    if (i > 0) along += lengths[i - 1];
+    const u = along / total;
+    const tray = smooth((u - (1 - TRAY_SHARE)) / TRAY_SHARE);
+    const follows = 1 - BELT_END_HELD * held * smooth(u);
+    return {
+      x: p.x - clear * TRAY_CLEAR_UNITS * tray + fall.x * follows,
+      y: p.y + (1 - laid) * TRAY_LIFT_UNITS * tray + fall.y * follows,
+      z: p.z + fall.z * follows,
+    };
+  });
+}
+
 /** Slots per second the belt travels while the gun fires, how quickly it gets to and from that pace, and how long one shot keeps it going. */
 export const BELT_FLOW_SLOTS_PER_S = 5;
 const BELT_FLOW_EASE_PER_S = 14;
@@ -85,14 +113,13 @@ export function isTracer(index: number, feed: number): boolean {
 
 /**
  * Where link `index` of `count` sits. `feed` counts the rounds fed so far: every whole number moves each round one slot toward
- * the tray, so the pattern repeats and only the fraction matters. `laid` is 1 with the belt lying on the tray and 0 with its end lifted,
- * `clear` is 0 with the end over the tray and 1 with it swung out to the left of the gun.
+ * the tray, so the pattern repeats and only the fraction matters. `laid` and `clear` bend the belt as in `reachedPath`; pass that
+ * path in as `bent` when placing every round of one belt, so it is worked out once.
+ * The round at the tray end is eaten by the gun only while the belt lies on the tray: a lifted belt keeps its last round whole.
  */
-export function linkPlacement(index: number, count: number, feed: number, laid: number, clear = 0, path: readonly BeltPoint[] = BELT_PATH): LinkPlacement {
+export function linkPlacement(index: number, count: number, feed: number, laid: number, clear = 0, bent: readonly BeltPoint[] = reachedPath(laid, clear)): LinkPlacement {
   const u = (index + (feed - Math.floor(feed))) / count;
-  const position = pointAlong(path, u);
-  const tray = smooth((u - (1 - TRAY_SHARE)) / TRAY_SHARE);
-  position.y += (1 - laid) * TRAY_LIFT_UNITS * tray;
-  position.x -= clear * TRAY_CLEAR_UNITS * tray;
-  return { position, scale: Math.min(clamp01(u * count), clamp01((1 - u) * count)) };
+  const eaten = laid * (1 - clear);
+  const atTray = clamp01((1 - u) * count);
+  return { position: pointAlong(bent, u), scale: Math.min(clamp01(u * count), 1 - eaten * (1 - atTray)) };
 }

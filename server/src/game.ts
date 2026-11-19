@@ -4,6 +4,8 @@ import {
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
+  fillBotChat, isDeathStreakCallout, isKillStreakCallout,
+  BOT_RADIO_LOW_HEALTH, pickBotRadio, type BotRadioTrigger, newTalkMemory, recordTalk, type TalkMemory,
   AIRDROP_HALF,
   AIRDROP_PICKUP_RADIUS,
   type Cmd,
@@ -185,6 +187,7 @@ export interface ServerPlayer {
   deaths: number;
   headshots: number;
   streak: number;
+  deathStreak: number; // deaths since this player's last kill, for streak callouts
   bestStreak: number;
   joinedAt: number;
   ping: number;
@@ -197,6 +200,7 @@ export interface ServerPlayer {
   send: (data: string) => void;
   brain: BotBrain | null; // server bot when set
   botChat: BotChatMemory | null; // table-talk memory, bots only
+  botRadio: TalkMemory<number> | null; // radio table-talk memory, bots only
   token: string; // secret used to rejoin after a drop
   lastActiveAt: number; // server ms of the last command with a button, look or weapon change
   ready: Readiness; // pending players stay out of the world until they confirm
@@ -244,6 +248,7 @@ export interface GameOptions {
 export class Game {
   tick = 0;
   private lastBotChatAt = -Infinity;
+  private lastBotRadioAt = -Infinity;
   readonly players = new Map<number, ServerPlayer>();
   private nextId = 1;
   mapIndex = 0;
@@ -431,6 +436,7 @@ export class Game {
     if (result.outcome !== 'expired' && this.phase === 'live') this.scoreBomb(result.outcome);
     this.attackers = (1 - this.attackers) as 0 | 1;
     this.startBombRound(result.outcome === 'expired' ? this.bombRound.variant : undefined);
+    if (this.phase === 'live') this.botsGreetRound();
   }
 
   /** The desk appears under the planter's feet: push anyone it would trap out of its footprint. */
@@ -649,7 +655,9 @@ export class Game {
       events: [],
       send,
       brain: null,
+      deathStreak: 0,
       botChat: null,
+      botRadio: null,
       token: randomBytes(16).toString('hex'),
       lastActiveAt: this.now(),
       ready: this.initialReadiness(),
@@ -846,7 +854,9 @@ export class Game {
       events: [],
       send: () => {},
       brain: new BotBrain(skill),
+      deathStreak: 0,
       botChat: newBotChatMemory(),
+      botRadio: newTalkMemory<number>(),
       token: '',
       lastActiveAt: 0,
       ready: CONFIRMED,
@@ -874,7 +884,9 @@ export class Game {
       bombPlaces: this.bombPlaces(),
     };
     for (const p of list) {
-      if (p.brain && p.alive && p.queue.length < 2) p.queue.push(p.brain.think(p, env));
+      if (!p.brain || !p.alive || p.queue.length >= 2) continue;
+      p.queue.push(p.brain.think(p, env));
+      if (p.brain.takeSpotted()) this.botRadioSay(p, 'enemySpotted');
     }
   }
 
@@ -967,15 +979,16 @@ export class Game {
     return true;
   }
 
-  /** A radio line goes to the sender's team (everyone in free-for-all) and to spectators watching that side. */
-  radio(p: ServerPlayer, line: number): void {
-    if (!this.radioAllowed(p)) return;
+  /** A radio line goes to the sender's team (everyone in free-for-all) and to spectators watching that side. Returns false when the spam guard refused it. */
+  radio(p: ServerPlayer, line: number): boolean {
+    if (!this.radioAllowed(p)) return false;
     const msg = JSON.stringify({ t: 'radio', id: p.id, line });
     const teams = isTeamMode(this.mode);
     for (const q of this.players.values()) if (!teams || q.team === p.team) q.send(msg);
     for (const s of this.spectators.values()) {
       if (s.view.kind === 'watching' && (!teams || s.view.team === -1 || s.view.team === p.team)) s.send(msg);
     }
+    return true;
   }
 
   private uniqueName(base: string): string {
@@ -1017,6 +1030,7 @@ export class Game {
       p.deaths = 0;
       p.headshots = 0;
       p.streak = 0;
+      p.deathStreak = 0;
       p.bestStreak = 0;
     }
     this.teamScores[0] = 0;
@@ -1038,7 +1052,7 @@ export class Game {
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);
     this.broadcastMatch();
-    this.botSay(this.randomBot(), 'roundStart');
+    this.botsGreetRound();
   }
 
   private endMatch(): void {
@@ -1264,6 +1278,7 @@ export class Game {
     const ev: GameEvent = { k: 'hit', by: attacker.id, to: victim.id, dmg: Math.round(hp), zone, hp: Math.max(0, Math.ceil(s.health)), from };
     attacker.events.push(ev);
     if (victim !== attacker) victim.events.push(ev);
+    if (s.health > 0 && s.health <= BOT_RADIO_LOW_HEALTH) this.botRadioSay(victim, 'hurt');
     if (s.health <= 0) this.kill(victim, attacker, weapon, head);
   }
 
@@ -1271,6 +1286,7 @@ export class Game {
     this.dropObjective(victim);
     victim.alive = false;
     victim.deaths++;
+    victim.deathStreak++;
     victim.streak = 0;
     victim.respawnAt = this.tick + RESPAWN_TICKS;
     victim.state.health = 0;
@@ -1279,6 +1295,7 @@ export class Game {
     if (killer !== victim && !teamkill) {
       killer.kills++;
       killer.streak++;
+      killer.deathStreak = 0;
     }
     killer.bestStreak = Math.max(killer.bestStreak, killer.streak);
     if (head && !teamkill) killer.headshots++;
@@ -1427,14 +1444,21 @@ export class Game {
       case 'kill': {
         const killer = this.players.get(ev.by);
         const victim = this.players.get(ev.to);
-        if (!killer || !victim || killer === victim || this.sameTeam(killer, victim)) return;
+        if (!killer || !victim) return;
+        this.botsCallOutDeathStreak(victim);
+        if (killer === victim || this.sameTeam(killer, victim)) return;
+        this.botsCallOutKillStreak(killer, ev.streak);
+        this.botRadioSay(killer, 'enemyDown');
         this.botSay(killer, ev.hs ? 'headshot' : ev.w === WEAPON.HAMMER ? 'hammer' : 'kill');
         this.botSay(victim, 'death');
         return;
       }
       case 'bomb':
-        if (ev.what === 'plant') this.botSay(this.players.get(ev.by), 'plant');
-        else if (ev.what === 'defused') this.botSay(this.players.get(ev.by), 'defused');
+        if (ev.what === 'plant') {
+          this.botSay(this.players.get(ev.by), 'plant');
+          this.botRadioSay(this.randomBot(ev.team), 'plantAttack');
+          this.botRadioSay(this.randomBot(1 - ev.team), 'plantDefense');
+        } else if (ev.what === 'defused') this.botSay(this.players.get(ev.by), 'defused');
         else if (ev.what === 'exploded') this.botSay(this.randomBot(ev.team), 'exploded');
         return;
       case 'flag':
@@ -1446,21 +1470,55 @@ export class Game {
     }
   }
 
+  /** A round opens: a Calindra line is rare, the radio calls the start and the table talks once. */
+  private botsGreetRound(): void {
+    this.botRadioSay(this.randomBot(), 'calindra');
+    this.botRadioSay(this.randomBot(), 'roundStart');
+    this.botSay(this.randomBot(), 'roundStart');
+  }
+
+  /** Kills in a row draw complaints from the enemies and cheers from the killer's team. */
+  private botsCallOutKillStreak(killer: ServerPlayer, streak: number): void {
+    if (!isKillStreakCallout(streak)) return;
+    this.botSay(this.randomBotWhere((q) => q !== killer && this.sameTeam(q, killer)), 'killStreakAlly', killer);
+    this.botSay(this.randomBotWhere((q) => q !== killer && !this.sameTeam(q, killer)), 'killStreakFoe', killer);
+  }
+
+  /** Deaths in a row draw teasing from the enemies and encouragement from the victim's team. */
+  private botsCallOutDeathStreak(victim: ServerPlayer): void {
+    if (!isDeathStreakCallout(victim.deathStreak)) return;
+    this.botSay(this.randomBotWhere((q) => q !== victim && this.sameTeam(q, victim)), 'deathStreakAlly', victim);
+    this.botSay(this.randomBotWhere((q) => q !== victim && !this.sameTeam(q, victim)), 'deathStreakFoe', victim);
+  }
+
   private randomBot(team = -1): ServerPlayer | undefined {
-    const bots = [...this.players.values()].filter((p) => p.botChat && (team < 0 || p.team === team));
+    return this.randomBotWhere((p) => team < 0 || p.team === team);
+  }
+
+  private randomBotWhere(keep: (p: ServerPlayer) => boolean): ServerPlayer | undefined {
+    const bots = [...this.players.values()].filter((p) => p.botChat && keep(p));
     return bots.length === 0 ? undefined : bots[Math.floor(this.random() * bots.length)];
   }
 
-  /** A bot's occasional comment, gated per bot and across the room so matches stay lively but not noisy. */
-  private botSay(bot: ServerPlayer | undefined, trigger: BotChatTrigger): void {
+  /** A bot's table talk. `about` fills the {name} placeholder of streak lines. */
+  private botSay(bot: ServerPlayer | undefined, trigger: BotChatTrigger, about?: ServerPlayer): void {
     if (!bot?.botChat) return;
     const now = this.now();
-    const text = pickBotChat(trigger, bot.botChat, this.lastBotChatAt, now, this.random(), this.random());
-    if (!text) return;
-    bot.botChat.lastAt = now;
-    bot.botChat.lastLine = text;
+    const line = pickBotChat(trigger, bot.botChat, this.lastBotChatAt, now, this.random(), this.random());
+    if (line === null) return;
+    recordTalk(bot.botChat, line, now);
     this.lastBotChatAt = now;
-    this.chat(bot, text);
+    this.chat(bot, fillBotChat(line, about?.name ?? ''));
+  }
+
+  /** A bot's radio call. It goes through `radio`, so team-only delivery and the spam guard apply. */
+  private botRadioSay(bot: ServerPlayer | undefined, trigger: BotRadioTrigger): void {
+    if (!bot?.botRadio) return;
+    const now = this.now();
+    const line = pickBotRadio(trigger, bot.botRadio, this.lastBotRadioAt, now, this.random(), this.random());
+    if (line === null || !this.radio(bot, line)) return;
+    recordTalk(bot.botRadio, line, now);
+    this.lastBotRadioAt = now;
   }
 
   private flushEvents(): void {

@@ -230,6 +230,13 @@ export class BotBrain {
   private reached = false;
   private ended = false;
   get arrived(): boolean { return this.reached; }
+
+  /** True once after the bot picks up a new enemy, so the game can call it out on the radio. */
+  takeSpotted(): boolean {
+    const spotted = this.spotted;
+    this.spotted = false;
+    return spotted;
+  }
   get directiveEnded(): boolean { return this.ended; }
   setDirective(directive: BotDirective | null): void {
     this.directive = directive;
@@ -249,6 +256,7 @@ export class BotBrain {
   private errPitch = 0;
   private targetId = -1;
   private reactAt = 0;
+  private spotted = false; // a new enemy came into view since the last takeSpotted()
   private aimHead = false;
   private burstLeft = 0;
   private pauseUntil = 0;
@@ -446,6 +454,7 @@ export class BotBrain {
       if (id !== this.targetId) {
         this.targetId = id;
         if (t) {
+          this.spotted = true;
           this.reactAt = env.tick + Math.round(this.lerpSkill(24, 9) + env.random() * 8);
           const e = this.lerpSkill(6, 2) * DEG;
           this.errYaw = gauss(env.random) * e;

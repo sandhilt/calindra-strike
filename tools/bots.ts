@@ -5,7 +5,7 @@
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
-import { BTN, PROTOCOL_VERSION, newBotChatMemory, pickBotChat, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
+import { BTN, PROTOCOL_VERSION, newBotChatMemory, pickBotChat, recordTalk, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
 import { BotDriver } from './bot-driver.ts';
 import { brainFor } from './brains.ts';
@@ -75,8 +75,8 @@ function bot(i: number): void {
         const now = performance.now();
         const text = pickBotChat(trigger, chatMemory, lastAnyChatAt, now, Math.random(), Math.random());
         if (!text) continue;
-        chatMemory.lastAt = lastAnyChatAt = now;
-        chatMemory.lastLine = text;
+        recordTalk(chatMemory, text, now);
+        lastAnyChatAt = now;
         ws.send(JSON.stringify({ t: 'chat', text }));
         break;
       }

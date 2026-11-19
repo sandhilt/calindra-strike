@@ -10,4 +10,6 @@ export * from './spray.ts';
 export * from './ctf.ts';
 export * from './defuse.ts';
 export * from './bot-chat.ts';
+export * from './bot-talk.ts';
+export * from './bot-radio.ts';
 export * from './maps/scenery.ts';

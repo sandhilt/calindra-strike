@@ -1,6 +1,6 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
-import { isTracer, linkPlacement } from './belt-anim.ts';
+import { isTracer, linkPlacement, reachedPath } from './belt-anim.ts';
 import type { ReloadPose } from './reload-anim.ts';
 
 const mats = {
@@ -61,7 +61,7 @@ export interface ReloadRig {
   /** Feed cover over the receiver, hinged on its right edge and opened by rotating about Z by `coverOpenRad`, so it swings out of the way of the sights. */
   cover: THREE.Object3D | null;
   coverOpenRad: number;
-  /** The ammo belt: its rounds move along the belt path and the group follows the box while it is out. Null without a belt. */
+  /** The ammo belt: its rounds move along the belt path, which bends to follow the box while it is out. Null without a belt. */
   belt: { group: THREE.Group; links: THREE.Object3D[] } | null;
 }
 
@@ -99,9 +99,10 @@ function beltRound(into: THREE.Group): THREE.Group {
  * Sets every round of the belt: `feed` counts the rounds fed so far, `laid` is 1 with the belt on the tray and 0 lifted off it,
  * `clear` is 1 with its end swung out to the left of the gun. The tip of every fourth round glows, so the flow reads while firing.
  */
-export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: number, clear: number): void {
+export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: number, clear: number, fall: THREE.Vector3 = NO_FALL): void {
+  const bent = reachedPath(laid, clear, fall);
   links.forEach((link, i) => {
-    const { position, scale } = linkPlacement(i, links.length, feed, laid, clear);
+    const { position, scale } = linkPlacement(i, links.length, feed, laid, clear, bent);
     link.position.set(position.x, position.y, position.z);
     link.scale.setScalar(scale);
     link.visible = scale > 0.02;
@@ -109,10 +110,11 @@ export function placeBelt(links: readonly THREE.Object3D[], feed: number, laid: 
   });
 }
 const TRACER_TIP = 2;
+const NO_FALL = new THREE.Vector3();
 
 /**
- * Moves the feed cover and the ammo belt for one moment of a reload. The belt follows the box: it falls with the old one
- * and rises with the fresh one, then its end is laid on the tray.
+ * Moves the feed cover and the ammo belt for one moment of a reload. The belt follows the box: its box end falls with the old one
+ * and rises with the fresh one while the hand holds the tray end, then that end is laid on the tray.
  */
 export function poseFeed(
   rig: ReloadRig,
@@ -122,8 +124,8 @@ export function poseFeed(
 ): void {
   if (rig.cover) rig.cover.rotation.z = rig.coverOpenRad * pose.cover;
   if (!rig.belt) return;
-  rig.belt.group.position.copy(rig.magDown).multiplyScalar((pose.magGone ? pose.spareLift : pose.magDrop) * fallUnits);
-  placeBelt(rig.belt.links, feed, pose.beltLaid, pose.beltClear);
+  const fall = rig.magDown.clone().multiplyScalar((pose.magGone ? pose.spareLift : pose.magDrop) * fallUnits);
+  placeBelt(rig.belt.links, feed, pose.beltLaid, pose.beltClear, fall);
 }
 
 /** Direction a magazine hanging below a pivot tilted by `rx` leaves the gun. */

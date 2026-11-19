@@ -66,7 +66,8 @@ const pulse = (t: number, from: number, to: number): number => Math.sin(Math.PI 
 
 /** Share of the out phase the old magazine takes to fall clear. */
 const MAG_FALL_SPAN = 0.3;
-const SPARE_APPEARS_AT = 0.55;
+/** The fresh magazine takes over where the old one left the view, so a belt hanging from it does not jump. */
+const SPARE_APPEARS_AT = RELOAD_CUE_AT.out + MAG_FALL_SPAN;
 const SPARE_ARRIVES_BELOW_WELL = 0.25;
 const TILT_WHILE_SEATING = 0.8;
 const SHELL_TILT = 0.55;

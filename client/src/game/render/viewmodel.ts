@@ -6,6 +6,7 @@ import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
+import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, stepKick } from './kick-anim.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
 const MAG_FALL_UNITS = 12;
@@ -81,7 +82,8 @@ export class ViewModel {
   private bobPhase = 0;
   private swayX = 0;
   private swayY = 0;
-  private kick = 0;
+  private readonly kick: KickState = { thump: 0, push: 0 };
+  private kickFeel: KickFeel = kickFeelFor(-1);
   private readonly jump = restingJumpPose();
   /** Seconds since the last AWP shot while its bolt is being worked, -1 when idle. */
   private boltCycle = -1;
@@ -192,6 +194,7 @@ export class ViewModel {
     if (m.rig.shell) this.shellRest.copy(m.rig.shell.position);
     this.model = m;
     this.weaponId = id;
+    this.kickFeel = kickFeelFor(id);
     this.swing = 0;
     this.boltCycle = -1;
     this.flashT = 0;
@@ -241,8 +244,7 @@ export class ViewModel {
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
     if (this.weaponId === WEAPON.LMG) this.belt.burst = BELT_BURST_S;
-    const k = this.weaponId === WEAPON.SNIPER || this.weaponId === WEAPON.SHOTGUN ? 1.6 : this.weaponId === WEAPON.PISTOL ? 1.1 : 0.7;
-    this.kick = Math.min(1.8, this.kick + k);
+    fireKick(this.kick, this.kickFeel);
     this.flashT = 0.045;
     this.flash.visible = true;
     this.flash.material.rotation = Math.random() * Math.PI;
@@ -265,7 +267,8 @@ export class ViewModel {
     this.swayX = THREE.MathUtils.clamp(this.swayX, -2.5, 2.5);
     this.swayY = THREE.MathUtils.clamp(this.swayY, -2.5, 2.5);
     // recoil spring
-    this.kick = Math.max(0, this.kick - dt * 7);
+    stepKick(this.kick, this.kickFeel, dt);
+    const kick = kickTotal(this.kick);
     stepBeltFlow(this.belt, dt);
     // reload / deploy dips
     const reload = this.currentReloadPose(p);
@@ -280,8 +283,8 @@ export class ViewModel {
       bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits,
       0,
     );
-    this.kickGroup.position.set(0, this.kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, this.kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);
-    this.kickGroup.rotation.set(this.kick * 0.09 + reload.tilt * RELOAD_PITCH, 0, -reload.tilt * RELOAD_ROLL * framing.roll);
+    this.kickGroup.position.set(0, kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);
+    this.kickGroup.rotation.set(kick * 0.09 + reload.tilt * RELOAD_PITCH, 0, -reload.tilt * RELOAD_ROLL * framing.roll);
 
     if (this.model) {
       // hammer swing pivots around the grip: head comes down across the centre of the view

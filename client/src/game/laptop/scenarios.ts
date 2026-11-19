@@ -5,7 +5,7 @@ type Lines = readonly string[];
 type EditorApp = 'Cursor' | 'VS Code' | 'Xcode';
 type AgentApp = 'Claude Code' | 'Codex' | 'Gemini' | 'Grok';
 type TerminalApp = 'iTerm2' | 'WezTerm' | 'Windows Terminal';
-type BrowserApp = 'Chrome' | 'Firefox' | 'Edge';
+type BrowserApp = 'Chrome' | 'Firefox' | 'Edge' | 'Safari';
 type BrowserPage = 'login' | 'dashboard' | 'pr' | 'feed' | 'docs' | 'calendar';
 
 export type Scene =
@@ -14,7 +14,7 @@ export type Scene =
   | { kind: 'agent'; app: AgentApp; lines: Lines }
   | { kind: 'terminal'; app: TerminalApp; lines: Lines; tests: { failing: string; passing: string } }
   | { kind: 'browser'; app: BrowserApp; url: string; page: BrowserPage; lines: Lines }
-  | { kind: 'files'; app: 'Explorer'; path: string; lines: Lines }
+  | { kind: 'files'; app: 'Explorer' | 'Finder'; path: string; lines: Lines }
   | { kind: 'board'; app: 'Jira'; lines: Lines }
   | { kind: 'chat'; app: 'Slack'; lines: Lines }
   | { kind: 'media'; app: 'Spotify' | 'Netflix'; lines: Lines }
@@ -82,17 +82,18 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
     os: 'macos',
     scenes: [
       { kind: 'chat', app: 'Slack', lines: ['# incidente-prod', 'Bia: caiu bem na hora do café.', 'Dev: já estou olhando.'] },
-      login('console.eitri.tech'),
+      login('console.eitri.tech', 'Safari'),
       {
         kind: 'request',
         app: 'Postman',
         url: 'https://api.example/v1/session',
         response: { error: 'SESSION_REFRESH_FAILED', message: 'Token expirado' },
       },
+      { kind: 'files', app: 'Finder', path: '/Users/dev/projetos/app', lines: ['Sources', 'Tests', 'Package.swift', 'hotfix.md'] },
       terminal('iTerm2'),
       editor('Xcode', 'Session.swift'),
       agent('Claude Code'),
-      browser('GitHub / pull/42', 'pr', ['GitHub · Pull request #42', '+ Guard de sessão', 'Revisado · pronto para merge']),
+      browser('GitHub / pull/42', 'pr', ['GitHub · Pull request #42', '+ Guard de sessão', 'Revisado · pronto para merge'], 'Safari'),
       { kind: 'pipeline', app: 'GitHub Actions', lines: ['Install Node.js', 'Typecheck', 'Regression tests', 'Deploy hotfix'] },
       terminal('iTerm2'),
     ],
@@ -181,6 +182,22 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
       login('calindra.tech', 'Edge'),
       { kind: 'pipeline', app: 'GitHub Actions', lines: ['Setup Node.js', 'Typecheck', 'Windows tests', 'Deploy hotfix'] },
       browser('GitHub / pull/44', 'pr', ['GitHub · Pull request #44', 'Build verde no WSL', 'Aprovado · pronto para merge'], 'Edge'),
+      terminal('Windows Terminal'),
+    ],
+  },
+  {
+    id: 'works-here',
+    title: 'Funciona na minha máquina',
+    laptop: 'thinkpad',
+    os: 'windows',
+    scenes: [
+      { kind: 'chat', app: 'Slack', lines: ['# incidente-prod', 'Bia: a sessão cai no ThinkPad da recepção.', 'Dev: na minha máquina (Linux) passa.'] },
+      login('matrix.eitri.tech', 'Edge'),
+      editor('VS Code', 'cache.ts'),
+      agent('Codex'),
+      { kind: 'board', app: 'Jira', lines: ['DEV-512 · Sessão some no Windows', 'A fazer', 'Em andamento', 'Concluído'] },
+      { kind: 'pipeline', app: 'Bitbucket Pipelines', lines: ['Install Node.js', 'Rodar na máquina do dev', 'Regression tests', 'Deploy hotfix'] },
+      browser('GitHub / pull/45', 'pr', ['GitHub · Pull request #45', '+ Teste de sessão no Windows', 'Aprovado · funciona na minha máquina'], 'Edge'),
       terminal('Windows Terminal'),
     ],
   },

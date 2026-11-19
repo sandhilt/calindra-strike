@@ -52,7 +52,9 @@ export const APP_ACCENT: Readonly<Record<AppName, string>> = {
   Postman: '#FF6C37',
   Firefox: '#ff8a3d',
   Edge: '#2fd1b6',
+  Safari: '#1fd0ff',
   Explorer: '#ffc94d',
+  Finder: '#6ec6ff',
   Jira: '#3b8cff',
   Slack: '#e8a1d6',
   Spotify: '#1ed760',
@@ -74,7 +76,7 @@ export const APP_ACCENT: Readonly<Record<AppName, string>> = {
   PowerShell: '#3b78d8',
   WSL: '#ffb454',
   Ubuntu: '#ff7a3d',
-  Docker: '#2f9bff',
+  Docker: '#6172FF',
   Windows: '#2ea0ff',
 };
 

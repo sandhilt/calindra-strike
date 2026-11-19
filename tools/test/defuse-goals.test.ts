@@ -31,10 +31,11 @@ test('attackers fetch the bomb, escort its carrier, and guard it after planting'
   assert.deepEqual(pickDefuseGoal(bomb(3), places, attacker, players, 0), { role: 'fetch', point: bomb(3) });
   for (const state of [1, 2]) {
     assert.deepEqual(pickDefuseGoal(bomb(state, 1), places, attacker, players, 0), { role: 'plant', point: site });
-    assert.deepEqual(pickDefuseGoal(bomb(state, 1), places, escort, players, 0), {
-      role: 'patrol', point: patrolPoint(site, 2, 0), roam: true,
-    });
   }
+  assert.deepEqual(pickDefuseGoal(bomb(1, 1), places, escort, players, 0), { role: 'escort', point: bomb(1, 1), settle: 150 });
+  assert.deepEqual(pickDefuseGoal(bomb(2, 1), places, escort, players, 0), {
+    role: 'patrol', point: patrolPoint(bomb(2, 1), 2, 0), roam: true,
+  });
   assert.deepEqual(pickDefuseGoal(bomb(4), places, attacker, players, 1), {
     role: 'patrol', point: patrolPoint(site, 1, 1), roam: true,
   });

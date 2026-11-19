@@ -150,7 +150,7 @@ const WAYPOINT_RADIUS_UNITS = 26; // arrived at a nav node
 const WAYPOINT_PASSED_RADIUS_UNITS = 64; // a node this close that the bot is moving away from also counts as reached
 const WAYPOINT_PASSED_MARGIN_UNITS = 4; // ignore jitter when judging that the bot is moving away
 const ARRIVE_RADIUS_UNITS = 60;
-const REACH_MAX_HEIGHT_UNITS = 20; // a step is 18, so a bot standing a crate's height below is not there yet
+export const REACH_MAX_HEIGHT_UNITS = 20; // a step is 18, so a bot standing a crate's height below is not there yet
 const REPATH_GOAL_DISTANCE_UNITS = 48; // one nav cell: a goal that moved less still ends at the same node
 const SCAN_EVERY = 6; // ticks between target scans (100 ms)
 export const VIEW_RANGE = 2600;
@@ -176,7 +176,7 @@ export function hasLineOfSight(
 }
 
 /** Quantizes a heading, relative to where the player faces, to the eight WASD directions. */
-function moveButtons(angle: number): number {
+export function moveButtons(angle: number): number {
   const forward = Math.round(Math.cos(angle));
   const right = Math.round(-Math.sin(angle));
   return (forward > 0 ? BTN.FWD : forward < 0 ? BTN.BACK : 0) | (right > 0 ? BTN.RIGHT : right < 0 ? BTN.LEFT : 0);
@@ -186,7 +186,7 @@ function moveButtons(angle: number): number {
  * A jump keeps the ground velocity, so it only lands on the step when the bot is already moving toward it. Jumping while
  * still sliding sideways after a turn flew the bot off the side of stairs and crates, and it walked up again forever.
  */
-function readyToJump(s: PlayerState, node: NavNode): boolean {
+export function readyToJump(s: PlayerState, node: NavNode): boolean {
   if (!s.onGround || s.jumpHeld) return false;
   const dx = node.x - s.x;
   const dz = node.z - s.z;
@@ -197,8 +197,17 @@ function readyToJump(s: PlayerState, node: NavNode): boolean {
   return (s.vx * dx + s.vz * dz) / (speed * Math.max(distance, 1)) >= JUMP_MIN_ALIGNMENT;
 }
 
+/**
+ * A bot cannot always turn inside the arrival radius, and the position it steers by can be a few ticks old, so it also
+ * counts as arrived once it has gone past the node nearby. Otherwise it keeps circling a waypoint it passes at 30 units.
+ * `closest` is the smallest distance seen to this node so far.
+ */
+export function waypointReached(distance: number, closest: number): boolean {
+  return distance < WAYPOINT_RADIUS_UNITS || (distance < WAYPOINT_PASSED_RADIUS_UNITS && distance > closest + WAYPOINT_PASSED_MARGIN_UNITS);
+}
+
 /** Close enough to stop walking. Height counts: standing under a crate or a stair landing is not standing on it, and neither is passing over it mid-jump. */
-function atPoint(s: PlayerState, p: { x: number; y: number; z: number }): boolean {
+export function atPoint(s: PlayerState, p: { x: number; y: number; z: number }): boolean {
   return s.onGround && Math.hypot(p.x - s.x, p.z - s.z) < ARRIVE_RADIUS_UNITS && Math.abs(p.y - s.y) <= REACH_MAX_HEIGHT_UNITS;
 }
 
@@ -590,10 +599,7 @@ export class BotBrain {
     let node = this.path[this.pathIdx];
     while (node && Math.abs(node.y - s.y) <= REACH_MAX_HEIGHT_UNITS) {
       const distance = Math.hypot(node.x - s.x, node.z - s.z);
-      // A bot cannot always turn inside the arrival radius, so it also counts as arrived once it has gone past the node
-      // nearby. Otherwise it keeps circling a waypoint it passes at 30 units.
-      const passed = distance < WAYPOINT_PASSED_RADIUS_UNITS && distance > this.waypointClosest + WAYPOINT_PASSED_MARGIN_UNITS;
-      if (distance >= WAYPOINT_RADIUS_UNITS && !passed) {
+      if (!waypointReached(distance, this.waypointClosest)) {
         this.waypointClosest = Math.min(this.waypointClosest, distance);
         break;
       }

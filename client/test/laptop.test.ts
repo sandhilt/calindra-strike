@@ -2,12 +2,24 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { DEBUG_SCENARIO_COUNT } from '@calindra-strike/shared';
 import { drawLidBadge } from '../src/game/laptop/badge.ts';
-import { allApps, dockApps, launchApp, postLabs, sceneApps, type AppName } from '../src/game/laptop/apps.ts';
+import { APP_ACCENT, allApps, dockApps, launchApp, postLabs, sceneApps, type AppName } from '../src/game/laptop/apps.ts';
 import { drawBlackFridayRibbon, drawCalmScreen, drawIdleScreen, drawLaptop, drawLaptopScreen } from '../src/game/laptop/draw.ts';
 import { ICONS, drawIcon } from '../src/game/laptop/icons.ts';
 import { SCENARIOS, sceneAt } from '../src/game/laptop/scenarios.ts';
 import { drawScene } from '../src/game/laptop/scenes/index.ts';
 import { TOAST_PLANS } from '../src/game/laptop/toasts.ts';
+
+/** Node has no Path2D. The recorder only needs the object to exist and to name its SVG path in the log. */
+class RecordingPath2D {
+  readonly d: string;
+  constructor(d: string) {
+    this.d = d;
+  }
+  toString(): string {
+    return `Path2D(${this.d})`;
+  }
+}
+Object.assign(globalThis, { Path2D: RecordingPath2D });
 
 /** Records every canvas call so tests can compare frames without a real canvas. */
 function recordingContext(): { ctx: CanvasRenderingContext2D; log: string[] } {
@@ -40,7 +52,7 @@ afterEach(() => {
   Date.now = originalNow;
 });
 
-test('six complete stories cover laptops, operating systems, tools, logins and incident feed', () => {
+test('seven complete stories cover laptops, operating systems, tools, logins and incident feed', () => {
   assert.equal(SCENARIOS.length, DEBUG_SCENARIO_COUNT);
   assert.deepEqual(new Set(SCENARIOS.map((s) => s.laptop)), new Set(['macbook', 'thinkpad', 'inspiron']));
   assert.deepEqual(new Set(SCENARIOS.map((s) => s.os)), new Set(['macos', 'linux', 'windows']));
@@ -49,6 +61,7 @@ test('six complete stories cover laptops, operating systems, tools, logins and i
     'Cursor', 'VS Code', 'Xcode', 'Grok', 'Claude Code', 'Jira', 'Slack', 'Codex', 'Gemini', 'Chrome', 'Firefox', 'Spotify', 'Netflix',
     'Google Workspace', 'Google Calendar', 'GitHub', 'Bitbucket', 'GitHub Actions', 'Bitbucket Pipelines', 'WezTerm', 'iTerm2', 'Node.js',
     'Windows Terminal', 'Edge', 'Postman', 'Explorer', 'wsl.localhost', 'console.eitri.tech', 'matrix.eitri.tech', 'calindra.tech',
+    'Finder', 'Safari',
   ];
   for (const app of required) assert.ok(content.includes(app), app);
   const feeds = SCENARIOS.flatMap((s) => s.scenes).filter((e) => e.scene.kind === 'browser' && e.scene.page === 'feed');
@@ -62,7 +75,6 @@ test('six complete stories cover laptops, operating systems, tools, logins and i
       if (scene.app === 'Windows Terminal' || scene.app === 'Explorer' || scene.app === 'Edge') assert.equal(scenario.os, 'windows');
     }
     if (scenario.laptop === 'macbook') assert.equal(scenario.os, 'macos');
-    if (scenario.laptop === 'inspiron') assert.equal(scenario.os, 'windows');
     const last = scenario.scenes.at(-1)?.scene;
     assert.equal(last?.kind, 'terminal');
     if (last?.kind === 'terminal') {
@@ -103,6 +115,7 @@ test('every app a scenario uses has an icon that draws something', () => {
   used.add('Windows');
   for (const app of used) {
     assert.equal(typeof ICONS[app], 'function', `missing icon: ${app}`);
+    assert.match(APP_ACCENT[app], /^#[0-9a-f]{6}$/i, `missing accent colour: ${app}`);
     const { ctx, log } = recordingContext();
     drawIcon(ctx, app, 0, 0, 32);
     assert.ok(log.some((entry) => entry.startsWith('fill') || entry.startsWith('stroke')), `icon draws nothing: ${app}`);
@@ -116,6 +129,39 @@ test('the docks list the apps of their scenario and AI posts map to lab icons', 
   }
   assert.deepEqual(postLabs('Anthropic: novo Claude!'), ['Claude Code']);
   assert.deepEqual(postLabs('DeepSeek, Qwen e Kimi / Moonshot!'), ['DeepSeek', 'Qwen', 'Kimi']);
+});
+
+test('the newest story has a laptop and OS pair that no other story uses', () => {
+  const newest = SCENARIOS.at(-1);
+  assert.ok(newest);
+  for (const other of SCENARIOS.slice(0, -1)) {
+    assert.ok(other.laptop !== newest.laptop || other.os !== newest.os, newest.title);
+  }
+});
+
+test('the hotfix story on macOS opens Safari and Finder, and Finder draws its folder', () => {
+  const hotfix = SCENARIOS.find(({ id }) => id === 'friday');
+  assert.ok(hotfix);
+  const apps = dockApps(hotfix);
+  assert.ok(apps.includes('Safari'));
+  assert.ok(apps.includes('Finder'));
+  const files = hotfix.scenes.find(({ scene }) => scene.kind === 'files')?.scene;
+  assert.equal(files?.kind === 'files' && files.app, 'Finder');
+  if (files?.kind !== 'files') return;
+  const { ctx, log } = recordingContext();
+  drawScene(ctx, files, { p: 0.5, timeMs: 0, os: hotfix.os });
+  assert.ok(log.some((entry) => entry.startsWith('fillText(Favoritos,')));
+  assert.ok(log.some((entry) => entry.startsWith('fillText(Macintosh HD,')));
+  assert.ok(!log.some((entry) => entry.startsWith('fillText(Linux,')), 'Explorer breadcrumbs stay with Explorer');
+});
+
+test('the Docker icon is the Ether mark on the Base tile, drawn from the official path', () => {
+  assert.equal(APP_ACCENT.Docker, '#6172FF');
+  const { ctx, log } = recordingContext();
+  drawIcon(ctx, 'Docker', 0, 0, 100);
+  assert.ok(log.includes('fillStyle=#6172FF'), 'Base tile');
+  assert.ok(log.includes('fillStyle=#101010'), 'Ether mark');
+  assert.ok(log.some((entry) => entry.startsWith('fill(Path2D(m1077.76 0c')), 'the mark is the official path');
 });
 
 test('frames are deterministic and never read randomness or the wall clock', () => {
@@ -202,10 +248,10 @@ test('the closing scene shows the green banner after the icon montage', () => {
   }
 });
 
-test('ThinkPads run Linux and Windows scenarios run on the Dell Inspiron', () => {
+test('MacBooks run macOS and no other laptop does', () => {
   for (const scenario of SCENARIOS) {
-    if (scenario.laptop === 'thinkpad') assert.equal(scenario.os, 'linux', scenario.title);
-    if (scenario.os === 'windows') assert.equal(scenario.laptop, 'inspiron', scenario.title);
+    if (scenario.laptop === 'macbook') assert.equal(scenario.os, 'macos', scenario.title);
+    else assert.notEqual(scenario.os, 'macos', scenario.title);
   }
 });
 

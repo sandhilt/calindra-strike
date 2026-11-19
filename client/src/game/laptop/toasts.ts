@@ -27,7 +27,10 @@ const slack = (body: string): Toast => ({ icon: 'Slack', title: 'Bia · #inciden
 export const TOAST_PLANS: Readonly<Record<string, readonly ToastPlan[]>> = {
   friday: [
     { scene: 2, from: 0.45, to: 0.9, toast: slack('Algum progresso nesse bug?') },
-    { scene: 6, from: 0.6, to: 0.98, toast: { icon: 'GitHub Actions', title: 'GitHub Actions', body: 'Workflow concluído · tudo verde' } },
+    { scene: 8, from: 0.6, to: 0.98, toast: { icon: 'GitHub Actions', title: 'GitHub Actions', body: 'Workflow concluído · tudo verde' } },
+  ],
+  'works-here': [
+    { scene: 2, from: 0.45, to: 0.9, toast: slack('Funciona aí ou só na sua?') },
   ],
   jira: [
     { scene: 3, from: 0.45, to: 0.9, toast: slack('Cliente perguntando de novo…') },

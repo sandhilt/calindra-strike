@@ -1,4 +1,5 @@
-import { WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { WEAPON, weaponDef, type WeaponId } from '@calindra-strike/shared';
+import { TRACER_EVERY } from './belt-anim.ts';
 import type { Quality } from './quality.ts';
 
 /** Same pull the existing sparks and gibs use, so every particle falls alike. */
@@ -198,16 +199,73 @@ export const SMOKE_BY_WEAPON: Readonly<Record<WeaponId, { heatPerShot: number; s
   [WEAPON.LMG]: { heatPerShot: 0.2, sizeScale: 1.3 },
 };
 
-/** Tracer streak: length of the visible segment and how fast it flies. Shorter and quicker than a full-length beam. */
-export const TRACER = { lengthUnits: 120, speedUnitsPerS: 16000, minDistanceUnits: 40 } as const;
+export interface ProjectileStyle {
+  headLagUnits: number;
+  lengthUnits: number;
+  speedUnitsPerS: number;
+  minDistanceUnits: number;
+  maxAgeSeconds: number;
+  widthScale: number;
+  color: string;
+  opacity: number;
+}
 
-/** Draw a tracer on every Nth shot (0 = never), and on how many pellets of that shot. */
-export const TRACER_RULES: Readonly<Record<WeaponId, { everyNthShot: number; pelletsPerShot: number }>> = {
-  [WEAPON.HAMMER]: { everyNthShot: 0, pelletsPerShot: 0 },
-  [WEAPON.PISTOL]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.RIFLE]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.SMG]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.SHOTGUN]: { everyNthShot: 1, pelletsPerShot: 3 },
-  [WEAPON.SNIPER]: { everyNthShot: 1, pelletsPerShot: 1 },
-  [WEAPON.LMG]: { everyNthShot: 1, pelletsPerShot: 1 },
+export const TRACER: ProjectileStyle = {
+  lengthUnits: 120, speedUnitsPerS: 16000, minDistanceUnits: 40, maxAgeSeconds: Infinity,
+  headLagUnits: 0, widthScale: 1, color: '#fff3b0', opacity: 0.85,
+};
+
+const BUCKSHOT: ProjectileStyle = {
+  ...TRACER, lengthUnits: 4, speedUnitsPerS: 8500, minDistanceUnits: 0.1, maxAgeSeconds: 0.052,
+  widthScale: 2.2, color: '#ffdc9a', opacity: 0.95,
+};
+const BELT_TRACER: ProjectileStyle = {
+  ...TRACER, lengthUnits: 150, widthScale: 1.7, color: '#ff983d', opacity: 1,
+};
+const BELT_ROUND: ProjectileStyle = {
+  ...TRACER, lengthUnits: 34, widthScale: 1.25, color: '#dcc49a', opacity: 0.45,
+};
+const SNIPER_ROUND: ProjectileStyle = {
+  ...TRACER, lengthUnits: 215, speedUnitsPerS: 23500,
+  widthScale: 2.1, color: '#fff6d8', opacity: 1,
+};
+const SNIPER_VAPOR: ProjectileStyle = {
+  ...SNIPER_ROUND, lengthUnits: 640, headLagUnits: SNIPER_ROUND.lengthUnits, widthScale: 4, color: '#c3d9ee', opacity: 0.21,
+};
+
+export const PROJECTILE_STYLES = [TRACER, BUCKSHOT, BELT_TRACER, BELT_ROUND, SNIPER_ROUND, SNIPER_VAPOR];
+
+export interface ProjectilePattern {
+  pelletsPerShot: number;
+  style: ProjectileStyle;
+  aim: 'muzzle' | 'shot';
+  trail?: ProjectileStyle;
+}
+
+export interface ProjectileRule {
+  standard: ProjectilePattern;
+  high?: ProjectilePattern;
+  accent?: { everyNthShot: number; pattern: ProjectilePattern };
+}
+
+const SINGLE_TRACER: ProjectilePattern = { pelletsPerShot: 1, style: TRACER, aim: 'muzzle' };
+
+export const TRACER_RULES: Readonly<Record<WeaponId, ProjectileRule>> = {
+  [WEAPON.HAMMER]: { standard: { ...SINGLE_TRACER, pelletsPerShot: 0 } },
+  [WEAPON.PISTOL]: { standard: SINGLE_TRACER },
+  [WEAPON.RIFLE]: { standard: SINGLE_TRACER },
+  [WEAPON.SMG]: { standard: SINGLE_TRACER },
+  [WEAPON.SHOTGUN]: {
+    standard: { ...SINGLE_TRACER, pelletsPerShot: 3 },
+    high: { pelletsPerShot: weaponDef(WEAPON.SHOTGUN).pellets, style: BUCKSHOT, aim: 'shot' },
+  },
+  [WEAPON.SNIPER]: {
+    standard: SINGLE_TRACER,
+    high: { ...SINGLE_TRACER, style: SNIPER_ROUND, trail: SNIPER_VAPOR },
+  },
+  [WEAPON.LMG]: {
+    standard: SINGLE_TRACER,
+    high: { ...SINGLE_TRACER, style: BELT_ROUND },
+    accent: { everyNthShot: TRACER_EVERY, pattern: { ...SINGLE_TRACER, style: BELT_TRACER } },
+  },
 };

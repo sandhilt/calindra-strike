@@ -4,11 +4,13 @@ import { brandImage } from '../../brand.ts';
 import { flashTexture } from './viewmodel.ts';
 import type { GroundAt } from './debris-sim.ts';
 import { GunFx } from './gun-fx.ts';
-import { TRACER } from './fx-tuning.ts';
+import { PROJECTILE_STYLES, TRACER, type ProjectilePattern, type ProjectileStyle } from './fx-tuning.ts';
+import { projectileRay } from './tracer-policy.ts';
 import { QUALITY, type Quality } from './quality.ts';
 
 interface Tracer {
-  mesh: THREE.Mesh;
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+  style: ProjectileStyle;
   from: THREE.Vector3;
   dir: THREE.Vector3;
   len: number;
@@ -50,6 +52,7 @@ function holeTexture(): THREE.CanvasTexture {
 /** Pooled combat effects: tracers, bullet holes, sparks, hit bursts, flashes, corpses. */
 export class Effects {
   private readonly tracers: Tracer[] = [];
+  private readonly tracerMaterials = new Map<ProjectileStyle, THREE.MeshBasicMaterial>();
   private readonly decals: Decal[] = [];
   private decalIdx = 0;
   private readonly sprays: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
@@ -74,14 +77,19 @@ export class Effects {
   constructor(private readonly scene: THREE.Scene) {
     const tgeo = new THREE.BoxGeometry(0.6, 0.6, 1);
     tgeo.translate(0, 0, -0.5);
-    const tmat = new THREE.MeshBasicMaterial({ color: '#fff3b0', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    for (const style of PROJECTILE_STYLES) {
+      this.tracerMaterials.set(style, new THREE.MeshBasicMaterial({
+        color: style.color, opacity: style.opacity, transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+      }));
+    }
     this.gun = new GunFx(scene);
     for (let i = 0; i < QUALITY.high.fx.tracers; i++) {
-      const mesh = new THREE.Mesh(tgeo, tmat);
+      const mesh = new THREE.Mesh(tgeo, this.tracerMaterials.get(TRACER));
       mesh.visible = false;
       mesh.frustumCulled = false;
       scene.add(mesh);
-      this.tracers.push({ mesh, from: new THREE.Vector3(), dir: new THREE.Vector3(), len: 0, t: 0, active: false });
+      this.tracers.push({ mesh, style: TRACER, from: new THREE.Vector3(), dir: new THREE.Vector3(), len: 0, t: 0, active: false });
     }
     const dgeo = new THREE.PlaneGeometry(5, 5);
     const dmat = new THREE.MeshBasicMaterial({ map: holeTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
@@ -166,7 +174,14 @@ export class Effects {
     this.gun.setQuality(quality);
   }
 
-  tracer(from: THREE.Vector3, to: THREE.Vector3): void {
+  projectile(muzzle: THREE.Vector3, end: THREE.Vector3, shotOrigin: THREE.Vector3, pattern: ProjectilePattern): void {
+    const rayOrigin = pattern.aim === 'shot' ? shotOrigin : muzzle;
+    if (this.tracer(muzzle, end, rayOrigin, pattern.style) && pattern.trail) {
+      this.tracer(muzzle, end, rayOrigin, pattern.trail);
+    }
+  }
+
+  private tracer(from: THREE.Vector3, to: THREE.Vector3, rayOrigin: THREE.Vector3, style: ProjectileStyle): boolean {
     let tr: Tracer | null = null;
     for (let i = 0; i < this.tracerCap; i++) {
       if (!this.tracers[i].active) {
@@ -174,15 +189,18 @@ export class Effects {
         break;
       }
     }
-    if (!tr) return;
+    const material = this.tracerMaterials.get(style);
+    if (!tr || !material) return false;
+    tr.len = projectileRay(tr.dir, from, to, rayOrigin);
+    if (tr.len < style.minDistanceUnits) return false;
     tr.from.copy(from);
-    tr.dir.subVectors(to, from);
-    tr.len = tr.dir.length();
-    if (tr.len < TRACER.minDistanceUnits) return;
-    tr.dir.divideScalar(tr.len);
+    tr.style = style;
+    tr.mesh.material = material;
+    tr.mesh.scale.set(style.widthScale, style.widthScale, 0);
     tr.t = 0;
     tr.active = true;
     tr.mesh.visible = true;
+    return true;
   }
 
   muzzleFlash(pos: THREE.Vector3): void {
@@ -239,15 +257,16 @@ export class Effects {
     for (const tr of this.tracers) {
       if (!tr.active) continue;
       tr.t += dt;
-      const flown = tr.t * TRACER.speedUnitsPerS;
+      const { lengthUnits, speedUnitsPerS, maxAgeSeconds, headLagUnits } = tr.style;
+      const flown = Math.max(0, tr.t * speedUnitsPerS - headLagUnits);
       const head = Math.min(tr.len, flown);
-      const seg = Math.min(TRACER.lengthUnits, head);
-      if (head >= tr.len && flown - tr.len > TRACER.lengthUnits) {
+      const seg = Math.min(lengthUnits, head);
+      if (tr.t >= maxAgeSeconds || (head >= tr.len && flown - tr.len > lengthUnits)) {
         tr.active = false;
         tr.mesh.visible = false;
         continue;
       }
-      const tail = Math.max(0, flown - TRACER.lengthUnits);
+      const tail = Math.max(0, flown - lengthUnits);
       const start = this.tmpA.copy(tr.from).addScaledVector(tr.dir, Math.min(tail, tr.len));
       tr.mesh.position.copy(start);
       tr.mesh.lookAt(this.tmpB.copy(start).sub(tr.dir));

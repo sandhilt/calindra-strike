@@ -18,7 +18,7 @@ export interface FxProfile {
   casings: number;
   /** Live barrel-smoke puffs. */
   smokePuffs: number;
-  /** Live tracer streaks. Which shots draw one is the same on every tier. */
+  /** Live projectiles and their trails. */
   tracers: number;
   /** Share of shots (0..1) that eject a casing. */
   casingChance: number;

@@ -132,6 +132,15 @@ export class Overlays {
                 (v) => (s.primary = v),
                 'vale a partir do próximo salto',
               ),
+              seg(
+                'lado da arma',
+                [
+                  { v: false, label: 'direita' },
+                  { v: true, label: 'esquerda' },
+                ],
+                () => s.leftHanded,
+                (v) => (s.leftHanded = v),
+              ),
             ]),
             slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
             slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),

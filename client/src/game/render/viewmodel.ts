@@ -82,7 +82,10 @@ export class ViewModel {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(58, 1, 0.5, 400);
   private readonly holder = new THREE.Group();
+  /** Flips everything the weapon draws about the vertical axis for a left-handed player; the kick and the reload roll sit inside it, so they flip too. */
+  private readonly mirror = new THREE.Group();
   private readonly kickGroup = new THREE.Group();
+  private side: 1 | -1 = 1;
   private model: WeaponModel | null = null;
   private spareMagazine: THREE.Object3D | null = null;
   private leftHand: THREE.Group | null = null;
@@ -130,11 +133,18 @@ export class ViewModel {
     this.sun.position.set(-0.4, 1, 0.3);
     this.scene.add(this.hemi, this.sun, this.camera);
     this.camera.add(this.holder);
-    this.holder.add(this.kickGroup);
+    this.holder.add(this.mirror);
+    this.mirror.add(this.kickGroup);
     this.flash = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: flashTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }),
     );
     this.flash.visible = false;
+  }
+
+  /** Puts the gun and its hands on the left of the view (true) or the right (false). */
+  setLeftHanded(on: boolean): void {
+    this.side = on ? -1 : 1;
+    this.mirror.scale.x = this.side;
   }
 
   /** Sleeves follow the player's identity colour (team colour in TDM). */
@@ -343,7 +353,7 @@ export class ViewModel {
       ? EXCHANGE_FRAMING[this.weaponId]
       : null;
     this.holder.position.set(
-      bobX + this.swayX - present * BOLT_PRESENT.leftUnits - reload.tilt * (exchange?.left ?? 0),
+      bobX + this.swayX - this.side * (present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)),
       bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0),
       0,
     );

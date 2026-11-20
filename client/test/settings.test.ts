@@ -19,3 +19,14 @@ test('the radio voice is on by default and stays off once a player mutes it', ()
   saved({ radioVoice: 'no' });
   assert.equal(loadSettings().radioVoice, true, 'garbage falls back to the default');
 });
+
+test('the gun is on the right by default and moves to the left only for an explicit true', () => {
+  saved({});
+  assert.equal(loadSettings().leftHanded, false);
+  saved({ leftHanded: true });
+  assert.equal(loadSettings().leftHanded, true);
+  for (const bad of ['yes', 1, null]) {
+    saved({ leftHanded: bad });
+    assert.equal(loadSettings().leftHanded, false, String(bad));
+  }
+});

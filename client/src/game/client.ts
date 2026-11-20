@@ -326,6 +326,7 @@ export class ClientGame {
     this.sfx.setAnnouncer(settings.announcer);
     this.effects = new Effects(this.scene);
     this.view = new ViewModel(PLAYER_COLORS[settings.color], settings.quality);
+    this.view.setLeftHanded(settings.leftHanded);
     this.applyQuality();
     this.scene.add(this.camera, this.muzzleLight);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -435,6 +436,7 @@ export class ClientGame {
       this.onResize();
     }
     this.input.sensitivity = s.sensitivity;
+    this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
     this.sfx.setAnnouncer(s.announcer);
     if (this.sfx.setPack(s.soundPack)) this.sfx.shot(s.primary, null, false);

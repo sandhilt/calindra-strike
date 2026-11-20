@@ -47,6 +47,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
 
   let quality: Quality = settings.quality;
   const view = new ViewModel(PLAYER_COLORS[settings.color], quality);
+  view.setLeftHanded(settings.leftHanded);
   const pmrem = new THREE.PMREMGenerator(renderer);
   view.setEnvironment(pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[quality].envMapPx }).texture);
 
@@ -55,6 +56,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   const carry = { ticks: 0 };
   let holdFire = false;
   let walking = false;
+  let leftHanded = settings.leftHanded;
   let shells = 0;
   let placement = copyOf(view.placement());
 
@@ -86,6 +88,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
         view.camera.updateProjectionMatrix();
       }, (v) => `${v}°`, nothing),
       checkRow('andando', 'balanço de caminhada', () => walking, (v) => (walking = v), nothing),
+      checkRow('canhoto', 'arma no lado esquerdo', () => leftHanded, (v) => view.setLeftHanded((leftHanded = v)), nothing),
     );
 
   const scrub = h('input', { type: 'range', min: 0, max: SCRUB_STEPS, step: 1, value: 0, 'aria-label': 'progresso da recarga' }) as HTMLInputElement;

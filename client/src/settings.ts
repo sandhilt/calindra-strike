@@ -22,6 +22,8 @@ export interface Settings {
   dynamicCrosshair: boolean;
   quality: Quality;
   showNet: boolean;
+  /** The gun and its hands sit on the left of the view instead of the right. Only the first-person view changes. */
+  leftHanded: boolean;
 }
 
 const KEY = 'calindra-strike:settings:v1';
@@ -45,6 +47,7 @@ export const defaults = (): Settings => ({
   dynamicCrosshair: true,
   quality: 'high',
   showNet: false,
+  leftHanded: false,
 });
 
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : d);
@@ -77,6 +80,7 @@ export function loadSettings(): Settings {
     dynamicCrosshair: typeof o.dynamicCrosshair === 'boolean' ? o.dynamicCrosshair : d.dynamicCrosshair,
     quality: parseQuality(o.quality),
     showNet: o.showNet === true,
+    leftHanded: o.leftHanded === true,
   };
 }
 

@@ -162,6 +162,10 @@ Only `alta` has the extras. Bullet impacts throw sparks coloured by the surface,
 
 A bullet sounds different on each surface, on every tier. The 20 map materials fall into 13 surfaces (`ground`, `concrete`, `plaster`, `brick`, `tile`, `metal`, `container`, `wood`, `crate`, `glass`, `screen`, `cloth`, `plant`) in `shared/src/surface.ts`, and each surface is a short stack of synthesised layers in `client/src/game/surface-sound.ts` (no sample files). Glass, plants and the lime trim let bullets through, so they never make an impact sound. A new material needs a surface, a sound layer set and a spark look, or the typecheck fails.
 
+### Weapon side
+
+The Esc menu has a **lado da arma** setting, `direita` (default) or `esquerda`. The first-person gun and its hands are mirrored to the left of the view, including the kick, the reload roll and the bolt cycle (the cartridge arc flips too). It applies at once and is saved with the other settings; other players' models do not change. The mirror is a group above the kick group in `client/src/game/render/viewmodel.ts`, and the weapon viewer (debug mode) has a `canhoto` switch to preview it.
+
 ### Watching a match
 
 Choose **só assistir** in the lobby to watch without taking a player slot. A

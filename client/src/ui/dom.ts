@@ -41,4 +41,7 @@ export const ICONS = {
   shield: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg>',
   crate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="15" rx="3"/><path d="M3 11h18M12 6v15M8 3l4 3 4-3"/></svg>',
   target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5"/></svg>',
+  rifle: '<svg viewBox="0 0 120 30" fill="currentColor"><path d="M4 12h30l4-4h40v3h30v4H78l-4 3H58l-3 9h-8l2-9H38l-8 6H6z"/></svg>',
+  smg: '<svg viewBox="0 0 120 30" fill="currentColor"><path d="M20 10h52v-3h10v3h18v5H72l-3 3h-9v10h-7V18H40l-6 8h-8l4-8h-8l-6-3z"/></svg>',
+  shotgun: '<svg viewBox="0 0 120 30" fill="currentColor"><path d="M4 14l26-4h84v4H64v4H48l-6 8h-9l4-8H30L8 22z"/><rect x="62" y="15" width="22" height="5" rx="2"/></svg>',
 };

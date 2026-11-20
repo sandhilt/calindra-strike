@@ -58,10 +58,10 @@ const editor = (app: EditorApp, file: string, remote?: 'WSL'): Scene => ({
   ai: { prompt: 'Corrija sem quebrar a sessão.', answer: 'Guard aplicado. Adicionei um teste de regressão.' },
 });
 
-const terminal = (app: TerminalApp): Scene => ({
+const terminal = (app: TerminalApp, lines: Lines = app === 'Windows Terminal' ? WSL_TERMINAL_LINES : TERMINAL_LINES): Scene => ({
   kind: 'terminal',
   app,
-  lines: app === 'Windows Terminal' ? WSL_TERMINAL_LINES : TERMINAL_LINES,
+  lines,
   tests: { failing: 'FAIL expired session · 1 failed', passing: 'PASS session.test.ts · 24 passed' },
 });
 
@@ -90,7 +90,7 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
         response: { error: 'SESSION_REFRESH_FAILED', message: 'Token expirado' },
       },
       { kind: 'files', app: 'Finder', path: '/Users/dev/projetos/app', lines: ['Sources', 'Tests', 'Package.swift', 'hotfix.md'] },
-      terminal('iTerm2'),
+      browser('app.datadoghq.com / monitors', 'dashboard', ['Monitor · API de sessão', 'HTTP 500 · alerta', 'Fila de eventos · normal'], 'Safari'),
       editor('Xcode', 'Session.swift'),
       agent('Claude Code'),
       browser('GitHub / pull/42', 'pr', ['GitHub · Pull request #42', '+ Guard de sessão', 'Revisado · pronto para merge'], 'Safari'),
@@ -111,7 +111,8 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
       { kind: 'media', app: 'Spotify', lines: ['Foco sem reunião', 'Lo-fi para corrigir bugs', 'Em reprodução'] },
       browser('Bitbucket / pull-requests/18', 'pr', ['Bitbucket · Revisão #18', 'Teste de regressão adicionado', 'Aprovado pela equipe']),
       { kind: 'pipeline', app: 'Bitbucket Pipelines', lines: ['Node.js setup', 'Lint', 'Tests', 'Publish'] },
-      terminal('WezTerm'),
+      browser('console.cloud.google.com / run', 'dashboard', ['Cloud Run · session-api', 'Revisão 18 · erro de sessão', 'Revisão 19 · pronta']),
+      terminal('WezTerm', ['$ gcloud run services describe session-api', 'latestReadyRevisionName: session-api-00019', ...TERMINAL_LINES.slice(2)]),
     ],
   },
   {
@@ -127,6 +128,7 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
       agent('Gemini'),
       editor('VS Code', 'auth.ts'),
       { kind: 'pipeline', app: 'GitHub Actions', lines: ['Node.js', 'Validate session', 'Deploy'] },
+      browser('console.firebase.google.com / authentication', 'dashboard', ['Firebase Authentication', 'Sessões expiradas · alerta', 'Provedor de login · ativo']),
       terminal('WezTerm'),
     ],
   },
@@ -179,10 +181,14 @@ const scenarios: { id: string; title: string; laptop: LaptopModel; os: OsName; s
       { kind: 'files', app: 'Explorer', path: '\\\\wsl.localhost\\Ubuntu\\home\\dev\\projetos\\app', lines: ['src', 'test', 'package.json', 'session.test.ts'] },
       editor('VS Code', 'session.ts', 'WSL'),
       agent('Claude Code'),
-      login('calindra.tech', 'Edge'),
+      browser('console.aws.amazon.com / cloudwatch', 'dashboard', ['CloudWatch · session-api', 'Erros da função · alerta', 'Fila de eventos · normal'], 'Edge'),
       { kind: 'pipeline', app: 'GitHub Actions', lines: ['Setup Node.js', 'Typecheck', 'Windows tests', 'Deploy hotfix'] },
       browser('GitHub / pull/44', 'pr', ['GitHub · Pull request #44', 'Build verde no WSL', 'Aprovado · pronto para merge'], 'Edge'),
-      terminal('Windows Terminal'),
+      terminal('Windows Terminal', [
+        ...WSL_TERMINAL_LINES.slice(0, 3),
+        'dev@ubuntu:~/projetos/app$ aws sts get-caller-identity',
+        'dev@ubuntu:~/projetos/app$ node --test',
+      ]),
     ],
   },
   {

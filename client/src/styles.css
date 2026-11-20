@@ -1670,13 +1670,9 @@ input:focus-visible {
   gap: 16px;
 }
 
-/* weapon menu: left edge, numbered lines like the CS 1.6 buy menu, in the game's lime */
+/* weapon menu: numbered lines like the CS 1.6 buy menu, in the game's lime */
 .cs-menu {
-  position: absolute;
-  left: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: min(400px, calc(100vw - 36px));
+  width: min(420px, 100%);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -1764,15 +1760,6 @@ input:focus-visible {
   margin-top: 8px;
   color: var(--muted);
   font-size: 12px;
-}
-
-@media (max-width: 760px) {
-  .cs-menu {
-    top: auto;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
 }
 
 .click-to-play h2 {

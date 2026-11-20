@@ -1276,7 +1276,10 @@ export class ClientGame {
     this.sfx.shot(e.w as WeaponId, { x: ox, y: oy, z: oz }, e.h === 1);
     const r = this.remotes.get(e.id);
     if (this.spectator && e.id === this.followedId) this.view.fire(e.h === 1);
-    if (def.slot === 3) return;
+    if (def.slot === 3) {
+      if (r?.visible) r.avatar.swingHammer(e.h === 1);
+      return;
+    }
     const origin = shotMuzzle.set(ox, oy, oz);
     shotOrigin.set(ox, oy, oz);
     if (r?.visible) {

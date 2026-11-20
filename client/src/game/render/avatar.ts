@@ -1,5 +1,6 @@
 import { WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import { SwingPlayer } from './hammer-swing.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -72,6 +73,10 @@ export class Avatar {
   private readonly head = new THREE.Group();
   private readonly mount = new THREE.Group();
   private readonly supportArm = new THREE.Group();
+  /** The right arm, pivoting at the shoulder, and the fist at its end that holds the weapon. */
+  private readonly rightArm = new THREE.Group();
+  private readonly wrist = new THREE.Group();
+  private readonly swing = new SwingPlayer();
   private readonly canopy = new THREE.Group();
   private readonly tag: THREE.Sprite;
   private weapon: WeaponModel | null = null;
@@ -124,8 +129,12 @@ export class Avatar {
 
     // weapon + arms rotate with pitch around the shoulders
     this.mount.position.set(0, 22, 0);
-    part(this.mount, 6, 6, 15, body, 9, -3, -6);
-    part(this.mount, 5, 5, 5, dark, 7, -5, -14);
+    this.rightArm.position.set(9, 0, 0);
+    part(this.rightArm, 6, 6, 15, body, 0, -3, -6);
+    this.wrist.position.set(-2, -5, -14);
+    part(this.wrist, 5, 5, 5, dark, 0, 0, 0);
+    this.rightArm.add(this.wrist);
+    this.mount.add(this.rightArm);
     this.mount.add(this.supportArm);
     const armL = part(this.supportArm, 6, 6, 19, body, -7, -3, -10);
     armL.rotation.y = 0.45;
@@ -171,19 +180,19 @@ export class Avatar {
 
   setWeapon(id: WeaponId): void {
     if (id === this.weaponId) return;
-    if (this.weapon) this.mount.remove(this.weapon.group);
+    if (this.weapon) this.wrist.remove(this.weapon.group);
+    this.swing.stop();
     this.weapon = buildWeapon(id);
     this.weaponId = id;
     const g = this.weapon.group;
     this.supportArm.rotation.x = id === WEAPON.HAMMER ? -0.9 : 0;
     this.supportArm.position.x = id === WEAPON.HAMMER ? -4 : 0;
     if (id === WEAPON.HAMMER) {
-      g.position.set(7, -5, -14);
       g.rotation.set(0.15, -0.2, 0.2);
     } else {
-      g.position.set(5, -2, -14);
+      g.position.set(-2, 3, 0);
     }
-    this.mount.add(g);
+    this.wrist.add(g);
   }
 
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {
@@ -200,6 +209,10 @@ export class Avatar {
 
   kick(): void {
     this.recoil = 1;
+  }
+
+  swingHammer(heavy: boolean): void {
+    this.swing.start(heavy);
   }
 
   showTag(v: boolean): void {
@@ -229,6 +242,9 @@ export class Avatar {
     this.recoil = Math.max(0, this.recoil - dt * 10);
     this.mount.rotation.x = p.pitch * 0.85 + this.recoil * 0.12 + (p.reloading ? -0.5 : 0);
     this.head.rotation.x = p.pitch * 0.5;
+    const blow = this.swing.step(dt);
+    this.rightArm.rotation.set(...blow.arm);
+    this.wrist.rotation.set(...blow.wrist);
 
     this.canopy.visible = p.dropping;
     if (p.dropping) {

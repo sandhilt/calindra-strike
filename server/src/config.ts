@@ -1,4 +1,4 @@
-import { BOMB_PLANT_TIMEOUT_SECONDS, IDLE_KICK_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { BOMB_PLANT_TIMEOUT_SECONDS, IDLE_KICK_SECONDS, IDLE_KICK_WARMUP_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -23,6 +23,7 @@ export interface Config {
   friendlyFire: boolean;
   readyKickMs: number; // 0 = never kick players who do not confirm "pronto"
   idleKickMs: number; // 0 = never kick idle players
+  idleKickWarmupMs: number; // the same during the warmup
   radio: { cooldownMs: number; maxPerWindow: number; windowMs: number };
 }
 
@@ -125,5 +126,6 @@ export function loadConfig(): Config {
       windowMs: int('RADIO_WINDOW_SECONDS', RADIO_WINDOW_MS / 1000, 1, 600) * 1000,
     },
     idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', IDLE_KICK_SECONDS, 10, 3600) * 1000 : 0,
+    idleKickWarmupMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_WARMUP_SECONDS', IDLE_KICK_WARMUP_SECONDS, 10, 3600) * 1000 : 0,
   };
 }

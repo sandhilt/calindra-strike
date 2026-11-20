@@ -59,7 +59,7 @@ test('scene caps are exercised in a dense map and ranges exclude distant entitie
 });
 
 test('renderView only builds a scene with a living grounded snapshot and world', () => {
-  const v = welcome({ t: 'welcome', id: 1, time: 0, match: { phase: 'live', mode: 'ffa', map: 0, endsAt: 100, teams: [], limit: 0 }, roster: [], token: '', maxPlayers: 10, spectator: null, ready: { kind: 'confirmed' }, idleKickMs: null });
+  const v = welcome({ t: 'welcome', id: 1, time: 0, match: { phase: 'live', mode: 'ffa', map: 0, endsAt: 100, teams: [], limit: 0 }, roster: [], token: '', maxPlayers: 10, spectator: null, ready: { kind: 'confirmed' }, idleKickMs: null, idleKickWarmupMs: null });
   const read = (world?: CollisionWorld) => JSON.parse(JSON.stringify(renderView(v, { kind: 'idle' }, undefined, world)));
   const world = new CollisionWorld(getMaps()[0]);
   assert.equal(read(world).scene, null);

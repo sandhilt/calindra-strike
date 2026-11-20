@@ -128,6 +128,7 @@ export interface Welcome {
   token: string;
   ready: Readiness;
   idleKickMs: number | null;
+  idleKickWarmupMs: number | null;
 }
 
 export interface PodiumData {
@@ -218,6 +219,9 @@ export class ClientGame {
   /** Until 'ready' is sent the player stays out of the world. */
   private ready: Readiness;
   private readonly idleKickMs: number | null;
+  private readonly idleKickWarmupMs: number | null;
+  /** Phase the idle clock last ran in: the server restarts it when the match starts. */
+  private idlePhase: MatchInfo['phase'] | null = null;
   /** Local mirror of the server's idle clock, only to warn before the kick. */
   private lastActiveAt = performance.now();
   private idleWarned = false;
@@ -289,6 +293,7 @@ export class ClientGame {
     this.spectator = welcome.spectator;
     this.ready = welcome.spectator ? { kind: 'confirmed' } : welcome.ready;
     this.idleKickMs = welcome.spectator ? null : welcome.idleKickMs;
+    this.idleKickWarmupMs = welcome.spectator ? null : welcome.idleKickWarmupMs;
     this.myId = welcome.id;
     this.match = welcome.match;
     this.clockOffset = welcome.time - performance.now();
@@ -1122,13 +1127,17 @@ export class ClientGame {
     const active = cmd.buttons !== 0 || cmd.weapon !== 0 || cmd.yaw !== this.lastCmdYaw || cmd.pitch !== this.lastCmdPitch;
     this.lastCmdYaw = cmd.yaw;
     this.lastCmdPitch = cmd.pitch;
-    if (active || this.idleKickMs === null || this.ready.kind === 'pending' || this.match.phase === 'podium') {
+    const phase = this.match.phase;
+    const timeout = phase === 'warmup' ? this.idleKickWarmupMs : this.idleKickMs;
+    const phaseChanged = phase !== this.idlePhase;
+    this.idlePhase = phase;
+    if (active || phaseChanged || timeout === null || this.ready.kind === 'pending' || phase === 'podium') {
       this.lastActiveAt = now;
       this.idleWarned = false;
       return;
     }
-    const lead = Math.min(IDLE_WARNING_LEAD_MS, this.idleKickMs / 2);
-    if (this.idleWarned || now - this.lastActiveAt < this.idleKickMs - lead) return;
+    const lead = Math.min(IDLE_WARNING_LEAD_MS, timeout / 2);
+    if (this.idleWarned || now - this.lastActiveAt < timeout - lead) return;
     this.idleWarned = true;
     const left = Math.round(lead / 1000);
     this.hud.info(`Você está parado: mexa-se ou volta para a tela inicial em ${left}s`, '#ffd54f');

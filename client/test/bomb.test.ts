@@ -174,3 +174,14 @@ test('a dropped bug counts down to the hand-over, cut short by the plant window'
   assert.equal(bombStatus(dropped, 1000, 7, 0, name), 'o bug caiu · pegue-o · troca de lado em 20s');
   assert.equal(bombStatus({ ...dropped, plantByAt: 6000 }, 1000, 7, 1, name), 'o bug caiu no chão · troca de lado em 5s');
 });
+
+test('in warmup the same E key plants before the bug is down and defuses after, whatever the team', () => {
+  const at = { x: 0, y: 0, z: 0, variant: 0, attackers: 1, blackFriday: false, plantByAt: 0 };
+  const me = { x: 0, y: 0, z: 0 };
+  const attempt = { myId: 3, myTeam: 0, me, site: me, name: () => 'x', practice: true };
+  assert.equal(useRefusal({ ...attempt, bomb: { ...at, state: 'home' } }), 'encoste no bug para pegá-lo');
+  assert.equal(useRefusal({ ...attempt, bomb: { ...at, state: 'planted', explodeAt: 0, defuser: -1, defuseDoneAt: 0 } }), null);
+  assert.equal(bombRole({ ...at, state: 'home' }, 0, true)?.goal, 'plante o bug');
+  const status = bombStatus({ ...at, state: 'planted', explodeAt: 30000, defuser: -1, defuseDoneAt: 0 }, 0, 3, 0, () => 'x', true);
+  assert.equal(status, 'bug plantado · segure E perto dele');
+});

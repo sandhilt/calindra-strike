@@ -1,6 +1,6 @@
 import { PLAYER_RADIUS } from './constants.ts';
 import { rayAabb } from './math.ts';
-import type { MapDef } from './maps/types.ts';
+import type { Mat, MapDef } from './maps/types.ts';
 
 const EPS = 0.03125;
 
@@ -16,7 +16,11 @@ export interface TraceHit {
   nx: number;
   ny: number;
   nz: number;
+  /** What the ray hit: the map box's material, or a crate for the bug's desk and crate. */
+  mat: Mat;
 }
+
+const PROP_MAT: Mat = 'crate';
 
 /**
  * Static collision world built from the map's boxes. Solids block movement;
@@ -28,6 +32,8 @@ export class CollisionWorld {
   private propKey = '';
   private readonly mapBullets: Float64Array;
   private bullets: Float64Array;
+  private readonly mapBulletMats: readonly Mat[];
+  private bulletMats: readonly Mat[];
   readonly map: MapDef;
 
   constructor(map: MapDef) {
@@ -40,6 +46,8 @@ export class CollisionWorld {
     this.solids = this.mapSolids;
     bullet.forEach((b, i) => this.mapBullets.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
     this.bullets = this.mapBullets;
+    this.mapBulletMats = bullet.map((b) => b.mat);
+    this.bulletMats = this.mapBulletMats;
   }
 
   /**
@@ -53,11 +61,13 @@ export class CollisionWorld {
     if (!box) {
       this.solids = this.mapSolids;
       this.bullets = this.mapBullets;
+      this.bulletMats = this.mapBulletMats;
       return;
     }
     const bounds = [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z];
     this.solids = withBox(this.mapSolids, bounds);
     this.bullets = withBox(this.mapBullets, bounds);
+    this.bulletMats = [...this.mapBulletMats, PROP_MAT];
   }
 
   overlaps(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean {
@@ -154,7 +164,7 @@ export class CollisionWorld {
     ];
     let f = faces[0];
     for (const c of faces) if (c[0] < f[0]) f = c;
-    return { t: best, nx: f[1], ny: f[2], nz: f[3] };
+    return { t: best, nx: f[1], ny: f[2], nz: f[3], mat: this.bulletMats[bi / 6] ?? PROP_MAT };
   }
 
   /** Height of the first surface below (x, z) starting at y, or -Infinity. */

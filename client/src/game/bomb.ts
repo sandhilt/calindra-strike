@@ -69,36 +69,37 @@ export const BLACK_FRIDAY_TAG = `BLACK FRIDAY ${BLACK_FRIDAY_DISCOUNT_PERCENT}% 
 /** What the Black Friday announcement says: how much of the fuse is left. */
 export const BLACK_FRIDAY_PITCH = `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF no pavio · só ${BLACK_FRIDAY_FUSE_MS / 1000}s para desarmar`;
 
-export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
-  const status = roundStatus(bomb, now, viewerId, viewerTeam, name);
+export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice = false): string {
+  const status = roundStatus(bomb, now, viewerId, viewerTeam, name, practice);
   return bomb.blackFriday ? `${BLACK_FRIDAY_TAG} · ${status}` : status;
 }
 
-function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
-  const status = phaseStatus(bomb, now, viewerId, viewerTeam, name);
+function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean): string {
+  const status = phaseStatus(bomb, now, viewerId, viewerTeam, name, practice);
   const left = bomb.state === 'dropped' ? null : plantSecondsLeft(bomb, now);
   return left === null ? status : `${status} · ${left}s para plantar`;
 }
 
-function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string): string {
-  const attacking = viewerTeam === bomb.attackers;
+function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean): string {
+  const attacking = practice || viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
   if (bomb.state === 'dropped') {
     // The plant window can close before the floor timer runs out; whichever comes first hands the bug over.
     const handOverAt = bomb.plantByAt > 0 ? Math.min(bomb.handOverAt, bomb.plantByAt) : bomb.handOverAt;
-    const left = Math.max(0, Math.ceil((handOverAt - now) / 1000));
-    return `${attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão'} · troca de lado em ${left}s`;
+    const fallen = attacking ? 'o bug caiu · pegue-o' : 'o bug caiu no chão';
+    if (handOverAt <= 0) return fallen;
+    return `${fallen} · troca de lado em ${Math.max(0, Math.ceil((handOverAt - now) / 1000))}s`;
   }
   if (bomb.state === 'carried' || bomb.state === 'planting') {
     if (bomb.carrier === viewerId) return bomb.state === 'planting' ? 'plantando…' : 'segure E no site para plantar';
     return bomb.state === 'planting' ? `${name(bomb.carrier)} está plantando` : `${name(bomb.carrier)} leva o bug`;
   }
   if (bomb.defuser === viewerId) return 'desarmando…';
-  const left = secondsLeft(bomb, now);
-  if (bomb.defuser >= 0) return `${name(bomb.defuser)} desarma o bug · ${left}s`;
-  const hint = !attacking && !watching ? ' · segure E perto dele' : '';
-  return `bug plantado · ${left}s${hint}`;
+  const clock = practice ? '' : ` · ${secondsLeft(bomb, now)}s`;
+  if (bomb.defuser >= 0) return `${name(bomb.defuser)} desarma o bug${clock}`;
+  const hint = practice || (!attacking && !watching) ? ' · segure E perto dele' : '';
+  return `bug plantado${clock}${hint}`;
 }
 
 export interface CarryNotice { title: string; hint: string }
@@ -114,9 +115,10 @@ export function carryNotice(bomb: BombView, viewerId: number): CarryNotice | nul
 export interface BombRole { side: 'attack' | 'defend'; label: string; goal: string }
 
 /** The viewer's side in a defuse round and what it has to do right now, or null for spectators. */
-export function bombRole(bomb: BombView, viewerTeam: number): BombRole | null {
+export function bombRole(bomb: BombView, viewerTeam: number, practice = false): BombRole | null {
   if (viewerTeam !== 0 && viewerTeam !== 1) return null;
   const planted = bomb.state === 'planted';
+  if (practice) return { side: planted ? 'defend' : 'attack', label: 'treino', goal: planted ? 'desarme o bug' : 'plante o bug' };
   if (viewerTeam === bomb.attackers) return { side: 'attack', label: 'ataque', goal: planted ? 'proteja o bug' : 'plante o bug' };
   return { side: 'defend', label: 'defesa', goal: planted ? 'desarme o bug' : 'impeça o plantio' };
 }
@@ -149,12 +151,14 @@ export interface UseAttempt {
   me: BombPoint;
   site: BombPoint;
   name: (id: number) => string;
+  practice?: boolean;
 }
 
 /** Why pressing E does nothing where the player stands, or null when it plants or defuses. */
-export function useRefusal({ bomb, myId, myTeam, me, site, name }: UseAttempt): string | null {
+export function useRefusal({ bomb, myId, myTeam, me, site, name, practice = false }: UseAttempt): string | null {
   if (myTeam !== 0 && myTeam !== 1) return null;
-  if (myTeam === bomb.attackers) {
+  const planting = practice ? bomb.state !== 'planted' : myTeam === bomb.attackers;
+  if (planting) {
     if (bomb.state === 'home' || bomb.state === 'dropped') return 'encoste no bug para pegá-lo';
     if (bomb.state === 'planted') return 'o bug já está plantado · proteja-o';
     if (bomb.carrier !== myId) return `${name(bomb.carrier)} está com o bug`;

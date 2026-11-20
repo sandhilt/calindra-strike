@@ -59,6 +59,8 @@ import {
   rayHitbox,
   round,
   spawnState,
+  bombSpawnScore,
+  practiceRound,
   weaponDef,
 } from '@calindra-strike/shared';
 import { BOT_NAMES, type BotEnv, BotBrain, botSkill } from './bot.ts';
@@ -414,12 +416,10 @@ export class Game {
       id: p.id, team: p.team, alive: p.alive, using: p.using,
       x: p.state.x, y: p.state.y, z: p.state.z, dropping: p.state.dropping,
     }));
-    // Nobody to practise with while waiting for the match: keep the plant window from running down on an empty attack.
-    if (this.phase !== 'live' && this.bombRound.plantByTick !== undefined && !actors.some((a) => a.team === this.attackers && a.alive)) {
-      this.bombRound = { ...this.bombRound, plantByTick: this.bombRound.plantByTick + 1 };
-    }
+    const practice = this.phase === 'warmup';
+    const round = practice ? practiceRound(this.bombRound) : this.bombRound;
     const before = this.bomb;
-    const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, this.bombRound);
+    const result = stepBomb(this.bomb, this.bombPlaces(), actors, this.tick, round);
     this.bomb = result.bomb;
     if (this.bomb.kind === 'planted' && before.kind !== 'planted') {
       const { x, y, z } = this.bomb;
@@ -427,7 +427,7 @@ export class Game {
       this.bomb = { ...this.bomb, ...at };
       this.stepOffStand(at);
     }
-    if (!result.outcome && blackFridayDue(this.bombRound, this.bomb, this.tick)) {
+    if (!result.outcome && blackFridayDue(round, this.bomb, this.tick)) {
       const lit = startBlackFriday(this.bomb, this.bombRound, this.tick);
       this.bomb = lit.bomb;
       this.bombRound = lit.round;
@@ -472,18 +472,19 @@ export class Game {
     const carrying = bomb.kind === 'carried' || bomb.kind === 'planting';
     const holder = carrying ? this.players.get(bomb.carrier) : undefined;
     const at = bomb.kind === 'dropped' || bomb.kind === 'planted' ? bomb : holder?.state ?? places.home;
+    const practice = this.phase === 'warmup';
     const state = { home: 0, carried: 1, planting: 2, dropped: 3, planted: 4 }[bomb.kind];
     const actorId = carrying ? bomb.carrier : bomb.kind === 'planted' ? bomb.defuse?.by ?? -1 : -1;
     const { x, y, z } = bombWirePosition(at);
     return [
       state, actorId, x, y, z,
-      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : bomb.kind === 'dropped' ? this.msAt(bomb.returnAtTick) : 0,
+      bomb.kind === 'planted' ? this.msAt(bomb.explodeAtTick) : bomb.kind === 'dropped' && !practice ? this.msAt(bomb.returnAtTick) : 0,
       bomb.kind === 'planted' && bomb.defuse ? this.msAt(bomb.defuse.doneAtTick) : 0,
       bomb.kind === 'planted' ? bomb.variant : this.bombRound.variant,
       this.attackers,
       bomb.kind === 'planting' ? this.msAt(bomb.doneAtTick) : 0,
       this.bombRound.blackFriday ? 1 : 0,
-      this.bombRound.plantByTick === undefined || bomb.kind === 'planted' ? 0 : this.msAt(this.bombRound.plantByTick),
+      this.bombRound.plantByTick === undefined || bomb.kind === 'planted' || practice ? 0 : this.msAt(this.bombRound.plantByTick),
     ];
   }
 
@@ -1155,7 +1156,8 @@ export class Game {
     // TDM: each side skydives in over its own half of the map (Bulldogs north, Martelos south)
     const minZ = teams && p.team === 1 ? 150 : a.minZ;
     const maxZ = teams && p.team === 0 ? -150 : a.maxZ;
-    let best = { x: 0, z: 0, score: -1 };
+    const site = this.mode === 'defuse' ? this.bombPlaces().site : null;
+    let best = { x: 0, z: 0, score: -Infinity };
     for (let i = 0; i < 12; i++) {
       const x = a.minX + this.random() * (a.maxX - a.minX);
       const z = minZ + this.random() * (maxZ - minZ);
@@ -1164,7 +1166,8 @@ export class Game {
         if (q === p || !q.alive || (teams && q.team === p.team)) continue;
         nearest = Math.min(nearest, Math.hypot(q.state.x - x, q.state.z - z));
       }
-      if (nearest > best.score) best = { x, z, score: nearest };
+      const score = site ? bombSpawnScore(nearest, Math.hypot(site.x - x, site.z - z)) : nearest;
+      if (score > best.score) best = { x, z, score };
     }
     const yaw = Math.atan2(best.x, best.z);
     spawnState(p.state, best.x, this.map.dropHeight, best.z, yaw, p.primaryChoice);

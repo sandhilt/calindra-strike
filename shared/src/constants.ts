@@ -135,6 +135,8 @@ export const PLANT_MS = PLANT_TICKS * TICK_MS;
 export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
 export const FUSE_MS = (FUSE_TICKS * 1000) / TICK_RATE;
 export const BOMB_SITE_RADIUS_UNITS = 160;
+/** In debug defusion nobody respawns closer than this to the site, so a revived defender cannot kill the planter on the spot. */
+export const BOMB_SPAWN_KEEPOUT_UNITS = 800;
 export const DEFUSE_RADIUS_UNITS = 64;
 export const DEBUG_SCENARIO_COUNT = 8;
 /** Share of rounds that turn Black Friday: it switches on at a random moment, and the planted bug burns a shorter fuse. */

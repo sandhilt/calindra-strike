@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
-import { BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
+import { stepBomb, practiceRound, bombSpawnScore, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { BLACK_FRIDAY_FUSE_TICKS, BOMB_SPAWN_KEEPOUT_UNITS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
 const actor = (team: number, at: { x: number; y: number; z: number }, extra: Partial<BombActor> = {}): BombActor =>
@@ -264,4 +264,56 @@ it('standExit never pushes a player through a thin wall', () => {
   const wallBehind = (_x: number, z: number) => !(z > 20 && z < 26);
   const exit = standExit(box, player, wallBehind);
   assert.ok(exit && exit.z < 20, 'the wall behind is not crossed, another side is used');
+});
+
+it('a respawn spot inside the site keep-out loses to any outside it, and the deeper inside the worse', () => {
+  assert.equal(bombSpawnScore(300, BOMB_SPAWN_KEEPOUT_UNITS), 300);
+  assert.ok(bombSpawnScore(0, BOMB_SPAWN_KEEPOUT_UNITS + 1) > bombSpawnScore(5000, BOMB_SPAWN_KEEPOUT_UNITS - 1));
+  assert.ok(bombSpawnScore(0, 400) > bombSpawnScore(0, 100));
+});
+
+it('in practice either team takes, plants and defuses, and the fuse and floor timer never run out', () => {
+  const round = practiceRound({ variant: 0, blackFriday: false });
+  const defender = actor(1, places.home);
+  const taken = stepBomb(home, places, [defender], 1, round);
+  assert.deepEqual(taken.bomb, { kind: 'carried', carrier: 9 });
+  const carrier = actor(1, places.site, { using: true });
+  const planting = stepBomb(taken.bomb, places, [carrier], 2, round).bomb;
+  assert.equal(planting.kind, 'planting');
+  const planted = stepBomb(planting, places, [carrier], 2 + PLANT_TICKS, round);
+  assert.equal(planted.bomb.kind, 'planted');
+  assert.equal(planted.events[0].team, 1);
+
+  const forever = 10 * FUSE_TICKS;
+  const idle = stepBomb(planted.bomb, places, [], forever, round);
+  assert.equal(idle.outcome, undefined, 'no explosion');
+  assert.ok(idle.bomb.kind === 'planted' && idle.bomb.explodeAtTick > forever, 'the clock on the wire stays full');
+
+  const attacker = actor(0, places.site, { using: true });
+  const started = stepBomb(idle.bomb, places, [attacker], forever, round).bomb;
+  assert.ok(started.kind === 'planted' && started.defuse?.by === 7, 'the planting side may defuse too');
+  const done = stepBomb(started, places, [attacker], forever + DEFUSE_TICKS, round);
+  assert.equal(done.outcome, 'defused');
+
+  const dropped: BombState = { kind: 'dropped', x: 5, y: 0, z: 6, returnAtTick: 99 };
+  assert.equal(stepBomb(dropped, places, [], 99 + 10 * BOMB_DROPPED_TICKS, round).outcome, undefined, 'the floor timer is off');
+});
+
+it('outside practice only defenders defuse and only attackers plant', () => {
+  const round = { variant: 0, blackFriday: false };
+  assert.deepEqual(stepBomb(home, places, [actor(1, places.home)], 1, round).bomb, home);
+  const attacker = actor(0, places.site, { using: true });
+  assert.equal(stepBomb(planted(), places, [attacker], 5, round).bomb.kind, 'planted');
+  assert.equal((stepBomb(planted(), places, [attacker], 5, round).bomb as Extract<BombState, { kind: 'planted' }>).defuse, null);
+});
+
+it('a trace reports the material it hit: the map box, or a crate for the bug stand', () => {
+  const box = (mat: 'metal' | 'concrete', x: number) => ({ min: { x, y: 0, z: -50 }, max: { x: x + 20, y: 100, z: 50 }, mat, solid: true, shootThrough: false, visible: true });
+  const world = new CollisionWorld({ ...getMaps()[0], boxes: [box('metal', 100), box('concrete', 300)] });
+  assert.equal(world.trace(0, 50, 0, 1, 0, 0, 500)?.mat, 'metal');
+  assert.equal(world.trace(200, 50, 0, 1, 0, 0, 500)?.mat, 'concrete');
+  world.setProp(bombStandBox('planted', { x: -150, y: 0, z: 0 }));
+  assert.equal(world.trace(-400, 10, 0, 1, 0, 0, 500)?.mat, 'crate');
+  world.setProp(null);
+  assert.equal(world.trace(0, 50, 0, 1, 0, 0, 500)?.mat, 'metal');
 });

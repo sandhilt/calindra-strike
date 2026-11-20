@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
 import { bombStandBox, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
@@ -298,21 +298,27 @@ it('Black Friday strikes a round that is already running, in about one round in 
   assert.equal(snapshot(game, messages).bm.length, 12);
 });
 
-it('the plant window does not run down in warmup while nobody is on the attacking side', () => {
+it('warmup is practice: no plant window, no floor timer and no Black Friday however long it lasts', () => {
   const messages: ServerMsg[] = [];
-  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 99, modes: 'defuse', plantTimeoutMs: 5000, random: () => 0.5 });
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 99, modes: 'defuse', plantTimeoutMs: 5000, random: () => 0.01 });
   const players = [0, 1].map((i) => game.join('W' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data))) as ServerPlayer);
   const before = (game as any).attackers as number;
   const attacker = players.find((p) => p.team === before) as ServerPlayer;
-  attacker.alive = false;
-  attacker.respawnAt = Infinity;
-  run(game, 10 * 60);
-  assert.equal((game as any).attackers, before, 'the laptop stays put with nobody to plant it');
+  run(game, 40 * 60);
+  assert.equal((game as any).attackers, before, 'the laptop never changes hands for a missed plant window');
+  const calm = snapshot(game, messages);
+  assert.equal(calm.bm[10], 0, 'no Black Friday');
+  assert.equal(calm.bm[11], 0, 'no plant countdown on the wire');
   attacker.alive = true;
-  run(game, 4 * 60);
-  assert.equal((game as any).attackers, before, 'the full window is still ahead once someone is there');
-  run(game, 2 * 60);
-  assert.equal((game as any).attackers, 1 - before);
+  place(game, attacker, before);
+  game.update();
+  (game as any).dropObjective(attacker);
+  place(game, attacker, 1 - before);
+  run(game, BOMB_DROPPED_TICKS + 60);
+  const dropped = snapshot(game, messages);
+  assert.equal(dropped.bm[0], 3, 'a laptop left on the floor stays there');
+  assert.equal(dropped.bm[5], 0, 'no hand-over countdown on the wire');
+  assert.equal((game as any).attackers, before);
 });
 
 it('every plant timeout re-evaluates Black Friday for the round the laptop moves to', () => {
@@ -366,4 +372,16 @@ it('the planter steps back off the desk that appears under their feet', () => {
   const back = { x: Math.sin(yaw), z: Math.cos(yaw) };
   assert.ok((s.x - bomb.x) * back.x + (s.z - bomb.z) * back.z > 0, 'pushed behind where they faced');
   assert.ok(Math.hypot(s.x - bomb.x, s.z - bomb.z) < BOMB_DESK_SIZE_UNITS, 'still right next to the laptop');
+});
+
+it('a revived defender never lands inside the keep-out around the bomb site', () => {
+  let seed = 12345;
+  const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const { game, attacker, defender } = setup(5, 'defuse', random);
+  const site = game.map.flagBases[attackSite(game, attacker.team)];
+  for (let i = 0; i < 200; i++) {
+    (game as any).spawn(defender);
+    const distance = Math.hypot(defender.state.x - site.x, defender.state.z - site.z);
+    assert.ok(distance >= BOMB_SPAWN_KEEPOUT_UNITS, `spawn ${i} landed ${Math.round(distance)} units from the site`);
+  }
 });

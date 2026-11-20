@@ -1,6 +1,6 @@
 import {
   BLACK_FRIDAY_CHANCE, BLACK_FRIDAY_FUSE_MS, BLACK_FRIDAY_FUSE_TICKS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS,
-  BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_MS, FUSE_TICKS, PLANT_TICKS,
+  BOMB_SITE_RADIUS_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_MS, FUSE_TICKS, PLANT_TICKS,
 } from './constants.ts';
 
 export interface BombPoint { x: number; y: number; z: number }
@@ -23,7 +23,7 @@ export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: Bomb
  * Drawn when a round starts: which laptop scenario plays, whether Black Friday is on right now, when it will switch on
  * (`blackFridayAtTick`, absent in a normal round) and when the plant window closes.
  */
-export interface BombRound { variant: number; blackFriday: boolean; blackFridayAtTick?: number; plantByTick?: number }
+export interface BombRound { variant: number; blackFriday: boolean; blackFridayAtTick?: number; plantByTick?: number; practice?: boolean }
 
 /** Whether the round about to start is a Black Friday one: by chance, or because the match has gone without one for too long. */
 export function blackFridayMarked(roll: number, roundNumber: number, matchHadBlackFriday: boolean): boolean {
@@ -122,24 +122,25 @@ export function dropBomb(bomb: BombState, carrierId: number, at: BombPoint, tick
   };
 }
 
-function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: BombPlaces, actors: readonly BombActor[], tick: number): BombStep {
+function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: BombPlaces, actors: readonly BombActor[], tick: number, practice: boolean): BombStep {
   const defenders = 1 - places.attackers;
+  const mayDefuse = (a: BombActor) => practice || a.team === defenders;
   const events: BombEvent[] = [];
   let defuse = bomb.defuse;
   const current = defuse && actors.find((a) => a.id === defuse?.by);
-  if (defuse && !(current && canAct(current) && current.using && current.team === defenders && inBombReach(current, bomb, DEFUSE_RADIUS_UNITS))) defuse = null;
+  if (defuse && !(current && canAct(current) && current.using && mayDefuse(current) && inBombReach(current, bomb, DEFUSE_RADIUS_UNITS))) defuse = null;
   if (!defuse) {
-    const starter = actors.find((a) => canAct(a) && a.using && a.team === defenders && inBombReach(a, bomb, DEFUSE_RADIUS_UNITS));
+    const starter = actors.find((a) => canAct(a) && a.using && mayDefuse(a) && inBombReach(a, bomb, DEFUSE_RADIUS_UNITS));
     if (starter) {
       defuse = { by: starter.id, doneAtTick: tick + DEFUSE_TICKS };
-      events.push({ k: 'bomb', what: 'defuse', team: defenders, by: starter.id });
+      events.push({ k: 'bomb', what: 'defuse', team: starter.team, by: starter.id });
     }
   }
   if (defuse && tick >= defuse.doneAtTick) {
-    events.push({ k: 'bomb', what: 'defused', team: defenders, by: defuse.by });
+    events.push({ k: 'bomb', what: 'defused', team: actors.find((a) => a.id === defuse.by)?.team ?? defenders, by: defuse.by });
     return { bomb: { kind: 'home' }, events, outcome: 'defused' };
   }
-  if (tick >= bomb.explodeAtTick) {
+  if (!practice && tick >= bomb.explodeAtTick) {
     events.push({ k: 'bomb', what: 'exploded', team: places.attackers, by: -1 });
     return { bomb: { kind: 'home' }, events, outcome: 'exploded' };
   }
@@ -149,25 +150,29 @@ function stepPlanted(bomb: Extract<BombState, { kind: 'planted' }>, places: Bomb
 /** Pure bomb rules. Positions are taken from the actors, so the caller snaps planted and dropped bombs to the floor. */
 export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly BombActor[], tick: number, round: BombRound): BombStep {
   const events: BombEvent[] = [];
-  if (bomb.kind === 'planted') return stepPlanted(bomb, places, actors, tick);
+  const practice = round.practice === true;
+  if (bomb.kind === 'planted') {
+    // In practice the fuse never burns down, and the clock on the wire stays full.
+    return stepPlanted(practice ? { ...bomb, explodeAtTick: tick + fuseTicks(false) } : bomb, places, actors, tick, practice);
+  }
   const windowClosed = round.plantByTick !== undefined && tick >= round.plantByTick;
   const handOver = (what: 'expired' | 'abandoned'): BombStep => ({ bomb: { kind: 'home' }, events: [{ k: 'bomb', what, team: 1 - places.attackers, by: -1 }], outcome: 'expired' });
   const expire = () => handOver('expired');
   // A plant already under way is allowed to finish, so a carrier at the last second is not cut off.
   if (windowClosed && bomb.kind !== 'planting') return expire();
-  let next: BombState = bomb;
+  let next: BombState = practice && bomb.kind === 'dropped' ? { ...bomb, returnAtTick: tick + BOMB_DROPPED_TICKS } : bomb;
   if (next.kind === 'dropped' && tick >= next.returnAtTick) return handOver('abandoned');
   if (next.kind === 'home' || next.kind === 'dropped') {
     const at = next.kind === 'home' ? places.home : next;
-    const taker = actors.find((a) => canAct(a) && a.team === places.attackers && inBombReach(a, at, CTF_PICKUP_RADIUS_UNITS));
+    const taker = actors.find((a) => canAct(a) && (practice || a.team === places.attackers) && inBombReach(a, at, CTF_PICKUP_RADIUS_UNITS));
     if (taker) {
       next = { kind: 'carried', carrier: taker.id };
-      events.push({ k: 'bomb', what: 'take', team: places.attackers, by: taker.id });
+      events.push({ k: 'bomb', what: 'take', team: taker.team, by: taker.id });
     }
     return { bomb: next, events };
   }
   const carrier = actors.find((a) => a.id === next.carrier);
-  if (!carrier || !canAct(carrier) || carrier.team !== places.attackers) {
+  if (!carrier || !canAct(carrier) || (!practice && carrier.team !== places.attackers)) {
     events.push({ k: 'bomb', what: 'return', team: places.attackers, by: -1 });
     return { bomb: { kind: 'home' }, events };
   }
@@ -177,6 +182,20 @@ export function stepBomb(bomb: BombState, places: BombPlaces, actors: readonly B
   }
   if (!planting) return windowClosed ? expire() : { bomb: { kind: 'carried', carrier: carrier.id }, events };
   if (tick < next.doneAtTick) return { bomb: next, events };
-  events.push({ k: 'bomb', what: 'plant', team: places.attackers, by: carrier.id });
+  events.push({ k: 'bomb', what: 'plant', team: carrier.team, by: carrier.id });
   return { bomb: { kind: 'planted', x: carrier.x, y: carrier.y, z: carrier.z, explodeAtTick: tick + fuseTicks(round.blackFriday), variant: round.variant, defuse: null }, events };
+}
+
+/**
+ * How good a respawn candidate is for a defusion round: how far it is from the nearest enemy, except that a spot inside the keep-out
+ * around the site always loses to one outside it, and the deeper inside, the worse. A map with no room outside still gets the farthest spot.
+ */
+export function bombSpawnScore(nearestEnemyUnits: number, siteDistanceUnits: number): number {
+  const shortfall = BOMB_SPAWN_KEEPOUT_UNITS - siteDistanceUnits;
+  return shortfall > 0 ? -shortfall : nearestEnemyUnits;
+}
+
+/** Warmup is unscored practice: either team plants and defuses, and no Black Friday, plant window, fuse or floor timer can end the round or hurry the player. */
+export function practiceRound(round: BombRound): BombRound {
+  return { variant: round.variant, blackFriday: false, practice: true };
 }

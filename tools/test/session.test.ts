@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -759,7 +759,8 @@ test('radio tool sends the line id from a menu and slot, and rejects unknown men
   assert.equal((await radio.call({ menu: 'calindra', line: 5 })).isError, undefined);
   assert.deepEqual(JSON.parse(socket.sent.at(-1)!), { t: 'radio', line: radioLineAt('calindra', 5)!.id });
   const sent = socket.sent.length;
-  for (const bad of [{ menu: 'calindra', line: 6 }, { menu: 'nope', line: 1 }, { menu: 'comandos', line: 0 }, { menu: 'comandos', line: 1.5 }, { menu: 'comandos' }, { line: 1 }]) {
+  const pastCalindra = radioMenuById('calindra')!.lines.length + 1;
+  for (const bad of [{ menu: 'calindra', line: pastCalindra }, { menu: 'nope', line: 1 }, { menu: 'comandos', line: 0 }, { menu: 'comandos', line: 1.5 }, { menu: 'comandos' }, { line: 1 }]) {
     assert.equal((await radio.call(bad)).isError, true, JSON.stringify(bad));
   }
   assert.equal(socket.sent.length, sent, 'a rejected call sends nothing');

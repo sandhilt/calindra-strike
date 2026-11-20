@@ -90,6 +90,8 @@ tools ──► server, shared
 
 ## Conventions and gotchas
 
+- **Radio lines** are the `RADIO_MENUS` table in `shared/src/radio.ts`; append, never insert or reorder (the wire id is the position). See "Radio lines" in `README.md`.
+
 - **Sound packs** live in `client/src/game/sound-packs/`: export a SoundPack and register it in SOUND_PACKS; omitted voices use classic. Runtime-loaded mods are not supported.
 
 - **Shared code is deterministic.** Client prediction and the server run the same simulation from `shared/`. Do not add randomness, wall-clock time or environment-specific behavior there; use the seeded spread helpers. A change to movement or weapons affects both sides and needs a test in `shared/test/`.

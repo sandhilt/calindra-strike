@@ -29,7 +29,8 @@ test('digits pick a line, close the menu and are consumed so they do not switch 
 });
 
 test('a digit past the end of the menu is swallowed and leaves the menu open', () => {
-  assert.deepEqual(radioMenuKey('calindra', 'Digit6', true), { open: 'calindra', consumed: true });
+  const pastCalindra = `Digit${RADIO_MENUS.find((m) => m.id === 'calindra')!.lines.length + 1}`;
+  assert.deepEqual(radioMenuKey('calindra', pastCalindra, true), { open: 'calindra', consumed: true });
   assert.deepEqual(radioMenuKey('comandos', 'Digit9', true), { open: 'comandos', consumed: true });
 });
 

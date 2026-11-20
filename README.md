@@ -47,6 +47,31 @@ The local client uses `ws://127.0.0.1:7350/ws`. Set `VITE_GAME_SERVER` at build 
 
 Choose clássico or sound-new in the in-game sound pack menu. The separate anunciador checkbox adds a voice on top of either pack: original Portuguese kill-streak lines through the browser's speech synthesis (no audio files; silent where the browser has none). It only speaks, so shots and flags sound the same with it on or off. Packs live in `client/src/game/sound-packs/`: add a file exporting a SoundPack and register it in SOUND_PACKS in index.ts. Omitted voices fall back to classic. Runtime-loaded mods are not supported.
 
+### Radio lines (Calindra menu)
+
+The radio menus (Z, X, V and B) are one table, `RADIO_MENUS` in `shared/src/radio.ts`. The in-game menu, the server's validation, the MCP `radio` tool and the bots all read it, so a new Calindra line is one entry there:
+
+```ts
+{
+  id: 'calindra',
+  // ...
+  lines: [
+    { text: 'Borumbaaa!', speech: 'Borumbá!' },
+    // ...
+    { text: 'Eiiiitriiiiii!', speech: 'Êitri!' },
+    { text: 'Your new line!' },
+  ],
+},
+```
+
+- **Append at the end.** The wire carries an id built from the position (menu number times ten plus the slot, so the Calindra lines are 41-49). Inserting or reordering changes what the existing ids mean for a client or an MCP agent built before the change.
+- **Nine lines at most.** Players pick a line with the digits 1-9; a test fails past nine.
+- **`speech` is optional.** `text` is what the feed and the menu show. Add `speech` when the text reads badly aloud (stretched letters, English words, acronyms), with the spelling the browser's speech synthesis should say.
+- **Bots use it on their own.** Server bots and dev bots draw from the whole Calindra menu now and then (`BOT_RADIO_LINES.calindra` in `shared/src/bot-radio.ts`). To have bots say it on a specific moment instead (round start, enemy down, a plant), add its exact `text` to that trigger's list in the same file.
+- **Update the agreed lines.** The first test in `shared/test/radio.test.ts` lists each menu's size and the Calindra texts on purpose, so a changed line shows up in review. Add the new one there, then run `node --run test` and `node --run typecheck`.
+- **Ship server and client together.** A server without the line drops it as an unknown id, silently. Old clients still work, they just do not offer it. No `PROTOCOL_VERSION` bump is needed.
+- **MCP agents.** The `radio` tool lists the lines in its description, so agents see the new one once their MCP runs the new code. For an MCP pinned to a commit (see the `bump-calindra-strike-mcp` skill), bump the pin after pushing.
+
 ## Builds and hosting
 
 ```bash

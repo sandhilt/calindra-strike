@@ -45,7 +45,7 @@ describe('bot radio table', () => {
   });
 
   it('takes the whole Calindra menu, and calls it rarely', () => {
-    assert.equal(BOT_RADIO_LINES.calindra.length, 5);
+    assert.deepEqual(BOT_RADIO_LINES.calindra, RADIO_LINES.filter((l) => l.menu === 'calindra').map((l) => l.id));
     assert.ok(BOT_RADIO_CHANCE.calindra < BOT_RADIO_CHANCE.roundStart);
   });
 

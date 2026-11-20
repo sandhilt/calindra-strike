@@ -1,4 +1,4 @@
-import { SPRAYS_PER_SPAWN, SPRAY_COOLDOWN_TICKS, BTN, CollisionWorld, type GameEvent, type MatchInfo, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
+import { RESPAWN_TICKS, SPRAYS_PER_SPAWN, SPRAY_COOLDOWN_TICKS, TICK_RATE, BTN, CollisionWorld, type GameEvent, type MatchInfo, MapBuilder, WEAPON, getMaps } from '@calindra-strike/shared';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
@@ -78,7 +78,7 @@ describe('Game', () => {
     assert.equal(b.state.health, 100);
   });
 
-  it('respawns the dead after 3 seconds, dropping from the sky', () => {
+  it('respawns the dead after 5 seconds, dropping from the sky', () => {
     const { game, join } = setup();
     const a = join('A');
     const b = join('B');
@@ -89,7 +89,10 @@ describe('Game', () => {
     game.input(a, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
     game.update();
     assert.equal(b.alive, false);
-    for (let i = 0; i < 181; i++) game.update();
+    assert.equal(RESPAWN_TICKS, 5 * TICK_RATE);
+    for (let i = 0; i < RESPAWN_TICKS - 1; i++) game.update();
+    assert.equal(b.alive, false, 'still dead just before the five seconds are up');
+    for (let i = 0; i < 2; i++) game.update();
     assert.equal(b.alive, true);
     assert.equal(b.state.dropping, true);
     assert.equal(b.state.y, game.map.dropHeight);
@@ -244,7 +247,7 @@ describe('sprays', () => {
     game.input(b, [{ seq: 1, buttons: BTN.ATTACK, yaw: 0, pitch: 0, weapon: 0, interp: game.now() }]);
     game.update();
     assert.equal(a.alive, false);
-    for (let i = 0; i < 181; i++) game.update();
+    for (let i = 0; i <= RESPAWN_TICKS; i++) game.update();
     assert.equal(a.alive, true);
     assert.equal(a.sprayCharges, SPRAYS_PER_SPAWN);
     assert.equal(a.nextSprayTick, 0);

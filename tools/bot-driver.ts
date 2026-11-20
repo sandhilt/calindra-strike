@@ -4,7 +4,7 @@ import {
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
 import {
-  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, readyToJump, waypointReached, type AimSkill,
+  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, readyToJump, restingSway, stepSway, waypointReached, type AimSkill,
 } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
@@ -14,7 +14,6 @@ export type DriveInput = Pick<Cmd, 'buttons' | 'yaw' | 'pitch' | 'weapon'>;
 
 const REPATH_DISTANCE_UNITS = 48;
 const CLOSE_ENEMY_UNITS = 300;
-const SIGHT_RANGE_UNITS = 1500;
 const RECOVERY_MS = 500;
 const MAX_PATROL_SKIPS = 6; // one lap of the ring
 const REPATH_MS = 1500; // a bot knocked off its route (a ledge, a push) plans again instead of aiming at a node it can no longer reach
@@ -23,8 +22,6 @@ const MAX_AIM_STEP_SECONDS = 0.1; // a long gap between snapshots does not let t
 /** How quickly the view closes on where it wants to look, per second: it slows down near the target like a hand does. */
 const AIM_EASE_PER_S = 10;
 const WALK_EASE_PER_S = 6;
-/** How quickly the hand's wobble drifts to a new offset, per second: a slow sway instead of a per-frame shake. */
-const WOBBLE_PER_S = 3;
 const STEER_BUTTONS = [
   BTN.FWD, BTN.FWD | BTN.LEFT, BTN.LEFT, BTN.BACK | BTN.LEFT,
   BTN.BACK, BTN.BACK | BTN.RIGHT, BTN.RIGHT, BTN.FWD | BTN.RIGHT,
@@ -102,8 +99,7 @@ export class BotDriver {
   private aimHead = false;
   private crouchRoll = 1;
   private crouching = false;
-  private wobbleYaw = 0;
-  private wobblePitch = 0;
+  private readonly sway = restingSway();
   private yaw = 0;
   private pitch = 0;
   private lastTime = -1;
@@ -133,7 +129,7 @@ export class BotDriver {
     const eyeY = y + eyeHeight(this.state);
 
     let enemy: (BombPoint & { id: number; ducked: boolean }) | null = null;
-    let enemyDistance = SIGHT_RANGE_UNITS;
+    let enemyDistance = this.aim.sightUnits;
     for (const player of dropping ? [] : players) {
       // A dead enemy stays in snapshots until respawn; treating the body as a threat kept bots from ever finishing the objective.
       if (player.team === team || player.team < 0 || player.dropping || !player.alive) continue;
@@ -254,14 +250,12 @@ export class BotDriver {
     const distance = Math.hypot(enemy.x - self.x, enemy.z - self.z);
     const wantYaw = bearing(self, enemy);
     const wantPitch = Math.atan2(aimY - eyeY, distance);
-    const drift = Math.min(1, WOBBLE_PER_S * dt);
-    const wobble = this.aim.jitterDeg * DEG * 0.3;
-    this.wobbleYaw += (gauss(this.random) * wobble - this.wobbleYaw) * drift;
-    this.wobblePitch += (gauss(this.random) * wobble * 0.6 - this.wobblePitch) * drift;
-    this.turn(wantYaw + this.errYaw + this.wobbleYaw, wantPitch + this.errPitch + this.wobblePitch, dt, this.aim.combatTurnDegPerSecond, AIM_EASE_PER_S);
+    stepSway(this.sway, this.aim, dt, this.random);
+    this.turn(wantYaw + this.errYaw + this.sway.yaw, wantPitch + this.errPitch + this.sway.pitch, dt, this.aim.combatTurnDegPerSecond, AIM_EASE_PER_S);
     const reacted = now >= this.reactAt;
     this.crouching = reacted && crouchesToShoot(this.aim, distance, this.state.weapon, this.crouchRoll);
-    const off = Math.hypot(wrapAngle(wantYaw - this.yaw), wantPitch - this.pitch);
+    // The bot cannot feel its sway, so it judges its aim against where it thinks the target is.
+    const off = Math.hypot(wrapAngle(wantYaw + this.sway.yaw - this.yaw), wantPitch + this.sway.pitch - this.pitch);
     return reacted && off < aimTolerance(distance, this.aimHead);
   }
 

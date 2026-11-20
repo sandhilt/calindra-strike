@@ -239,6 +239,13 @@ export interface AimSkill {
   burstExtraShots: number;
   /** Chance, rolled once per target, that the bot crouches to shoot it from range. */
   crouchChance: number;
+  /**
+   * Size of a slow wander in the aim that never settles and that the bot does not notice, in degrees. Up close it stays
+   * on the body; far away it is wider than the target, so long shots miss like a person's would.
+   */
+  swayDeg: number;
+  /** Farthest a bot spots an enemy, in world units. */
+  sightUnits: number;
 }
 
 export function aimSkill(skill: number): AimSkill {
@@ -253,7 +260,34 @@ export function aimSkill(skill: number): AimSkill {
     walkTurnDegPerSecond: at(300, 520),
     burstExtraShots: at(3, 6),
     crouchChance: at(0.25, 0.7),
+    swayDeg: at(2.4, 0.8),
+    sightUnits: at(1100, 2000),
   };
+}
+
+/** How fast the aim sway drifts toward its current offset, per second, and how long it keeps one offset on average. */
+const SWAY_DRIFT_PER_S = 4;
+const SWAY_HOLD_SECONDS = 0.5;
+
+export interface AimSway {
+  yaw: number;
+  pitch: number;
+  toYaw: number;
+  toPitch: number;
+}
+
+export const restingSway = (): AimSway => ({ yaw: 0, pitch: 0, toYaw: 0, toPitch: 0 });
+
+/** One step of the aim sway: now and then it picks a new offset of the skill's size and drifts to it, so it wanders instead of shaking. */
+export function stepSway(sway: AimSway, aim: AimSkill, dt: number, random: () => number): void {
+  if (random() < dt / SWAY_HOLD_SECONDS) {
+    const size = aim.swayDeg * DEG;
+    sway.toYaw = gauss(random) * size;
+    sway.toPitch = gauss(random) * size * 0.6;
+  }
+  const drift = Math.min(1, SWAY_DRIFT_PER_S * dt);
+  sway.yaw += (sway.toYaw - sway.yaw) * drift;
+  sway.pitch += (sway.toPitch - sway.pitch) * drift;
 }
 
 /** Each bot gets the configured skill give or take 0.15, so a room of bots does not all play alike. */
@@ -317,6 +351,7 @@ export class BotBrain {
   private pitch = 0;
   private aimInit = false;
   private errYaw = 0;
+  private readonly sway = restingSway();
   private errPitch = 0;
   private targetId = -1;
   private reactAt = 0;
@@ -379,7 +414,7 @@ export class BotBrain {
       if (this.directive?.kind === 'engage' && q.id !== this.directive.targetId) continue;
       if (!this.isEnemy(self, q, env.mode) || q.state.dropping) continue;
       const d = Math.hypot(q.state.x - ex, q.state.z - ez);
-      if (d > VIEW_RANGE) continue;
+      if (d > this.aim.sightUnits) continue;
       // field of view ~140 degrees, but close enemies are heard anyway
       const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + 44, q.state.z);
       if (d > HEAR_RANGE && Math.abs(wrapAngle(yaw - this.yaw)) > 70 * DEG) continue;
@@ -549,8 +584,10 @@ export class BotBrain {
       this.errYaw *= settle;
       this.errPitch *= settle;
       const jitter = this.aim.jitterDeg * DEG;
-      this.turnTo(wantYaw + this.errYaw + gauss(env.random) * jitter * 0.3, wantPitch + this.errPitch, dt, this.aim.combatTurnDegPerSecond);
-      const off = Math.hypot(wrapAngle(wantYaw - this.yaw), wantPitch - this.pitch);
+      stepSway(this.sway, this.aim, dt, env.random);
+      this.turnTo(wantYaw + this.sway.yaw + this.errYaw + gauss(env.random) * jitter * 0.3, wantPitch + this.sway.pitch + this.errPitch, dt, this.aim.combatTurnDegPerSecond);
+      // The bot cannot feel its sway, so it judges its aim against where it thinks the target is.
+      const off = Math.hypot(wrapAngle(wantYaw + this.sway.yaw - this.yaw), wantPitch + this.sway.pitch - this.pitch);
       const tolerance = aimTolerance(dist, this.aimHead);
       const ready = env.tick >= this.reactAt;
       const cur = weaponDef(s.weapon);

@@ -67,6 +67,8 @@ export interface ReloadRig {
   supportBoltGrip: THREE.Vector3 | null;
   /** Shotgun shell, hidden at rest. */
   shell: THREE.Object3D | null;
+  /** The sniper's spent cartridge, hidden until the bolt throws it. */
+  casing: THREE.Object3D | null;
   /** Where the supporting hand goes to swap the magazine or feed a shell. */
   handTarget: THREE.Vector3;
   /** Where the supporting hand goes instead of the magazine, on a gun whose reload is worked at the cover and the belt. */
@@ -157,6 +159,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
     boltGrip: null,
     supportBoltGrip: null,
     shell: null,
+    casing: null,
     handTarget: new THREE.Vector3(),
     supportHandReach: null,
     cover: null,
@@ -241,6 +244,13 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       const awpMag = part(g, 0, -1.7, -6);
       bx(awpMag, 2.2, 3.4, 4.6, mats.gun2, 0, 0, 0);
       bx(awpMag, 2.3, 0.5, 4.7, mats.lime, 0, -1.8, 0);
+      // A rifle cartridge lies along z like the shotgun's shell: a long brass case with a tapered neck and a bright rim.
+      const casing = part(g, 2.2, 2.4, 1);
+      cyl(casing, 0.85, 4.4, mats.brass, 0, 0, 0);
+      cyl(casing, 0.55, 1.4, mats.brass, 0, 0, -2.7);
+      cyl(casing, 0.95, 0.35, mats.steel, 0, 0, 2.3);
+      casing.visible = false;
+      rig.casing = casing;
       rig.magazine = awpMag;
       rig.bolt = boltHandle;
       rig.boltPull.set(0, 0, 5.5);

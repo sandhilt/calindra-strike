@@ -21,37 +21,38 @@ const REST: SwingPose = { arm: [0, 0, 0], wrist: [0, 0, 0] };
 const LIGHT_ORDER: readonly HammerSwing[] = ['rightToLeft', 'leftToRight', 'overhead'];
 
 /**
+ * The arcs are wide and the swings short: a long blow that still lands on the hammer's refire rhythm.
  * Wind up, strike through the centre of the view, hold the follow-through, then drift back to rest. Each swing outlasts the
  * hammer's 0.45 s refire, so a held attack starts the next wind-up from the last follow-through instead of from rest.
  */
 const SWINGS: Readonly<Record<HammerSwing, { readonly seconds: number; readonly keys: readonly SwingKey[] }>> = {
   rightToLeft: {
-    seconds: 0.75,
+    seconds: 0.55,
     keys: [
       { at: 0, ...REST },
-      { at: 0.24, arm: [0.12, -0.35, -0.2], wrist: [0, 0, -0.5] },
-      { at: 0.56, arm: [-0.05, 0.5, 0.2], wrist: [0, 0, 0.6] },
-      { at: 0.7, arm: [-0.03, 0.45, 0.18], wrist: [0, 0, 0.5] },
+      { at: 0.24, arm: [0.18, -0.525, -0.3], wrist: [0, 0, -0.75] },
+      { at: 0.56, arm: [-0.075, 0.75, 0.3], wrist: [0, 0, 0.9] },
+      { at: 0.7, arm: [-0.045, 0.675, 0.27], wrist: [0, 0, 0.75] },
       { at: 1, ...REST },
     ],
   },
   leftToRight: {
-    seconds: 0.75,
+    seconds: 0.55,
     keys: [
       { at: 0, ...REST },
-      { at: 0.24, arm: [0.1, 0.45, 0.2], wrist: [0, 0, 0.6] },
-      { at: 0.56, arm: [-0.05, -0.25, -0.15], wrist: [0, 0, -0.55] },
-      { at: 0.7, arm: [-0.03, -0.2, -0.12], wrist: [0, 0, -0.45] },
+      { at: 0.24, arm: [0.15, 0.675, 0.3], wrist: [0, 0, 0.9] },
+      { at: 0.56, arm: [-0.075, -0.375, -0.225], wrist: [0, 0, -0.825] },
+      { at: 0.7, arm: [-0.045, -0.3, -0.18], wrist: [0, 0, -0.675] },
       { at: 1, ...REST },
     ],
   },
   overhead: {
-    seconds: 0.75,
+    seconds: 0.55,
     keys: [
       { at: 0, ...REST },
-      { at: 0.28, arm: [0.5, 0.3, 0], wrist: [0.3, 0, 0] },
-      { at: 0.56, arm: [-0.5, 0.18, 0.08], wrist: [-0.95, 0, 0] },
-      { at: 0.7, arm: [-0.45, 0.15, 0.06], wrist: [-0.85, 0, 0] },
+      { at: 0.28, arm: [0.75, 0.45, 0], wrist: [0.45, 0, 0] },
+      { at: 0.56, arm: [-0.75, 0.27, 0.12], wrist: [-1.425, 0, 0] },
+      { at: 0.7, arm: [-0.675, 0.225, 0.09], wrist: [-1.275, 0, 0] },
       { at: 1, ...REST },
     ],
   },

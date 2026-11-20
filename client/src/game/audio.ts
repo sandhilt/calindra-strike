@@ -7,9 +7,13 @@ import { DEFAULT_SOUND_PACK, findSoundPack } from './sound-packs/index.ts';
 import type { Speak } from './speech.ts';
 import type { Pos, SoundKit, Sounds, StreakSound } from './sound-packs/types.ts';
 import { VOICES } from './sound-packs/voices.ts';
+import type { Surface } from './surface.ts';
+import { IMPACT_SOUND } from './surface-sound.ts';
 
 /** Longest sound (sniper tail) ends about 1.2 s after it starts; the margin covers timer jitter. */
 const VOICE_LIFETIME_MS = 2000;
+/** Two impacts closer than this are one: a shotgun's pellets land together and would stack into a burst of noise. */
+const IMPACT_GAP_SECONDS = 0.02;
 
 /** Length of the shared noise buffer, in seconds. */
 const NOISE_BUFFER_SEC = 4;
@@ -26,6 +30,7 @@ export class Sfx {
   private noise: AudioBuffer;
   private wind: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private listenerPos = { x: 0, y: 0, z: 0 };
+  private lastImpactAt = -1;
 
   private readonly kit: SoundKit;
   private readonly packs = new Map<string, Partial<Sounds>>();
@@ -201,6 +206,19 @@ export class Sfx {
       for (const burst of SPRAY_EMPTY_BURSTS) {
         this.noiseBurst(out, t + burst.delaySeconds, burst.frequencyHz, 3, 0.001, burst.durationSeconds, burst.gain);
       }
+    }
+  }
+
+  /** A bullet landing on `surface`. Pellets of one blast land together, so a short gap keeps a shotgun from stacking into noise. */
+  impact(surface: Surface, pos: Pos): void {
+    const now = this.ctx.currentTime;
+    if (now - this.lastImpactAt < IMPACT_GAP_SECONDS) return;
+    this.lastImpactAt = now;
+    const out = this.out(pos, 200);
+    const jitter = 0.9 + Math.random() * 0.2;
+    for (const layer of IMPACT_SOUND[surface]) {
+      if (layer.kind === 'noise') this.noiseBurst(out, now, layer.hz * jitter, layer.q, layer.attack ?? 0.001, layer.decay, layer.gain, layer.filter);
+      else this.tone(out, now, layer.wave, layer.from * jitter, layer.to * jitter, layer.seconds, layer.gain);
     }
   }
 

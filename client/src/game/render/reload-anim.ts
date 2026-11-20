@@ -31,6 +31,8 @@ export interface ReloadPose {
   supportBolt: number;
   /** The shell below the loading port, 1 far below .. 0 at the port. */
   shellLift: number;
+  /** The spent cartridge thrown from the AWP's port, 0 as it leaves .. 1 when it has fallen out of view, -1 when none is in the air. */
+  casing: number;
   shellVisible: boolean;
   /** Supporting hand reaches for the magazine or the loading port, 0..1. */
   hand: number;
@@ -58,6 +60,7 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   supportBolt: 0,
   shellLift: 1,
   shellVisible: false,
+  casing: -1,
   hand: 0,
   cover: 0,
   beltLaid: 1,
@@ -223,7 +226,16 @@ const BOLT_CYCLE = {
   workTo: 0.82,
   rollOut: 0.84,
   roll: 0.55,
+  /** Share of the bolt's work when the spent cartridge is thrown, from the draw back until the handle is on its way home. */
+  casingFrom: 0.22,
+  casingTo: 0.8,
 } as const;
+
+/** How far the spent cartridge has flown, 0..1, for the bolt's work `u` (0..1), or -1 while none is in the air. */
+function casingFlight(u: number): number {
+  const { casingFrom, casingTo } = BOLT_CYCLE;
+  return u >= casingFrom && u < casingTo ? (u - casingFrom) / (casingTo - casingFrom) : -1;
+}
 
 /**
  * The gun between two AWP shots, t running 0..1 over the bolt cycle: it rolls to show the action, the shooting hand takes
@@ -241,5 +253,6 @@ export function boltCyclePose(t: number): ReloadPose | null {
     boltPull: t < c.workFrom ? 0 : bolt.pull,
     boltLift: t < c.workFrom ? 0 : bolt.lift,
     boltHand: ramp(t, c.reachFrom, c.workFrom) * (1 - ramp(t, c.releaseFrom, c.releaseTo)),
+    casing: casingFlight((t - c.workFrom) / (c.workTo - c.workFrom)),
   };
 }

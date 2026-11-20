@@ -8,3 +8,10 @@ export function weaponMenuKey(code: string, choices: readonly WeaponId[] = PRIMA
   if (!digit) return null;
   return choices[Number(digit[1]) - 1] ?? null;
 }
+
+const CONFIRM_CODES: ReadonlySet<string> = new Set(['Enter', 'NumpadEnter', 'Space']);
+
+/** Whether a key says "pronto" on the ready screen: it confirms and joins the match like the play button. */
+export function isReadyKey(code: string): boolean {
+  return CONFIRM_CODES.has(code);
+}

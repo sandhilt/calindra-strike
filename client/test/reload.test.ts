@@ -107,6 +107,20 @@ test('every reloadable weapon has a synthesized sound for each of its cues', () 
   assert.equal(calls.length, 0);
 });
 
+test('the AWP throws a spent cartridge while the bolt is drawn back, and none is in the air before or after', () => {
+  const samples = Array.from({ length: 200 }, (_, i) => boltCyclePose(i / 200)).filter((p) => p !== null);
+  const flying = samples.filter((p) => p.casing >= 0);
+  assert.ok(flying.length > 20, 'the cartridge stays in the air long enough to be seen');
+  assert.ok(flying.every((p) => p.casing >= 0 && p.casing < 1));
+  const first = samples.findIndex((p) => p.casing >= 0);
+  const lastFlight = samples.findLastIndex((p) => p.casing >= 0);
+  assert.ok(samples[first].boltPull > 0, 'it leaves once the bolt is moving back');
+  assert.ok(samples.slice(0, first).every((p) => p.casing === -1) && samples.slice(lastFlight + 1).every((p) => p.casing === -1));
+  assert.ok(flying.every((p, i) => i === 0 || p.casing >= flying[i - 1].casing), 'it only moves on');
+  assert.equal(RESTING_RELOAD_POSE.casing, -1);
+  assert.equal(reloadPose({ phase: 'out', t: 0.5, shell: 0 }, WEAPON.SNIPER).casing, -1, 'a reload throws no cartridge');
+});
+
 test('between AWP shots the gun rolls, the bolt is lifted, drawn back and pushed home, then it settles', () => {
   assert.equal(boltCyclePose(-0.1), null);
   assert.equal(boltCyclePose(1), null, 'idle once the gun can fire again');

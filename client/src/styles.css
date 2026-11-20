@@ -2539,3 +2539,31 @@ input:focus-visible {
   .bomb-carry b { font-size: 13px; }
   .bomb-carry span { font-size: 12px; }
 }
+
+/* The ready row closes the weapon menu: a glowing rule divides it from the weapons and the row itself is lit. */
+.cs-ready {
+  position: relative;
+  margin-top: 18px;
+  border-color: var(--lime);
+  background: linear-gradient(170deg, rgba(165, 250, 0, 0.18), rgba(19, 19, 18, 0.9));
+}
+
+.cs-ready::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--lime) 15%, var(--lime) 85%, transparent);
+  box-shadow: 0 0 8px var(--lime);
+}
+
+.cs-ready .cs-key,
+.cs-ready .cs-name {
+  color: var(--lime);
+}
+
+.cs-ready small {
+  color: var(--text);
+}

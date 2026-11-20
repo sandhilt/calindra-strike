@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SPRAY_SIZE } from '@calindra-strike/shared';
+import { sparkPlan, type Surface } from '../surface.ts';
 import { brandImage } from '../../brand.ts';
 import { flashTexture } from './viewmodel.ts';
 import type { GroundAt } from './debris-sim.ts';
@@ -30,6 +31,16 @@ interface Particle {
   max: number;
 }
 
+interface Spark extends Particle {
+  color: THREE.Color;
+  /** Only the high tier's sparks dim as they die; the other tiers keep the plain look. */
+  fades: boolean;
+}
+
+/** Glints fly slower and last longer than sparks, so they hang in the air like embers. */
+const GLINT_SPEED_UNITS = 70;
+const GLINT_LIFE_SECONDS = 0.45;
+
 const MAX_SPARKS = 500;
 const MAX_CUBES = 240;
 
@@ -58,7 +69,8 @@ export class Effects {
   private readonly sprays: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
   private readonly sprayTextures = new Map<string, THREE.CanvasTexture>();
   private sprayIdx = 0;
-  private readonly sparks: Particle[] = [];
+  private readonly sparks: Spark[] = [];
+  private sparkle = false;
   private readonly sparkGeo: THREE.BufferGeometry;
   private readonly sparkPts: THREE.Points;
   private readonly cubes: (Particle & { r: THREE.Euler; w: THREE.Vector3; color: THREE.Color })[] = [];
@@ -110,10 +122,11 @@ export class Effects {
     }
     this.sparkGeo = new THREE.BufferGeometry();
     this.sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 3), 3));
+    this.sparkGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 3), 3));
     this.sparkGeo.setDrawRange(0, 0);
     this.sparkPts = new THREE.Points(
       this.sparkGeo,
-      new THREE.PointsMaterial({ color: '#ffd38a', size: 2.6, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.PointsMaterial({ vertexColors: true, size: 2.6, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     this.sparkPts.frustumCulled = false;
     scene.add(this.sparkPts);
@@ -171,6 +184,7 @@ export class Effects {
   /** Fewer particles on the lighter tiers. */
   setQuality(quality: Quality): void {
     this.tracerCap = QUALITY[quality].fx.tracers;
+    this.sparkle = QUALITY[quality].fx.sparkle;
     this.gun.setQuality(quality);
   }
 
@@ -211,7 +225,7 @@ export class Effects {
     f.t = 0.05;
   }
 
-  impact(pos: THREE.Vector3, normal: THREE.Vector3 | null): void {
+  impact(pos: THREE.Vector3, normal: THREE.Vector3 | null, surface: Surface = 'concrete'): void {
     if (normal) {
       const d = this.decals[this.decalIdx];
       this.decalIdx = (this.decalIdx + 1) % this.decals.length;
@@ -223,11 +237,15 @@ export class Effects {
     }
     const n = normal ?? new THREE.Vector3(0, 1, 0);
     this.gun.dust(pos, n);
-    for (let i = 0; i < 6; i++) {
-      if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
-      const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize().add(n).multiplyScalar(120 + Math.random() * 220);
-      this.sparks.push({ p: pos.clone(), v, life: 0, max: 0.18 + Math.random() * 0.2 });
-    }
+    const plan = sparkPlan(surface, this.sparkle);
+    for (let i = 0; i < plan.sparks; i++) this.addSpark(pos, n, plan.color, 120 + Math.random() * 220, 0.18 + Math.random() * 0.2, plan.fades);
+    for (let i = 0; i < plan.glints; i++) this.addSpark(pos, n, '#fff1a8', GLINT_SPEED_UNITS * (0.5 + Math.random()), GLINT_LIFE_SECONDS * (0.7 + Math.random() * 0.6), true);
+  }
+
+  private addSpark(pos: THREE.Vector3, normal: THREE.Vector3, color: string, speed: number, life: number, fades: boolean): void {
+    if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
+    const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize().add(normal).multiplyScalar(speed);
+    this.sparks.push({ p: pos.clone(), v, life: 0, max: life, color: new THREE.Color(color), fades });
   }
 
   burst(pos: THREE.Vector3, color: string, n = 14): void {
@@ -280,6 +298,7 @@ export class Effects {
     }
 
     const arr = this.sparkGeo.attributes.position.array as Float32Array;
+    const rgb = this.sparkGeo.attributes.color.array as Float32Array;
     let n = 0;
     for (let i = this.sparks.length - 1; i >= 0; i--) {
       const s = this.sparks[i];
@@ -293,10 +312,15 @@ export class Effects {
       arr[n * 3] = s.p.x;
       arr[n * 3 + 1] = s.p.y;
       arr[n * 3 + 2] = s.p.z;
+      const fade = s.fades ? 1 - s.life / s.max : 1;
+      rgb[n * 3] = s.color.r * fade;
+      rgb[n * 3 + 1] = s.color.g * fade;
+      rgb[n * 3 + 2] = s.color.b * fade;
       n++;
     }
     this.sparkGeo.setDrawRange(0, n);
     this.sparkGeo.attributes.position.needsUpdate = true;
+    this.sparkGeo.attributes.color.needsUpdate = true;
 
     let k = 0;
     for (let i = this.cubes.length - 1; i >= 0; i--) {

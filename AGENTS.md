@@ -97,12 +97,34 @@ tools ──► server, shared
 - **Shared code is deterministic.** Client prediction and the server run the same simulation from `shared/`. Do not add randomness, wall-clock time or environment-specific behavior there; use the seeded spread helpers. A change to movement or weapons affects both sides and needs a test in `shared/test/`.
 - **Protocol changes:** edit `shared/src/protocol.ts`, the server handler in `server/src/index.ts` / `game.ts`, and the client message handling in `client/src/game/client.ts` (`net.ts` is transport only, the handshake is in `client/src/main.ts`). Bump `PROTOCOL_VERSION` in `shared/src/constants.ts` for incompatible changes. Keep message validation strict, the server treats every client message as untrusted.
 - **Server is authoritative.** Hit detection is lag-compensated hitscan (rewind up to 250 ms) at a 60 Hz tick. Never trust client-reported damage or positions.
+- **Surfaces and impact sounds.** Every map `Mat` maps to a `Surface` in `shared/src/surface.ts` (the client plays it, the MCP reports it). A surface also needs a sound layer set in `client/src/game/surface-sound.ts` and a spark look in `client/src/game/surface.ts`; both are `Record<Surface, ...>`, so a missing entry fails the typecheck. Coloured sparks and glints are the high tier only (`fx.sparkle` in `quality.ts`), the sounds are on every tier. `CollisionWorld.trace` returns the `mat` it hit.
+- **MCP senses.** `get_state.sounds` is built in `tools/mcp/session.ts` from the server's shot and hit events plus the agent's own shots (the server never sends a player their own, so they come from the magazine dropping). Loudness is `heardIntensity` in `shared/src/hearing.ts`, the same curve as the browser's positional audio. `aim` and `fire` are an overlay on the pilot's command in `tools/mcp/actions.ts`.
 - **Maps** live in `shared/src/maps/` and are built with `builder.ts`. Adding a map means registering it in `maps/index.ts`, passing `maps.test.ts` and updating the map x mode combination count asserted in `server/test/config.test.ts`; bots use an auto-generated nav grid (`server/src/nav.ts`), so check bots can walk it.
 - **No external game assets.** Models, textures and sounds are generated at runtime. The only bundled files are the brand PNGs in `client/public/brand` and the `@fontsource` fonts. Do not add copyrighted or third-party game assets.
 - **Config comes from env** (`server/src/config.ts`). A new setting also needs `.env.example`, the README table, an explicit entry in `compose.yaml` (it does not pass the whole environment through) and a case in `server/test/config.test.ts`. Some existing settings (`PORT`, `HOST`, `MAX_PER_IP`, `AIRDROP_FIRST_SECONDS`, `TRUST_PROXY`) are not documented yet.
 - **Backend URL:** the client picks it at build time with `VITE_GAME_SERVER` (`client/src/config.ts`); the CSP `connect-src` in `vercel.json` must agree with it.
 - **Hosting and secrets stay out of the repo.** No production URLs, credentials or operator instructions; `.env` files are git-ignored except `.env.example`.
 - Game UI text is mostly Portuguese (a few terms such as kills and headshot stay in English); code, comments, commits and docs are in English.
+
+## Keep the performance tier light
+
+The `desempenho` tier exists for weak machines (integrated graphics, old laptops). Never add a heavy feature to it.
+
+- **Off by default.** A new visual or audio feature that costs frame time, draw calls, fill rate, memory or extra scene passes (post-processing, extra lights or shadows, more particles, bigger render targets, reflections, ray-marched passes) is a column in `QualityProfile` in `client/src/game/render/quality.ts`, on only for the tiers that can afford it, and always `false` or zero for `performance`. Say in a comment which tiers have it, as `fx.sparkle` and `lightRt` do (high only).
+- **Not a branch on the tier name.** Read the profile, so the decision stays in the table.
+- **Gate it at the source.** The cost must not be paid when the tier is off: do not build the objects, render targets or passes, rather than hiding their output. A feature that needs hardware support (WebGL 2, float targets) also checks the card, and falls back when it throws.
+- **Test it.** Add a case next to `only the high tier sparkles` in `client/test/` asserting which tiers have it, so a later change cannot switch it on for `performance`.
+- **Cheap is allowed.** Gameplay, sound, text and small effects that cost almost nothing run on every tier, as the impact sounds do. When unsure, measure on the performance tier or leave it off.
+
+## Document every new feature
+
+Whenever you add a feature, document it in the same change. A feature that is only in the code is not finished.
+
+- **Players.** Gameplay, controls, modes, graphics tiers, sounds and menus go in `README.md` (the feature list, the controls line or a settings table).
+- **Settings.** A new env setting also follows "Config comes from env" below.
+- **Agents.** A new MCP tool, a new field in `get_state` or a change in how agents perceive the game goes in `README.md` under "Play with an AI agent (MCP)", in the tool's own `description` (that is what agents read) and in `.claude/skills/play-calindra-strike/SKILL.md`. Then bump the MCP pin (`bump-calindra-strike-mcp` skill).
+- **Developers.** A hidden mode, a script, a table others extend (surfaces, radio lines, maps) or a rule a future change could break goes here in `AGENTS.md`, next to the closest section.
+- Say what it does and where it lives, in the same short style as the rest, and keep numbers that are guesses labelled as tuning values.
 
 ## Playing the game (agents)
 

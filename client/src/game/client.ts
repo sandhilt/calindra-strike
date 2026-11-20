@@ -77,7 +77,10 @@ import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
 import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
+import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
+import { lightRtSupported } from './render/rt-support.ts';
+import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
@@ -283,6 +286,9 @@ export class ClientGame {
   private radioMenu: OpenRadioMenu = null;
   private readonly speakRadio = createSpeaker(RADIO_VOICE, 'radio');
   private podiumActive = false;
+  /** The graphics card can run the light ray-marched lighting; cleared for good if it ever throws. */
+  private lightRtAvailable = false;
+  private lightRt: LightRt | null = null;
   private menuOpen = false;
   private elapsed = 0;
 
@@ -308,6 +314,7 @@ export class ClientGame {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.autoClear = true;
+    this.lightRtAvailable = lightRtSupported(readGpuFacts(this.renderer));
     container.append(this.renderer.domElement);
     this.renderer.domElement.tabIndex = -1;
 
@@ -368,8 +375,8 @@ export class ClientGame {
   // ------------------------------------------------------------------ setup
 
   private onBeforeUnload = (e: BeforeUnloadEvent): void => {
-    // guards against Ctrl+W (crouch + forward) closing the tab mid-match; off in dev for hot reload
-    if (this.running && !import.meta.env.DEV) {
+    // browsers reserve Ctrl+W, so keydown cannot cancel it; the leave-site prompt is the only guard (crouch + forward closes the tab otherwise)
+    if (this.running) {
       e.preventDefault();
       e.returnValue = '';
     }
@@ -379,6 +386,7 @@ export class ClientGame {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h, false);
+    this.lightRt?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.view.camera.aspect = w / h;
@@ -439,10 +447,39 @@ export class ClientGame {
     const profile = QUALITY[quality];
     this.appliedQuality = quality;
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
+    this.applyLightRt(profile.lightRt);
     this.effects.setQuality(quality);
     this.view.setQuality(quality);
     if (this.world) applyShadowQuality(this.world.sun, profile);
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
+  }
+
+  /** Turns the ray-marched lighting on for a tier that has it and a card that can run it, and off otherwise. */
+  private applyLightRt(wanted: boolean): void {
+    if (!wanted || !this.lightRtAvailable) {
+      this.lightRt?.dispose();
+      this.lightRt = null;
+      return;
+    }
+    if (this.lightRt) return;
+    try {
+      this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1);
+    } catch {
+      this.lightRtAvailable = false;
+    }
+  }
+
+  private drawScene(): void {
+    if (this.lightRt) {
+      try {
+        this.lightRt.render();
+        return;
+      } catch {
+        this.lightRtAvailable = false;
+        this.applyLightRt(false);
+      }
+    }
+    this.renderer.render(this.scene, this.camera);
   }
 
   private setRoster(roster: RosterEntry[]): void {
@@ -831,7 +868,7 @@ export class ClientGame {
     const bomb = this.bomb;
     const site = bomb && this.map.flagBases[1 - bomb.attackers];
     if (!bomb || !site) return;
-    const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site: { x: site.x, y: this.me.y, z: site.z }, name: id => this.nameOf(id).name });
+    const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site: { x: site.x, y: this.me.y, z: site.z }, name: id => this.nameOf(id).name, practice: this.match.phase === 'warmup' });
     if (!reason) return;
     this.hud.info(reason);
     this.sfx.denied();
@@ -869,9 +906,9 @@ export class ClientGame {
       return;
     }
     hud.setBomb({
-      text: bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name),
+      text: bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name, this.match.phase === 'warmup'),
       plant: plantProgress(bomb, now),
-      role: bombRole(bomb, this.myTeam),
+      role: bombRole(bomb, this.myTeam, this.match.phase === 'warmup'),
       blackFriday: bomb.blackFriday,
       carry: this.spectator ? null : carryNotice(bomb, this.myId),
       activity: this.spectator ? bombActivity(bomb, now, id => this.nameOf(id)) : null,
@@ -1265,7 +1302,9 @@ export class ClientGame {
         this.effects.projectile(origin, end, shotOrigin, projectile);
       }
       if (!hitPlayer && wall && wall.t <= dist + 0.01 && (!melee || wall.t < def.range)) {
-        this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz));
+        const surface = surfaceOf(wall.mat);
+        this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz), surface);
+        this.sfx.impact(surface, end);
       }
     }
   }
@@ -1301,7 +1340,11 @@ export class ClientGame {
       const len = dir.length();
       dir.divideScalar(len || 1);
       const hit = this.collision.trace(ox, oy, oz, dir.x, dir.y, dir.z, len + 2);
-      if (hit && Math.abs(hit.t - len) < 3) this.effects.impact(end, new THREE.Vector3(hit.nx, hit.ny, hit.nz));
+      if (hit && Math.abs(hit.t - len) < 3) {
+        const surface = surfaceOf(hit.mat);
+        this.effects.impact(end, new THREE.Vector3(hit.nx, hit.ny, hit.nz), surface);
+        this.sfx.impact(surface, end);
+      }
     }
   }
 
@@ -1404,7 +1447,7 @@ export class ClientGame {
       });
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.drawScene();
     if (showView) this.view.render(this.renderer);
 
     this.updateHud(zoomed);
@@ -1772,6 +1815,7 @@ export class ClientGame {
     this.flagRenderer?.dispose();
     this.bombRenderer?.dispose();
     this.world?.dispose();
+    this.lightRt?.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();

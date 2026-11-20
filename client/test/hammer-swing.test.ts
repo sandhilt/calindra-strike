@@ -44,7 +44,7 @@ test('a held attack flows from swing to swing without a jump and settles at rest
     worst = Math.max(worst, largestStep(shown, next));
     shown = next;
   }
-  assert.ok(worst < 0.2, 'largest change in one frame was ' + worst.toFixed(3) + ' rad');
+  assert.ok(worst < 0.3, 'largest change in one frame was ' + worst.toFixed(3) + ' rad');
   for (let f = 0; f < 120; f++) shown = player.step(FRAME);
   assert.ok(Math.max(...angles(shown).map(Math.abs)) < 0.001, 'back at rest');
 });

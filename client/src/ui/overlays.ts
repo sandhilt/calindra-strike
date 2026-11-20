@@ -5,7 +5,7 @@ import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
-import { weaponMenuKey } from '../game/weapon-menu.ts';
+import { isReadyKey, weaponMenuKey } from '../game/weapon-menu.ts';
 import { ICONS, gameLogo, h, svg } from './dom.ts';
 
 const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
@@ -73,19 +73,23 @@ export class Overlays {
       this.weaponRows.set(id, row);
     });
     this.renderPrimaryChoice();
+    const play = h('button', { class: 'cs-row cs-ready', type: 'button', title: 'Enter ou espaço também confirmam', 'aria-label': 'jogar (enter)', onclick: () => hooks.resume() }, [
+      h('span', { class: 'cs-key', 'aria-hidden': 'true', text: '↵' }),
+      h('span', { class: 'cs-name', text: 'Jogar' }),
+      h('small', { text: 'entra na partida' }),
+    ]);
     const weapons = h('div', { class: 'cs-menu', role: 'group', 'aria-label': 'Arma principal' }, [
       h('div', { class: 'cs-title', text: 'Escolha sua arma' }),
       ...this.weaponRows.values(),
+      play,
       h('div', { class: 'cs-foot', text: 'Aperte o número ou clique' }),
     ]);
-    const play = h('button', { class: 'btn btn-primary', type: 'button', text: 'clique para jogar', onclick: () => hooks.resume() });
     this.click = h('div', { class: 'overlay' }, [
       h('div', { class: 'click-to-play' }, [
         gameLogo('game-logo cta-logo'),
         h('h2', { class: 'wordmark', text: 'pronto?' }),
         h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
         weapons,
-        play,
         this.readyCountdownEl,
         h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),
       ]),
@@ -198,9 +202,15 @@ export class Overlays {
     }
   }
 
-  /** The number keys pick a weapon while the "pronto?" screen is up. Nothing else sees them, so they cannot switch weapons in the world. */
+  /** The number keys pick a weapon and Enter or Space confirms while the "pronto?" screen is up. Nothing else sees them, so they cannot act in the world. */
   private readonly onMenuKey = (e: KeyboardEvent): void => {
     if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (isReadyKey(e.code)) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.hooks.resume();
+      return;
+    }
     const id = weaponMenuKey(e.code);
     if (id === null) return;
     e.preventDefault();

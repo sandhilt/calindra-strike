@@ -24,6 +24,8 @@ export interface FxProfile {
   casingChance: number;
   /** Rounds drawn on the machine gun's ammo belt in first person. */
   beltLinks: number;
+  /** Impact sparks take the colour of the surface and add long yellow glints. Off draws the plain sparks. */
+  sparkle: boolean;
 }
 
 export interface QualityProfile {
@@ -41,6 +43,8 @@ export interface QualityProfile {
   shadowMapPx: number;
   /** Side of the image-based lighting cube in pixels. */
   envMapPx: number;
+  /** Light ray-marched lighting, on only where the graphics card supports it. */
+  lightRt: boolean;
   /** Minimum gap between redraws of the defuse laptop screen, in ms. */
   laptopScreenRefreshMs: number;
   fx: FxProfile;
@@ -55,8 +59,9 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadows: true,
     shadowMapPx: 2048,
     envMapPx: 256,
+    lightRt: true,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10 },
+    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10, sparkle: true },
   },
   low: {
     label: 'leve',
@@ -66,8 +71,9 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadows: true,
     shadowMapPx: 1024,
     envMapPx: 256,
+    lightRt: false,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6 },
+    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6, sparkle: false },
   },
   performance: {
     label: 'desempenho',
@@ -77,8 +83,9 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadows: false,
     shadowMapPx: 1024,
     envMapPx: 64,
+    lightRt: false,
     laptopScreenRefreshMs: 250,
-    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4 },
+    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4, sparkle: false },
   },
 };
 

@@ -18,6 +18,9 @@ interface Status {
   teams?: number[] | null;
 }
 
+/** The lobby has no login, so password managers must not offer to fill its fields: Bitwarden, LastPass and 1Password each read their own opt-out. */
+const NO_PASSWORD_MANAGER = { 'data-bwignore': 'true', 'data-lpignore': 'true', 'data-1p-ignore': 'true' } as const;
+
 const TILE_ICONS = [
   ICONS.crate,
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>',
@@ -55,10 +58,12 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   const nameInput = h('input', {
     class: 'input',
     id: 'nick',
+    name: 'nickname',
     maxlength: 16,
     placeholder: 'seu apelido',
     autocomplete: 'nickname',
     spellcheck: 'false',
+    ...NO_PASSWORD_MANAGER,
     value: settings.name,
   });
 
@@ -101,7 +106,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   };
   drawGraphics();
 
-  const codeInput = h('input', { class: 'input', maxlength: 64, placeholder: 'código do escritório', autocomplete: 'off', value: settings.code });
+  const codeInput = h('input', { class: 'input', name: 'office-code', maxlength: 64, placeholder: 'código do escritório', autocomplete: 'off', ...NO_PASSWORD_MANAGER, value: settings.code });
   const codeField = h('div', { class: 'field hidden' }, [h('label', { class: 'label', text: 'código de acesso' }), codeInput]);
 
   const err = h('p', { class: 'form-error', role: 'alert', text: error });

@@ -17,6 +17,8 @@ const RELOAD_PITCH = 0.12;
 /** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
 const RELOAD_DIP_UNITS = 6;
 const SEAT_KICK_UNITS = 1.2;
+/** Where the spent AWP cartridge goes in weapon units: out to the right of the port, over a short arc, then down. */
+const CASING_THROW = { rightUnits: 7, riseUnits: 6, fallUnits: 11, backUnits: 3, spinRad: 9 } as const;
 const PISTOL_KICK = { riseUnits: 0.85, backUnits: 3.6, pitchRad: 0.26 };
 /** Guns reloaded at a cover and a belt need less roll and dip than a magazine gun, or the action leaves the frame. */
 const RELOAD_FRAMING: Partial<Record<WeaponId, { roll: number; dip: number }>> = { [WEAPON.LMG]: { roll: 0.7, dip: 0.35 } };
@@ -84,12 +86,15 @@ export class ViewModel {
   private model: WeaponModel | null = null;
   private spareMagazine: THREE.Object3D | null = null;
   private leftHand: THREE.Group | null = null;
+  /** The hammer's left hand: it hangs in the view on its own, so the swing of the right arm never drags it along. */
+  private looseHand: THREE.Group | null = null;
   private rightHand: THREE.Group | null = null;
   private readonly handRest = new THREE.Vector3();
   private readonly magRest = new THREE.Vector3();
   private magRestPitch = 0;
   private readonly supportTarget = new THREE.Vector3();
   private readonly shellRest = new THREE.Vector3();
+  private readonly casingRest = new THREE.Vector3();
   private weaponId: WeaponId | -1 = -1;
   private readonly flash: THREE.Sprite;
   private flashT = 0;
@@ -175,6 +180,7 @@ export class ViewModel {
       into = g;
       add(4, 4, 14, this.sleeve, 2.2, -4.3, 5, 0.3, 0.62);
       this.hammerWrist = wrist;
+      this.looseHand = this.freeHand(glove);
       return null;
     }
     // right hand on the grip; forearm leaves the screen toward the bottom-right
@@ -205,9 +211,30 @@ export class ViewModel {
     return support;
   }
 
+  /** An idle left hand and forearm, in view units, low on the left of the view where nothing reaches it. */
+  private freeHand(glove: THREE.Material): THREE.Group {
+    const free = new THREE.Group();
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    const part = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, ry = 0, rx = 0) => {
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.scale.set(w, h, d);
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(rx, ry, 0);
+      free.add(mesh);
+    };
+    part(2.1, 2.2, 2.2, glove, 0, 0, 0);
+    part(2, 2, 7, this.sleeve, -1.1, -2.15, 2.5, -0.3, 0.62);
+    free.position.set(-8.5, -7.5, -17);
+    free.rotation.set(0.2, 0.25, 0.1);
+    this.kickGroup.add(free);
+    return free;
+  }
+
   setWeapon(id: WeaponId): void {
     if (id === this.weaponId) return;
     if (this.model) this.kickGroup.remove(this.model.group);
+    if (this.looseHand) this.kickGroup.remove(this.looseHand);
+    this.looseHand = null;
     const m = buildWeapon(id, this.beltLinks);
     m.group.traverse((o) => {
       o.castShadow = false;
@@ -222,6 +249,7 @@ export class ViewModel {
       m.group.add(this.spareMagazine);
     }
     if (m.rig.shell) this.shellRest.copy(m.rig.shell.position);
+    if (m.rig.casing) this.casingRest.copy(m.rig.casing.position);
     this.model = m;
     this.weaponId = id;
     this.kickFeel = kickFeelFor(id);
@@ -371,6 +399,19 @@ export class ViewModel {
     return pose ?? RESTING_RELOAD_POSE;
   }
 
+  /** The spent cartridge leaves the port, rises a little, and falls away on a spin, so it crosses the view beside the receiver. */
+  private poseCasing(casing: THREE.Object3D, flight: number): void {
+    casing.visible = flight >= 0;
+    if (flight < 0) return;
+    const c = CASING_THROW;
+    casing.position.set(
+      this.casingRest.x + c.rightUnits * flight,
+      this.casingRest.y + c.riseUnits * flight - c.fallUnits * flight * flight,
+      this.casingRest.z + c.backUnits * flight,
+    );
+    casing.rotation.set(c.spinRad * flight, 0.4 * flight, c.spinRad * 0.5 * flight);
+  }
+
   /** Sets every moving part of the weapon each frame, so nothing stays displaced once the reload ends. */
   private applyReloadPose(pose: ReloadPose, shotSlide: number): void {
     const rig = this.model?.rig;
@@ -394,6 +435,7 @@ export class ViewModel {
       }
     }
     poseFeed(rig, pose, this.belt.feed, MAG_FALL_UNITS);
+    if (rig.casing) this.poseCasing(rig.casing, pose.casing);
     if (rig.shell) {
       rig.shell.visible = pose.shellVisible;
       rig.shell.position.copy(this.shellRest);

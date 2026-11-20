@@ -219,8 +219,47 @@ function settledNear(s: PlayerState, goal: BombGoal | null): boolean {
   return goal?.settleRadiusUnits !== undefined && Math.hypot(goal.x - s.x, goal.z - s.z) <= goal.settleRadiusUnits;
 }
 
-function gauss(r: () => number): number {
+export function gauss(r: () => number): number {
   return (r() + r() + r() - 1.5) / 0.75;
+}
+
+/** What a bot's skill (0..1) means for its aim. Server bots and dev bots read the same table, so BOT_SKILL means the same for both. */
+export interface AimSkill {
+  /** Ticks from spotting a target to the first shot, before a random 0..8 more. */
+  reactTicks: number;
+  /** Aim error when a target is first spotted; it shrinks at `settlePerSecond`. */
+  errorDeg: number;
+  headChance: number;
+  settlePerSecond: number;
+  jitterDeg: number;
+  combatTurnDegPerSecond: number;
+  walkTurnDegPerSecond: number;
+  /** An automatic weapon fires bursts of 3 shots plus up to this many. */
+  burstExtraShots: number;
+}
+
+export function aimSkill(skill: number): AimSkill {
+  const at = (lo: number, hi: number) => lo + (hi - lo) * skill;
+  return {
+    reactTicks: at(24, 9),
+    errorDeg: at(6, 2),
+    headChance: at(0.15, 0.5),
+    settlePerSecond: at(2.2, 5.5),
+    jitterDeg: at(0.9, 0.3),
+    combatTurnDegPerSecond: at(260, 620),
+    walkTurnDegPerSecond: at(300, 520),
+    burstExtraShots: at(3, 6),
+  };
+}
+
+/** Each bot gets the configured skill give or take 0.15, so a room of bots does not all play alike. */
+export function botSkill(base: number, random: () => number): number {
+  return clamp(base + (random() - 0.5) * 0.3, 0, 1);
+}
+
+/** How far off the aim may be and still shoot: about the target's head or chest, at that distance. */
+export function aimTolerance(distance: number, head: boolean): number {
+  return Math.atan2(head ? 7 : 12, Math.max(1, distance)) + 0.6 * DEG;
 }
 
 /** Angle from eye to a point, in the game's yaw/pitch convention. */
@@ -285,10 +324,10 @@ export class BotBrain {
   private stuck = 0;
   private prevButtons = 0;
 
-  private readonly skill: number;
+  private readonly aim: AimSkill;
 
   constructor(skill: number) {
-    this.skill = skill;
+    this.aim = aimSkill(skill);
   }
 
   /** Called when the bot (re)spawns so it forgets the previous life. */
@@ -298,10 +337,6 @@ export class BotBrain {
     this.path = [];
     this.goal = null;
     this.stuck = 0;
-  }
-
-  private lerpSkill(lo: number, hi: number): number {
-    return lo + (hi - lo) * this.skill;
   }
 
   private turnTo(yaw: number, pitch: number, dt: number, rateDeg: number): void {
@@ -464,11 +499,11 @@ export class BotBrain {
         this.targetId = id;
         if (t) {
           this.spotted = true;
-          this.reactAt = env.tick + Math.round(this.lerpSkill(24, 9) + env.random() * 8);
-          const e = this.lerpSkill(6, 2) * DEG;
+          this.reactAt = env.tick + Math.round(this.aim.reactTicks + env.random() * 8);
+          const e = this.aim.errorDeg * DEG;
           this.errYaw = gauss(env.random) * e;
           this.errPitch = gauss(env.random) * e * 0.6;
-          this.aimHead = env.random() < this.lerpSkill(0.15, 0.5);
+          this.aimHead = env.random() < this.aim.headChance;
           this.burstLeft = 0;
         }
       }
@@ -491,13 +526,13 @@ export class BotBrain {
       const aimY = t.y + (t.ducked ? (this.aimHead ? 30 : 20) : this.aimHead ? 64 : 44);
       const dist = Math.hypot(t.x - ex, t.z - ez);
       const [wantYaw, wantPitch] = anglesTo(ex, ey, ez, t.x, aimY, t.z);
-      const settle = Math.max(0, 1 - this.lerpSkill(2.2, 5.5) * dt);
+      const settle = Math.max(0, 1 - this.aim.settlePerSecond * dt);
       this.errYaw *= settle;
       this.errPitch *= settle;
-      const jitter = this.lerpSkill(0.9, 0.3) * DEG;
-      this.turnTo(wantYaw + this.errYaw + gauss(env.random) * jitter * 0.3, wantPitch + this.errPitch, dt, this.lerpSkill(260, 620));
+      const jitter = this.aim.jitterDeg * DEG;
+      this.turnTo(wantYaw + this.errYaw + gauss(env.random) * jitter * 0.3, wantPitch + this.errPitch, dt, this.aim.combatTurnDegPerSecond);
       const off = Math.hypot(wrapAngle(wantYaw - this.yaw), wantPitch - this.pitch);
-      const tolerance = Math.atan2(this.aimHead ? 7 : 12, Math.max(1, dist)) + 0.6 * DEG;
+      const tolerance = aimTolerance(dist, this.aimHead);
       const ready = env.tick >= this.reactAt;
       const cur = weaponDef(s.weapon);
 
@@ -508,7 +543,7 @@ export class BotBrain {
         buttons |= BTN.ATTACK2; // scope in before taking an AWP shot
       } else if (ready && off < tolerance && env.tick >= this.pauseUntil) {
         if (cur.auto) {
-          if (this.burstLeft <= 0) this.burstLeft = 3 + Math.floor(env.random() * this.lerpSkill(3, 6));
+          if (this.burstLeft <= 0) this.burstLeft = 3 + Math.floor(env.random() * this.aim.burstExtraShots);
           buttons |= BTN.ATTACK;
           if (s.tick + 1 >= s.nextFire && s.mag[s.weapon] > 0) {
             this.burstLeft--;
@@ -560,12 +595,12 @@ export class BotBrain {
       this.repathAt = Math.min(this.repathAt, env.tick + 10);
       if (bombGoal?.holdRadiusUnits != null && Math.hypot(bombGoal.x - s.x, bombGoal.z - s.z) < APPROACH_RADIUS_UNITS) {
         const [yaw] = anglesTo(s.x, 0, s.z, bombGoal.x, 0, bombGoal.z);
-        this.turnTo(yaw, 0, dt, this.lerpSkill(300, 520));
+        this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
         if (Math.abs(wrapAngle(yaw - this.yaw)) < 70 * DEG) buttons |= BTN.FWD;
       }
     } else {
       const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
-      this.turnTo(yaw, 0, dt, this.lerpSkill(300, 520));
+      this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
       // Steer with the keys, not just the view: a bot that only walks forward carries its momentum past a sharp turn
       // (a ramp foot, a doorway) while it is still turning, and slides off the side.
       buttons |= moveButtons(wrapAngle(yaw - this.yaw));

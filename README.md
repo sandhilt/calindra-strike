@@ -75,7 +75,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `WARMUP_MIN_PLAYERS` | `2` | Players needed to start a match |
 | `MAX_PLAYERS` | `24` | Human player limit |
 | `BOT_FILL` | `0` | Optional server bot population target |
-| `BOT_SKILL` | `50` | Bot skill, 0–100 |
+| `BOT_SKILL` | `50` | Bot skill, 0–100: reaction time, first-shot aim error and turn speed. The dev bots (`node --run bots`, which reads `.env`) use it too |
 | `JOIN_CODE` | empty | Optional access code |
 
 ## Play with an AI agent (MCP)

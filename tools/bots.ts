@@ -4,12 +4,14 @@
  *   node tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
+ * They aim like the server bots at BOT_SKILL (0-100, default 50), read from the environment or `.env`.
  */
 import {
   BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, fillBotChat, newBotChatMemory, newTalkMemory, pickBotChat, pickBotRadio, recordTalk,
   type BotRadioTrigger, type MatchInfo, type RosterEntry, type ServerMsg,
 } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
+import { botSkill } from '../server/src/bot.ts';
 import { BotDriver } from './bot-driver.ts';
 import { brainFor } from './brains.ts';
 import { DeathStreaks, fellLow, reactionsTo } from './bot-reaction.ts';
@@ -19,6 +21,9 @@ const count = Number(positionals[0] ?? 3);
 const url = positionals[1] ?? 'ws://127.0.0.1:7350/ws';
 const origin = positionals[2] ?? 'http://localhost:5173';
 const passive = positionals[3] === 'passive';
+const skillText = process.env.BOT_SKILL?.trim() || '50';
+const skill = Number(skillText);
+if (!/^\d+$/.test(skillText) || skill > 100) throw new Error(`BOT_SKILL must be an integer 0-100, got "${skillText}"`);
 const NAMES = ['Brokkr', 'Sindri', 'Freya', 'Loki', 'Tyr', 'Skadi', 'Odin', 'Heimdall'];
 
 // Shared by every dev bot in this process, like the server's room-wide gate.
@@ -47,7 +52,7 @@ function bot(i: number): void {
     if (mode !== match.mode || map !== match.map) {
       snap = null;
       const brain = brainFor(match.mode);
-      driver = brain ? new BotDriver(brain) : null;
+      driver = brain ? new BotDriver(brain, botSkill(skill / 100, Math.random)) : null;
     }
     mode = match.mode;
     map = match.map;

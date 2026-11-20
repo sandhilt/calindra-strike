@@ -9,6 +9,8 @@ export * from './weapons.ts';
 export * from './spray.ts';
 export * from './ctf.ts';
 export * from './defuse.ts';
+export * from './surface.ts';
+export * from './hearing.ts';
 export * from './bot-chat.ts';
 export * from './bot-talk.ts';
 export * from './bot-radio.ts';

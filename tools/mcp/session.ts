@@ -1,6 +1,11 @@
 import { perceive } from './perception.ts';
 import {
   CollisionWorld,
+  HEARING_REF_UNITS,
+  anglesToward,
+  dirFromAngles,
+  eyeHeight,
+  surfaceOf,
   getMap,
   PROTOCOL_VERSION,
   RF_DROP,
@@ -11,6 +16,7 @@ import {
   TICK_MS,
   encodeCmd,
   type ServerMsg,
+  type GameEvent,
   type ClientMsg,
   weaponDef,
   type PlayerState,
@@ -20,7 +26,15 @@ import { NavGrid } from '../../server/src/nav.ts';
 import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { silent, type Log } from './log.ts';
-import { welcome, decodeSnapshot, renderView, bombProp, type WorldView } from './view.ts';
+import { welcome, decodeSnapshot, renderView, bombProp, type ViewSound, type WorldView } from './view.ts';
+/** Heard sounds waiting for the next read; older ones are dropped, as events are. */
+const MAX_SOUNDS = 48;
+const MAX_IMPACTS_PER_SHOT = 4;
+const MAX_OWN_SHOTS_PER_SNAPSHOT = 4;
+/** Pitch the agent can look, short of straight up or down where yaw loses meaning. */
+const AIM_PITCH_LIMIT_DEG = 89;
+/** How far ahead an aim reports what a shot would hit. */
+const AIM_PROBE_UNITS = 3000;
 export interface SocketLike {
   readyState: number;
   send(data: string): void;
@@ -181,7 +195,9 @@ export class GameSession {
     let targetOutOfSight = false;
     if (m.t === 'snap') {
       const wasDropping = v.self?.dropping ?? false;
+      const before = v.self && v.self.health > 0 ? { weapon: v.self.weapon, mag: v.self.mag[v.self.weapon] } : null;
       const raw = decodeSnapshot(v, m);
+      v.sounds.push(...this.ownShotSounds(v, before));
       this.state.world.setProp(bombProp(v));
       this.actions.ack = m.ack;
       const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient);
@@ -242,6 +258,7 @@ export class GameSession {
     }
     if (m.t === 'ev')
       for (const e of m.e) {
+        if (e.k === 'shot' || e.k === 'hit') v.sounds.push(...this.soundsOf(e, v));
         if (e.k === 'spray') {
           v.sprays.push({ id: e.id, by: this.names.get(e.id) ?? String(e.id),
             x: e.p[0], y: e.p[1], z: e.p[2], nx: e.n[0], ny: e.n[1], nz: e.n[2] });
@@ -282,7 +299,45 @@ export class GameSession {
       }
     }
     v.events = v.events.slice(-20);
+    v.sounds = v.sounds.slice(-MAX_SOUNDS);
     v.chat = v.chat.slice(-10);
+  }
+  /**
+   * The server never sends a player their own shots, since a browser plays them from its own prediction, so the agent's are
+   * worked out from the magazine dropping between snapshots, with the impact where the crosshair meets the map.
+   */
+  private ownShotSounds(v: WorldView, before: { weapon: number; mag: number } | null): ViewSound[] {
+    const self = v.self;
+    if (this.state.phase !== 'playing' || !before || !self || self.health <= 0 || self.dropping || self.weapon !== before.weapon) return [];
+    const rounds = Math.min(MAX_OWN_SHOTS_PER_SNAPSHOT, before.mag - self.mag[self.weapon]);
+    if (rounds <= 0) return [];
+    const weapon = weaponDef(self.weapon);
+    const by = this.names.get(v.id);
+    const eye = { x: self.x, y: self.y + eyeHeight(self), z: self.z };
+    const sounds: ViewSound[] = Array.from({ length: rounds }, () => ({ kind: 'shot', pos: [eye.x, eye.y, eye.z], ref: HEARING_REF_UNITS.shot, weapon: weapon.name, by, own: true }));
+    const dir = dirFromAngles(self.yaw, self.pitch);
+    const hit = this.state.world.trace(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, weapon.range);
+    if (hit) sounds.push({ kind: 'impact', pos: [eye.x + dir.x * hit.t, eye.y + dir.y * hit.t, eye.z + dir.z * hit.t], ref: HEARING_REF_UNITS.impact, material: hit.mat, surface: surfaceOf(hit.mat), by });
+    return sounds;
+  }
+  /** What the server's shot and hit events sound like from where we stand: the shot itself, the impacts it made and a hit on us. */
+  private soundsOf(shot: Extract<GameEvent, { k: 'shot' | 'hit' }>, v: WorldView): ViewSound[] {
+    if (this.state.phase !== 'playing') return [];
+    if (shot.k === 'hit') return shot.to === v.id ? [{ kind: 'hurt', pos: shot.from, ref: HEARING_REF_UNITS.impact }] : [];
+    const weapon = weaponDef(shot.w);
+    const by = this.names.get(shot.id);
+    const [ox, oy, oz] = shot.o;
+    const sounds: ViewSound[] = [{ kind: 'shot', pos: shot.o, ref: weapon.slot === 3 ? HEARING_REF_UNITS.hammer : HEARING_REF_UNITS.shot, weapon: weapon.name, by, own: shot.id === v.id }];
+    if (weapon.slot === 3) return sounds;
+    for (let i = 0; i < shot.e.length && sounds.length <= MAX_IMPACTS_PER_SHOT; i += 3) {
+      const length = Math.hypot(shot.e[i] - ox, shot.e[i + 1] - oy, shot.e[i + 2] - oz);
+      if (length === 0) continue;
+      const hit = this.state.world.trace(ox, oy, oz, (shot.e[i] - ox) / length, (shot.e[i + 1] - oy) / length, (shot.e[i + 2] - oz) / length, length + 2);
+      if (hit && Math.abs(hit.t - length) < 3) {
+        sounds.push({ kind: 'impact', pos: [shot.e[i], shot.e[i + 1], shot.e[i + 2]], ref: HEARING_REF_UNITS.impact, material: hit.mat, surface: surfaceOf(hit.mat), by });
+      }
+    }
+    return sounds;
   }
   private tick(): void {
     if (this.state.phase !== 'playing') return;
@@ -351,7 +406,38 @@ export class GameSession {
       throw new Error('Target not currently perceived or unavailable; consult lastSeen and use move_to to search');
     pilot.setIntent(intent, view.self?.y ?? 0);
     this.intent = intent;
+    this.actions.aim = null;
     return { intent, distance };
+  }
+  /**
+   * Holds the crosshair on a world point or at an angle, with the pilot standing still, and reports what a shot from here
+   * would hit. Any later move, attack, hunt or stop gives the view back to the pilot.
+   */
+  aim(at: { x: number; y: number; z: number } | { yawDeg: number; pitchDeg: number }): object {
+    const self = this.livingSelf();
+    const { pilot, world } = this.requirePlaying();
+    if (self.dropping) throw new Error('Player is dropping');
+    const eye = { x: self.x, y: self.y + eyeHeight(self), z: self.z };
+    const angles = 'yawDeg' in at
+      ? { yaw: (at.yawDeg * Math.PI) / 180, pitch: (Math.max(-AIM_PITCH_LIMIT_DEG, Math.min(AIM_PITCH_LIMIT_DEG, at.pitchDeg)) * Math.PI) / 180 }
+      : anglesToward(eye, at);
+    pilot.setIntent({ kind: 'idle' }, self.y);
+    this.intent = { kind: 'idle' };
+    this.actions.aim = angles;
+    const dir = dirFromAngles(angles.yaw, angles.pitch);
+    const hit = world.trace(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, AIM_PROBE_UNITS);
+    return {
+      yawDeg: (angles.yaw * 180) / Math.PI,
+      pitchDeg: (angles.pitch * 180) / Math.PI,
+      expect: hit ? { distance: Math.round(hit.t), mat: hit.mat, surface: surfaceOf(hit.mat) } : null,
+    };
+  }
+  /** Holds the trigger for `ms` where the crosshair points; the pilot stays idle, so it fires nothing by itself. */
+  fire(ms: number): object {
+    const self = this.livingSelf();
+    if (self.dropping) throw new Error('Player is dropping');
+    this.actions.requestFire(ms);
+    return { firing: ms, weapon: weaponDef(self.weapon).name, mag: self.mag[self.weapon], aimed: this.actions.aim !== null };
   }
   private actionState(): { crouch: boolean; walk: boolean; zoom: number | null } {
     return { crouch: this.actions.crouch, walk: this.actions.walk, zoom: this.actions.zoom };

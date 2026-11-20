@@ -5,6 +5,10 @@ import {
   createPlayerState,
   CollisionWorld,
   type MapDef,
+  type Mat,
+  type Surface,
+  AUDIBLE_INTENSITY,
+  heardIntensity,
   type BombPoint,
   unpackState,
   RF_ALIVE,
@@ -58,6 +62,11 @@ export interface ChatLine {
   /** True for a radio menu line, so agents can tell it from typed chat. */
   radio?: true;
 }
+/** A sound the server told us about, kept where it happened; its distance and loudness are worked out when the agent reads it. */
+export type ViewSound =
+  | { kind: 'shot'; pos: number[]; ref: number; weapon: string; by?: string; own: boolean }
+  | { kind: 'impact'; pos: number[]; ref: number; material: Mat; surface: Surface; by?: string }
+  | { kind: 'hurt'; pos: number[]; ref: number };
 export interface ViewSpray {
   id: number;
   by: string;
@@ -83,6 +92,7 @@ export interface WorldView {
   bomb: number[];
   scores: number[][];
   events: ViewEvent[];
+  sounds: ViewSound[];
   chat: ChatLine[];
 }
 export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
@@ -101,6 +111,7 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     sprays: [],
     scores: [],
     events: [],
+    sounds: [],
     chat: [],
   };
 }
@@ -149,6 +160,28 @@ export const relative = (s: PlayerState | null) => (p: { x: number; z: number })
           ),
         }
       : { distance: null, bearingDeg: null };
+
+const LOUD = 0.5;
+const MEDIUM = 0.2;
+const MAX_HEARD = 12;
+type Relative = (p: { x: number; z: number }) => { distance: number | null; bearingDeg: number | null };
+
+/** The sounds above the audible floor, loudest first, with where they came from and how loud they were. */
+function heardSounds(sounds: readonly ViewSound[], relative: Relative, listening: boolean): object[] {
+  if (!listening) return [];
+  return sounds
+    .flatMap((sound) => {
+      const { pos, ref, ...detail } = sound;
+      const { distance, bearingDeg } = relative({ x: pos[0], z: pos[2] });
+      if (distance === null) return [];
+      const intensity = heardIntensity(distance, ref);
+      if (intensity < AUDIBLE_INTENSITY) return [];
+      const loudness = intensity >= LOUD ? 'loud' : intensity >= MEDIUM ? 'medium' : 'faint';
+      return [{ ...detail, pos, distance, bearingDeg, intensity: Math.round(intensity * 100) / 100, loudness }];
+    })
+    .sort((a, b) => b.intensity - a.intensity)
+    .slice(0, MAX_HEARD);
+}
 
 export function renderView(
   v: WorldView,
@@ -251,6 +284,7 @@ export function renderView(
       ...(isTeamMode(v.match.mode) ? { teams: v.match.teams } : {}),
     },
     events: v.events.splice(0),
+    sounds: heardSounds(v.sounds.splice(0), describeRelative, !!s && s.health > 0),
     chat: v.chat.splice(0),
   };
 }

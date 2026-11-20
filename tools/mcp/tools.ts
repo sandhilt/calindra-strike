@@ -69,7 +69,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing) and recent events/chat including flag and bomb actions. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing) and recent events/chat including flag and bomb actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -86,6 +86,33 @@ export const toolDefinitions: Definition[] = [
     properties: { target_id: { type: 'integer', minimum: 0 } },
     required: ['target_id'],
     run: (s, a) => s.setIntent({ kind: 'attack', targetId: number(a, 'target_id', 0, 2 ** 31, true) }),
+  },
+  {
+    name: 'aim',
+    description:
+      'Free aim. Hold the crosshair on a world point (x, y, z; y is height, a floor point is y 0) or at an angle (yaw_deg as in get_state yawDeg, pitch_deg positive up), with the pilot standing still. Returns the angles and expect, the material and surface a shot from here would hit. Pair with fire to shoot walls, crates and the floor. Any move_to, attack, hunt or stop gives the view back to the pilot.',
+    properties: {
+      x: { type: 'number' },
+      y: { type: 'number' },
+      z: { type: 'number' },
+      yaw_deg: { type: 'number' },
+      pitch_deg: { type: 'number' },
+    },
+    run: (s, a) => {
+      const point = a.x !== undefined || a.y !== undefined || a.z !== undefined;
+      const angle = a.yaw_deg !== undefined || a.pitch_deg !== undefined;
+      if (point === angle) throw new Error('Give either x, y and z, or yaw_deg and pitch_deg');
+      return point
+        ? s.aim({ x: number(a, 'x'), y: number(a, 'y'), z: number(a, 'z') })
+        : s.aim({ yawDeg: number(a, 'yaw_deg'), pitchDeg: number(a, 'pitch_deg') });
+    },
+  },
+  {
+    name: 'fire',
+    description:
+      'Hold the trigger for ms (default 150, 50 to 5000) where the crosshair points; use aim first. A short press is one shot with a semi-automatic weapon, a hold is a burst with an automatic one. The pilot stays idle, so nothing else fires. Shots and their impacts then show up in get_state sounds.',
+    properties: { ms: { type: 'number', minimum: 50, maximum: 5000 } },
+    run: (s, a) => s.fire(a.ms === undefined ? 150 : number(a, 'ms', 50, 5000)),
   },
   {
     name: 'hunt',

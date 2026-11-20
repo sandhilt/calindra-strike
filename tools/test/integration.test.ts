@@ -129,7 +129,7 @@ test('stdio MCP plays against the real authoritative WebSocket server', { timeou
   }
   await rpc('initialize', { protocolVersion: '2025-06-18' });
   mcp.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
-  assert.equal((await rpc('tools/list')).tools.length, 20);
+  assert.equal((await rpc('tools/list')).tools.length, 22);
   await tool('join', { name: 'mcp-integration' });
   await tool('hunt');
   await tool('radio', { menu: 'comandos', line: 1 });

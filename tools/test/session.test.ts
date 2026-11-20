@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -808,4 +808,118 @@ test('received radio lines appear in chat with their text and a radio flag', asy
   assert.partialDeepStrictEqual(chat[0], { id: 2, text: 'Inimigo à vista!', radio: true });
   assert.equal(chat[1].radio, undefined);
   session.close();
+});
+
+const sentCmds = (ctx: { jobs: Map<unknown, () => void>; socket: { sent: string[] } }) => {
+  for (const fn of ctx.jobs.values()) fn();
+  return JSON.parse(ctx.socket.sent.at(-1)!).c as number[][];
+};
+
+test('aim holds the crosshair on a world point and reports what a shot would hit', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  const res = await ctx.call('aim', { x: 300, y: 0, z: -300 });
+  assert.equal(res.isError, undefined);
+  const aimed = JSON.parse((res.content[0] as { text: string }).text);
+  assert.ok(aimed.pitchDeg < 0, 'a floor point is below the eye');
+  assert.ok(Math.abs(aimed.yawDeg - (Math.atan2(-300, 300) * 180) / Math.PI) < 1e-6);
+  assert.equal(typeof aimed.expect.mat, 'string');
+  for (const cmd of sentCmds(ctx)) {
+    assert.ok(Math.abs(cmd[2] - (aimed.yawDeg * Math.PI) / 180) < 1e-3);
+    assert.ok(Math.abs(cmd[3] - (aimed.pitchDeg * Math.PI) / 180) < 1e-3);
+  }
+  ctx.session.close();
+});
+
+test('aim at an angle, and a stop gives the view back to the pilot', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  await ctx.call('aim', { yaw_deg: 90, pitch_deg: 120 });
+  assert.ok(sentCmds(ctx).every((c) => Math.abs(c[2] - Math.PI / 2) < 1e-3 && Math.abs(c[3] - (89 * Math.PI) / 180) < 1e-3), 'pitch is clamped short of straight up');
+  await ctx.call('stop');
+  assert.ok(sentCmds(ctx).every((c) => c[2] === 0 && c[3] === 0));
+  ctx.session.close();
+});
+
+test('aim needs a point or an angle, not both and not neither', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  for (const bad of [{}, { x: 1, y: 0 }, { x: 1, y: 0, z: 1, yaw_deg: 0 }, { yaw_deg: 10 }]) assert.equal((await ctx.call('aim', bad)).isError, true, JSON.stringify(bad));
+  ctx.session.close();
+});
+
+test('fire holds the trigger for the time asked and then lets go', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  assert.equal((await ctx.call('fire', { ms: 150 })).isError, undefined);
+  const pressed = Array.from({ length: 8 }, () => sentCmds(ctx)).flat().filter((c) => c[1] & BTN.ATTACK).length;
+  assert.equal(pressed, Math.ceil(150 / TICK_MS));
+  assert.equal((await ctx.call('fire', { ms: 10 })).isError, true, 'below the minimum press');
+  ctx.session.close();
+});
+
+const shotEvent = (over: object = {}) => ({ t: 'ev', e: [{ k: 'shot', id: 2, w: WEAPON.RIFLE, o: [0, 40, 0], e: [], h: 0, ...over }] });
+
+test('a shot is heard with its distance, bearing and intensity, louder when closer', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  ctx.socket.message(shotEvent({ o: [0, 40, -100] }));
+  ctx.socket.message(shotEvent({ o: [0, 40, -800] }));
+  const heard = JSON.parse(JSON.stringify(ctx.session.getState())).sounds;
+  assert.equal(heard.length, 2);
+  assert.equal(heard[0].kind, 'shot');
+  assert.equal(heard[0].intensity, 1, 'inside the reference distance is full volume');
+  assert.ok(heard[1].intensity < heard[0].intensity && heard[1].intensity > 0.08);
+  assert.equal(heard[0].loudness, 'loud');
+  assert.partialDeepStrictEqual(heard[0], { by: 'enemy', weapon: weaponDef(WEAPON.RIFLE).name, own: false });
+  assert.ok(Math.abs(heard[0].bearingDeg) < 1, 'straight ahead');
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, [], 'reading drains them');
+  ctx.session.close();
+});
+
+test('a shot too far away to hear is not reported, and the dead hear nothing', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  ctx.socket.message(shotEvent({ o: [0, 40, -9000] }));
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, []);
+  ctx.socket.message({ t: 'snap', time: 300, ack: 0, me: null, ps: [], ad: [] });
+  ctx.socket.message(shotEvent({ o: [0, 40, -100] }));
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, []);
+  ctx.session.close();
+});
+
+test('an impact is heard with the material and surface it landed on, and a hit on us as hurt', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  const world = new CollisionWorld(getMap(0));
+  const spot = Array.from({ length: 169 }, (_, i) => ({ x: -600 + (i % 13) * 100, z: -600 + Math.floor(i / 13) * 100 })).find((p) => (world.trace(p.x, 40, p.z, 0, -1, 0, 500)?.t ?? 0) > 30);
+  assert.ok(spot, 'the map has open floor near the centre');
+  const down = world.trace(spot.x, 40, spot.z, 0, -1, 0, 500)!;
+  ctx.socket.message(shotEvent({ id: 1, o: [spot.x, 40, spot.z], e: [spot.x, 40 - down.t, spot.z] }));
+  ctx.socket.message({ t: 'ev', e: [{ k: 'hit', by: 2, to: 1, dmg: 20, zone: 0, hp: 80, from: [0, 40, -300] }] });
+  const heard = JSON.parse(JSON.stringify(ctx.session.getState())).sounds;
+  const impact = heard.find((s: { kind: string }) => s.kind === 'impact');
+  assert.equal(impact.material, down.mat);
+  assert.equal(impact.surface, surfaceOf(down.mat));
+  assert.ok(heard.some((s: { kind: string }) => s.kind === 'hurt'));
+  assert.equal(heard.find((s: { kind: string }) => s.kind === 'shot').own, true);
+  ctx.session.close();
+});
+
+test('the agent hears its own shots from the magazine dropping, with the impact where it aims', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  const world = new CollisionWorld(getMap(0));
+  const spot = Array.from({ length: 169 }, (_, i) => ({ x: -600 + (i % 13) * 100, z: -600 + Math.floor(i / 13) * 100 })).find((p) => (world.trace(p.x, 40, p.z, 0, -1, 0, 500)?.t ?? 0) > 30)!;
+  const snap = (mag: number, time: number) => {
+    const s = createPlayerState();
+    Object.assign(s, { x: spot.x, z: spot.z, y: 0, health: 100, weapon: WEAPON.RIFLE, onGround: true });
+    s.mag[WEAPON.RIFLE] = mag;
+    ctx.socket.message({ t: 'snap', time, ack: 0, me: packState(s), ps: [[1, spot.x, 0, spot.z, 0, -Math.PI / 2 + 0.01, RF_ALIVE, WEAPON.RIFLE]], ad: [] });
+  };
+  snap(30, 300);
+  snap(29, 316);
+  const heard = JSON.parse(JSON.stringify(ctx.session.getState())).sounds;
+  assert.deepEqual(heard.map((s: { kind: string }) => s.kind).sort(), ['impact', 'shot']);
+  assert.equal(heard.find((s: { kind: string }) => s.kind === 'shot').own, true);
+  const aimed = dirFromAngles(0, -Math.PI / 2 + 0.01);
+  const expected = world.trace(spot.x, eyeHeight({ ducked: false }), spot.z, aimed.x, aimed.y, aimed.z, weaponDef(WEAPON.RIFLE).range)!;
+  assert.equal(heard.find((s: { kind: string }) => s.kind === 'impact').material, expected.mat);
+  snap(29, 332);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, [], 'no shot when the magazine did not drop');
+  snap(30, 348);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, [], 'a reload is not a shot');
+  ctx.session.close();
 });

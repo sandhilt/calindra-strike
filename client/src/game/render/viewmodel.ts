@@ -21,7 +21,7 @@ const PISTOL_KICK = { riseUnits: 0.85, backUnits: 3.6, pitchRad: 0.26 };
 const RELOAD_FRAMING: Partial<Record<WeaponId, { roll: number; dip: number }>> = { [WEAPON.LMG]: { roll: 0.7, dip: 0.35 } };
 const EXCHANGE_FRAMING = {
   [WEAPON.PISTOL]: { left: 2.2, up: 6.3, yaw: 0.95, roll: -0.2 },
-  [WEAPON.RIFLE]: { left: 1.5, up: 8, yaw: 0.85, roll: 0.42 },
+  [WEAPON.RIFLE]: { left: 0.5, up: 3, yaw: 0.5, roll: 0.3 },
 };
 const MAGAZINE_GRIP = {
   [WEAPON.PISTOL]: new THREE.Vector3(1.25, -3.9, 2.2),

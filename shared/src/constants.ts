@@ -48,7 +48,7 @@ export const IDLE_WARNING_LEAD_MS = 10_000; // how long before the idle kick the
 // --- match ---
 export const MAX_HEALTH = 100;
 export const MAX_ARMOR = 100;
-export const RESPAWN_TICKS = 3 * TICK_RATE;
+export const RESPAWN_TICKS = 5 * TICK_RATE;
 export const LAGCOMP_MAX_MS = 250;
 export const INTERP_DELAY_MS = 100;
 

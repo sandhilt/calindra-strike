@@ -58,6 +58,7 @@ export class GunFx {
   private readonly casings: DebrisPool;
   private readonly smoke: SmokePool;
   private readonly heat = new HeatTracker();
+  private quality: Quality = 'high';
   private readonly tracers = new TracerPolicy();
   private readonly magazineMesh: THREE.InstancedMesh;
   private readonly casingMesh: THREE.InstancedMesh;
@@ -122,6 +123,7 @@ export class GunFx {
   }
 
   setQuality(quality: Quality): void {
+    this.quality = quality;
     const fx = QUALITY[quality].fx;
     this.fx = fx;
     this.smoke.style = SMOKE_STYLES[quality];
@@ -130,9 +132,8 @@ export class GunFx {
     this.smoke.setCapacity(fx.smokePuffs);
   }
 
-  /** How many pellets of this shot should draw a tracer (usually 0 or 1). */
-  tracerPellets(shooter: number, weapon: WeaponId): number {
-    return this.tracers.pelletsToDraw(shooter, weapon);
+  projectile(shooter: number, weapon: WeaponId) {
+    return this.tracers.projectile(shooter, weapon, this.quality);
   }
 
   /** Barrel smoke and an ejected casing for one shot. `dir` is the unit firing direction. */

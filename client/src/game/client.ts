@@ -176,6 +176,9 @@ const STREAKS: Record<number, { text: string; sound: StreakSound }> = {
 const v3 = new THREE.Vector3();
 const v3b = new THREE.Vector3();
 const fxPoint = new THREE.Vector3();
+const shotOrigin = new THREE.Vector3();
+const shotMuzzle = new THREE.Vector3();
+const shotEnd = new THREE.Vector3();
 const fxDir = new THREE.Vector3();
 
 /** Shooter key of the local player in the per-shooter gun effects; remote players use their id. */
@@ -1235,9 +1238,10 @@ export class ClientGame {
     this.sfx.shot(shot.weapon, null, shot.heavy);
     const melee = def.slot === 3;
     if (!melee) this.muzzleLight.intensity = 3.5;
-    const origin = this.gunOrigin(new THREE.Vector3());
+    const origin = this.gunOrigin(shotMuzzle);
+    shotOrigin.set(shot.ox, shot.oy, shot.oz);
     const renderT = this.serverNow() - INTERP_DELAY_MS;
-    const tracers = melee ? 0 : this.effects.gun.tracerPellets(LOCAL_SHOOTER, shot.weapon);
+    const projectile = this.effects.gun.projectile(LOCAL_SHOOTER, shot.weapon);
     if (!melee) this.localGunFx(shot.weapon);
     for (let i = 0; i < shot.dirs.length; i += 3) {
       const dx = shot.dirs[i];
@@ -1256,8 +1260,10 @@ export class ClientGame {
           hitPlayer = true;
         }
       }
-      const end = new THREE.Vector3(shot.ox + dx * dist, shot.oy + dy * dist, shot.oz + dz * dist);
-      if (i / 3 < tracers) this.effects.tracer(origin, end);
+      const end = shotEnd.set(shot.ox + dx * dist, shot.oy + dy * dist, shot.oz + dz * dist);
+      if (i / 3 < projectile.pelletsPerShot) {
+        this.effects.projectile(origin, end, shotOrigin, projectile);
+      }
       if (!hitPlayer && wall && wall.t <= dist + 0.01 && (!melee || wall.t < def.range)) {
         this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz));
       }
@@ -1271,20 +1277,23 @@ export class ClientGame {
     const r = this.remotes.get(e.id);
     if (this.spectator && e.id === this.followedId) this.view.fire(e.h === 1);
     if (def.slot === 3) return;
-    const origin = new THREE.Vector3(ox, oy, oz);
+    const origin = shotMuzzle.set(ox, oy, oz);
+    shotOrigin.set(ox, oy, oz);
     if (r?.visible) {
       r.avatar.muzzleWorld(origin);
       r.avatar.kick();
     }
     this.effects.muzzleFlash(origin);
-    const tracers = this.effects.gun.tracerPellets(e.id, e.w as WeaponId);
+    const projectile = this.effects.gun.projectile(e.id, e.w as WeaponId);
     if (r?.visible && e.e.length >= 3) {
       fxDir.set(e.e[0] - origin.x, e.e[1] - origin.y, e.e[2] - origin.z).normalize();
       this.effects.gun.fire(e.id, e.w as WeaponId, origin, fxDir, 0, 0);
     }
     for (let i = 0; i < e.e.length; i += 3) {
-      const end = new THREE.Vector3(e.e[i], e.e[i + 1], e.e[i + 2]);
-      if (i / 3 < tracers) this.effects.tracer(origin, end);
+      const end = shotEnd.set(e.e[i], e.e[i + 1], e.e[i + 2]);
+      if (i / 3 < projectile.pelletsPerShot) {
+        this.effects.projectile(origin, end, shotOrigin, projectile);
+      }
       const dir = v3.copy(end).sub(v3b.set(ox, oy, oz));
       const len = dir.length();
       dir.divideScalar(len || 1);

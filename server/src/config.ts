@@ -1,4 +1,4 @@
-import { BOMB_PLANT_TIMEOUT_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { BOMB_PLANT_TIMEOUT_SECONDS, IDLE_KICK_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -118,12 +118,12 @@ export function loadConfig(): Config {
     botSkill: int('BOT_SKILL', 50, 0, 100) / 100,
     trustProxy: process.env.TRUST_PROXY === '1',
     friendlyFire: flag('FRIENDLY_FIRE'),
-    readyKickMs: flag('READY_KICK', true) ? int('READY_KICK_SECONDS', 20, 5, 600) * 1000 : 0,
+    readyKickMs: flag('READY_KICK', true) ? int('READY_KICK_SECONDS', READY_KICK_SECONDS, 5, 600) * 1000 : 0,
     radio: {
       cooldownMs: Math.round(decimal('RADIO_COOLDOWN_SECONDS', RADIO_COOLDOWN_MS / 1000, 0, 30) * 1000),
       maxPerWindow: int('RADIO_MAX_PER_WINDOW', RADIO_MAX_PER_WINDOW, 0, 100),
       windowMs: int('RADIO_WINDOW_SECONDS', RADIO_WINDOW_MS / 1000, 1, 600) * 1000,
     },
-    idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', 60, 10, 3600) * 1000 : 0,
+    idleKickMs: flag('IDLE_KICK', true) ? int('IDLE_KICK_SECONDS', IDLE_KICK_SECONDS, 10, 3600) * 1000 : 0,
   };
 }

@@ -102,7 +102,7 @@ it('kicks unready and idle players by default and lets the operator turn each of
   stubEnv('READY_KICK_SECONDS', '');
   stubEnv('IDLE_KICK', '');
   stubEnv('IDLE_KICK_SECONDS', '');
-  assert.equal(loadConfig().readyKickMs, 20_000);
+  assert.equal(loadConfig().readyKickMs, 180_000);
   assert.equal(loadConfig().idleKickMs, 60_000);
   stubEnv('READY_KICK_SECONDS', '45');
   stubEnv('IDLE_KICK_SECONDS', '120');

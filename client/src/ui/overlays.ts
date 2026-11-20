@@ -5,12 +5,13 @@ import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
-import { ICONS, gameLogo, h, svg } from './dom.ts';
+import { weaponMenuKey } from '../game/weapon-menu.ts';
+import { gameLogo, h } from './dom.ts';
 
-const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
-  [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
-  [WEAPON.SMG]: { icon: ICONS.smg, blurb: 'Rápida e precisa correndo.' },
-  [WEAPON.SHOTGUN]: { icon: ICONS.shotgun, blurb: 'Rainha do corpo a corpo.' },
+const WEAPON_BLURB: Record<number, string> = {
+  [WEAPON.RIFLE]: '1 tiro na cabeça. Spray que sobe.',
+  [WEAPON.SMG]: 'Rápida e precisa correndo.',
+  [WEAPON.SHOTGUN]: 'Rainha do corpo a corpo.',
 };
 
 export interface OverlayHooks {
@@ -26,7 +27,7 @@ export interface OverlayHooks {
 /** Click-to-play, pause/settings menu, podium results and disconnect overlays. */
 export class Overlays {
   private readonly click: HTMLElement;
-  private readonly weaponCards = new Map<WeaponId, HTMLButtonElement>();
+  private readonly weaponRows = new Map<WeaponId, HTMLButtonElement>();
   private readonly menu: HTMLElement;
   private readonly podium: HTMLElement;
   private readonly podiumCards = h('div', { class: 'podium-cards' });
@@ -61,32 +62,27 @@ export class Overlays {
     private readonly settings: Settings,
     private readonly hooks: OverlayHooks,
   ) {
-    for (const id of PRIMARY_CHOICES) {
-      const { icon, blurb } = WEAPON_INFO[id];
-      const card = h('button', {
-        class: 'weapon-card',
-        type: 'button',
-        onclick: () => {
-          settings.primary = id;
-          saveSettings(settings);
-          hooks.settingsChanged(settings);
-          this.renderPrimaryChoice();
-        },
-      }, [svg(icon), h('b', { text: weaponDef(id).name }), h('small', { text: blurb })]);
-      this.weaponCards.set(id, card);
-    }
+    PRIMARY_CHOICES.forEach((id, i) => {
+      const row = h('button', { class: 'cs-row', type: 'button', onclick: () => this.pickPrimary(id) }, [
+        h('span', { class: 'cs-key', text: `${i + 1}.` }),
+        h('span', { class: 'cs-name', text: weaponDef(id).name }),
+        h('small', { text: WEAPON_BLURB[id] }),
+      ]);
+      this.weaponRows.set(id, row);
+    });
     this.renderPrimaryChoice();
-    const weapons = h('div', { class: 'field ready-weapons' }, [
-      h('span', { class: 'label', text: 'arma principal' }),
-      h('div', { class: 'weapons', role: 'group', 'aria-label': 'Arma principal' }, [...this.weaponCards.values()]),
+    const weapons = h('div', { class: 'cs-menu', role: 'group', 'aria-label': 'Arma principal' }, [
+      h('div', { class: 'cs-title', text: 'Escolha sua arma' }),
+      ...this.weaponRows.values(),
+      h('div', { class: 'cs-foot', text: 'Aperte o número ou clique' }),
     ]);
     const play = h('button', { class: 'btn btn-primary', type: 'button', text: 'clique para jogar', onclick: () => hooks.resume() });
     this.click = h('div', { class: 'overlay' }, [
+      weapons,
       h('div', { class: 'click-to-play' }, [
         gameLogo('game-logo cta-logo'),
         h('h2', { class: 'wordmark', text: 'pronto?' }),
         h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
-        weapons,
         play,
         this.readyCountdownEl,
         h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),
@@ -187,15 +183,34 @@ export class Overlays {
     ]);
   }
 
+  private pickPrimary(id: WeaponId): void {
+    this.settings.primary = id;
+    saveSettings(this.settings);
+    this.hooks.settingsChanged(this.settings);
+    this.renderPrimaryChoice();
+  }
+
   private renderPrimaryChoice(): void {
-    for (const [id, card] of this.weaponCards) {
-      card.setAttribute('aria-pressed', String(this.settings.primary === id));
+    for (const [id, row] of this.weaponRows) {
+      row.setAttribute('aria-pressed', String(this.settings.primary === id));
     }
   }
+
+  /** The number keys pick a weapon while the "pronto?" screen is up. Nothing else sees them, so they cannot switch weapons in the world. */
+  private readonly onMenuKey = (e: KeyboardEvent): void => {
+    if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+    const id = weaponMenuKey(e.code);
+    if (id === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.pickPrimary(id);
+  };
 
   showClick(v: boolean): void {
     if (v) this.renderPrimaryChoice();
     this.click.classList.toggle('hidden', !v);
+    document.removeEventListener('keydown', this.onMenuKey, true);
+    if (v) document.addEventListener('keydown', this.onMenuKey, true);
   }
 
   showMenu(v: boolean, team: TeamPanel | null = null): void {

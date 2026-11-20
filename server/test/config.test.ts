@@ -139,7 +139,7 @@ it('configures the radio spam guard', () => {
   }
 });
 
-it('configures the debug defusion plant timeout in seconds within 0..3600', () => {
+it('configures the debug defusion plant timeout in seconds within 0..3600 and lets the operator turn it off', () => {
   stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
   assert.equal(loadConfig().plantTimeoutMs, 30_000);
   for (const [value, ms] of [['0', 0], ['90', 90_000], ['3600', 3_600_000]] as const) {
@@ -150,6 +150,13 @@ it('configures the debug defusion plant timeout in seconds within 0..3600', () =
     stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', value);
     assert.throws(() => loadConfig(), /DEFUSE_PLANT_TIMEOUT_SECONDS/);
   }
+  stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '90');
+  stubEnv('DEFUSE_PLANT_TIMEOUT', '0');
+  assert.equal(loadConfig().plantTimeoutMs, 0);
+  stubEnv('DEFUSE_PLANT_TIMEOUT', '1');
+  assert.equal(loadConfig().plantTimeoutMs, 90_000);
+  stubEnv('DEFUSE_PLANT_TIMEOUT', 'yes');
+  assert.throws(() => loadConfig(), /DEFUSE_PLANT_TIMEOUT/);
 });
 
 it('configures the debug defusion round limit within 0..50', () => {

@@ -111,7 +111,7 @@ export function loadConfig(): Config {
     maps: mapList(process.env.GAME_MAPS),
     ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
     defuseLimit: int('DEFUSE_SCORE_LIMIT', 5, 0, 50),
-    plantTimeoutMs: int('DEFUSE_PLANT_TIMEOUT_SECONDS', BOMB_PLANT_TIMEOUT_SECONDS, 0, 3600) * 1000,
+    plantTimeoutMs: flag('DEFUSE_PLANT_TIMEOUT', true) ? int('DEFUSE_PLANT_TIMEOUT_SECONDS', BOMB_PLANT_TIMEOUT_SECONDS, 0, 3600) * 1000 : 0,
     tdmLimit: int('TDM_SCORE_LIMIT', 50, 0, 1000),
     airdropFirstMs: int('AIRDROP_FIRST_SECONDS', 25, 1, 600) * 1000,
     botFill: int('BOT_FILL', 0, 0, 64),

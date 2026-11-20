@@ -16,6 +16,7 @@ import {
   eyePose,
   freeKeysFrom,
   lookDir,
+  mouseLooks,
   nextCameraMode,
   overviewPose,
   stepFreeCam,
@@ -27,11 +28,13 @@ import { scrollsPage, spectatorAction, stepTarget } from '../src/game/spectate/c
 const open: RayWorld = { trace: () => null };
 const player: FollowedPlayer = { x: 100, y: 0, z: 200, yaw: 0, pitch: 0, ducked: false };
 
-test('Space cycles first person, third person and free camera, then wraps', () => {
-  assert.deepEqual(CAMERA_MODES, ['first', 'third', 'free']);
-  assert.equal(nextCameraMode('first'), 'third');
-  assert.equal(nextCameraMode('third'), 'free');
+test('Space cycles first person, locked chase, free chase and free camera, then wraps', () => {
+  assert.deepEqual(CAMERA_MODES, ['first', 'chase', 'orbit', 'free']);
+  assert.equal(nextCameraMode('first'), 'chase');
+  assert.equal(nextCameraMode('chase'), 'orbit');
+  assert.equal(nextCameraMode('orbit'), 'free');
   assert.equal(nextCameraMode('free'), 'first');
+  assert.deepEqual(CAMERA_MODES.filter(mouseLooks), ['orbit', 'free'], 'the mouse turns the free chase and the free camera only');
 });
 
 test('first person sits in the eyes and follows ducking', () => {
@@ -56,6 +59,19 @@ test('chase camera sits behind and above, looking the same way', () => {
   assert.ok(pose.z > eye.z, 'behind a player who looks toward -z');
   assert.ok(Math.abs(pose.z - eye.z - CHASE_DISTANCE) < 1e-9);
   assert.ok(Math.abs(pose.y - eye.y - CHASE_RISE) < 1e-9);
+});
+
+test('free chase orbits the player with the mouse view and keeps looking at them', () => {
+  const eye = eyePose(player);
+  for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    const pose = chasePose(player, open, { yaw, pitch: 0 });
+    assert.equal(pose.yaw, yaw);
+    assert.ok(Math.abs(Math.hypot(pose.x - eye.x, pose.z - eye.z) - CHASE_DISTANCE) < 1e-9, 'same distance all around');
+    const [fx, , fz] = lookDir(yaw, 0);
+    assert.ok((eye.x - pose.x) * fx + (eye.z - pose.z) * fz > CHASE_DISTANCE - 1e-9, 'the player is straight ahead of the camera');
+  }
+  const front = chasePose(player, open, { yaw: player.yaw + Math.PI, pitch: 0 });
+  assert.ok(front.z < eye.z, 'swung round to face the player from the front');
 });
 
 test('chase camera swings behind a player who turns', () => {

@@ -81,7 +81,7 @@ import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
-import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
+import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, mouseLooks, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { easeFov } from './render/zoom.ts';
@@ -1027,8 +1027,8 @@ export class ClientGame {
 
   private onSpectatorClick(): void {
     if (this.menuOpen) return;
-    if (this.cameraMode !== 'free') this.stepTarget(1);
-    else if (!this.input.locked) void this.input.lock();
+    if (mouseLooks(this.cameraMode) && !this.input.locked) void this.input.lock();
+    else if (this.cameraMode !== 'free') this.stepTarget(1);
   }
 
   private runSpectatorAction(action: SpectatorAction): void {
@@ -1061,7 +1061,7 @@ export class ClientGame {
 
   private setCameraMode(mode: CameraMode): void {
     this.cameraMode = mode;
-    if (mode === 'free') {
+    if (mouseLooks(mode)) {
       this.input.yaw = this.spectatorPose.yaw;
       this.input.pitch = this.spectatorPose.pitch;
     } else if (document.pointerLockElement) {
@@ -1460,7 +1460,8 @@ export class ClientGame {
       this.spectatorPose = stepFreeCam({ ...this.spectatorPose, yaw: this.input.yaw, pitch: this.input.pitch }, keys, dt, limits);
     } else {
       const followed = this.followedPlayer();
-      if (followed) this.spectatorPose = this.cameraMode === 'third' ? chasePose(followed, this.collision) : eyePose(followed);
+      const view = this.cameraMode === 'orbit' ? { yaw: this.input.yaw, pitch: this.input.pitch } : followed;
+      if (followed) this.spectatorPose = this.cameraMode === 'first' ? eyePose(followed) : chasePose(followed, this.collision, view ?? undefined);
     }
     const { x, y, z, yaw, pitch } = this.spectatorPose;
     this.camera.position.set(x, y, z);

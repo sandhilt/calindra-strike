@@ -6,6 +6,7 @@ import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
+import { type HammerSwing, hammerSwingPose, nextHammerSwing, swingSeconds } from './hammer-swing.ts';
 import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, pistolShotPose, stepKick } from './kick-anim.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
@@ -32,6 +33,8 @@ const FULL_RELOAD_FRAMING = { roll: 1, dip: 1 } as const;
 const GRIP_HAND = new THREE.Vector3(0.2, -2, 0.6);
 /** How far a bolt-action gun is brought toward the centre while its bolt is worked, so the hand on the handle is in view. */
 const BOLT_PRESENT = { leftUnits: 3.5, upUnits: 3 } as const;
+/** The right shoulder, in hammer units from the fist, out along the forearm: the hammer arm swings about it. */
+const HAMMER_SHOULDER = new THREE.Vector3(2.2, -4.3, 5).setLength(36);
 
 export function flashTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -99,8 +102,13 @@ export class ViewModel {
   /** Seconds since the last AWP shot while its bolt is being worked, -1 when idle. */
   private boltCycle = -1;
   private pistolShotSeconds = Infinity;
-  private swing = 0;
-  private swingHeavy = false;
+  private swing: { readonly kind: HammerSwing; elapsed: number } | null = null;
+  private lastSwing: HammerSwing | null = null;
+  /** Holds the hammer and the fist, so the wrist turns them without the forearm. */
+  private hammerWrist: THREE.Group | null = null;
+  private readonly shoulder = new THREE.Vector3();
+  private readonly armTurn = new THREE.Quaternion();
+  private readonly armEuler = new THREE.Euler();
   private readonly belt: BeltFlow = { feed: 0, speed: 0, burst: 0 };
   private placementNow: GunPlacement = placementFor(WEAPON.RIFLE);
   private beltLinks: number;
@@ -158,10 +166,16 @@ export class ViewModel {
       into.add(mesh);
     };
     this.rightHand = null;
+    this.hammerWrist = null;
     if (id === WEAPON.HAMMER) {
-      // Closed fist around the vertical shaft, wrist attached for the entire swing.
+      const wrist = new THREE.Group();
+      wrist.add(...g.children);
+      g.add(wrist);
+      into = wrist;
       add(4.1, 4.6, 4.2, glove, 0, 0, 0);
+      into = g;
       add(4, 4, 14, this.sleeve, 2.2, -4.3, 5, 0.3, 0.62);
+      this.hammerWrist = wrist;
       return null;
     }
     // right hand on the grip; forearm leaves the screen toward the bottom-right
@@ -212,7 +226,7 @@ export class ViewModel {
     this.model = m;
     this.weaponId = id;
     this.kickFeel = kickFeelFor(id);
-    this.swing = 0;
+    this.swing = null;
     this.boltCycle = -1;
     this.pistolShotSeconds = Infinity;
     this.flashT = 0;
@@ -256,8 +270,8 @@ export class ViewModel {
 
   fire(heavy: boolean): void {
     if (this.weaponId === WEAPON.HAMMER) {
-      this.swing = 1;
-      this.swingHeavy = heavy;
+      this.lastSwing = nextHammerSwing(this.lastSwing, heavy);
+      this.swing = { kind: this.lastSwing, elapsed: 0 };
       return;
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
@@ -316,23 +330,11 @@ export class ViewModel {
     );
 
     if (this.model) {
-      // hammer swing pivots around the grip: head comes down across the centre of the view
       const g = this.model.group;
       g.rotation.copy(this.baseRot);
       g.rotation.y += reload.tilt * (exchange?.yaw ?? 0);
       g.position.copy(this.basePos);
-      if (this.swing > 0) {
-        this.swing = Math.max(0, this.swing - dt * (this.swingHeavy ? 2.4 : 4));
-        const t = 1 - this.swing;
-        const s = Math.sin(t * Math.PI);
-        const wind = this.swingHeavy ? 1.9 : 1.55;
-        g.rotation.x -= s * wind;
-        g.rotation.y += s * 0.55;
-        g.rotation.z += s * 0.35;
-        g.position.x -= s * 3.5;
-        g.position.y -= s * 0.5;
-        g.position.z -= s * 2;
-      }
+      if (this.hammerWrist) this.poseHammerSwing(g, this.hammerWrist, dt);
       this.applyReloadPose(reload, pistolShot.slide);
     }
 
@@ -340,6 +342,21 @@ export class ViewModel {
       this.flashT -= dt;
       if (this.flashT <= 0) this.flash.visible = false;
     }
+  }
+
+  private poseHammerSwing(g: THREE.Group, wrist: THREE.Group, dt: number): void {
+    let t = 0;
+    if (this.swing) {
+      this.swing.elapsed += dt;
+      t = this.swing.elapsed / swingSeconds(this.swing.kind);
+      if (t >= 1) this.swing = null;
+    }
+    const pose = this.swing ? hammerSwingPose(this.swing.kind, t) : hammerSwingPose('rightToLeft', 0);
+    this.shoulder.copy(HAMMER_SHOULDER).multiplyScalar(g.scale.x).applyEuler(this.baseRot).add(this.basePos);
+    this.armTurn.setFromEuler(this.armEuler.set(...pose.arm));
+    g.position.sub(this.shoulder).applyQuaternion(this.armTurn).add(this.shoulder);
+    g.quaternion.premultiply(this.armTurn);
+    wrist.rotation.set(...pose.wrist);
   }
 
   private currentReloadPose(p: ViewPose): ReloadPose {

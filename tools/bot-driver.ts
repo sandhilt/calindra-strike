@@ -1,9 +1,11 @@
 import {
-  BTN, CollisionWorld, applyCmd, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
+  BTN, CollisionWorld, DEG, TICK_MS, applyCmd, clamp, wrapAngle, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
   createPlayerState, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
-import { REACH_MAX_HEIGHT_UNITS, hasLineOfSight, readyToJump, waypointReached } from '../server/src/bot.ts';
+import {
+  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, gauss, hasLineOfSight, readyToJump, waypointReached, type AimSkill,
+} from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
 
@@ -17,6 +19,7 @@ const RECOVERY_MS = 500;
 const MAX_PATROL_SKIPS = 6; // one lap of the ring
 const REPATH_MS = 1500; // a bot knocked off its route (a ledge, a push) plans again instead of aiming at a node it can no longer reach
 const MAX_PENDING_CMDS = 120; // two seconds of commands: a connection further behind is not worth predicting
+const MAX_AIM_STEP_SECONDS = 0.1; // a long gap between snapshots does not let the bot snap onto a target
 const STEER_BUTTONS = [
   BTN.FWD, BTN.FWD | BTN.LEFT, BTN.LEFT, BTN.BACK | BTN.LEFT,
   BTN.BACK, BTN.BACK | BTN.RIGHT, BTN.RIGHT, BTN.FWD | BTN.RIGHT,
@@ -84,9 +87,23 @@ export class BotDriver {
   /** Commands sent and not yet in a snapshot: the position steered by is where the bot is now, not where the snapshot saw it. */
   private pending: Cmd[] = [];
   private readonly brain: Brain;
+  private readonly aim: AimSkill;
+  private readonly random: () => number;
+  /** Enemy being aimed at, and the aim's state: like a person, the bot reacts late and its first aim is off. */
+  private targetId = -1;
+  private reactAt = 0;
+  private errYaw = 0;
+  private errPitch = 0;
+  private aimHead = false;
+  private yaw = 0;
+  private pitch = 0;
+  private lastTime = -1;
 
-  constructor(brain: Brain) {
+  /** `skill` 0..1, the same scale as the server bots' BOT_SKILL. */
+  constructor(brain: Brain, skill = 0.5, random: () => number = Math.random) {
     this.brain = brain;
+    this.aim = aimSkill(skill);
+    this.random = random;
   }
 
   drive(snap: Snap, map: number, id: number, teams: ReadonlyMap<number, number>, tick: number): DriveInput {
@@ -106,7 +123,7 @@ export class BotDriver {
     const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
 
-    let enemy: (BombPoint & { aimY: number }) | null = null;
+    let enemy: (BombPoint & { id: number; ducked: boolean }) | null = null;
     let enemyDistance = SIGHT_RANGE_UNITS;
     for (const player of dropping ? [] : players) {
       // A dead enemy stays in snapshots until respawn; treating the body as a threat kept bots from ever finishing the objective.
@@ -115,7 +132,7 @@ export class BotDriver {
       if (distance >= enemyDistance) continue;
       const heights = player.flags & RF_DUCK ? [24, 36] : [44, 64];
       if (!hasLineOfSight(world, x, eyeY, z, player, heights)) continue;
-      enemy = { x: player.x, y: player.y, z: player.z, aimY: player.y + heights[0] };
+      enemy = { x: player.x, y: player.y, z: player.z, id: player.id, ducked: Boolean(player.flags & RF_DUCK) };
       enemyDistance = distance;
     }
     const closeEnemy = enemyDistance < CLOSE_ENEMY_UNITS;
@@ -183,17 +200,52 @@ export class BotDriver {
       settled = goal.settle !== undefined && Math.hypot(destination.x - x, destination.y - y, destination.z - z) <= goal.settle;
     }
 
-    const yaw = enemy ? bearing(self, enemy) : moveYaw;
-    const direction = Math.round((moveYaw - yaw) / (Math.PI / 4));
+    const onTarget = this.aimAt(enemy, self, eyeY, moveYaw, snap.time);
+    const direction = Math.round(wrapAngle(moveYaw - this.yaw) / (Math.PI / 4));
     if (!settled) buttons |= STEER_BUTTONS[(direction + 8) % 8];
-    const pitch = enemy ? Math.atan2(enemy.aimY - eyeY, Math.hypot(enemy.x - x, enemy.z - z)) : 0;
     const { weapon, mag, reserve } = this.state;
-    if (enemy && tick % 30 < 20) buttons |= BTN.ATTACK;
+    if (onTarget && tick % 30 < 20) buttons |= BTN.ATTACK;
     if (mag[weapon] === 0 && reserve[weapon] > 0) buttons |= BTN.RELOAD;
     const slot = mag[weapon] === 0 && reserve[weapon] === 0 && weapon !== WEAPON.HAMMER
       ? weapon === WEAPON.PISTOL ? 3 : 2
       : 0;
-    return { buttons, yaw, pitch, weapon: slot };
+    return { buttons, yaw: this.yaw, pitch: this.pitch, weapon: slot };
+  }
+
+  /**
+   * Turns the view toward the enemy at the skill's speed, with an error that starts large and settles, like BotBrain.
+   * True when the bot has reacted and its aim is close enough to shoot. Without an enemy the view follows the walk.
+   */
+  private aimAt(enemy: (BombPoint & { id: number; ducked: boolean }) | null, self: BombPoint, eyeY: number, moveYaw: number, now: number): boolean {
+    const dt = this.lastTime < 0 ? 0 : clamp((now - this.lastTime) / 1000, 0, MAX_AIM_STEP_SECONDS);
+    this.lastTime = now;
+    if (!enemy) {
+      this.targetId = -1;
+      this.yaw = moveYaw;
+      this.pitch = 0;
+      return false;
+    }
+    if (enemy.id !== this.targetId) {
+      this.targetId = enemy.id;
+      this.reactAt = now + (this.aim.reactTicks + this.random() * 8) * TICK_MS;
+      const error = this.aim.errorDeg * DEG;
+      this.errYaw = gauss(this.random) * error;
+      this.errPitch = gauss(this.random) * error * 0.6;
+      this.aimHead = this.random() < this.aim.headChance;
+    }
+    const settle = Math.max(0, 1 - this.aim.settlePerSecond * dt);
+    this.errYaw *= settle;
+    this.errPitch *= settle;
+    const aimY = enemy.y + (enemy.ducked ? (this.aimHead ? 30 : 20) : this.aimHead ? 64 : 44);
+    const distance = Math.hypot(enemy.x - self.x, enemy.z - self.z);
+    const wantYaw = bearing(self, enemy);
+    const wantPitch = Math.atan2(aimY - eyeY, distance);
+    const jitter = gauss(this.random) * this.aim.jitterDeg * DEG * 0.3;
+    const maxTurn = this.aim.combatTurnDegPerSecond * DEG * dt;
+    this.yaw = wrapAngle(this.yaw + clamp(wrapAngle(wantYaw + this.errYaw + jitter - this.yaw), -maxTurn, maxTurn));
+    this.pitch += clamp(wantPitch + this.errPitch - this.pitch, -maxTurn, maxTurn);
+    const off = Math.hypot(wrapAngle(wantYaw - this.yaw), wantPitch - this.pitch);
+    return now >= this.reactAt && off < aimTolerance(distance, this.aimHead);
   }
 
   /** Tells the driver a command went out, so the next snapshots are read as that many ticks behind. */

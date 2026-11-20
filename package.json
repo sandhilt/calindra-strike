@@ -16,7 +16,7 @@
     "start:server": "cd server && node --run start",
     "typecheck": "tsc -p shared && tsc -p shared/test && tsc -p server && tsc -p client && tsc -p client/test && tsc -p tools",
     "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\" \"tools/test/*.test.ts\" \"client/test/*.test.ts\"",
-    "bots": "node tools/bots.ts",
+    "bots": "node --env-file-if-exists=.env tools/bots.ts",
     "bench": "node tools/bench.ts",
     "mcp": "node tools/mcp/launch.ts"
   },

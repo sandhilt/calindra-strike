@@ -61,7 +61,7 @@ import {
   spawnState,
   weaponDef,
 } from '@calindra-strike/shared';
-import { BOT_NAMES, type BotEnv, BotBrain } from './bot.ts';
+import { BOT_NAMES, type BotEnv, BotBrain, botSkill } from './bot.ts';
 import { NavGrid } from './nav.ts';
 
 const CONFIRMED: Readiness = { kind: 'confirmed' };
@@ -823,7 +823,7 @@ export class Game {
     }
     this.botName++;
     if (!name) name = `BOT ${id}`;
-    const skill = clamp((this.opts.botSkill ?? 0.5) + (this.random() - 0.5) * 0.3, 0, 1);
+    const skill = botSkill(this.opts.botSkill ?? 0.5, this.random);
     const p: ServerPlayer = {
       id,
       name,

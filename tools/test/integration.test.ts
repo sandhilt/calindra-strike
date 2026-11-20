@@ -134,7 +134,7 @@ test('stdio MCP plays against the real authoritative WebSocket server', { timeou
   await tool('hunt');
   await tool('radio', { menu: 'comandos', line: 1 });
   const before = await tool('wait', { ms: 500 });
-  assert.partialDeepStrictEqual(before.chat.find((c: { radio?: boolean }) => c.radio), { text: 'Me cobre!', name: 'mcp-integration' });
+  assert.partialDeepStrictEqual(before.chat.find((c: { radio?: boolean; name?: string }) => c.radio && c.name === 'mcp-integration'), { text: 'Me cobre!', name: 'mcp-integration' });
   const afterWait = await tool('wait', { ms: 3000 });
   assert.notDeepEqual(afterWait.you.pos, before.you.pos);
   assert.equal(afterWait.you.name, 'mcp-integration');

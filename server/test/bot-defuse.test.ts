@@ -26,7 +26,7 @@ it('attackers fetch the bomb, the carrier heads for the site, escorts follow, de
   env.bomb = { kind: 'carried', carrier: carrier.id };
   assert.ok(pickBombGoal(carrier, env)?.holdRadiusUnits);
   assert.partialDeepStrictEqual(pickBombGoal(carrier, env), bases[1]);
-  assert.deepEqual(pickBombGoal(escort, env), { x: carrier.state.x, y: carrier.state.y, z: carrier.state.z, holdRadiusUnits: null });
+  assert.partialDeepStrictEqual(pickBombGoal(escort, env), { x: carrier.state.x, y: carrier.state.y, z: carrier.state.z, holdRadiusUnits: null });
   env.bomb = { kind: 'dropped', x: 12, y: 0, z: 34, returnAtTick: 100 };
   assert.deepEqual(pickBombGoal(escort, env), { x: 12, y: 0, z: 34, holdRadiusUnits: null });
   env.mode = 'tdm';
@@ -50,6 +50,17 @@ it('players who only wait patrol a ring around the spot instead of parking on it
   const guard = pickBombGoal(escort, env);
   assert.equal(guard?.holdRadiusUnits, null);
   assert.ok(ringDistance(guard, { x: 10, z: 20 }) > 160, 'attackers guard a planted bomb from around it');
+});
+
+it('a guard walks round the ring instead of crossing the site between patrol points', () => {
+  const guard = agent(3, 1);
+  const anchor = bases[1];
+  for (let step = 0; step < 12; step++) {
+    const from = guardPatrolPoint(anchor, guard, step * 180);
+    const to = guardPatrolPoint(anchor, guard, (step + 1) * 180);
+    const hop = Math.hypot(to.x - from.x, to.z - from.z);
+    assert.ok(hop < 300, 'patrol hop of ' + Math.round(hop) + ' units cuts across the site');
+  }
 });
 
 it('defenders walk to the planted bomb and hold use next to it', () => {

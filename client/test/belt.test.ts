@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WEAPON, reloadCursor, weaponDef } from '@calindra-strike/shared';
-import { BELT_BURST_S, BELT_FLOW_SLOTS_PER_S, BELT_PATH, TRACER_EVERY, TRAY_LIFT_UNITS, type BeltFlow, isTracer, linkPlacement, pointAlong, stepBeltFlow } from '../src/game/render/belt-anim.ts';
+import { BELT_BURST_S, BELT_FLOW_SLOTS_PER_S, BELT_PATH, TRACER_EVERY, TRAY_CLEAR_UNITS, TRAY_LIFT_UNITS, type BeltFlow, type BeltPoint, isTracer, linkPlacement, pointAlong, reachedPath, stepBeltFlow } from '../src/game/render/belt-anim.ts';
 import { reloadPose } from '../src/game/render/reload-anim.ts';
 import { QUALITY, QUALITY_TIERS } from '../src/game/render/quality.ts';
 import { buildWeapon } from '../src/game/render/weapons3d.ts';
@@ -46,28 +46,105 @@ test('feeding one round moves the belt one slot, and the wrap from one round to 
   assert.ok(after.y > before.y, 'the belt climbs toward the tray as rounds are fed');
 });
 
-test('only the rounds on the tray rise when the belt is not laid', () => {
+test('lifting the belt raises its tray end and barely moves the end at the box', () => {
   const count = 10;
-  for (let i = 0; i < count; i++) {
-    const laid = linkPlacement(i, count, 0.3, 1).position;
-    const lifted = linkPlacement(i, count, 0.3, 0).position;
-    const rise = lifted.y - laid.y;
-    if (i < 5) assert.equal(rise, 0, `round ${i} is on the flank`);
-    assert.ok(rise >= 0 && rise <= TRAY_LIFT_UNITS + 1e-9);
-  }
-  assert.ok(linkPlacement(count - 1, count, 0.3, 0).position.y - linkPlacement(count - 1, count, 0.3, 1).position.y > 3, 'the end of the belt is clearly lifted');
+  const rise = (i: number) => linkPlacement(i, count, 0.3, 0).position.y - linkPlacement(i, count, 0.3, 1).position.y;
+  assert.ok(rise(0) < 0.1, 'the round at the box stays put');
+  for (let i = 0; i < count; i++) assert.ok(rise(i) >= -1e-9 && rise(i) <= TRAY_LIFT_UNITS + 1e-9, `round ${i} rises by no more than the lift`);
+  assert.ok(rise(count - 1) > 0.7 * TRAY_LIFT_UNITS, 'the end of the belt is clearly lifted');
+  for (let i = 1; i < count; i++) assert.ok(rise(i) >= rise(i - 1) - 1e-9, 'the rise grows toward the tray end');
 });
 
-test('swinging the belt clear moves only the tray end, out to the left of the gun', () => {
+test('swinging the belt clear moves the tray end out to the left of the gun and leaves the box end alone', () => {
   const count = 10;
-  for (let i = 0; i < count; i++) {
-    const over = linkPlacement(i, count, 0.3, 1, 0).position;
-    const clear = linkPlacement(i, count, 0.3, 1, 1).position;
-    if (i < 5) assert.equal(clear.x, over.x, `round ${i} is on the flank`);
-    assert.ok(clear.x <= over.x);
+  const shift = (i: number) => linkPlacement(i, count, 0.3, 1, 1).position.x - linkPlacement(i, count, 0.3, 1, 0).position.x;
+  assert.ok(Math.abs(shift(0)) < 0.2, 'the round at the box stays put');
+  assert.ok(shift(count - 1) < -0.7 * TRAY_CLEAR_UNITS, 'the end is well clear of the receiver');
+});
+
+/** Distance between neighbouring rounds, over every round of a belt of `count`. */
+const spacings = (count: number, feed: number, laid: number, clear: number, fall: BeltPoint = { x: 0, y: 0, z: 0 }): number[] => {
+  const bent = reachedPath(laid, clear, fall);
+  const at = Array.from({ length: count }, (_, i) => linkPlacement(i, count, feed, laid, clear, bent).position);
+  return at.slice(1).map((p, i) => Math.hypot(p.x - at[i].x, p.y - at[i].y, p.z - at[i].z));
+};
+
+test('a belt that is lifted, swung out or hanging from the hand stays one chain, with no gap or bunching between rounds', () => {
+  const rest = spacings(10, 0, 1, 0);
+  const nominal = rest.reduce((sum, d) => sum + d, 0) / rest.length;
+  for (const count of [4, 6, 10]) {
+    const unit = nominal * (10 / count);
+    for (const laid of [1, 0.5, 0]) {
+      for (const clear of [0, 0.5, 1]) {
+        for (const feed of [0, 0.3, 0.6, 0.9]) {
+          for (const fall of [0, 3, 12]) {
+            for (const d of spacings(count, feed, laid, clear, { x: 0, y: -fall, z: 0 })) {
+              const ratio = d / unit;
+              assert.ok(ratio > 0.5 && ratio < 2.6, `spacing ${ratio.toFixed(2)}x at ${count} rounds, laid ${laid}, clear ${clear}, feed ${feed}, fall ${fall}`);
+            }
+          }
+        }
+      }
+    }
   }
-  const end = count - 1;
-  assert.ok(linkPlacement(end, count, 0.3, 1, 0).position.x - linkPlacement(end, count, 0.3, 1, 1).position.x > 4, 'the end is well clear of the receiver');
+});
+
+test('a belt held by the hand hangs from it while the box falls, and one lying on the tray falls with the box', () => {
+  const count = 10;
+  const tip = (laid: number, clear: number, fall: number) => linkPlacement(count - 1, count, 0.3, laid, clear, reachedPath(laid, clear, { x: 0, y: -fall, z: 0 })).position;
+  const mouth = (laid: number, clear: number, fall: number) => linkPlacement(0, count, 0.3, laid, clear, reachedPath(laid, clear, { x: 0, y: -fall, z: 0 })).position;
+  assert.ok(tip(1, 0, 0).y - tip(1, 0, 12).y > 11, 'on the tray, the whole belt goes down with the box');
+  const held = tip(0, 1, 0).y - tip(0, 1, 12).y;
+  assert.ok(held < 0.45 * 12, 'in the hand, the tray end drops only a part of the way');
+  assert.ok(mouth(0, 1, 0).y - mouth(0, 1, 12).y > 11, 'the box end still goes all the way down with the box');
+});
+
+test('the last round of a lifted belt stays whole instead of being eaten by the gun', () => {
+  const count = 10;
+  const last = (laid: number, clear: number) => linkPlacement(count - 1, count, 0.3, laid, clear).scale;
+  near(last(1, 0), 0.7, 1e-9);
+  assert.equal(last(0, 0), 1);
+  assert.equal(last(1, 1), 1);
+  const lifting = Array.from({ length: 11 }, (_, i) => last(1 - i / 10, 0));
+  for (let i = 1; i < lifting.length; i++) assert.ok(lifting[i] >= lifting[i - 1] - 1e-9, 'it grows back smoothly as the belt lifts, it does not pop');
+});
+
+/** The body of the machine gun the belt must stay out of, in the gun's own units (see weapons3d). */
+const RECEIVER = { x: [-2.3, 2.3], y: [-1.5, 4.5], z: [-12, 6] } as const;
+
+test('through the whole machine gun reload, no round of the belt sits inside the receiver', () => {
+  const timing = weaponDef(WEAPON.LMG).reloadTiming;
+  assert.ok(timing?.kind === 'magazine');
+  const total = timing.outTicks + timing.inTicks + timing.boltTicks;
+  const count = QUALITY.high.fx.beltLinks;
+  for (let tick = 0; tick < total; tick++) {
+    const pose = reloadPose(reloadCursor(timing, tick, 0));
+    const fall = (pose.magGone ? pose.spareLift : pose.magDrop) * 12;
+    const bent = reachedPath(pose.beltLaid, pose.beltClear, { x: 0, y: -fall, z: 0 });
+    for (const feed of [0, 0.5]) {
+      // The first rounds come out of the mouth of the box, which sits in the receiver, so only what has come out is checked.
+      for (let i = 2; i < count; i++) {
+        const { position: p, scale } = linkPlacement(i, count, feed, pose.beltLaid, pose.beltClear, bent);
+        if (scale < 0.5) continue;
+        const inside = p.x > RECEIVER.x[0] && p.x < RECEIVER.x[1] && p.y > RECEIVER.y[0] && p.y < RECEIVER.y[1] && p.z > RECEIVER.z[0] && p.z < RECEIVER.z[1];
+        assert.ok(!inside, `round ${i} at tick ${tick} is inside the receiver (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`);
+      }
+    }
+  }
+});
+
+test('the belt hangs from the box without a jump where the fresh box takes over from the old one', () => {
+  const timing = weaponDef(WEAPON.LMG).reloadTiming;
+  assert.ok(timing?.kind === 'magazine');
+  let last = 0;
+  let worst = 0;
+  for (let s = 0; s < timing.outTicks * 8; s++) {
+    const pose = reloadPose(reloadCursor(timing, s / 8, 0));
+    const fall = pose.magGone ? pose.spareLift : pose.magDrop;
+    if (s > 0) worst = Math.max(worst, Math.abs(fall - last));
+    last = fall;
+  }
+  assert.ok(worst < 0.01, `the belt moves ${worst.toFixed(3)} of the fall in one eighth of a tick`);
 });
 
 test('one round in four is a tracer and it keeps its look as the belt carries it along', () => {

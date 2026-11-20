@@ -20,6 +20,7 @@ const BROWSER_THEMES: Readonly<Record<BrowserScene['app'], BrowserTheme>> = {
   Chrome: { strip: '#202124', bar: '#35363a', pill: '#202124' },
   Firefox: { strip: '#1c1b22', bar: '#2b2a33', pill: '#1c1b22' },
   Edge: { strip: '#1f1f1f', bar: '#2b2b2b', pill: '#1a1a1a' },
+  Safari: { strip: '#2a2a2d', bar: '#38383c', pill: '#1f1f22' },
 };
 
 const STRIP_H = 32;

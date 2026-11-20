@@ -1,20 +1,22 @@
 import {
-  BTN, CollisionWorld, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
+  BTN, CollisionWorld, applyCmd, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
   createPlayerState, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
-import { hasLineOfSight } from '../server/src/bot.ts';
+import { REACH_MAX_HEIGHT_UNITS, hasLineOfSight, readyToJump, waypointReached } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
 
 export type Snap = Extract<ServerMsg, { t: 'snap' }>;
 export type DriveInput = Pick<Cmd, 'buttons' | 'yaw' | 'pitch' | 'weapon'>;
 
-const WAYPOINT_RADIUS_UNITS = 16;
 const REPATH_DISTANCE_UNITS = 48;
 const CLOSE_ENEMY_UNITS = 300;
 const SIGHT_RANGE_UNITS = 1500;
 const RECOVERY_MS = 500;
+const MAX_PATROL_SKIPS = 6; // one lap of the ring
+const REPATH_MS = 1500; // a bot knocked off its route (a ledge, a push) plans again instead of aiming at a node it can no longer reach
+const MAX_PENDING_CMDS = 120; // two seconds of commands: a connection further behind is not worth predicting
 const STEER_BUTTONS = [
   BTN.FWD, BTN.FWD | BTN.LEFT, BTN.LEFT, BTN.BACK | BTN.LEFT,
   BTN.BACK, BTN.BACK | BTN.RIGHT, BTN.RIGHT, BTN.FWD | BTN.RIGHT,
@@ -70,10 +72,17 @@ export class BotDriver {
   private goal: Goal | null = null;
   private path: { node: NavNode; jump: boolean }[] = [];
   private progress: ProgressSample | null = null;
+  /** Closest the bot has been to the waypoint it is walking to, to tell that it has gone past it. */
+  private waypointClosest = Infinity;
+  private repathAt = 0;
+  private hadEnemy = false;
+  private spotted = false;
   private recoverUntil = 0;
   private recoveryYaw = 0;
   private recoverySide = 1;
   private readonly state = createPlayerState();
+  /** Commands sent and not yet in a snapshot: the position steered by is where the bot is now, not where the snapshot saw it. */
+  private pending: Cmd[] = [];
   private readonly brain: Brain;
 
   constructor(brain: Brain) {
@@ -91,6 +100,8 @@ export class BotDriver {
       id: pid, x, y, z, team: teams.get(pid) ?? -1, dropping: Boolean(flags & RF_DROP), alive: Boolean(flags & RF_ALIVE), flags,
     }));
     unpackState(snap.me, this.state);
+    this.pending = this.pending.filter((cmd) => cmd.seq > snap.ack);
+    for (const cmd of this.pending) applyCmd(world, this.state, cmd, 1);
     const { x, y, z, dropping } = this.state;
     const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
@@ -108,6 +119,8 @@ export class BotDriver {
       enemyDistance = distance;
     }
     const closeEnemy = enemyDistance < CLOSE_ENEMY_UNITS;
+    if (enemy && !this.hadEnemy) this.spotted = true;
+    this.hadEnemy = enemy !== null;
 
     const view = (leg: number): DriveView => ({ snap, terrain, self, players, leg, enemy, closeEnemy });
     let goal = this.brain.decide(view(this.leg));
@@ -125,11 +138,11 @@ export class BotDriver {
 
     const progress = checkProgress(this.progress, self, snap.time);
     this.progress = progress.sample;
-    const patrolNode = goal.roam ? nav.nearest(goal.point.x, goal.point.y, goal.point.z) : null;
-    if (goal.roam && (progress.stuck || (patrolNode && reachedPatrolPoint(self, patrolNode)))) {
-      const next = this.brain.decide(view(++this.leg));
-      if (next) goal = next;
-    }
+    const patrolNode = (g: Goal) => (g.roam ? nav.nearest(g.point.x, g.point.y, g.point.z) : null);
+    const arrived = goal.roam && reachedPatrolPoint(self, patrolNode(goal) ?? goal.point);
+    if (goal.roam && (progress.stuck || arrived)) goal = this.nextPatrol(view, goal);
+    // A ring point outside the walls has no node to walk to: skip it now instead of pressing against the wall until the stuck timer fires.
+    for (let skipped = 0; goal.roam && !patrolNode(goal) && skipped < MAX_PATROL_SKIPS; skipped++) goal = this.nextPatrol(view, goal);
 
     if (progress.stuck) {
       this.goal = null;
@@ -140,6 +153,7 @@ export class BotDriver {
 
     let moveYaw: number;
     let buttons = 0;
+    let settled = false;
     if (snap.time < this.recoverUntil) {
       moveYaw = this.recoveryYaw;
       buttons |= BTN.JUMP;
@@ -149,20 +163,29 @@ export class BotDriver {
       moveYaw = bearing(self, enemy) + side * Math.PI / 2;
     } else {
       const destination = goal.intercept ?? goal.point;
-      const changed = this.goal?.role !== goal.role
+      const changed = snap.time >= this.repathAt || this.goal?.role !== goal.role
         || Math.hypot(destination.x - this.goal.point.x, destination.y - this.goal.point.y, destination.z - this.goal.point.z) >= REPATH_DISTANCE_UNITS;
-      if (changed) this.route(nav, self, { role: goal.role, point: destination });
-      while (this.path[0] && Math.hypot(this.path[0].node.x - x, this.path[0].node.y - y, this.path[0].node.z - z) < WAYPOINT_RADIUS_UNITS) {
+      if (changed) this.route(nav, self, { role: goal.role, point: destination }, snap.time);
+      // The snapshot is a few ticks old, so a bot cannot count on landing inside a tight arrival radius.
+      while (this.path[0] && Math.abs(this.path[0].node.y - y) <= REACH_MAX_HEIGHT_UNITS) {
+        const distance = Math.hypot(this.path[0].node.x - x, this.path[0].node.z - z);
+        if (!waypointReached(distance, this.waypointClosest)) {
+          this.waypointClosest = Math.min(this.waypointClosest, distance);
+          break;
+        }
         this.path.shift();
+        this.waypointClosest = Infinity;
       }
       const waypoint = this.path[0];
       moveYaw = bearing(self, waypoint?.node ?? destination);
-      if (waypoint?.jump) buttons |= BTN.JUMP;
+      // A jump keeps the ground speed, so jumping on stairs while sliding sideways flies off them.
+      if (waypoint?.jump && readyToJump(this.state, waypoint.node)) buttons |= BTN.JUMP;
+      settled = goal.settle !== undefined && Math.hypot(destination.x - x, destination.y - y, destination.z - z) <= goal.settle;
     }
 
     const yaw = enemy ? bearing(self, enemy) : moveYaw;
     const direction = Math.round((moveYaw - yaw) / (Math.PI / 4));
-    buttons |= STEER_BUTTONS[(direction + 8) % 8];
+    if (!settled) buttons |= STEER_BUTTONS[(direction + 8) % 8];
     const pitch = enemy ? Math.atan2(enemy.aimY - eyeY, Math.hypot(enemy.x - x, enemy.z - z)) : 0;
     const { weapon, mag, reserve } = this.state;
     if (enemy && tick % 30 < 20) buttons |= BTN.ATTACK;
@@ -171,6 +194,23 @@ export class BotDriver {
       ? weapon === WEAPON.PISTOL ? 3 : 2
       : 0;
     return { buttons, yaw, pitch, weapon: slot };
+  }
+
+  /** Tells the driver a command went out, so the next snapshots are read as that many ticks behind. */
+  sent(cmd: Cmd): void {
+    this.pending.push(cmd);
+    if (this.pending.length > MAX_PENDING_CMDS) this.pending.shift();
+  }
+
+  /** True once after the bot catches sight of an enemy it had not been seeing. */
+  takeSpotted(): boolean {
+    const spotted = this.spotted;
+    this.spotted = false;
+    return spotted;
+  }
+
+  private nextPatrol(view: (leg: number) => DriveView, current: Goal): Goal {
+    return this.brain.decide(view(++this.leg)) ?? current;
   }
 
   private idle(): DriveInput {
@@ -184,8 +224,10 @@ export class BotDriver {
     this.recoverUntil = 0;
   }
 
-  private route(nav: NavGrid, self: BombPoint, goal: Goal): void {
+  private route(nav: NavGrid, self: BombPoint, goal: Goal, now: number): void {
     this.goal = goal;
+    this.repathAt = now + REPATH_MS;
+    this.waypointClosest = Infinity;
     const start = nav.nearest(self.x, self.y, self.z);
     const end = nav.nearest(goal.point.x, goal.point.y + 4, goal.point.z);
     if (!start || !end) {

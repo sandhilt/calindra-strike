@@ -5,11 +5,14 @@
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  */
-import { BTN, PROTOCOL_VERSION, newBotChatMemory, pickBotChat, TICK_MS, WEAPON, encodeCmd, type MatchInfo, type RosterEntry, type ServerMsg } from '../shared/src/index.ts';
+import {
+  BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, fillBotChat, newBotChatMemory, newTalkMemory, pickBotChat, pickBotRadio, recordTalk,
+  type BotRadioTrigger, type MatchInfo, type RosterEntry, type ServerMsg,
+} from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
 import { BotDriver } from './bot-driver.ts';
 import { brainFor } from './brains.ts';
-import { reactionTrigger } from './bot-reaction.ts';
+import { DeathStreaks, fellLow, reactionsTo } from './bot-reaction.ts';
 
 const { positionals } = parseArgs({ allowPositionals: true });
 const count = Number(positionals[0] ?? 3);
@@ -20,9 +23,15 @@ const NAMES = ['Brokkr', 'Sindri', 'Freya', 'Loki', 'Tyr', 'Skadi', 'Odin', 'Hei
 
 // Shared by every dev bot in this process, like the server's room-wide gate.
 let lastAnyChatAt = -Infinity;
+let lastAnyRadioAt = -Infinity;
 
 function bot(i: number): void {
   const chatMemory = newBotChatMemory();
+  const radioMemory = newTalkMemory<number>();
+  const streaks = new DeathStreaks();
+  const names = new Map<number, string>();
+  let health = 100;
+  let phase = '';
   const ws = new WebSocket(url, { headers: { Origin: origin } });
   let id = -1;
   let me: number[] | null = null;
@@ -46,7 +55,20 @@ function bot(i: number): void {
   const teams = new Map<number, number>();
   const setRoster = (r: RosterEntry[]) => {
     teams.clear();
-    for (const [pid, , , team] of r) teams.set(pid, team);
+    names.clear();
+    for (const [pid, name, , team] of r) {
+      teams.set(pid, team);
+      names.set(pid, name);
+    }
+  };
+  /** The radio goes through the same cooldowns as the server bots: one call per bot every 45 s, one per room every 12 s. */
+  const callRadio = (trigger: BotRadioTrigger) => {
+    const now = performance.now();
+    const line = pickBotRadio(trigger, radioMemory, lastAnyRadioAt, now, Math.random(), Math.random());
+    if (line === null) return;
+    recordTalk(radioMemory, line, now);
+    lastAnyRadioAt = now;
+    ws.send(JSON.stringify({ t: 'radio', line }));
   };
   ws.addEventListener('open', () =>
     ws.send(JSON.stringify({ t: 'hello', v: PROTOCOL_VERSION, name: `bot ${NAMES[i % NAMES.length]}`, color: (i * 5) % 12, primary: [WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN][i % 3] })),
@@ -61,24 +83,43 @@ function bot(i: number): void {
     }
     if (m.t === 'readiness') ws.send(JSON.stringify({ t: 'ready' }));
     if (m.t === 'roster') setRoster(m.roster);
-    if (m.t === 'match') setMatch(m.match);
+    if (m.t === 'match') {
+      setMatch(m.match);
+      if (m.match.phase === 'live' && phase !== 'live') {
+        streaks.clear();
+        callRadio('calindra');
+        callRadio('roundStart');
+      }
+      phase = m.match.phase;
+    }
     if (m.t === 'snap') {
       snap = m;
       me = m.me;
       serverTime = m.time;
+      const hp = m.me?.[7];
+      if (hp !== undefined) {
+        if (fellLow(health, hp)) callRadio('hurt');
+        health = hp;
+      }
       others = m.ps.filter((p: number[]) => p[0] !== id && !(mode !== 'ffa' && teams.get(p[0]) === teams.get(id)));
     }
     if (m.t === 'ev') {
+      let spoke = false;
       for (const ev of m.e) {
-        const trigger = reactionTrigger(ev, id);
-        if (!trigger) continue;
-        const now = performance.now();
-        const text = pickBotChat(trigger, chatMemory, lastAnyChatAt, now, Math.random(), Math.random());
-        if (!text) continue;
-        chatMemory.lastAt = lastAnyChatAt = now;
-        chatMemory.lastLine = text;
-        ws.send(JSON.stringify({ t: 'chat', text }));
-        break;
+        for (const reaction of reactionsTo(ev, { me: id, names, teams }, streaks)) {
+          if (reaction.channel === 'radio') {
+            callRadio(reaction.trigger);
+            continue;
+          }
+          if (spoke) continue;
+          const now = performance.now();
+          const line = pickBotChat(reaction.trigger, chatMemory, lastAnyChatAt, now, Math.random(), Math.random());
+          if (!line) continue;
+          recordTalk(chatMemory, line, now);
+          lastAnyChatAt = now;
+          spoke = true;
+          ws.send(JSON.stringify({ t: 'chat', text: fillBotChat(line, reaction.about ?? '') }));
+        }
       }
     }
     if (m.t === 'reject') console.log('rejected', m.reason);
@@ -92,7 +133,12 @@ function bot(i: number): void {
     if (driver && !passive) {
       if (!snap) return;
       const input = driver.drive(snap, map, id, teams, t);
-      for (let k = 0; k < 2; k++) cmds.push(encodeCmd({ ...input, seq: ++seq, interp }));
+      for (let k = 0; k < 2; k++) {
+        const cmd = { ...input, seq: ++seq, interp };
+        driver.sent(cmd);
+        cmds.push(encodeCmd(cmd));
+      }
+      if (driver.takeSpotted()) callRadio('enemySpotted');
       ws.send(JSON.stringify({ t: 'in', c: cmds }));
       return;
     }

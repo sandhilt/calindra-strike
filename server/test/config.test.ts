@@ -102,7 +102,7 @@ it('kicks unready and idle players by default and lets the operator turn each of
   stubEnv('READY_KICK_SECONDS', '');
   stubEnv('IDLE_KICK', '');
   stubEnv('IDLE_KICK_SECONDS', '');
-  assert.equal(loadConfig().readyKickMs, 20_000);
+  assert.equal(loadConfig().readyKickMs, 180_000);
   assert.equal(loadConfig().idleKickMs, 60_000);
   stubEnv('READY_KICK_SECONDS', '45');
   stubEnv('IDLE_KICK_SECONDS', '120');
@@ -141,7 +141,7 @@ it('configures the radio spam guard', () => {
 
 it('configures the debug defusion plant timeout in seconds within 0..3600', () => {
   stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
-  assert.equal(loadConfig().plantTimeoutMs, 60_000);
+  assert.equal(loadConfig().plantTimeoutMs, 30_000);
   for (const [value, ms] of [['0', 0], ['90', 90_000], ['3600', 3_600_000]] as const) {
     stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', value);
     assert.equal(loadConfig().plantTimeoutMs, ms);

@@ -525,22 +525,24 @@ const ubuntu: IconPainter = (c) => {
   }
 };
 
+/** Docker's mark: one SVG path in a 1251.74 x 754.67 viewBox, inked in Ether on the Base tile. */
+const DOCKER_MARK_PATH = 'm1077.76 0c-75.81 0-137.27 61.46-137.27 137.27-.01-75.81-61.47-137.27-137.28-137.27h-173.98v110.51c0 84.77 68.72 153.49 153.49 153.49h86.97v82.26h-84.37c-131.59 0-238.28-106.66-238.28-238.25v-108.01h-323.58c-123.42 0-223.46 100.03-223.46 223.43v307.8c0 123.4 100.04 223.43 223.46 223.43h561.87c123.42 0 223.46-100.03 223.46-223.43v-267.23h89.46c84.77 0 153.49-68.72 153.49-153.49v-110.51z';
+const DOCKER_MARK_W = 1251.74;
+const DOCKER_MARK_H = 754.67;
+const DOCKER_MARK_WIDTH = 80;
+const DOCKER_ETHER = '#101010';
+let dockerMark: Path2D | undefined;
+
 const docker: IconPainter = (c) => {
-  const blue = '#2496ed';
-  filled(c, blue, () => {
-    c.moveTo(4, 53);
-    c.lineTo(72, 53);
-    c.quadraticCurveTo(71, 41, 79, 34);
-    c.quadraticCurveTo(86, 39, 85, 47);
-    c.quadraticCurveTo(91, 44, 98, 48);
-    c.quadraticCurveTo(95, 60, 81, 61);
-    c.bezierCurveTo(73, 81, 58, 87, 38, 87);
-    c.bezierCurveTo(18, 87, 4, 76, 4, 53);
-  });
-  for (const [column, row] of [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [1, 1], [2, 1], [3, 1], [3, 2]]) {
-    fillRound(c, 9 + column * 12.5, 41 - row * 12.5, 10.5, 10, 1, blue);
-  }
-  fillDisc(c, 26, 64, 2.5, '#ffffff');
+  tile(c, APP_ACCENT.Docker);
+  const scale = DOCKER_MARK_WIDTH / DOCKER_MARK_W;
+  dockerMark ??= new Path2D(DOCKER_MARK_PATH);
+  c.save();
+  c.translate((100 - DOCKER_MARK_WIDTH) / 2, (100 - DOCKER_MARK_H * scale) / 2);
+  c.scale(scale, scale);
+  c.fillStyle = DOCKER_ETHER;
+  c.fill(dockerMark);
+  c.restore();
 };
 
 const deepseek: IconPainter = (c) => {
@@ -634,6 +636,37 @@ const postman: IconPainter = (c) => {
   });
 };
 
+const finder: IconPainter = (c) => {
+  // The Finder face: blue on the left half, paper white on the right half.
+  c.save();
+  c.beginPath();
+  c.rect(0, 0, 50, 100);
+  c.clip();
+  tile(c, gradient(c, '#5ac8fa', '#0a6ee0', 0, 0, 50, 100));
+  c.restore();
+  c.save();
+  c.beginPath();
+  c.rect(50, 0, 50, 100);
+  c.clip();
+  tile(c, gradient(c, '#ffffff', '#dde4ee', 50, 0, 100, 100));
+  c.restore();
+  fillRound(c, 32, 30, 9, 24, 4.5, '#ffffff');
+  fillRound(c, 59, 30, 9, 24, 4.5, '#1d1d1f');
+  stroked(c, '#1d1d1f', 4.5, () => {
+    c.moveTo(34, 64);
+    c.quadraticCurveTo(50, 80, 66, 64);
+  });
+};
+
+const safari: IconPainter = (c) => {
+  tile(c, gradient(c, '#5fd4ff', '#0a5fd6'));
+  fillDisc(c, 50, 50, 39, gradient(c, '#1d2a44', '#0b1220', 20, 14, 80, 86));
+  for (const [x, y] of [[50, 16], [84, 50], [50, 84], [16, 50]] as const) fillDisc(c, x, y, 2, '#ffffff');
+  fillPolygon(c, [[66, 34], [55, 55], [45, 45]], '#ff453a');
+  fillPolygon(c, [[34, 66], [45, 45], [55, 55]], '#ffffff');
+  fillDisc(c, 50, 50, 2.5, '#1d2a44');
+};
+
 export const ICONS: Readonly<Record<AppName, IconPainter>> = {
   Cursor: cursor,
   'VS Code': vscode,
@@ -649,7 +682,9 @@ export const ICONS: Readonly<Record<AppName, IconPainter>> = {
   Postman: postman,
   Firefox: firefox,
   Edge: edge,
+  Safari: safari,
   Explorer: explorer,
+  Finder: finder,
   Jira: jira,
   Slack: slack,
   Spotify: spotify,

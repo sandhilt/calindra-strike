@@ -60,9 +60,18 @@ describe('bots', () => {
   it('roam the map and fight: someone gets shot within a minute', () => {
     const { game, join, bots } = setup();
     join('Gabi');
-    const start = new Map(bots().map((b) => [b.id, { x: b.state.x, z: b.state.z }]));
-    for (let i = 0; i < 60 * 60; i++) game.update();
-    const moved = bots().filter((b) => Math.hypot(b.state.x - start.get(b.id)!.x, b.state.z - start.get(b.id)!.z) > 300);
+    // Distance walked, not distance from the spawn: a bot that dies and respawns can end where it began.
+    const last = new Map(bots().map((b) => [b.id, { x: b.state.x, z: b.state.z }]));
+    const walked = new Map(bots().map((b) => [b.id, 0]));
+    for (let i = 0; i < 60 * 60; i++) {
+      game.update();
+      for (const b of bots()) {
+        const from = last.get(b.id)!;
+        walked.set(b.id, walked.get(b.id)! + Math.hypot(b.state.x - from.x, b.state.z - from.z));
+        last.set(b.id, { x: b.state.x, z: b.state.z });
+      }
+    }
+    const moved = bots().filter((b) => walked.get(b.id)! > 300);
     assert.ok(moved.length > 2, "Expected moved.length > 2");
     const kills = [...game.players.values()].reduce((n, p) => n + p.kills, 0);
     const hurt = [...game.players.values()].some((p) => p.deaths > 0 || p.state.health < 100);

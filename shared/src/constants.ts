@@ -39,6 +39,10 @@ export const DROP_DIVE_SPEED = 980;
 export const DROP_AIR_SPEED = 520;
 export const DROP_ACCEL = 4;
 export const SPAWN_PROTECT_TICKS = 90; // 1.5s after landing
+/** Default time without input before an idle player goes back to the lobby (server setting). */
+export const IDLE_KICK_SECONDS = 60;
+/** Default time a player has to confirm "pronto" before going back to the lobby (server setting). */
+export const READY_KICK_SECONDS = 180;
 export const IDLE_WARNING_LEAD_MS = 10_000; // how long before the idle kick the client warns the player
 
 // --- match ---
@@ -130,7 +134,7 @@ export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
 export const FUSE_MS = (FUSE_TICKS * 1000) / TICK_RATE;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
-export const DEBUG_SCENARIO_COUNT = 6;
+export const DEBUG_SCENARIO_COUNT = 7;
 /** Share of rounds that turn Black Friday: it switches on at a random moment, and the planted bug burns a shorter fuse. */
 export const BLACK_FRIDAY_CHANCE = 0.2;
 /** A match without Black Friday gets one at the latest on this round, so every complete match sees it at least once. */
@@ -142,7 +146,7 @@ export const BLACK_FRIDAY_DISCOUNT_PERCENT = 50;
 export const BLACK_FRIDAY_FUSE_TICKS = (FUSE_TICKS * (100 - BLACK_FRIDAY_DISCOUNT_PERCENT)) / 100;
 export const BLACK_FRIDAY_FUSE_MS = (BLACK_FRIDAY_FUSE_TICKS * 1000) / TICK_RATE;
 /** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
-export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
+export const BOMB_PLANT_TIMEOUT_SECONDS = 30;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.
 // Sized so a player pressed against any corner still reaches it: desk corner within DEFUSE_RADIUS_UNITS,
 // crate corner within CTF_PICKUP_RADIUS_UNITS (half size plus PLAYER_RADIUS, along both axes).

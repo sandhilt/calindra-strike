@@ -6,9 +6,10 @@ import { patrolPoint, type BotPlayer, type Goal } from './drive-goals.ts';
 
 const BOMB_STATES = ['home', 'carried', 'planting', 'dropped', 'planted'] as const;
 const DEFENDER_PURSUIT_UNITS = 650;
+const ESCORT_TRAIL_UNITS = 150; // an escort trails its carrier at about this distance
 
 export interface DefuseGoal extends Goal {
-  role: 'fetch' | 'plant' | 'defuse' | 'patrol';
+  role: 'fetch' | 'plant' | 'defuse' | 'escort' | 'patrol';
 }
 
 export function readBombRow(row: readonly number[]) {
@@ -39,8 +40,9 @@ export function pickDefuseGoal(
       ?? defenders.toSorted((a, b) => distance(a) - distance(b) || a.id - b.id)[0];
     if (nearest?.id === self.id) return { role: 'defuse', point: bomb };
   }
-  const followingCarrier = self.team === bomb.attackers && (bomb.kind === 'carried' || bomb.kind === 'planting');
-  const center = bomb.kind === 'planted' || followingCarrier ? bomb : places.site;
+  // A ring around a carrier on the move shifts every tick, so escorts trail the carrier instead and patrol only a bug that stays put.
+  if (self.team === bomb.attackers && bomb.kind === 'carried') return { role: 'escort', point: bomb, settle: ESCORT_TRAIL_UNITS };
+  const center = bomb.kind === 'planted' || (self.team === bomb.attackers && bomb.kind === 'planting') ? bomb : places.site;
   return { role: 'patrol', point: patrolPoint(center, self.id, leg), roam: true };
 }
 

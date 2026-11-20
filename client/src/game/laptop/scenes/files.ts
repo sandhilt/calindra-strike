@@ -1,6 +1,6 @@
-import { fillRound, line, span, strokeRound, write, ellipsize, type Ctx } from '../canvas.ts';
+import { ellipsize, fillRound, line, span, strokeRound, textWidth, write, type Ctx } from '../canvas.ts';
 import { drawIcon } from '../icons.ts';
-import { CONTENT_H, CONTENT_W, type SceneRenderer } from './frame.ts';
+import { CONTENT_H, CONTENT_W, type SceneOf, type SceneRenderer } from './frame.ts';
 import { MUTED, statusMark } from './widgets.ts';
 
 const SIDEBAR_W = 168;
@@ -41,7 +41,7 @@ function drawAddressBar(c: Ctx, path: string): void {
   });
 }
 
-export const drawFiles: SceneRenderer<'files'> = (c, scene, { p, timeMs }) => {
+const drawExplorer: SceneRenderer<'files'> = (c, scene, { p, timeMs }) => {
   c.fillStyle = '#202020';
   c.fillRect(0, 0, CONTENT_W, CONTENT_H);
   ['Novo', 'Recortar', 'Copiar', 'Renomear', 'Classificar'].forEach((label, i) => {
@@ -72,3 +72,104 @@ export const drawFiles: SceneRenderer<'files'> = (c, scene, { p, timeMs }) => {
   write(c, `${scene.lines.length} itens`, 14, CONTENT_H - 12, { color: MUTED, size: 11 });
   if (p < 0.2) statusMark(c, CONTENT_W - 24, CONTENT_H - 16, 'running', timeMs, 6);
 };
+
+const FINDER_SIDEBAR_W = 150;
+const FINDER_TOOLBAR_H = 38;
+const FINDER_HEAD_Y = FINDER_TOOLBAR_H + 18;
+const FINDER_ROWS_Y = FINDER_TOOLBAR_H + 30;
+const FINDER_ROW_H = 26;
+const FINDER_PATH_Y = CONTENT_H - 9;
+const FINDER_INK = '#1d1d1f';
+const FINDER_SELECTION = '#0a84ff';
+const FINDER_SELECTED_FAVORITE = 'Projetos';
+const FINDER_FAVORITES = ['Recentes', 'Downloads', 'Documentos', 'Área de Trabalho', 'Projetos'] as const;
+const FINDER_COLUMNS = { name: FINDER_SIDEBAR_W + 44, modified: 368, kind: 510 } as const;
+
+function drawFinderSidebar(c: Ctx): void {
+  c.fillStyle = '#ececee';
+  c.fillRect(0, 0, FINDER_SIDEBAR_W, CONTENT_H);
+  write(c, 'Favoritos', 14, 22, { color: MUTED, size: 10.5, weight: 'bold' });
+  FINDER_FAVORITES.forEach((name, i) => {
+    const y = 30 + i * 22;
+    if (name === FINDER_SELECTED_FAVORITE) fillRound(c, 8, y, FINDER_SIDEBAR_W - 16, 20, 5, 'rgba(0,0,0,0.09)');
+    fillRound(c, 14, y + 5, 10, 10, 3, '#4aa8f5');
+    write(c, name, 32, y + 14, { color: FINDER_INK, size: 12 });
+  });
+  write(c, 'Locais', 14, 164, { color: MUTED, size: 10.5, weight: 'bold' });
+  fillRound(c, 14, 172, 10, 10, 3, '#8e8e93');
+  write(c, 'Macintosh HD', 32, 181, { color: FINDER_INK, size: 12 });
+}
+
+function drawFinderToolbar(c: Ctx, path: string): void {
+  c.fillStyle = '#f6f6f7';
+  c.fillRect(FINDER_SIDEBAR_W, 0, CONTENT_W - FINDER_SIDEBAR_W, FINDER_TOOLBAR_H);
+  line(c, FINDER_SIDEBAR_W, FINDER_TOOLBAR_H, CONTENT_W, FINDER_TOOLBAR_H, 'rgba(0,0,0,0.1)');
+  write(c, '‹', FINDER_SIDEBAR_W + 14, 25, { color: MUTED, size: 18 });
+  write(c, '›', FINDER_SIDEBAR_W + 36, 25, { color: MUTED, size: 18 });
+  const folder = path.split('/').filter(Boolean).at(-1) ?? '';
+  write(c, folder, FINDER_SIDEBAR_W + (CONTENT_W - FINDER_SIDEBAR_W) / 2, 24, { color: FINDER_INK, size: 13, weight: 'bold', align: 'center' });
+  fillRound(c, CONTENT_W - 150, 10, 136, 20, 5, 'rgba(0,0,0,0.07)');
+  write(c, 'Pesquisar', CONTENT_W - 140, 24, { color: MUTED, size: 11.5 });
+}
+
+function finderFolder(c: Ctx, x: number, y: number): void {
+  fillRound(c, x, y, 9, 4, 1.5, '#7cc9ff');
+  fillRound(c, x, y + 3, 20, 13, 3, '#4aa8f5');
+}
+
+function finderDocument(c: Ctx, x: number, y: number): void {
+  fillRound(c, x + 3, y, 13, 17, 2, '#ffffff');
+  strokeRound(c, x + 3, y, 13, 17, 2, '#c7c7cc', 1);
+}
+
+function drawFinderPathBar(c: Ctx, path: string, count: number): void {
+  line(c, FINDER_SIDEBAR_W, CONTENT_H - 22, CONTENT_W, CONTENT_H - 22, 'rgba(0,0,0,0.08)');
+  const style = { color: MUTED, size: 11 } as const;
+  const crumbs = ['Macintosh HD', ...path.split('/').filter(Boolean)];
+  let x = FINDER_SIDEBAR_W + 14;
+  crumbs.forEach((crumb, i) => {
+    write(c, crumb, x, FINDER_PATH_Y, style);
+    x += textWidth(c, crumb, style) + 6;
+    if (i < crumbs.length - 1) {
+      write(c, '›', x, FINDER_PATH_Y, style);
+      x += 12;
+    }
+  });
+  write(c, `${count} itens`, CONTENT_W - 14, FINDER_PATH_Y, { ...style, align: 'right' });
+}
+
+const drawFinder: SceneRenderer<'files'> = (c, scene, { p }) => {
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, CONTENT_W, CONTENT_H);
+  drawFinderSidebar(c);
+  drawFinderToolbar(c, scene.path);
+  for (const [label, x] of [['Nome', FINDER_COLUMNS.name], ['Data de modificação', FINDER_COLUMNS.modified], ['Tipo', FINDER_COLUMNS.kind]] as const) {
+    write(c, label, x, FINDER_HEAD_Y, { color: MUTED, size: 11 });
+  }
+  line(c, FINDER_SIDEBAR_W, FINDER_ROWS_Y - 4, CONTENT_W, FINDER_ROWS_Y - 4, 'rgba(0,0,0,0.08)');
+  const selected = Math.min(scene.lines.length - 1, Math.floor(span(p, 0.2, 0.9) * scene.lines.length));
+  scene.lines.forEach((name, i) => {
+    const y = FINDER_ROWS_Y + i * FINDER_ROW_H;
+    const folder = !name.includes('.');
+    const picked = i === selected;
+    if (picked) fillRound(c, FINDER_SIDEBAR_W + 8, y, CONTENT_W - FINDER_SIDEBAR_W - 16, FINDER_ROW_H - 3, 5, FINDER_SELECTION);
+    if (folder) finderFolder(c, FINDER_COLUMNS.name - 26, y + 4);
+    else finderDocument(c, FINDER_COLUMNS.name - 26, y + 3);
+    const ink = picked ? '#ffffff' : FINDER_INK;
+    const muted = picked ? '#dbeaff' : MUTED;
+    write(c, name, FINDER_COLUMNS.name, y + 17, { color: ink, size: 12.5 });
+    write(c, '12/11/2026 17:4' + i, FINDER_COLUMNS.modified, y + 17, { color: muted, size: 11.5 });
+    write(c, folder ? 'Pasta' : 'Documento', FINDER_COLUMNS.kind, y + 17, { color: muted, size: 11.5 });
+  });
+  drawFinderPathBar(c, scene.path, scene.lines.length);
+};
+
+type FilesScene = SceneOf['files'];
+
+/** One renderer per file manager; the scene's app picks which one draws it. */
+const FILE_MANAGERS: Readonly<Record<FilesScene['app'], SceneRenderer<'files'>>> = {
+  Explorer: drawExplorer,
+  Finder: drawFinder,
+};
+
+export const drawFiles: SceneRenderer<'files'> = (c, scene, frame) => FILE_MANAGERS[scene.app](c, scene, frame);

@@ -41,6 +41,10 @@ interface SiteTheme {
 const SITE_THEMES: Readonly<Partial<Record<SiteName, SiteTheme>>> = {
   'Eitri Console': { bg: '#0b0f08', card: '#151b0e', accent: '#a6ff00', border: '#2c3a14', host: 'console.eitri.tech' },
   'Eitri Matrix': { bg: '#050a06', card: '#0b140c', accent: '#a6ff00', border: '#1e3a1c', host: 'matrix.eitri.tech', matrix: true },
+  Datadog: { bg: '#171123', card: '#281b37', accent: '#b78ae8', border: '#4f3866', host: 'app.datadoghq.com' },
+  Firebase: { bg: '#151820', card: '#252933', accent: '#ff9100', border: '#404553', host: 'console.firebase.google.com' },
+  'Google Cloud': { bg: '#14171b', card: '#23272e', accent: '#8ab4f8', border: '#414751', host: 'console.cloud.google.com' },
+  AWS: { bg: '#131a24', card: '#232f3e', accent: '#ff9900', border: '#3f5268', host: 'console.aws.amazon.com' },
   Calindra: { bg: '#0d0f0d', card: '#171a16', accent: '#b6ff1a', border: '#2f3a22', host: 'calindra.tech' },
   GitHub: { bg: '#0d1117', card: '#161b22', accent: '#2ea043', border: '#30363d', host: 'github.com' },
   Bitbucket: { bg: '#1d2125', card: '#22272b', accent: '#2684ff', border: '#3b444c', host: 'bitbucket.org' },
@@ -156,9 +160,10 @@ const drawDashboard: PageRenderer = (c, scene, { p, timeMs }, site) => {
   c.fillStyle = theme.card;
   c.fillRect(0, 0, 130, PAGE_H);
   if (site) drawIcon(c, site, 12, 10, 22);
-  write(c, 'Eitri', 40, 26, { color: '#ffffff', size: 14, weight: 'bold' });
+  const heading = site === 'Eitri Console' ? 'Eitri' : site ?? scene.app;
+  write(c, heading, 40, 26, { color: '#ffffff', size: 12, weight: 'bold' });
   ['Serviços', 'Sessões', 'Eventos', 'Equipe'].forEach((item, i) => {
-    if (i === 1) fillRound(c, 8, 50 + i * 30, 114, 26, 6, 'rgba(166,255,0,0.14)');
+    if (i === 1) fillRound(c, 8, 50 + i * 30, 114, 26, 6, `${theme.accent}24`);
     write(c, item, 20, 68 + i * 30, { color: i === 1 ? theme.accent : '#b8c3d4', size: 12.5 });
   });
   const [title = '', alert = '', queue = ''] = scene.lines;

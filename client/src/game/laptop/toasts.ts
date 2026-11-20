@@ -26,6 +26,7 @@ const slack = (body: string): Toast => ({ icon: 'Slack', title: 'Bia · #inciden
 
 export const TOAST_PLANS: Readonly<Record<string, readonly ToastPlan[]>> = {
   friday: [
+    { scene: 0, from: 0.35, to: 0.92, toast: { icon: 'Datadog', title: 'Datadog · Monitor em alerta', body: 'session-api · pico de HTTP 500' } },
     { scene: 2, from: 0.45, to: 0.9, toast: slack('Algum progresso nesse bug?') },
     { scene: 8, from: 0.6, to: 0.98, toast: { icon: 'GitHub Actions', title: 'GitHub Actions', body: 'Workflow concluído · tudo verde' } },
   ],

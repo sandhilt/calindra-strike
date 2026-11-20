@@ -131,6 +131,19 @@ test('the docks list the apps of their scenario and AI posts map to lab icons', 
   assert.deepEqual(postLabs('DeepSeek, Qwen e Kimi / Moonshot!'), ['DeepSeek', 'Qwen', 'Kimi']);
 });
 
+test('each cloud tool launches from a story dock into its branded dashboard', () => {
+  const scenes = SCENARIOS.flatMap((scenario) => scenario.scenes.map(({ scene }) => ({ scenario, scene })));
+  const brands: readonly AppName[] = ['Datadog', 'Firebase', 'Google Cloud', 'AWS'];
+  for (const brand of brands) {
+    const entry = scenes.find(({ scene }) => scene.kind === 'browser' && launchApp(scene) === brand);
+    assert.ok(entry, `missing dashboard scene: ${brand}`);
+    assert.ok(dockApps(entry.scenario).includes(brand), `missing dock icon: ${brand}`);
+    const { ctx, log } = recordingContext();
+    drawScene(ctx, entry.scene, { p: 0.5, timeMs: 0, os: entry.scenario.os });
+    assert.ok(log.filter((call) => call.startsWith(`fillText(${brand},`)).length >= 2, brand);
+  }
+});
+
 test('the newest story has a laptop and OS pair that no other story uses', () => {
   const newest = SCENARIOS.at(-1);
   assert.ok(newest);

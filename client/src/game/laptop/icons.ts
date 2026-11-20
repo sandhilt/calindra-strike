@@ -545,6 +545,98 @@ const docker: IconPainter = (c) => {
   c.restore();
 };
 
+const datadog: IconPainter = (c) => {
+  const purple = APP_ACCENT.Datadog;
+  fillPolygon(c, [[7, 21], [83, 7], [94, 84], [19, 95]], purple);
+  filled(c, '#ffffff', () => {
+    c.moveTo(24, 48);
+    c.bezierCurveTo(14, 43, 13, 32, 22, 28);
+    c.bezierCurveTo(27, 25, 33, 28, 36, 33);
+    c.bezierCurveTo(43, 29, 50, 30, 55, 34);
+    c.bezierCurveTo(62, 33, 67, 28, 73, 32);
+    c.bezierCurveTo(79, 37, 72, 46, 63, 48);
+    c.bezierCurveTo(61, 54, 56, 59, 49, 60);
+    c.lineTo(53, 66);
+    c.lineTo(51, 82);
+    c.lineTo(31, 85);
+    c.bezierCurveTo(25, 78, 28, 67, 35, 60);
+    c.bezierCurveTo(26, 59, 23, 54, 24, 48);
+    c.closePath();
+  });
+  fillDisc(c, 44, 40, 2.7, purple);
+  fillDisc(c, 69, 35, 3.8, purple);
+  stroked(c, purple, 2.5, () => {
+    c.moveTo(45, 52);
+    c.quadraticCurveTo(51, 56, 57, 49);
+  });
+  fillPolygon(c, [[49, 63], [84, 57], [88, 79], [53, 86]], '#ffffff');
+  stroked(c, purple, 2.8, () => {
+    c.moveTo(57, 78);
+    c.lineTo(63, 70);
+    c.lineTo(70, 73);
+    c.lineTo(79, 64);
+  });
+};
+
+const firebase: IconPainter = (c) => {
+  tile(c, '#ffffff');
+  fillPolygon(c, [[17, 75], [27, 13], [46, 47]], '#ffa000');
+  fillPolygon(c, [[17, 75], [47, 24], [63, 57]], '#f57c00');
+  fillPolygon(c, [[17, 75], [72, 28], [83, 75], [51, 92]], '#ffca28');
+};
+
+const googleCloud: IconPainter = (c) => {
+  tile(c, '#ffffff');
+  filled(c, '#ea4335', () => {
+    c.moveTo(25, 43);
+    c.bezierCurveTo(31, 17, 62, 12, 78, 32);
+    c.lineTo(67, 43);
+    c.bezierCurveTo(58, 31, 43, 33, 38, 46);
+    c.closePath();
+  });
+  filled(c, APP_ACCENT['Google Cloud'], () => {
+    c.moveTo(67, 43);
+    c.lineTo(78, 32);
+    c.quadraticCurveTo(83, 38, 84, 46);
+    c.bezierCurveTo(102, 52, 97, 82, 77, 82);
+    c.lineTo(49, 82);
+    c.lineTo(49, 67);
+    c.lineTo(76, 67);
+    c.bezierCurveTo(86, 67, 86, 53, 76, 53);
+    c.lineTo(69, 53);
+    c.quadraticCurveTo(70, 47, 67, 43);
+    c.closePath();
+  });
+  filled(c, '#34a853', () => {
+    c.moveTo(49, 82);
+    c.lineTo(27, 82);
+    c.quadraticCurveTo(18, 82, 12, 77);
+    c.lineTo(23, 66);
+    c.quadraticCurveTo(25, 67, 28, 67);
+    c.lineTo(49, 67);
+    c.closePath();
+  });
+  filled(c, '#fbbc05', () => {
+    c.moveTo(12, 77);
+    c.bezierCurveTo(-8, 58, 20, 30, 40, 48);
+    c.lineTo(30, 59);
+    c.bezierCurveTo(24, 52, 15, 61, 23, 66);
+    c.closePath();
+  });
+};
+
+const aws: IconPainter = (c) => {
+  tile(c, '#ffffff');
+  letter(c, 'aws', '#232f3e', 39);
+  stroked(c, APP_ACCENT.AWS, 4, () => {
+    c.moveTo(21, 69);
+    c.quadraticCurveTo(48, 87, 76, 69);
+    c.moveTo(67, 67);
+    c.quadraticCurveTo(75, 64, 79, 67);
+    c.quadraticCurveTo(80, 71, 75, 77);
+  });
+};
+
 const deepseek: IconPainter = (c) => {
   const blue = '#4d6bfe';
   filled(c, blue, () => {
@@ -711,6 +803,10 @@ export const ICONS: Readonly<Record<AppName, IconPainter>> = {
   WSL: wsl,
   Ubuntu: ubuntu,
   Docker: docker,
+  Datadog: datadog,
+  Firebase: firebase,
+  'Google Cloud': googleCloud,
+  AWS: aws,
   Windows: windows,
 };
 

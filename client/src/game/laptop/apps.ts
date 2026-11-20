@@ -8,7 +8,11 @@ export type SiteName =
   | 'Google Workspace'
   | 'Eitri Console'
   | 'Eitri Matrix'
-  | 'Calindra';
+  | 'Calindra'
+  | 'Datadog'
+  | 'Firebase'
+  | 'Google Cloud'
+  | 'AWS';
 
 export type LabName = 'DeepSeek' | 'Qwen' | 'Kimi';
 
@@ -19,6 +23,10 @@ const SITE_BY_URL_PREFIX: readonly (readonly [prefix: string, site: SiteName])[]
   ['console.eitri.tech', 'Eitri Console'],
   ['matrix.eitri.tech', 'Eitri Matrix'],
   ['calindra.tech', 'Calindra'],
+  ['app.datadoghq.com', 'Datadog'],
+  ['console.firebase.google.com', 'Firebase'],
+  ['console.cloud.google.com', 'Google Cloud'],
+  ['console.aws.amazon.com', 'AWS'],
   ['GitHub', 'GitHub'],
   ['Bitbucket', 'Bitbucket'],
   ['X /', 'X'],
@@ -69,6 +77,10 @@ export const APP_ACCENT: Readonly<Record<AppName, string>> = {
   'Eitri Console': '#a6ff00',
   'Eitri Matrix': '#a6ff00',
   Calindra: '#b6ff1a',
+  Datadog: '#632ca6',
+  Firebase: '#ff9100',
+  'Google Cloud': '#4285f4',
+  AWS: '#ff9900',
   DeepSeek: '#4d6bfe',
   Qwen: '#7c6bff',
   Kimi: '#3aa0ff',

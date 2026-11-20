@@ -6,12 +6,12 @@ import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, 
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { weaponMenuKey } from '../game/weapon-menu.ts';
-import { gameLogo, h } from './dom.ts';
+import { ICONS, gameLogo, h, svg } from './dom.ts';
 
-const WEAPON_BLURB: Record<number, string> = {
-  [WEAPON.RIFLE]: '1 tiro na cabeça. Spray que sobe.',
-  [WEAPON.SMG]: 'Rápida e precisa correndo.',
-  [WEAPON.SHOTGUN]: 'Rainha do corpo a corpo.',
+const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
+  [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
+  [WEAPON.SMG]: { icon: ICONS.smg, blurb: 'Rápida e precisa correndo.' },
+  [WEAPON.SHOTGUN]: { icon: ICONS.shotgun, blurb: 'Rainha do corpo a corpo.' },
 };
 
 export interface OverlayHooks {
@@ -63,10 +63,12 @@ export class Overlays {
     private readonly hooks: OverlayHooks,
   ) {
     PRIMARY_CHOICES.forEach((id, i) => {
+      const { icon, blurb } = WEAPON_INFO[id];
       const row = h('button', { class: 'cs-row', type: 'button', onclick: () => this.pickPrimary(id) }, [
         h('span', { class: 'cs-key', text: `${i + 1}.` }),
         h('span', { class: 'cs-name', text: weaponDef(id).name }),
-        h('small', { text: WEAPON_BLURB[id] }),
+        h('small', { text: blurb }),
+        svg(icon),
       ]);
       this.weaponRows.set(id, row);
     });

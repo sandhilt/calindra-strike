@@ -80,11 +80,11 @@ export class Overlays {
     ]);
     const play = h('button', { class: 'btn btn-primary', type: 'button', text: 'clique para jogar', onclick: () => hooks.resume() });
     this.click = h('div', { class: 'overlay' }, [
-      weapons,
       h('div', { class: 'click-to-play' }, [
         gameLogo('game-logo cta-logo'),
         h('h2', { class: 'wordmark', text: 'pronto?' }),
         h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
+        weapons,
         play,
         this.readyCountdownEl,
         h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),

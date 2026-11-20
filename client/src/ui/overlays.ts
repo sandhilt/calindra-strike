@@ -2,10 +2,16 @@ import { browserEngine } from '../game/speech.ts';
 import { checkRow, choiceRow, group, rangeRow } from './controls.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
-import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
+import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
-import { gameLogo, h } from './dom.ts';
+import { ICONS, gameLogo, h, svg } from './dom.ts';
+
+const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
+  [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
+  [WEAPON.SMG]: { icon: ICONS.smg, blurb: 'Rápida e precisa correndo.' },
+  [WEAPON.SHOTGUN]: { icon: ICONS.shotgun, blurb: 'Rainha do corpo a corpo.' },
+};
 
 export interface OverlayHooks {
   join(): void;
@@ -20,6 +26,7 @@ export interface OverlayHooks {
 /** Click-to-play, pause/settings menu, podium results and disconnect overlays. */
 export class Overlays {
   private readonly click: HTMLElement;
+  private readonly weaponCards = new Map<WeaponId, HTMLButtonElement>();
   private readonly menu: HTMLElement;
   private readonly podium: HTMLElement;
   private readonly podiumCards = h('div', { class: 'podium-cards' });
@@ -54,12 +61,32 @@ export class Overlays {
     private readonly settings: Settings,
     private readonly hooks: OverlayHooks,
   ) {
+    for (const id of PRIMARY_CHOICES) {
+      const { icon, blurb } = WEAPON_INFO[id];
+      const card = h('button', {
+        class: 'weapon-card',
+        type: 'button',
+        onclick: () => {
+          settings.primary = id;
+          saveSettings(settings);
+          hooks.settingsChanged(settings);
+          this.renderPrimaryChoice();
+        },
+      }, [svg(icon), h('b', { text: weaponDef(id).name }), h('small', { text: blurb })]);
+      this.weaponCards.set(id, card);
+    }
+    this.renderPrimaryChoice();
+    const weapons = h('div', { class: 'field ready-weapons' }, [
+      h('span', { class: 'label', text: 'arma principal' }),
+      h('div', { class: 'weapons', role: 'group', 'aria-label': 'Arma principal' }, [...this.weaponCards.values()]),
+    ]);
     const play = h('button', { class: 'btn btn-primary', type: 'button', text: 'clique para jogar', onclick: () => hooks.resume() });
     this.click = h('div', { class: 'overlay' }, [
       h('div', { class: 'click-to-play' }, [
         gameLogo('game-logo cta-logo'),
         h('h2', { class: 'wordmark', text: 'pronto?' }),
         h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
+        weapons,
         play,
         this.readyCountdownEl,
         h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),
@@ -160,7 +187,14 @@ export class Overlays {
     ]);
   }
 
+  private renderPrimaryChoice(): void {
+    for (const [id, card] of this.weaponCards) {
+      card.setAttribute('aria-pressed', String(this.settings.primary === id));
+    }
+  }
+
   showClick(v: boolean): void {
+    if (v) this.renderPrimaryChoice();
     this.click.classList.toggle('hidden', !v);
   }
 

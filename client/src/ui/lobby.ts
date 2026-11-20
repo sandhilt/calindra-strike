@@ -1,4 +1,4 @@
-import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId, sanitizeName, weaponDef } from '@calindra-strike/shared';
+import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, sanitizeName } from '@calindra-strike/shared';
 import { SERVER_HTTP } from '../config.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
@@ -28,12 +28,6 @@ const TILE_ICONS = [
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12h6M12 9v6"/></svg>',
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
 ];
-
-const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
-  [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
-  [WEAPON.SMG]: { icon: ICONS.smg, blurb: 'Rápida e precisa correndo.' },
-  [WEAPON.SHOTGUN]: { icon: ICONS.shotgun, blurb: 'Rainha do corpo a corpo.' },
-};
 
 function fmt(ms: number): string {
   const s = Math.ceil(ms / 1000);
@@ -88,29 +82,6 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   };
   drawSwatches();
 
-  const weapons = h('div', { class: 'weapons', role: 'group', 'aria-label': 'Arma principal' });
-  const drawWeapons = () => {
-    weapons.replaceChildren(
-      ...PRIMARY_CHOICES.map((id: WeaponId) => {
-        const d = weaponDef(id);
-        return h(
-          'button',
-          {
-            class: 'weapon-card',
-            type: 'button',
-            'aria-pressed': String(settings.primary === id),
-            onclick: () => {
-              settings.primary = id;
-              drawWeapons();
-            },
-          },
-          [svg(WEAPON_INFO[id].icon), h('b', { text: d.name }), h('small', { text: WEAPON_INFO[id].blurb })],
-        );
-      }),
-    );
-  };
-  drawWeapons();
-
   const graphics = h('div', { class: 'seg', role: 'group', 'aria-label': 'Gráficos' });
   const drawGraphics = () => {
     graphics.replaceChildren(
@@ -142,7 +113,6 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     server,
     h('div', { class: 'field' }, [h('label', { class: 'label', for: 'nick', text: 'apelido' }), nameInput]),
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'sua cor' }), swatches]),
-    h('div', { class: 'field' }, [h('span', { class: 'label', text: 'arma principal' }), weapons]),
     h('div', { class: 'field' }, [
       h('span', { class: 'label', text: 'gráficos' }),
       graphics,

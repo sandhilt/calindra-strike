@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WEAPON, weaponDef } from '@calindra-strike/shared';
-import { type KickState, fireKick, kickFeelFor, kickTotal, stepKick } from '../src/game/render/kick-anim.ts';
+import { type KickState, fireKick, kickFeelFor, kickTotal, pistolShotPose, stepKick } from '../src/game/render/kick-anim.ts';
 
 const FRAME_S = 1 / 60;
 /** Viewmodel units the gun is pushed back per unit of kick, as in the viewmodel. */
@@ -22,7 +22,7 @@ function burst(id: number, seconds: number): number[] {
 }
 
 test('the guns that already felt right kick as they did: a jolt per shot that falls away in a straight line', () => {
-  for (const [id, perShot] of [[WEAPON.RIFLE, 0.7], [WEAPON.PISTOL, 1.1], [WEAPON.SNIPER, 1.6], [WEAPON.SHOTGUN, 1.6]] as const) {
+  for (const [id, perShot] of [[WEAPON.RIFLE, 0.7], [WEAPON.SNIPER, 1.6], [WEAPON.SHOTGUN, 1.6]] as const) {
     const feel = kickFeelFor(id);
     const kick: KickState = { thump: 0, push: 0 };
     fireKick(kick, feel);
@@ -72,4 +72,18 @@ test('the push does not depend on the frame rate', () => {
     return kick.push;
   };
   assert.ok(Math.abs(at(1 / 30) - at(1 / 144)) < 1e-6);
+});
+
+test('the pistol kicks on the first frame, closes the slide and settles before the next shot', () => {
+  const firstFrame = pistolShotPose(FRAME_S);
+  assert.ok(firstFrame.recoil > 0.95);
+  assert.ok(firstFrame.slide > 0.9);
+  const closing = pistolShotPose(3 * FRAME_S);
+  assert.ok(closing.slide < firstFrame.slide && closing.slide > 0);
+  assert.ok(closing.recoil < firstFrame.recoil && closing.recoil > 0);
+  const slideHome = pistolShotPose(5 * FRAME_S);
+  assert.equal(slideHome.slide, 0);
+  assert.ok(slideHome.recoil > 0);
+  const nextShot = weaponDef(WEAPON.PISTOL).fireTicks * FRAME_S;
+  assert.deepEqual(pistolShotPose(nextShot), { recoil: 0, slide: 0 });
 });

@@ -136,7 +136,7 @@ export const DEFUSE_MS = DEFUSE_TICKS * TICK_MS;
 export const FUSE_MS = (FUSE_TICKS * 1000) / TICK_RATE;
 export const BOMB_SITE_RADIUS_UNITS = 160;
 export const DEFUSE_RADIUS_UNITS = 64;
-export const DEBUG_SCENARIO_COUNT = 7;
+export const DEBUG_SCENARIO_COUNT = 8;
 /** Share of rounds that turn Black Friday: it switches on at a random moment, and the planted bug burns a shorter fuse. */
 export const BLACK_FRIDAY_CHANCE = 0.2;
 /** A match without Black Friday gets one at the latest on this round, so every complete match sees it at least once. */

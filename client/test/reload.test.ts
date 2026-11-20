@@ -138,3 +138,41 @@ test('at the end of an AWP reload the shooting hand takes the bolt, works it and
   }
   assert.ok(at(boltStart + timing.boltTicks - 1).boltHand < 0.01, 'back on the grip when the reload ends');
 });
+
+for (const weapon of [WEAPON.PISTOL, WEAPON.RIFLE]) {
+  test(`${weaponDef(weapon).name} clears the magazine, seats the spare and works the action`, () => {
+    const timing = weaponDef(weapon).reloadTiming;
+    assert.ok(timing?.kind === 'magazine');
+    const { outTicks, inTicks, boltTicks } = timing;
+    const at = (tick: number) => reloadPose(reloadCursor(timing, tick, 0), weapon);
+
+    const releasing = at(outTicks * 0.51);
+    assert.ok(releasing.tilt > 0.95);
+    assert.equal(releasing.magGone, false);
+    assert.ok(releasing.magDrop > 0);
+    const removed = at(outTicks * 0.8);
+    assert.equal(removed.magGone, true);
+    assert.ok(removed.spareLift > 0.6);
+    if (weapon === WEAPON.RIFLE) {
+      assert.ok(releasing.magPitch > 0.4, 'rock the floorplate away while the top is still near the well');
+      assert.ok(removed.sparePitch > 0.4, 'present the new magazine at an angle');
+    } else {
+      assert.equal(releasing.magPitch, 0, 'the pistol magazine falls down the grip axis');
+    }
+
+    const seated = at(outTicks + inTicks * 0.75);
+    assert.ok(seated.spareVisible);
+    assert.equal(seated.spareLift, 0);
+    assert.equal(seated.sparePitch, 0);
+    assert.ok(seated.seatKick > 0);
+    assert.equal(seated.boltPull, 0);
+
+    const rack = at(outTicks + inTicks + boltTicks * 0.4);
+    assert.equal(rack.spareLift, 0);
+    assert.ok(rack.boltPull > 0.95);
+    assert.equal(rack.supportBolt, 1);
+    assert.equal(rack.hand, 1);
+    assert.equal(at(outTicks + inTicks + boltTicks * 0.6).boltPull, 0);
+    assert.deepEqual(at(outTicks + inTicks + boltTicks), RESTING_RELOAD_POSE);
+  });
+}

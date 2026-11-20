@@ -17,6 +17,18 @@ const mats = {
   brass: new THREE.MeshStandardMaterial({ color: '#c9a227', roughness: 0.3, metalness: 0.7 }),
 };
 
+function curvedMagazineGeometry(): THREE.ExtrudeGeometry {
+  const profile = new THREE.Shape();
+  profile.moveTo(-1.8, 0);
+  profile.lineTo(1.8, 0);
+  profile.quadraticCurveTo(1.7, -4.4, 3.5, -7.8);
+  profile.lineTo(0.2, -8.9);
+  profile.quadraticCurveTo(-1.9, -4.4, -1.8, 0);
+  return new THREE.ExtrudeGeometry(profile, { depth: 2.4, bevelEnabled: false, curveSegments: 6 })
+    .translate(0, 0, -1.2).rotateY(Math.PI / 2);
+}
+
+const rifleMagazineGeo = curvedMagazineGeometry();
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 /** One round of the ammo belt, lying across the gun (axis X), and the glowing base of a tracer, on the end that faces outward. */
 const roundGeo = new THREE.CylinderGeometry(0.42, 0.42, 2.6, 8).rotateZ(Math.PI / 2);
@@ -52,6 +64,7 @@ export interface ReloadRig {
   boltLift: number;
   /** Where the shooting hand holds the bolt handle at rest, on guns that hand works (bolt action); null otherwise. */
   boltGrip: THREE.Vector3 | null;
+  supportBoltGrip: THREE.Vector3 | null;
   /** Shotgun shell, hidden at rest. */
   shell: THREE.Object3D | null;
   /** Where the supporting hand goes to swap the magazine or feed a shell. */
@@ -142,6 +155,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
     boltPull: new THREE.Vector3(),
     boltLift: 0,
     boltGrip: null,
+    supportBoltGrip: null,
     shell: null,
     handTarget: new THREE.Vector3(),
     supportHandReach: null,
@@ -165,6 +179,8 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       rig.magDown = magDownFor(-0.25);
       rig.bolt = slide;
       rig.boltPull.set(0, 0, 3.4);
+      rig.supportBoltGrip = new THREE.Vector3(-1, 2.6, -0.5);
+      cyl(g, 0.56, 4, mats.steel, 0, 2, -4.12);
       muzzle.position.set(0, 2, -6.8);
       break;
     case WEAPON.SMG:
@@ -290,9 +306,9 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       bx(g, 3.3, 0.6, 8, mats.lime, 0, 2.7, -17);
       bx(g, 1.2, 1.2, 10, mats.steel, 0, 1.8, -27);
       bx(g, 1.8, 1.8, 2.6, mats.gun, 0, 1.8, -32.5);
-      const rifleMag = part(g, 0, -3.2, -8, 0.25);
-      bx(rifleMag, 2.4, 8, 3.6, mats.gun2, 0, 0, 0);
-      bx(rifleMag, 2.5, 0.6, 3.7, mats.lime, 0, -4.2, 0);
+      const rifleMag = part(g, 0, -0.9, -8, 0.16);
+      rifleMag.add(new THREE.Mesh(rifleMagazineGeo, mats.gun2));
+      bx(rifleMag, 2.5, 0.45, 3.5, mats.lime, 0, -8.35, -1.85, -0.32);
       bx(g, 2.2, 5, 2.6, mats.poly, 0, -2.2, 0, -0.3);
       bx(g, 2.6, 4.4, 11, mats.poly, 0, 0.8, 9);
       bx(g, 2.7, 0.6, 9, mats.lime, 0, 2.3, 9);
@@ -300,8 +316,9 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       const rifleHandle = part(g, 0, 0, 0);
       bx(rifleHandle, 1.3, 1.1, 3, mats.steel, 1.9, 2.6, -5);
       rig.magazine = rifleMag;
-      rig.magDown = magDownFor(0.25);
+      rig.magDown = magDownFor(0.16);
       rig.bolt = rifleHandle;
+      rig.supportBoltGrip = new THREE.Vector3(2.4, 2.6, -5);
       rig.boltPull.set(0, 0, 4.5);
       muzzle.position.set(0, 1.8, -34);
       break;

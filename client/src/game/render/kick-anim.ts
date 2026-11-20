@@ -53,7 +53,6 @@ const MACHINE_GUN: KickFeel = {
 export function kickFeelFor(id: WeaponId | -1): KickFeel {
   if (id === WEAPON.LMG) return MACHINE_GUN;
   if (id === WEAPON.SNIPER || id === WEAPON.SHOTGUN) return jolt(1.6);
-  if (id === WEAPON.PISTOL) return jolt(1.1);
   return jolt(0.7);
 }
 
@@ -68,3 +67,22 @@ export function stepKick(kick: KickState, feel: KickFeel, dt: number): void {
 }
 
 export const kickTotal = (kick: Readonly<KickState>): number => kick.thump + kick.push;
+
+const PISTOL_PEAK_S = 0.018;
+const PISTOL_SLIDE_HOME_S = 0.075;
+const PISTOL_REST_S = 0.15;
+const PISTOL_AT_REST = { recoil: 0, slide: 0 };
+
+function pistolReturn(elapsed: number, end: number): number {
+  return Math.max(0, (end - elapsed) / (end - PISTOL_PEAK_S)) ** 2;
+}
+
+/** The slide closes while the frame is still settling from the shot. Time is in seconds. */
+export function pistolShotPose(elapsed: number): Readonly<{ recoil: number; slide: number }> {
+  if (elapsed >= PISTOL_REST_S) return PISTOL_AT_REST;
+  if (elapsed < PISTOL_PEAK_S) {
+    const rise = elapsed / PISTOL_PEAK_S;
+    return { recoil: 0.65 + 0.35 * rise, slide: 0.25 + 0.75 * rise };
+  }
+  return { recoil: pistolReturn(elapsed, PISTOL_REST_S), slide: pistolReturn(elapsed, PISTOL_SLIDE_HOME_S) };
+}

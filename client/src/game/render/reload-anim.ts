@@ -1,4 +1,4 @@
-import { RELOAD_CUE_AT, type ReloadCursor } from '@calindra-strike/shared';
+import { RELOAD_CUE_AT, WEAPON, type ReloadCursor, type WeaponId } from '@calindra-strike/shared';
 
 /**
  * What the viewmodel does at one moment of a reload, as unit amounts the
@@ -12,9 +12,13 @@ export interface ReloadPose {
   /** The old magazine falls out along its axis, 0 seated .. 1 gone. */
   magDrop: number;
   magGone: boolean;
+  /** Pitch away from the seated angle, in radians. */
+  magPitch: number;
   /** The fresh magazine below the well, 1 far below .. 0 seated. */
   spareLift: number;
   spareVisible: boolean;
+  /** Pitch away from the seated angle, in radians. */
+  sparePitch: number;
   /** Short jolt as the fresh magazine seats or a shell drops in, 0..1. */
   seatKick: number;
   /** Slide, handle or pump drawn back, 0..1. */
@@ -23,6 +27,8 @@ export interface ReloadPose {
   boltLift: number;
   /** Shooting hand off the grip and on the bolt handle, 0..1. Only rigs with a grip on the handle use it. */
   boltHand: number;
+  /** Supporting hand moves from the magazine grip to the slide or charging handle, 0..1. */
+  supportBolt: number;
   /** The shell below the loading port, 1 far below .. 0 at the port. */
   shellLift: number;
   shellVisible: boolean;
@@ -41,12 +47,15 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   dip: 0,
   magDrop: 0,
   magGone: false,
+  magPitch: 0,
   spareLift: 1,
   spareVisible: false,
+  sparePitch: 0,
   seatKick: 0,
   boltPull: 0,
   boltLift: 0,
   boltHand: 0,
+  supportBolt: 0,
   shellLift: 1,
   shellVisible: false,
   hand: 0,
@@ -89,8 +98,56 @@ function boltCurve(t: number): { pull: number; lift: number } {
   return { pull, lift };
 }
 
-export function reloadPose(cursor: ReloadCursor | null): ReloadPose {
+const MAGAZINE_EXCHANGE = {
+  [WEAPON.PISTOL]: { clearAt: 0.59, approach: 0.34, rockRad: 0 },
+  [WEAPON.RIFLE]: { clearAt: 0.69, approach: 0.46, rockRad: 0.55 },
+};
+
+function exchangePose({ phase, t }: ReloadCursor, weapon: keyof typeof MAGAZINE_EXCHANGE): ReloadPose {
+  const pose = { ...RESTING_RELOAD_POSE };
+  const { clearAt, approach, rockRad } = MAGAZINE_EXCHANGE[weapon];
+  const released = RELOAD_CUE_AT.out;
+  const seated = RELOAD_CUE_AT.in;
+  const racking = RELOAD_CUE_AT.bolt;
+  switch (phase) {
+    case 'out': {
+      pose.tilt = ramp(t, 0, released);
+      pose.magGone = t >= clearAt;
+      const spareAt = clearAt + 0.08;
+      pose.spareVisible = t >= spareAt;
+      pose.spareLift = 1 - (1 - approach) * ramp(t, spareAt, 1);
+      pose.magDrop = weapon === WEAPON.PISTOL ? ramp(t, released, clearAt) ** 2 : ramp(t, 0.47, clearAt);
+      pose.magPitch = rockRad * ramp(t, released, 0.52);
+      pose.sparePitch = rockRad;
+      pose.hand = weapon === WEAPON.PISTOL ? ramp(t, spareAt, 0.85) : ramp(t, 0.05, released);
+      break;
+    }
+    case 'in':
+      pose.tilt = 1;
+      pose.magGone = true;
+      pose.spareVisible = true;
+      pose.spareLift = approach * (1 - ramp(t, 0, seated));
+      pose.sparePitch = rockRad * (1 - ramp(t, 0.35, seated));
+      pose.seatKick = pulse(t, seated - 0.02, seated + 0.15);
+      pose.hand = 1;
+      pose.supportBolt = ramp(t, seated + 0.04, 1);
+      break;
+    case 'bolt':
+      pose.tilt = 1 - ramp(t, 0.52, 1);
+      pose.magGone = true;
+      pose.spareVisible = true;
+      pose.spareLift = 0;
+      pose.boltPull = ramp(t, racking, 0.39) * (1 - ramp(t, 0.42, 0.54));
+      pose.hand = 1 - ramp(t, 0.54, 0.93);
+      pose.supportBolt = 1;
+      break;
+  }
+  return pose;
+}
+
+export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId): ReloadPose {
   if (!cursor) return RESTING_RELOAD_POSE;
+  if (weapon === WEAPON.PISTOL || weapon === WEAPON.RIFLE) return exchangePose(cursor, weapon);
   const { phase, t } = cursor;
   const pose: ReloadPose = { ...RESTING_RELOAD_POSE };
   switch (phase) {

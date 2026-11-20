@@ -6,7 +6,7 @@ import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
-import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, stepKick } from './kick-anim.ts';
+import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, pistolShotPose, stepKick } from './kick-anim.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
 const MAG_FALL_UNITS = 12;
@@ -16,8 +16,17 @@ const RELOAD_PITCH = 0.12;
 /** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
 const RELOAD_DIP_UNITS = 6;
 const SEAT_KICK_UNITS = 1.2;
+const PISTOL_KICK = { riseUnits: 0.85, backUnits: 3.6, pitchRad: 0.26 };
 /** Guns reloaded at a cover and a belt need less roll and dip than a magazine gun, or the action leaves the frame. */
 const RELOAD_FRAMING: Partial<Record<WeaponId, { roll: number; dip: number }>> = { [WEAPON.LMG]: { roll: 0.7, dip: 0.35 } };
+const EXCHANGE_FRAMING = {
+  [WEAPON.PISTOL]: { left: 2.2, up: 6.3, yaw: 0.95, roll: -0.2 },
+  [WEAPON.RIFLE]: { left: 1.5, up: 8, yaw: 0.85, roll: 0.42 },
+};
+const MAGAZINE_GRIP = {
+  [WEAPON.PISTOL]: new THREE.Vector3(1.25, -3.9, 2.2),
+  [WEAPON.RIFLE]: new THREE.Vector3(-0.4, -7.2, -0.9),
+};
 const FULL_RELOAD_FRAMING = { roll: 1, dip: 1 } as const;
 /** Where the shooting hand's glove sits on the grip, in weapon units. */
 const GRIP_HAND = new THREE.Vector3(0.2, -2, 0.6);
@@ -75,6 +84,8 @@ export class ViewModel {
   private rightHand: THREE.Group | null = null;
   private readonly handRest = new THREE.Vector3();
   private readonly magRest = new THREE.Vector3();
+  private magRestPitch = 0;
+  private readonly supportTarget = new THREE.Vector3();
   private readonly shellRest = new THREE.Vector3();
   private weaponId: WeaponId | -1 = -1;
   private readonly flash: THREE.Sprite;
@@ -87,6 +98,7 @@ export class ViewModel {
   private readonly jump = restingJumpPose();
   /** Seconds since the last AWP shot while its bolt is being worked, -1 when idle. */
   private boltCycle = -1;
+  private pistolShotSeconds = Infinity;
   private swing = 0;
   private swingHeavy = false;
   private readonly belt: BeltFlow = { feed: 0, speed: 0, burst: 0 };
@@ -161,9 +173,13 @@ export class ViewModel {
     this.rightHand = shooting;
     into = g;
     if (id === WEAPON.PISTOL) {
-      add(4, 4, 4, glove, -2.2, -2.6, 0.4);
+      const support = new THREE.Group();
+      g.add(support);
+      into = support;
+      this.handRest.set(-2.2, -2.6, 0.4);
+      add(4, 4, 4, glove, this.handRest.x, this.handRest.y, this.handRest.z);
       add(4.2, 4.2, 17, this.sleeve, -4.8, -7.4, 7.2, -0.32, 0.6);
-      return null;
+      return support;
     }
     // left hand under the handguard; forearm goes down-left and back toward the camera
     const z = id === WEAPON.SMG ? -9 : id === WEAPON.SHOTGUN ? -17 : -16;
@@ -187,6 +203,7 @@ export class ViewModel {
     this.spareMagazine = null;
     if (m.rig.magazine) {
       this.magRest.copy(m.rig.magazine.position);
+      this.magRestPitch = m.rig.magazine.rotation.x;
       this.spareMagazine = m.rig.magazine.clone();
       this.spareMagazine.visible = false;
       m.group.add(this.spareMagazine);
@@ -197,6 +214,7 @@ export class ViewModel {
     this.kickFeel = kickFeelFor(id);
     this.swing = 0;
     this.boltCycle = -1;
+    this.pistolShotSeconds = Infinity;
     this.flashT = 0;
     this.flash.visible = false;
     this.applyPlacement(m.group, placementFor(id));
@@ -244,7 +262,8 @@ export class ViewModel {
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
     if (this.weaponId === WEAPON.LMG) this.belt.burst = BELT_BURST_S;
-    fireKick(this.kick, this.kickFeel);
+    if (this.weaponId === WEAPON.PISTOL) this.pistolShotSeconds = 0;
+    else fireKick(this.kick, this.kickFeel);
     this.flashT = 0.045;
     this.flash.visible = true;
     this.flash.material.rotation = Math.random() * Math.PI;
@@ -268,28 +287,39 @@ export class ViewModel {
     this.swayY = THREE.MathUtils.clamp(this.swayY, -2.5, 2.5);
     // recoil spring
     stepKick(this.kick, this.kickFeel, dt);
-    const kick = kickTotal(this.kick);
+    const kick = this.weaponId === WEAPON.PISTOL ? 0 : kickTotal(this.kick);
     stepBeltFlow(this.belt, dt);
     // reload / deploy dips
     const reload = this.currentReloadPose(p);
+    this.pistolShotSeconds += dt;
+    const pistolShot = pistolShotPose(this.pistolShotSeconds);
     const framing = (this.weaponId === -1 ? undefined : RELOAD_FRAMING[this.weaponId]) ?? FULL_RELOAD_FRAMING;
     let dip = reload.dip * RELOAD_DIP_UNITS * framing.dip;
     if (p.deployFrac >= 0) dip = Math.max(dip, (1 - p.deployFrac) * 14);
     const air = stepJumpPose(this.jump, p.onGround, dt);
 
     const present = this.model?.rig.boltGrip ? reload.boltHand : 0;
+    const exchange = this.weaponId === WEAPON.PISTOL || this.weaponId === WEAPON.RIFLE
+      ? EXCHANGE_FRAMING[this.weaponId]
+      : null;
     this.holder.position.set(
-      bobX + this.swayX - present * BOLT_PRESENT.leftUnits,
-      bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits,
+      bobX + this.swayX - present * BOLT_PRESENT.leftUnits - reload.tilt * (exchange?.left ?? 0),
+      bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0),
       0,
     );
-    this.kickGroup.position.set(0, kick * 0.4 - reload.seatKick * SEAT_KICK_UNITS * 0.5, kick * 2.4 + reload.seatKick * SEAT_KICK_UNITS);
-    this.kickGroup.rotation.set(kick * 0.09 + reload.tilt * RELOAD_PITCH, 0, -reload.tilt * RELOAD_ROLL * framing.roll);
+    const seat = reload.seatKick * SEAT_KICK_UNITS;
+    this.kickGroup.position.set(0, kick * 0.4 + pistolShot.recoil * PISTOL_KICK.riseUnits - seat * 0.5, kick * 2.4 + pistolShot.recoil * PISTOL_KICK.backUnits + seat);
+    this.kickGroup.rotation.set(
+      kick * 0.09 + pistolShot.recoil * PISTOL_KICK.pitchRad + reload.tilt * RELOAD_PITCH,
+      0,
+      -reload.tilt * (exchange?.roll ?? RELOAD_ROLL * framing.roll),
+    );
 
     if (this.model) {
       // hammer swing pivots around the grip: head comes down across the centre of the view
       const g = this.model.group;
       g.rotation.copy(this.baseRot);
+      g.rotation.y += reload.tilt * (exchange?.yaw ?? 0);
       g.position.copy(this.basePos);
       if (this.swing > 0) {
         this.swing = Math.max(0, this.swing - dt * (this.swingHeavy ? 2.4 : 4));
@@ -303,7 +333,7 @@ export class ViewModel {
         g.position.y -= s * 0.5;
         g.position.z -= s * 2;
       }
-      this.applyReloadPose(reload);
+      this.applyReloadPose(reload, pistolShot.slide);
     }
 
     if (this.flashT > 0) {
@@ -313,10 +343,12 @@ export class ViewModel {
   }
 
   private currentReloadPose(p: ViewPose): ReloadPose {
-    const timing = this.weaponId === -1 ? null : weaponDef(this.weaponId).reloadTiming;
-    if (timing && p.reloadElapsed >= 0) {
+    const weapon = this.weaponId;
+    const timing = weapon === -1 ? null : weaponDef(weapon).reloadTiming;
+    if (weapon !== -1 && timing && p.reloadElapsed >= 0) {
       this.boltCycle = -1;
-      return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells));
+      this.pistolShotSeconds = Infinity;
+      return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells), weapon);
     }
     return this.boltCyclePose(p.dt);
   }
@@ -331,20 +363,22 @@ export class ViewModel {
   }
 
   /** Sets every moving part of the weapon each frame, so nothing stays displaced once the reload ends. */
-  private applyReloadPose(pose: ReloadPose): void {
+  private applyReloadPose(pose: ReloadPose, shotSlide: number): void {
     const rig = this.model?.rig;
     if (!rig) return;
     if (rig.magazine) {
       rig.magazine.visible = !pose.magGone;
       rig.magazine.position.copy(this.magRest).addScaledVector(rig.magDown, pose.magDrop * MAG_FALL_UNITS);
-      rig.magazine.rotation.z = pose.magDrop * 0.7;
+      rig.magazine.rotation.x = this.magRestPitch + pose.magPitch;
+      rig.magazine.rotation.z = this.weaponId === WEAPON.RIFLE ? 0 : pose.magDrop * 0.7;
     }
     if (rig.magazine && this.spareMagazine) {
       this.spareMagazine.visible = pose.spareVisible;
+      this.spareMagazine.rotation.x = this.magRestPitch + pose.sparePitch;
       this.spareMagazine.position.copy(this.magRest).addScaledVector(rig.magDown, pose.spareLift * MAG_FALL_UNITS);
     }
     if (rig.bolt) {
-      rig.bolt.position.copy(rig.boltPull).multiplyScalar(pose.boltPull);
+      rig.bolt.position.copy(rig.boltPull).multiplyScalar(Math.max(pose.boltPull, shotSlide));
       rig.bolt.position.y += rig.boltLift * pose.boltLift;
       if (rig.boltGrip) {
         this.rightHand?.position.copy(rig.boltGrip).sub(GRIP_HAND).add(rig.bolt.position).multiplyScalar(pose.boltHand);
@@ -356,7 +390,16 @@ export class ViewModel {
       rig.shell.position.copy(this.shellRest);
       rig.shell.position.y -= pose.shellLift * 6;
     }
-    this.leftHand?.position.copy(rig.handTarget).sub(this.handRest).multiplyScalar(pose.hand);
+    const magazine = pose.spareVisible ? this.spareMagazine : rig.magazine;
+    if (this.leftHand && magazine && rig.supportBoltGrip && rig.bolt &&
+        (this.weaponId === WEAPON.PISTOL || this.weaponId === WEAPON.RIFLE)) {
+      this.supportTarget.copy(MAGAZINE_GRIP[this.weaponId]).applyQuaternion(magazine.quaternion).add(magazine.position);
+      this.leftHand.position.copy(rig.supportBoltGrip).add(rig.bolt.position);
+      this.supportTarget.lerp(this.leftHand.position, pose.supportBolt);
+      this.leftHand.position.copy(this.supportTarget).sub(this.handRest).multiplyScalar(pose.hand);
+    } else {
+      this.leftHand?.position.copy(rig.handTarget).sub(this.handRest).multiplyScalar(pose.hand);
+    }
     if (rig.shell && rig.bolt) this.leftHand?.position.addScaledVector(rig.boltPull, pose.boltPull);
   }
 

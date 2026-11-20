@@ -170,9 +170,10 @@ and key hints. Spectator controls, as in CS 1.6:
 
 - `Space` cycles the camera: first person (you see their weapon with its recoil,
   reload and switch animations, and your own crosshair style at the centre, hidden
-  while the target is scoped, skydiving or holding the sniper), third person
-  (chase camera behind and above the player, pulled in when a wall is in the way)
-  and free camera.
+  while the target is scoped, skydiving or holding the sniper), locked third person
+  (chase camera on the player's back, turning with their view), free third person
+  (the mouse orbits the camera around the player; click once to lock the mouse) and
+  free camera. Both third-person cameras are pulled in when a wall is in the way.
 - `Left click` or `→` follows the next player, `Right click` or `←` the previous one.
 - Free camera: `WASD` fly along the view, `Shift` faster, `E` up, `Q`/`C` down.
   Click the screen to lock the mouse for looking around and `Esc` to release it.

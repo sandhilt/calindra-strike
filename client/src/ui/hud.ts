@@ -572,5 +572,7 @@ function spectatorHints(bar: SpectatorBar): (Node | string)[] {
   if (bar.mode === 'free') {
     return [hintKey('WASD'), 'voar', hintKey('Shift'), 'rápido', hintKey('E'), hintKey('Q'), 'subir e descer', bar.pointerLocked ? 'Esc solta o mouse' : 'clique para travar o mouse'];
   }
+  if (bar.mode === 'orbit' && !bar.pointerLocked) return ['clique para girar com o mouse', hintKey('→'), 'próximo', hintKey('←'), 'anterior'];
+  if (bar.mode === 'orbit') return ['mouse gira', 'clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', 'Esc solta o mouse'];
   return ['clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', ...(bar.teams ? [hintKey('1'), hintKey('2'), 'time'] : [])];
 }

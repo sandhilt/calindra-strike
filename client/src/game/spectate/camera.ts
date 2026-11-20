@@ -1,15 +1,24 @@
 import { DUCK_EYE, STAND_EYE, clamp } from '@calindra-strike/shared';
 
-/** CS 1.6 spectator views, cycled with Space in this order. */
-export type CameraMode = 'first' | 'third' | 'free';
+/**
+ * CS 1.6 spectator views, cycled with Space in this order: first person, locked chase (behind the player,
+ * turning with their view), free chase (the mouse orbits the camera around the player) and free look.
+ */
+export type CameraMode = 'first' | 'chase' | 'orbit' | 'free';
 
-export const CAMERA_MODES: readonly CameraMode[] = ['first', 'third', 'free'];
+export const CAMERA_MODES: readonly CameraMode[] = ['first', 'chase', 'orbit', 'free'];
 
 export const CAMERA_MODE_LABEL: Record<CameraMode, string> = {
   first: '1ª pessoa',
-  third: '3ª pessoa',
+  chase: '3ª pessoa travada',
+  orbit: '3ª pessoa livre',
   free: 'câmera livre',
 };
+
+/** Modes where the mouse turns the camera instead of the camera following the player's view. */
+export function mouseLooks(mode: CameraMode): boolean {
+  return mode === 'orbit' || mode === 'free';
+}
 
 export function nextCameraMode(mode: CameraMode): CameraMode {
   return CAMERA_MODES[(CAMERA_MODES.indexOf(mode) + 1) % CAMERA_MODES.length];
@@ -65,13 +74,14 @@ export function eyePose(p: FollowedPlayer): Pose {
 }
 
 /**
- * Third person: behind and a little above the followed player, looking where they look.
+ * Third person: behind and a little above the followed player, looking along `view`. The locked chase passes the
+ * player's own view, so the camera stays on their back; the free chase passes the mouse's, orbiting around them.
  * When a wall stands between the player's eye and that spot the camera is pulled in
  * to just in front of it, so it never ends up on the far side of the wall.
  */
-export function chasePose(p: FollowedPlayer, world: RayWorld): Pose {
+export function chasePose(p: FollowedPlayer, world: RayWorld, view: { yaw: number; pitch: number } = p): Pose {
   const eye = eyePose(p);
-  const [fx, fy, fz] = lookDir(p.yaw, p.pitch);
+  const [fx, fy, fz] = lookDir(view.yaw, view.pitch);
   const dx = -fx * CHASE_DISTANCE;
   const dy = -fy * CHASE_DISTANCE + CHASE_RISE;
   const dz = -fz * CHASE_DISTANCE;
@@ -79,7 +89,7 @@ export function chasePose(p: FollowedPlayer, world: RayWorld): Pose {
   const hit = world.trace(eye.x, eye.y, eye.z, dx / length, dy / length, dz / length, length);
   const reach = hit ? Math.min(length, Math.max(hit.t - CHASE_WALL_MARGIN, hit.t / 2)) : length;
   const k = reach / length;
-  return { x: eye.x + dx * k, y: eye.y + dy * k, z: eye.z + dz * k, yaw: p.yaw, pitch: p.pitch };
+  return { x: eye.x + dx * k, y: eye.y + dy * k, z: eye.z + dz * k, yaw: view.yaw, pitch: view.pitch };
 }
 
 /** Where the free camera starts before any player is followed: above the middle of the map, looking down. */

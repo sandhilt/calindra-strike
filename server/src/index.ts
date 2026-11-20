@@ -27,6 +27,7 @@ const game = new Game({
   requireReady: true,
   readyKickMs: cfg.readyKickMs,
   idleKickMs: cfg.idleKickMs,
+  idleKickWarmupMs: cfg.idleKickWarmupMs,
   radio: cfg.radio,
   onKick: (id, reason) => {
     log('kick', reason, `id=${id}`);

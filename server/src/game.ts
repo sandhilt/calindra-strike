@@ -242,6 +242,7 @@ export interface GameOptions {
   readyKickMs?: number; // pending players are kicked after this, and when the match ends (0 or unset: never)
   radio?: RadioLimits; // unset: the CS 1.6 gap only, no window cap
   idleKickMs?: number; // players in play with no input for this long are kicked (0 or unset: never)
+  idleKickWarmupMs?: number; // the same during the warmup (unset: idleKickMs)
   onKick?: (id: number, reason: KickReason) => void; // the transport closes the kicked player's connection
 }
 
@@ -585,7 +586,7 @@ export class Game {
     const s: Spectator = { id: this.nextId++, name, send, view: !isTeamMode(this.mode)
       ? { kind: 'watching', team: -1 } : { kind: 'choosing', deadline: this.now() + SPECTATOR_PICK_MS } };
     this.spectators.set(s.id, s);
-    send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s), ready: CONFIRMED, idleKickMs: null }));
+    send(JSON.stringify({ t: 'welcome', id: s.id, time: this.now(), roster: this.roster(), match: this.matchInfo(), maxPlayers: this.opts.maxPlayers, token: '', spectator: this.spectatorInfo(s), ready: CONFIRMED, idleKickMs: null, idleKickWarmupMs: null }));
     return s;
   }
 
@@ -684,6 +685,7 @@ export class Game {
         spectator: null,
         ready: p.ready,
         idleKickMs: this.opts.idleKickMs || null,
+        idleKickWarmupMs: this.idleTimeoutMs('warmup') || null,
       }),
     );
     this.broadcastRoster();
@@ -742,13 +744,18 @@ export class Game {
 
   /** The podium clock does not count: nobody can move there. */
   private kickIdle(now: number): void {
-    const timeout = this.opts.idleKickMs;
+    const timeout = this.idleTimeoutMs(this.phase);
     if (!timeout) return;
     for (const p of [...this.players.values()]) {
       if (p.brain || isPending(p)) continue;
       if (this.phase === 'podium') p.lastActiveAt = now;
       else if (now - p.lastActiveAt >= timeout) this.kick(p, 'idle');
     }
+  }
+
+  private idleTimeoutMs(phase: MatchPhase): number {
+    if (!this.opts.idleKickMs) return 0;
+    return phase === 'warmup' ? (this.opts.idleKickWarmupMs ?? this.opts.idleKickMs) : this.opts.idleKickMs;
   }
 
   leave(id: number): void {
@@ -1048,6 +1055,8 @@ export class Game {
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
     this.endPending = false;
     this.resetScores();
+    // Time idle in the warmup does not eat into the match's shorter idle timeout.
+    for (const p of this.players.values()) p.lastActiveAt = this.now();
     this.balanceTeams();
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);

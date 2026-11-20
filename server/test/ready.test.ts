@@ -233,5 +233,34 @@ it('never kicks idle players when the idle kick is off', () => {
   runFor(IDLE_TIMEOUT_MS * 2);
   assert.deepEqual(kicks, []);
   const welcome = messages.find((m) => m.t === 'welcome');
-  assert.ok(welcome?.t === 'welcome' && welcome.idleKickMs === null);
+  assert.ok(welcome?.t === 'welcome' && welcome.idleKickMs === null && welcome.idleKickWarmupMs === null);
+});
+
+it('lets a player stay idle longer in the warmup, and gives them the full match timeout once it starts', () => {
+  const { game, kicks, join, runFor } = setup({ idleKickMs: IDLE_TIMEOUT_MS, idleKickWarmupMs: 4 * IDLE_TIMEOUT_MS, warmupMinPlayers: 2, matchMs: 600_000 });
+  const waiting = join('Waiting').p;
+  game.ready(waiting);
+  runFor(3 * IDLE_TIMEOUT_MS);
+  assert.equal(game.phase, 'warmup');
+  assert.deepEqual(kicks, [], 'past the match timeout, inside the warmup one');
+  const late = join('Late').p;
+  game.ready(late);
+  assert.equal(game.phase, 'live');
+  const look = (yaw: number) => game.input(late, [{ seq: late.lastSeq + 1, buttons: 0, yaw, pitch: 0, weapon: 0, interp: 0 }]);
+  for (let s = 1; s < IDLE_TIMEOUT_MS / 1000; s++) {
+    look(s / 10);
+    runFor(1_000);
+  }
+  assert.deepEqual(kicks, [], 'the warmup idle time does not count against the match');
+  look(5);
+  runFor(2_000);
+  assert.deepEqual(kicks, [[waiting.id, 'idle']]);
+});
+
+it('tells the client both idle timeouts', () => {
+  const { join } = setup({ idleKickMs: IDLE_TIMEOUT_MS, idleKickWarmupMs: 4 * IDLE_TIMEOUT_MS });
+  const welcome = join('New').messages.find((m) => m.t === 'welcome');
+  assert.ok(welcome?.t === 'welcome');
+  assert.equal(welcome.idleKickMs, IDLE_TIMEOUT_MS);
+  assert.equal(welcome.idleKickWarmupMs, 4 * IDLE_TIMEOUT_MS);
 });

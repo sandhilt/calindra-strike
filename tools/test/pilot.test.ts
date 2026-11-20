@@ -29,7 +29,7 @@ function fixture() {
     token: '',
     spectator: null,
     ready: { kind: 'confirmed' },
-    idleKickMs: null,
+    idleKickMs: null, idleKickWarmupMs: null,
   });
   const s = createPlayerState();
   view.self = s;

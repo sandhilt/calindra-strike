@@ -102,16 +102,21 @@ it('kicks unready and idle players by default and lets the operator turn each of
   stubEnv('READY_KICK_SECONDS', '');
   stubEnv('IDLE_KICK', '');
   stubEnv('IDLE_KICK_SECONDS', '');
+  stubEnv('IDLE_KICK_WARMUP_SECONDS', '');
   assert.equal(loadConfig().readyKickMs, 180_000);
   assert.equal(loadConfig().idleKickMs, 60_000);
+  assert.equal(loadConfig().idleKickWarmupMs, 300_000);
   stubEnv('READY_KICK_SECONDS', '45');
   stubEnv('IDLE_KICK_SECONDS', '120');
   assert.equal(loadConfig().readyKickMs, 45_000);
   assert.equal(loadConfig().idleKickMs, 120_000);
   stubEnv('READY_KICK', '0');
+  stubEnv('IDLE_KICK_WARMUP_SECONDS', '600');
+  assert.equal(loadConfig().idleKickWarmupMs, 600_000);
   stubEnv('IDLE_KICK', 'false');
   assert.equal(loadConfig().readyKickMs, 0);
   assert.equal(loadConfig().idleKickMs, 0);
+  assert.equal(loadConfig().idleKickWarmupMs, 0);
   stubEnv('READY_KICK', '1');
   for (const [name, value] of [['READY_KICK_SECONDS', '4'], ['READY_KICK_SECONDS', '601'], ['READY_KICK', 'yes']]) {
     stubEnv(name, value);

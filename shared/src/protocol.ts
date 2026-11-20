@@ -194,7 +194,8 @@ export type SpectatorInfo =
 export type ServerMsg =
   | { t: 'spectate'; state: SpectatorInfo }
   // idleKickMs: how long a player in play may send no input before being kicked, null when the server never kicks idle players.
-  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null; ready: Readiness; idleKickMs: number | null }
+  // idleKickWarmupMs: the same during the warmup, which allows longer.
+  | { t: 'welcome'; id: number; time: number; roster: RosterEntry[]; match: MatchInfo; maxPlayers: number; token: string; spectator: SpectatorInfo | null; ready: Readiness; idleKickMs: number | null; idleKickWarmupMs: number | null }
   | { t: 'reject'; reason: string; code?: string }
   | { t: 'votes'; counts: number[] }
   // fl rows: [state, carrierId, x, y, z, returnAtMs]; x,y,z = current world position, carrier position when carried.

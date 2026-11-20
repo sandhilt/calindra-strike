@@ -41,6 +41,8 @@ export const DROP_ACCEL = 4;
 export const SPAWN_PROTECT_TICKS = 90; // 1.5s after landing
 /** Default time without input before an idle player goes back to the lobby (server setting). */
 export const IDLE_KICK_SECONDS = 60;
+/** Same, during the warmup: players wait there for the match to fill up, so they may stay idle longer. */
+export const IDLE_KICK_WARMUP_SECONDS = 300;
 /** Default time a player has to confirm "pronto" before going back to the lobby (server setting). */
 export const READY_KICK_SECONDS = 180;
 export const IDLE_WARNING_LEAD_MS = 10_000; // how long before the idle kick the client warns the player

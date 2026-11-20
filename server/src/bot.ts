@@ -13,6 +13,7 @@ import {
   type FlagBase,
   type PlayerState,
   WEAPON,
+  type WeaponId,
   clamp,
   eyeHeight,
   inBombReach,
@@ -236,6 +237,8 @@ export interface AimSkill {
   walkTurnDegPerSecond: number;
   /** An automatic weapon fires bursts of 3 shots plus up to this many. */
   burstExtraShots: number;
+  /** Chance, rolled once per target, that the bot crouches to shoot it from range. */
+  crouchChance: number;
 }
 
 export function aimSkill(skill: number): AimSkill {
@@ -249,12 +252,25 @@ export function aimSkill(skill: number): AimSkill {
     combatTurnDegPerSecond: at(260, 620),
     walkTurnDegPerSecond: at(300, 520),
     burstExtraShots: at(3, 6),
+    crouchChance: at(0.25, 0.7),
   };
 }
 
 /** Each bot gets the configured skill give or take 0.15, so a room of bots does not all play alike. */
 export function botSkill(base: number, random: () => number): number {
   return clamp(base + (random() - 0.5) * 0.3, 0, 1);
+}
+
+/** Past this range a bot may crouch for the shot, like a CS player taking a long one, in world units. */
+export const CROUCH_SHOT_MIN_UNITS = 450;
+
+/**
+ * Whether a bot crouches to shoot a target this far away. `roll` is drawn once per target so the bot does not bob;
+ * close fights, the hammer and the shotgun stay on their feet.
+ */
+export function crouchesToShoot(aim: AimSkill, distance: number, weapon: WeaponId, roll: number): boolean {
+  if (weapon === WEAPON.HAMMER || weapon === WEAPON.SHOTGUN) return false;
+  return distance >= CROUCH_SHOT_MIN_UNITS && roll < aim.crouchChance;
 }
 
 /** How far off the aim may be and still shoot: about the target's head or chest, at that distance. */
@@ -306,6 +322,8 @@ export class BotBrain {
   private reactAt = 0;
   private spotted = false; // a new enemy came into view since the last takeSpotted()
   private aimHead = false;
+  /** Rolled once per target: whether this engagement is taken crouched (see crouchesToShoot). */
+  private crouchRoll = 1;
   private burstLeft = 0;
   private pauseUntil = 0;
   private strafeDir = 1;
@@ -504,6 +522,7 @@ export class BotBrain {
           this.errYaw = gauss(env.random) * e;
           this.errPitch = gauss(env.random) * e * 0.6;
           this.aimHead = env.random() < this.aim.headChance;
+          this.crouchRoll = env.random();
           this.burstLeft = 0;
         }
       }
@@ -557,6 +576,10 @@ export class BotBrain {
       if (holding) {
         buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
         return this.cmd(buttons | BTN.USE, weapon, env);
+      }
+      if (ready && cur.slot !== 3 && crouchesToShoot(this.aim, dist, s.weapon, this.crouchRoll)) {
+        buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);
+        return this.cmd(buttons | BTN.DUCK, weapon, env);
       }
       if (bombGoal && ctfCombatStance(bombRole(self, env), dist) === 'advance') {
         buttons &= ~(BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT);

@@ -4,7 +4,7 @@ import {
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
 import {
-  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, gauss, hasLineOfSight, readyToJump, waypointReached, type AimSkill,
+  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, readyToJump, waypointReached, type AimSkill,
 } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
@@ -20,6 +20,11 @@ const MAX_PATROL_SKIPS = 6; // one lap of the ring
 const REPATH_MS = 1500; // a bot knocked off its route (a ledge, a push) plans again instead of aiming at a node it can no longer reach
 const MAX_PENDING_CMDS = 120; // two seconds of commands: a connection further behind is not worth predicting
 const MAX_AIM_STEP_SECONDS = 0.1; // a long gap between snapshots does not let the bot snap onto a target
+/** How quickly the view closes on where it wants to look, per second: it slows down near the target like a hand does. */
+const AIM_EASE_PER_S = 10;
+const WALK_EASE_PER_S = 6;
+/** How quickly the hand's wobble drifts to a new offset, per second: a slow sway instead of a per-frame shake. */
+const WOBBLE_PER_S = 3;
 const STEER_BUTTONS = [
   BTN.FWD, BTN.FWD | BTN.LEFT, BTN.LEFT, BTN.BACK | BTN.LEFT,
   BTN.BACK, BTN.BACK | BTN.RIGHT, BTN.RIGHT, BTN.FWD | BTN.RIGHT,
@@ -95,6 +100,10 @@ export class BotDriver {
   private errYaw = 0;
   private errPitch = 0;
   private aimHead = false;
+  private crouchRoll = 1;
+  private crouching = false;
+  private wobbleYaw = 0;
+  private wobblePitch = 0;
   private yaw = 0;
   private pitch = 0;
   private lastTime = -1;
@@ -150,7 +159,7 @@ export class BotDriver {
 
     if (goal.use) {
       this.reset();
-      return { buttons: BTN.USE, yaw: bearing(self, goal.point), pitch: 0, weapon: 0 };
+      return { buttons: BTN.USE | BTN.DUCK, yaw: bearing(self, goal.point), pitch: 0, weapon: 0 };
     }
 
     const progress = checkProgress(this.progress, self, snap.time);
@@ -201,6 +210,10 @@ export class BotDriver {
     }
 
     const onTarget = this.aimAt(enemy, self, eyeY, moveYaw, snap.time);
+    if (this.crouching) {
+      buttons |= BTN.DUCK;
+      settled = true;
+    }
     const direction = Math.round(wrapAngle(moveYaw - this.yaw) / (Math.PI / 4));
     if (!settled) buttons |= STEER_BUTTONS[(direction + 8) % 8];
     const { weapon, mag, reserve } = this.state;
@@ -221,8 +234,8 @@ export class BotDriver {
     this.lastTime = now;
     if (!enemy) {
       this.targetId = -1;
-      this.yaw = moveYaw;
-      this.pitch = 0;
+      this.crouching = false;
+      this.turn(moveYaw, 0, dt, this.aim.walkTurnDegPerSecond, WALK_EASE_PER_S);
       return false;
     }
     if (enemy.id !== this.targetId) {
@@ -232,6 +245,7 @@ export class BotDriver {
       this.errYaw = gauss(this.random) * error;
       this.errPitch = gauss(this.random) * error * 0.6;
       this.aimHead = this.random() < this.aim.headChance;
+      this.crouchRoll = this.random();
     }
     const settle = Math.max(0, 1 - this.aim.settlePerSecond * dt);
     this.errYaw *= settle;
@@ -240,12 +254,23 @@ export class BotDriver {
     const distance = Math.hypot(enemy.x - self.x, enemy.z - self.z);
     const wantYaw = bearing(self, enemy);
     const wantPitch = Math.atan2(aimY - eyeY, distance);
-    const jitter = gauss(this.random) * this.aim.jitterDeg * DEG * 0.3;
-    const maxTurn = this.aim.combatTurnDegPerSecond * DEG * dt;
-    this.yaw = wrapAngle(this.yaw + clamp(wrapAngle(wantYaw + this.errYaw + jitter - this.yaw), -maxTurn, maxTurn));
-    this.pitch += clamp(wantPitch + this.errPitch - this.pitch, -maxTurn, maxTurn);
+    const drift = Math.min(1, WOBBLE_PER_S * dt);
+    const wobble = this.aim.jitterDeg * DEG * 0.3;
+    this.wobbleYaw += (gauss(this.random) * wobble - this.wobbleYaw) * drift;
+    this.wobblePitch += (gauss(this.random) * wobble * 0.6 - this.wobblePitch) * drift;
+    this.turn(wantYaw + this.errYaw + this.wobbleYaw, wantPitch + this.errPitch + this.wobblePitch, dt, this.aim.combatTurnDegPerSecond, AIM_EASE_PER_S);
+    const reacted = now >= this.reactAt;
+    this.crouching = reacted && crouchesToShoot(this.aim, distance, this.state.weapon, this.crouchRoll);
     const off = Math.hypot(wrapAngle(wantYaw - this.yaw), wantPitch - this.pitch);
-    return now >= this.reactAt && off < aimTolerance(distance, this.aimHead);
+    return reacted && off < aimTolerance(distance, this.aimHead);
+  }
+
+  /** Moves the view toward yaw/pitch, closing a share of the gap each second and never faster than the skill's turn rate. */
+  private turn(yaw: number, pitch: number, dt: number, maxDegPerSecond: number, easePerSecond: number): void {
+    const share = 1 - Math.exp(-easePerSecond * dt);
+    const maxTurn = maxDegPerSecond * DEG * dt;
+    this.yaw = wrapAngle(this.yaw + clamp(wrapAngle(yaw - this.yaw) * share, -maxTurn, maxTurn));
+    this.pitch += clamp((pitch - this.pitch) * share, -maxTurn, maxTurn);
   }
 
   /** Tells the driver a command went out, so the next snapshots are read as that many ticks behind. */

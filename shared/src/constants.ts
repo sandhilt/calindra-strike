@@ -142,7 +142,7 @@ export const BLACK_FRIDAY_DISCOUNT_PERCENT = 50;
 export const BLACK_FRIDAY_FUSE_TICKS = (FUSE_TICKS * (100 - BLACK_FRIDAY_DISCOUNT_PERCENT)) / 100;
 export const BLACK_FRIDAY_FUSE_MS = (BLACK_FRIDAY_FUSE_TICKS * 1000) / TICK_RATE;
 /** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
-export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
+export const BOMB_PLANT_TIMEOUT_SECONDS = 30;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.
 // Sized so a player pressed against any corner still reaches it: desk corner within DEFUSE_RADIUS_UNITS,
 // crate corner within CTF_PICKUP_RADIUS_UNITS (half size plus PLAYER_RADIUS, along both axes).

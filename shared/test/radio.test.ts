@@ -12,7 +12,7 @@ describe('radio table', () => {
 
   it('gives every line a unique id that resolves back to it', () => {
     assert.equal(new Set(RADIO_LINES.map((l) => l.id)).size, RADIO_LINES.length);
-    assert.equal(RADIO_LINES.length, 26);
+    assert.equal(RADIO_LINES.length, RADIO_MENUS.reduce((n, m) => n + m.lines.length, 0));
     for (const line of RADIO_LINES) assert.equal(radioLine(line.id), line);
     assert.ok(RADIO_MENUS.every((m) => m.lines.length <= 9), 'digits 1-9 must reach every line');
   });
@@ -24,7 +24,7 @@ describe('radio table', () => {
   });
 
   it('has no line past the end of a menu', () => {
-    assert.equal(radioLineAt('calindra', 6), undefined);
+    assert.equal(radioLineAt('calindra', radioMenuById('calindra')!.lines.length + 1), undefined);
     assert.equal(radioLineAt('comandos', 0), undefined);
   });
 });
@@ -39,7 +39,7 @@ describe('radio message parsing', () => {
     '{"t":"radio","line":0}',
     '{"t":"radio","line":10}',
     '{"t":"radio","line":17}',
-    '{"t":"radio","line":46}',
+    `{"t":"radio","line":${41 + radioMenuById('calindra')!.lines.length}}`,
     '{"t":"radio","line":-11}',
     '{"t":"radio","line":11.5}',
     '{"t":"radio","line":"11"}',

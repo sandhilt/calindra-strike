@@ -6,7 +6,7 @@ import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
 import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
-import { type HammerSwing, hammerSwingPose, nextHammerSwing, swingSeconds } from './hammer-swing.ts';
+import { SwingPlayer } from './hammer-swing.ts';
 import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, pistolShotPose, stepKick } from './kick-anim.ts';
 
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
@@ -102,8 +102,7 @@ export class ViewModel {
   /** Seconds since the last AWP shot while its bolt is being worked, -1 when idle. */
   private boltCycle = -1;
   private pistolShotSeconds = Infinity;
-  private swing: { readonly kind: HammerSwing; elapsed: number } | null = null;
-  private lastSwing: HammerSwing | null = null;
+  private readonly swing = new SwingPlayer();
   /** Holds the hammer and the fist, so the wrist turns them without the forearm. */
   private hammerWrist: THREE.Group | null = null;
   private readonly shoulder = new THREE.Vector3();
@@ -226,7 +225,7 @@ export class ViewModel {
     this.model = m;
     this.weaponId = id;
     this.kickFeel = kickFeelFor(id);
-    this.swing = null;
+    this.swing.stop();
     this.boltCycle = -1;
     this.pistolShotSeconds = Infinity;
     this.flashT = 0;
@@ -270,8 +269,7 @@ export class ViewModel {
 
   fire(heavy: boolean): void {
     if (this.weaponId === WEAPON.HAMMER) {
-      this.lastSwing = nextHammerSwing(this.lastSwing, heavy);
-      this.swing = { kind: this.lastSwing, elapsed: 0 };
+      this.swing.start(heavy);
       return;
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
@@ -345,13 +343,7 @@ export class ViewModel {
   }
 
   private poseHammerSwing(g: THREE.Group, wrist: THREE.Group, dt: number): void {
-    let t = 0;
-    if (this.swing) {
-      this.swing.elapsed += dt;
-      t = this.swing.elapsed / swingSeconds(this.swing.kind);
-      if (t >= 1) this.swing = null;
-    }
-    const pose = this.swing ? hammerSwingPose(this.swing.kind, t) : hammerSwingPose('rightToLeft', 0);
+    const pose = this.swing.step(dt);
     this.shoulder.copy(HAMMER_SHOULDER).multiplyScalar(g.scale.x).applyEuler(this.baseRot).add(this.basePos);
     this.armTurn.setFromEuler(this.armEuler.set(...pose.arm));
     g.position.sub(this.shoulder).applyQuaternion(this.armTurn).add(this.shoulder);

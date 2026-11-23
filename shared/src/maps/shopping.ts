@@ -26,11 +26,11 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
   ['kfg', 'burguer-rei', 'mania-picanha', 'parrilha'],
   ['mequi', 'outbaque', 'madeiro', 'bobis'],
 ];
-/** The pharmacy on each half's top floor, the other brand from the one on that half's ground floor. */
+/** The pharmacy on each half's top floor: the ground floor has room for the other eight shops, so every brand stands once. */
 const MIRANTE_PHARMACIES = ['pague-pouco', 'droga-raio'] as const satisfies readonly ShopBrand[];
 const STORES: readonly (readonly ShopBrand[])[] = [
-  ['zarra', 'cea', 'rener', 'droga-raio'],
-  ['cacau-chou', 'amerikanas', 'pague-pouco', 'travessura'],
+  ['zarra', 'cea', 'rener', 'hew'],
+  ['cacau-chou', 'amerikanas', 'riachuela', 'travessura'],
 ];
 
 /** Escalator rising toward -z from the atrium floor to the food court, with glass sides and a dark handrail. The client moves the steps. */

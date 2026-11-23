@@ -85,6 +85,14 @@ export class Hud {
   private readonly arV = h('div', { class: 'v', text: '0' });
   private readonly arBar = h('i', { style: 'width:0%' });
   private readonly armor = h('div', { class: 'vital armor glass' }, [svg(ICONS.shield), h('div', {}, [this.arV, h('div', { class: 'bar' }, [this.arBar])])]);
+  private readonly staminaFill = h('i');
+  private readonly staminaBar = h('div', { class: 'stamina', role: 'meter', 'aria-label': 'fôlego', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '100', 'aria-hidden': 'true' }, [
+    h('span', { text: 'fôlego' }),
+    h('div', { class: 'stamina-track' }, [this.staminaFill]),
+  ]);
+  private staminaPercent = 100;
+  private staminaVisible = false;
+  private staminaWinded = false;
   private readonly wName = h('b', { text: '' });
   private readonly wTag = h('small', { text: '' });
   private readonly wBox = h('div', { class: 'wname' }, [this.wName, this.wTag]);
@@ -182,6 +190,7 @@ export class Hud {
       this.plantBar,
       this.bombActivity,
       this.defuseCanvas,
+      this.staminaBar,
       h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
       this.ch,
@@ -367,6 +376,24 @@ export class Hud {
     this.feed.append(el);
     while (this.feed.children.length > 6) this.feed.firstElementChild?.remove();
     setTimeout(() => el.remove(), 6500);
+  }
+
+  setStamina(fraction: number, visible: boolean, winded: boolean): void {
+    const percent = Math.round(fraction * 100);
+    if (this.staminaPercent !== percent) {
+      this.staminaPercent = percent;
+      this.staminaFill.style.transform = `scaleX(${percent / 100})`;
+      this.staminaBar.setAttribute('aria-valuenow', String(percent));
+    }
+    if (this.staminaVisible !== visible) {
+      this.staminaVisible = visible;
+      this.staminaBar.classList.toggle('active', visible);
+      this.staminaBar.setAttribute('aria-hidden', String(!visible));
+    }
+    if (this.staminaWinded !== winded) {
+      this.staminaWinded = winded;
+      this.staminaBar.classList.toggle('winded', winded);
+    }
   }
 
   setVitals(hp: number, armor: number): void {

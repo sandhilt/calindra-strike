@@ -67,6 +67,7 @@ test('adapter maps enemy peers and ends engage for teammates or dropping targets
       pitch: 0,
       flags: RF_ALIVE,
       weapon: WEAPON.RIFLE,
+      lean: 0,
     },
   ];
   const intent = { kind: 'attack', targetId: 2 } as const;

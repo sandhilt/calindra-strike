@@ -4,7 +4,7 @@ import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
-import type { MapDef } from './types.ts';
+import type { EscalatorTravel, MapDef } from './types.ts';
 
 const X = 1408;
 const Z = 1152;
@@ -20,7 +20,10 @@ const DROP_HEIGHT = 1000;
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
 const ROOF_CLIP_MARGIN = 256;
 const STORE_XS = [-1056, -352, 352, 1056] as const;
-const ESCALATOR_XS = [[480, 576], [-576, -480]] as const;
+const ESCALATORS = [
+  { x1: 480, x2: 576, travel: 'up', name: 'Escada rolante que sobe' },
+  { x1: -576, x2: -480, travel: 'down', name: 'Escada rolante que desce' },
+] satisfies readonly { x1: number; x2: number; travel: EscalatorTravel; name: string }[];
 const ESCALATOR_FOOT_Z = -352;
 /** Glass balustrades stand above a jump, so nobody (bots' nav included) hops off the upper floor or an escalator. */
 const RAIL = 64;
@@ -38,8 +41,8 @@ const STORES: readonly (readonly ShopBrand[])[] = [
 ];
 
 /** Escalator rising toward -z from the atrium floor to the food court, with glass sides and a dark handrail. The client moves the steps. */
-function escalator(b: MapBuilder, x1: number, x2: number): void {
-  b.escalator(x1, x2, GALLERY_Z, ESCALATOR_FOOT_Z, '-z', DECK);
+function escalator(b: MapBuilder, x1: number, x2: number, travel: EscalatorTravel): void {
+  b.escalator(x1, x2, GALLERY_Z, ESCALATOR_FOOT_Z, '-z', DECK, travel);
   const steps = Math.ceil(DECK / 16);
   const depth = (ESCALATOR_FOOT_Z - GALLERY_Z) / steps;
   for (let i = 0; i < steps; i++) {
@@ -184,9 +187,9 @@ export function buildShopping(): MapDef {
     for (const z of [-512, -256]) b.deco(-X, ROOF + 4, z, X, ROOF + 8, z + 8, 'charcoal');
     for (const x of [-1024, -512, 0, 512, 1024]) b.deco(x, ROOF + 4, GALLERY_Z, x + 8, ROOF + 8, 0, 'charcoal');
 
-    for (const [x1, x2] of ESCALATOR_XS) {
-      escalator(b, x1, x2);
-      b.landmark('Escada rolante', (x1 + x2) / 2, -520);
+    for (const { x1, x2, travel, name } of ESCALATORS) {
+      escalator(b, x1, x2, travel);
+      b.landmark(name, (x1 + x2) / 2, -520);
     }
 
     storefronts(b, STORES[half]);

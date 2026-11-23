@@ -1,10 +1,11 @@
 import { dirFromAngles } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
 import { eyeHeight } from './sim.ts';
+import type { Stance } from './stance.ts';
 
 export function sprayPlacement(
   world: CollisionWorld,
-  s: { x: number; y: number; z: number; yaw: number; pitch: number; ducked: boolean },
+  s: { x: number; y: number; z: number; yaw: number; pitch: number; stance: Stance },
   range: number,
 ): { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null {
   const d = dirFromAngles(s.yaw, s.pitch);

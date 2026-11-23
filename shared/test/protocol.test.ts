@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BTN, BTN_MASK, parseClientMessage, sanitizeChat, sanitizeName } from '../src/index.ts';
+import { BTN, BTN_MASK, RF_ALIVE, RF_DUCK, RF_GROUND, RF_PRONE, RF_SLIDE, RF_SPRINT, RF_ZOOM, STANCE, leanOfRow, parseClientMessage, sanitizeChat, sanitizeName, stanceFromFlags } from '../src/index.ts';
 
 describe('parseClientMessage', () => {
   it('accepts a valid hello and input packet', () => {
@@ -40,7 +40,7 @@ describe('parseClientMessage', () => {
   it('accepts every button bit and rejects the next one', () => {
     assert.equal(BTN_MASK, Object.values(BTN).reduce((all, bit) => all | bit, 0));
     assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, BTN.USE | BTN.FWD, 0, 0, 0, 0]] })), { t: 'in' });
-    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 2048, 0, 0, 0, 0]] })), null);
+    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, BTN_MASK + 1, 0, 0, 0, 0]] })), null);
   });
 
   it('rejects oversized payloads and too many commands', () => {
@@ -82,4 +82,25 @@ it('accepts only the payload-free spray message', () => {
     '{"t":["spray"]}',
     '["spray"]',
   ]) assert.equal(parseClientMessage(raw), null);
+});
+
+describe('remote player rows', () => {
+  it('reads the stance from the flags, prone before crouch', () => {
+    assert.equal(stanceFromFlags(RF_ALIVE), STANCE.STAND);
+    assert.equal(stanceFromFlags(RF_ALIVE | RF_DUCK), STANCE.CROUCH);
+    assert.equal(stanceFromFlags(RF_ALIVE | RF_PRONE), STANCE.PRONE);
+    assert.equal(stanceFromFlags(RF_PRONE | RF_DUCK | RF_SLIDE), STANCE.PRONE);
+    assert.equal(stanceFromFlags(RF_SPRINT | RF_SLIDE | RF_GROUND), STANCE.STAND);
+  });
+
+  it('gives every row flag its own bit', () => {
+    const bits = [RF_DUCK, RF_ALIVE, RF_GROUND, RF_ZOOM, RF_PRONE, RF_SPRINT, RF_SLIDE];
+    assert.equal(new Set(bits).size, bits.length);
+    assert.equal(bits.reduce((all, bit) => all | bit, 0), bits.reduce((all, bit) => all + bit, 0));
+  });
+
+  it('treats a row without the lean field as not leaning', () => {
+    assert.equal(leanOfRow([1, 0, 0, 0, 0, 0, RF_ALIVE, 2]), 0);
+    assert.equal(leanOfRow([1, 0, 0, 0, 0, 0, RF_ALIVE, 2, -0.45]), -0.45);
+  });
 });

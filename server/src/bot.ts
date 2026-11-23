@@ -12,6 +12,8 @@ import {
   type FlagState,
   type FlagBase,
   type PlayerState,
+  STANCES,
+  type Stance,
   WEAPON,
   type WeaponId,
   clamp,
@@ -197,6 +199,12 @@ const ARRIVE_RADIUS_UNITS = 60;
 export const REACH_MAX_HEIGHT_UNITS = 20; // a step is 18, so a bot standing a crate's height below is not there yet
 const REPATH_GOAL_DISTANCE_UNITS = 48; // one nav cell: a goal that moved less still ends at the same node
 const SCAN_EVERY = 6; // ticks between target scans (100 ms)
+/** Where a bot points at a player of this stance, units above the feet. */
+export const aimHeight = (stance: Stance, head: boolean): number => (head ? STANCES[stance].aimHead : STANCES[stance].aimBody);
+
+/** Body and head heights a sight line is tried at. */
+export const sightHeights = (stance: Stance): readonly number[] => [STANCES[stance].aimBody, STANCES[stance].aimHead];
+
 export const VIEW_RANGE = 2600;
 export const HEAR_RANGE = 420; // notices you behind it up close
 
@@ -459,9 +467,9 @@ export class BotBrain {
       const d = Math.hypot(q.state.x - ex, q.state.z - ez);
       if (d > this.aim.sightUnits) continue;
       // field of view ~140 degrees, but close enemies are heard anyway
-      const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + 44, q.state.z);
+      const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + aimHeight(q.state.stance, false), q.state.z);
       if (d > HEAR_RANGE && Math.abs(wrapAngle(yaw - this.yaw)) > 70 * DEG) continue;
-      if (!hasLineOfSight(env.world, ex, ey, ez, q.state)) continue;
+      if (!hasLineOfSight(env.world, ex, ey, ez, q.state, sightHeights(q.state.stance))) continue;
       // prefer the current target slightly so bots don't flick between people
       const score = d * (q.id === this.targetId ? 0.7 : 1);
       if (score < bestD) {
@@ -620,7 +628,7 @@ export class BotBrain {
       const ex = s.x;
       const ey = s.y + eyeHeight(s);
       const ez = s.z;
-      const aimY = t.y + (t.ducked ? (this.aimHead ? 30 : 20) : this.aimHead ? 64 : 44);
+      const aimY = t.y + aimHeight(t.stance, this.aimHead);
       const dist = Math.hypot(t.x - ex, t.z - ez);
       const [wantYaw, wantPitch] = anglesTo(ex, ey, ez, t.x, aimY, t.z);
       const settle = Math.max(0, 1 - this.aim.settlePerSecond * dt);

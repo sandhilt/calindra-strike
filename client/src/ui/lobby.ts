@@ -2,6 +2,7 @@ import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, sanitizeName } fr
 import { SERVER_HTTP } from '../config.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
+import { FEEDBACK_LABEL, FEEDBACK_URL } from '../feedback.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
 
 interface Status {
@@ -205,13 +206,18 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
       key('WASD', 'mover'),
       key('Espaço', 'pular'),
       key('Ctrl', 'agachar / mergulhar'),
-      key('Shift', 'andar em silêncio'),
+      key('Shift', 'correr'),
+      key('Shift + Ctrl', 'deslizar'),
+      key('← →', 'inclinar'),
+      key('↓', 'deitar'),
+      key('Alt', 'andar em silêncio'),
       key('1 2 3', 'armas · Q última'),
       key('R', 'recarregar'),
       key('E', 'plantar / desarmar o bug'),
       key('Mouse 2', 'luneta da AWP'),
       key('Tab', 'placar · Y chat'),
     ]),
+    h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
   ]);
 
   const lobby = h('div', { class: 'lobby' }, [tiles, h('div', { class: 'lobby-inner' }, [hero, form])]);

@@ -13,7 +13,12 @@ import {
   type BombPoint,
   unpackState,
   RF_ALIVE,
+  STAMINA_MAX,
+  STANCE,
+  type Stance,
   getMap,
+  isLowered,
+  leanOfRow,
   weaponDef,
   wrapAngle,
   type PlayerState,
@@ -28,6 +33,12 @@ import {
   LUNCH_COLLEAGUES, LUNCH_SEAT_RADIUS_UNITS, LUNCH_USE_RADIUS_UNITS, colleagueFromRow, type Colleague, type LunchEvent,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
+const STANCE_NAMES: Readonly<Record<Stance, 'stand' | 'crouch' | 'prone'>> = {
+  [STANCE.STAND]: 'stand',
+  [STANCE.CROUCH]: 'crouch',
+  [STANCE.PRONE]: 'prone',
+};
+
 export interface Peer {
   id: number;
   name: string;
@@ -41,6 +52,7 @@ export interface Peer {
   flags: number;
   pitch: number;
   weapon: number;
+  lean: number;
   via?: 'sight' | 'sound' | 'team';
 }
 export interface Airdrop {
@@ -152,6 +164,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
         pitch: p[5],
         flags: p[6],
         weapon: p[7],
+        lean: leanOfRow(p),
       };
     });
   v.flags = m.fl ?? [];
@@ -267,7 +280,12 @@ export function renderView(
       mag: s?.mag[s.weapon],
       reserve: s?.reserve[s.weapon],
       reloading: s ? s.reload > 0 : false,
-      ducked: s?.ducked ?? false,
+      ducked: s ? isLowered(s.stance) : false,
+      stance: STANCE_NAMES[s?.stance ?? STANCE.STAND],
+      sprinting: s?.sprinting ?? false,
+      sliding: (s?.slide ?? 0) > 0,
+      stamina: s ? Math.round((s.stamina / STAMINA_MAX) * 100) / 100 : 0,
+      lean: s ? Math.round(s.lean * 100) / 100 : 0,
       onGround: s?.onGround ?? false,
       zoom: s?.zoom ?? 0,
       maxZoom: s ? weaponDef(s.weapon).zoomFov.length : 0,

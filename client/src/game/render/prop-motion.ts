@@ -1,3 +1,5 @@
+import type { EscalatorTravel } from '@calindra-strike/shared';
+
 /**
  * Pure motion rules of the animated scenery (escalator steps, fountain drops, vent wisps, fan spin).
  * No three.js here, so the shapes of the motion are unit tested and the renderers only place what these return.
@@ -23,8 +25,12 @@ export interface StepGeometry {
   depth: number;
 }
 
+function stepCount(shape: EscalatorShape): number {
+  return Math.ceil(shape.height / STEP_RISE_MAX_UNITS);
+}
+
 export function stepGeometry(shape: EscalatorShape): StepGeometry {
-  const count = Math.ceil(shape.height / STEP_RISE_MAX_UNITS);
+  const count = stepCount(shape);
   return { count, rise: shape.height / count, depth: shape.length / count };
 }
 
@@ -50,7 +56,9 @@ export function newStepSlot(): StepSlot {
  * instead of poking out of either end.
  */
 export function fillStepSlot(out: StepSlot, u: number, shape: EscalatorShape): void {
-  const { rise, depth } = stepGeometry(shape);
+  const count = stepCount(shape);
+  const rise = shape.height / count;
+  const depth = shape.length / count;
   const from = depth * u;
   const to = depth * (u + 1);
   const top = Math.min(rise * (u + 1), shape.height);
@@ -66,11 +74,12 @@ export function fillStepSlot(out: StepSlot, u: number, shape: EscalatorShape): v
   out.riserTop = riserTop;
 }
 
-/** Fraction (0 to 1) of a step pitch the steps have travelled after `seconds`. */
-export function escalatorPhase(seconds: number, shape: EscalatorShape): number {
-  const { depth } = stepGeometry(shape);
+/** Fractional offset of the steps from their resting positions, measured uphill. */
+export function escalatorPhase(seconds: number, shape: EscalatorShape, travel: EscalatorTravel): number {
+  const depth = shape.length / stepCount(shape);
   const turns = (seconds * ESCALATOR_SPEED_UNITS_PER_S) / depth;
-  return turns - Math.floor(turns);
+  const phase = turns - Math.floor(turns);
+  return travel === 'down' ? (1 - phase) % 1 : phase;
 }
 
 /** A falling drop of the fountain: launched from `radius` at height `y0`, flying outward with `vr` and up with `vy`. */

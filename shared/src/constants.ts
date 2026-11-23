@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 18;
+export const PROTOCOL_VERSION = 19;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -25,6 +25,34 @@ export const MAX_VELOCITY = 2000;
 
 export const DUCK_SPEED_MULT = 0.34;
 export const WALK_SPEED_MULT = 0.52;
+export const PRONE_SPEED_MULT = 0.15;
+
+// --- sprint, stamina, slide, lean and prone (experimental tuning values) ---
+/** Sprint runs at this multiple of the weapon's own speed. */
+export const SPRINT_SPEED_MULT = 1.35;
+export const STAMINA_MAX = 100;
+export const STAMINA_DRAIN_PER_TICK = STAMINA_MAX / (5 * TICK_RATE); // 5 s of sprint from full
+export const STAMINA_REGEN_PER_TICK = STAMINA_MAX / (6 * TICK_RATE); // 6 s to refill from empty
+/** After the meter empties the player is winded and cannot sprint until it refills to this much. */
+export const STAMINA_RESUME = 25;
+/** The gun is out of use this long after a sprint ends, like the weapon coming up in a war game. */
+export const SPRINT_OUT_TICKS = 9;
+export const SLIDE_TICKS = 42; // longest slide, 0.7 s
+export const SLIDE_MIN_SPEED = 240; // units/s needed on the ground to start a slide
+export const SLIDE_BOOST_SPEED = 330; // units/s cap of the push a slide starts with
+export const SLIDE_FRICTION = 1.2; // ground friction while sliding (FRICTION is 4)
+export const SLIDE_END_SPEED = 120; // a slide that slows below this units/s ends
+export const SLIDE_STAMINA_COST = 20;
+/** Sideways reach of the eye at full lean, before a wall shortens it. */
+export const LEAN_OFFSET_UNITS = 18;
+/** The leaning eye stops this short of a wall, so the view never pokes into it. */
+export const LEAN_WALL_MARGIN_UNITS = 6;
+export const LEAN_RATE_PER_TICK = 0.14; // lean (-1..1) moves this much per tick toward its target
+export const LEAN_HEAD_SHIFT_UNITS = 14; // the head hitbox follows the lean this far, the body half as far
+export const LEAN_BODY_SHIFT_UNITS = 7;
+/** Going into or out of prone locks the stance this long, so nobody can stutter between prone and standing. */
+export const PRONE_SWITCH_TICKS = 18;
+export const PRONE_SPREAD_MULT = 0.8; // on top of the weapon's crouch multiplier
 
 // --- player hull ---
 export const PLAYER_RADIUS = 16;
@@ -32,6 +60,8 @@ export const STAND_HEIGHT = 72;
 export const DUCK_HEIGHT = 36;
 export const STAND_EYE = 64;
 export const DUCK_EYE = 30;
+export const PRONE_HEIGHT = 20;
+export const PRONE_EYE = 14;
 
 // --- skydive spawn ---
 export const DROP_FALL_SPEED = 560;
@@ -103,8 +133,12 @@ export const BTN = {
   ATTACK2: 256,
   RELOAD: 512,
   USE: 1024,
+  SPRINT: 2048,
+  LEAN_LEFT: 4096,
+  LEAN_RIGHT: 8192,
+  PRONE: 16384, // wants to lie down; the client latches it as a toggle
 } as const;
-export const BTN_MASK = 2047;
+export const BTN_MASK = 32767;
 
 export const SPECTATOR_PICK_MS = 15_000;
 export const MAX_SPECTATORS = 16;

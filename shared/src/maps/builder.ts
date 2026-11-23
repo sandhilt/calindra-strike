@@ -1,5 +1,5 @@
 import { vec3 } from '../math.ts';
-import type { Box, MapFeature, MapLight, MapProp, Mat } from './types.ts';
+import type { Box, EscalatorTravel, MapFeature, MapLight, MapProp, Mat } from './types.ts';
 
 export interface BoxOpts {
   solid?: boolean;
@@ -114,7 +114,7 @@ export class MapBuilder {
    * A solid staircase that is drawn as a moving escalator. The step boxes stay for collision and navigation
    * but are not drawn: the client animates its own steps over them.
    */
-  escalator(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, mat: Mat = 'metal'): void {
+  escalator(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, travel: EscalatorTravel, mat: Mat = 'metal'): void {
     const first = this.boxes.length;
     this.stairs(x1, x2, z1, z2, dir, height, mat);
     for (const box of this.boxes.slice(first)) box.visible = false;
@@ -125,6 +125,7 @@ export class MapBuilder {
       : { x: (x1 + x2) / 2, z: sign > 0 ? z1 : z2 };
     this.prop({
       kind: 'escalator',
+      travel,
       x: foot.x,
       z: foot.z,
       dirX: alongX ? sign : 0,

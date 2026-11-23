@@ -329,12 +329,12 @@ export function pickLegendary(r: number): WeaponId {
 }
 
 /** CS 1.6 AWP accuracy (cone units), straight from the 1.6 logic: stand still and scope. */
-export function csSniperSpread(onGround: boolean, speed: number, ducked: boolean, zoomed: boolean): number {
+export function csSniperSpread(onGround: boolean, speed: number, lowered: boolean, zoomed: boolean): number {
   let spread: number;
   if (!onGround) spread = 0.85;
   else if (speed > 140) spread = 0.25;
   else if (speed > 10) spread = 0.1;
-  else if (ducked) spread = 0;
+  else if (lowered) spread = 0;
   else spread = 0.001;
   if (!zoomed) spread += 0.08;
   return spread;

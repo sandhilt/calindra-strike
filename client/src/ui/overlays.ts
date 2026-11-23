@@ -6,6 +6,7 @@ import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, 
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { isReadyKey, weaponMenuKey } from '../game/weapon-menu.ts';
+import { FEEDBACK_LABEL, FEEDBACK_URL } from '../feedback.ts';
 import { ICONS, gameLogo, h, svg } from './dom.ts';
 
 const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
@@ -165,6 +166,7 @@ export class Overlays {
               { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },
               [svg(ICONS.gauge), 'testar desempenho'],
             ),
+            h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
             seg(
               'estatísticas',
               [

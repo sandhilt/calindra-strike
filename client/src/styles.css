@@ -340,6 +340,18 @@ input:focus-visible {
   gap: 8px;
 }
 
+.feedback-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--lime);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.feedback-link:hover { text-decoration-thickness: 2px; }
+
+.menu .feedback-link { margin: 6px 0 2px; }
+
 .card {
   position: relative;
   background: linear-gradient(170deg, rgba(32, 32, 30, 0.92), rgba(22, 22, 21, 0.92));
@@ -743,6 +755,55 @@ input:focus-visible {
     transform: translateX(16px);
     opacity: 0;
   }
+}
+
+.stamina {
+  position: absolute;
+  bottom: 84px;
+  left: 18px;
+  width: 108px;
+  color: var(--lime);
+  font: 11px var(--mono);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.stamina.active {
+  opacity: 1;
+}
+
+.stamina-track {
+  height: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stamina-track i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transform-origin: left;
+  transition: transform 0.12s linear;
+}
+
+.stamina.winded {
+  color: var(--danger);
+}
+
+.stamina.winded .stamina-track {
+  background: color-mix(in srgb, currentColor 35%, transparent);
+  animation: stamina-pulse 0.65s ease-in-out infinite alternate;
+}
+
+@keyframes stamina-pulse {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamina.winded .stamina-track { animation: none; }
 }
 
 /* vitals + ammo */

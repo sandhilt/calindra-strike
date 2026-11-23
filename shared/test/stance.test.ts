@@ -477,4 +477,31 @@ describe('packed state', () => {
       assert.equal(b.stance, stance);
     }
   });
+
+  it('keeps the sprint decision identical when a winded player is reconciled mid-recovery', () => {
+    const w = testMap(() => {});
+    const server = grounded(w);
+    server.stamina = 0;
+    server.winded = true;
+    run(w, server, 89, 0);
+    const client = createPlayerState();
+    unpackState(packState(server), client);
+    for (let i = 0; i < 4; i++) {
+      run(w, server, 1, RUN);
+      run(w, client, 1, RUN);
+      assert.equal(client.winded, server.winded, 'winded, tick ' + i);
+      assert.equal(client.sprinting, server.sprinting, 'sprinting, tick ' + i);
+      assert.equal(client.stamina, server.stamina, 'stamina, tick ' + i);
+    }
+  });
+
+  it('carries stamina and lean to the exact value', () => {
+    const a = createPlayerState();
+    a.stamina = 24.722222222222;
+    a.lean = 0.123456789;
+    const b = createPlayerState();
+    unpackState(packState(a), b);
+    assert.equal(b.stamina, a.stamina);
+    assert.equal(b.lean, a.lean);
+  });
 });

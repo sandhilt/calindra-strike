@@ -279,9 +279,9 @@ export function packState(s: PlayerState): number[] {
     s.zoom,
     s.protect,
     s.resumeZoom,
-    round(s.stamina, 1e4),
+    s.stamina, // exact: the winded threshold reads it, so a rounded copy would resume on another tick
     s.slide,
-    round(s.lean, 1e3),
+    s.lean,
     s.stanceLock,
     ...s.mag,
     ...s.reserve,

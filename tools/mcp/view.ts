@@ -363,8 +363,9 @@ const LUNCH_RULES = {
   defender: 'Keep the colleagues from lunch until secondsLeft reaches 0: the food court fills up and your team wins the round. Kill whoever leads colleagues; they stop where their leader dies and must be called again.',
 } as const;
 
-/** The named floor the player stands on, null on a map with a single level. */
+/** The named floor the player stands on, null on a map with a single level and while skydiving. */
 function floorOf(v: WorldView, s: PlayerState): { index: number; name: string; y: number } | null {
+  if (s.dropping) return null;
   const map = getMap(v.match.map);
   const floor = floorAt(map.floors, s.y);
   return floor && { ...floor, y: map.floors[floor.index].y };

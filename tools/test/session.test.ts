@@ -1021,14 +1021,14 @@ test('the agent hears its own shots from the magazine dropping, with the impact 
 
 const shoppingWelcome = { ...welcome, match: { ...welcome.match, map: 2 } };
 
-async function playOnShopping(at: { x: number; y: number; z: number }, health: number, su: number[] = [0, 0]) {
+async function playOnShopping(at: { x: number; y: number; z: number }, health: number, su: number[] = [0, 0], dropping = false) {
   const harness = setup();
   const joined = harness.session.join(args);
   harness.socket.emit('open', {});
   harness.socket.message(shoppingWelcome);
   await joined;
   const s = createPlayerState();
-  Object.assign(s, at, { health, onGround: true, dropping: false });
+  Object.assign(s, at, { health, onGround: !dropping, dropping });
   harness.socket.message({
     t: 'snap', time: 200, me: packState(s), ps: [[1, at.x, at.y, at.z, 0, 0, RF_ALIVE, 2]], ad: [], fl: [], bm: [], lu: [], lc: [], su,
   });
@@ -1049,6 +1049,12 @@ test('get_state names the floor, lists the glass lifts and the supply stands, an
   assert.partialDeepStrictEqual(state.supplies[1], { ready: false, inReach: false });
   assert.ok(state.supplies[1].secondsLeft > 119);
   assert.deepEqual(state.events.map((e: { k: string; name?: string }) => [e.k, e.name]), [['supply', 'enemy']]);
+});
+
+test('get_state names no floor while the player is still skydiving', async () => {
+  const { session } = await playOnShopping({ x: 0, y: 1100, z: -300 }, 100, [0, 0], true);
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.equal(state.you.floor, null);
 });
 
 test('get_state says when the player rides a lift and how long to the top', async () => {

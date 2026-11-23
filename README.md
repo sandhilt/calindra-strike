@@ -174,7 +174,7 @@ See also [Movimento experimental](#movimento-experimental) for sprint, slide, le
 
 ### Movimento experimental
 
-New and still being tested: tell us how it feels with the link in the lobby (next to it, a GitHub button opens the repository), or [open a feedback issue](https://github.com/sandhilt/calindra-strike/issues/new). It changes the wire format, so `PROTOCOL_VERSION` is 21 and an older tab must reload.
+New and still being tested: tell us how it feels: a GitHub button in the lobby opens the repository, where you can [open a feedback issue](https://github.com/sandhilt/calindra-strike/issues/new). It changes the wire format, so `PROTOCOL_VERSION` is 21 and an older tab must reload.
 
 - **Sprint**: hold `Shift` while moving. Sprinting blocks shooting and ends when you fire.
 - **Fôlego**: a bar at the bottom centre of the HUD, with a bolt icon and the percentage. It shows while you sprint, slide, refill or are winded, and fades when full. Green when healthy, amber below 40%, red and pulsing with "sem fôlego" (and a faint red edge) when winded. The white mark on the bar is where sprint comes back (25%). About 5 s of sprint, 6 s to refill.

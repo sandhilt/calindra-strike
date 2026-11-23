@@ -362,16 +362,6 @@ input:focus-visible {
 .control > svg { width: 20px; height: 20px; flex: none; color: var(--lime); }
 .control-label { min-width: 0; }
 
-.feedback-link {
-  display: inline-block;
-  font-size: 13px;
-  color: var(--lime);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.feedback-link:hover { text-decoration-thickness: 2px; }
-
 .hero-links {
   display: flex;
   align-items: center;

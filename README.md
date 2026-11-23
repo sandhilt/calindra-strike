@@ -4,7 +4,7 @@
 
 An original browser FPS with Counter-Strike 1.6 style gameplay, made for the Calindra office:
 
-- **Shopping Sul Rio**: a two floor mall built around a fountain under a glass roof. Stores on the ground floor, the food court upstairs, four escalators between the floors. Every storefront carries a parody sign drawn in code (KFG, Burguer Rei, Mania de Picanha, Méqui, ZARRA, C&Á and more). Every food court counter has a full kitchen behind it that you see over the counter but cannot enter (fryers, griddle and drinks machine for the fast food places, grill, ovens and pots for the restaurants), with tables and spinning ceiling fans in front. Each store has its own look: mannequins in the shop's colours, clothes racks with hangers, bookshelves and a reading corner, shelves of chocolates, aisles of goods. The escalator steps travel, the fountain has a jet and falling water, and ventilation ducts with grilles, fans and a faint wisp of vapour hum quietly when you pass them. Cover breaks the long lanes: ad boards across the covered gallery in front of the stores, a car on display, an information desk, carts, planters with hedges, benches and tall ad columns in the atrium, and menu boards and hedges in the food court, so a clean shot across the mall is rare.
+- **Shopping Sul Rio**: a two floor mall built around a fountain under a glass roof. Stores on the ground floor, the food court upstairs, four escalators between the floors (two go up and two go down, one of each per side, and the steps travel accordingly). Every storefront carries a parody sign drawn in code (KFG, Burguer Rei, Mania de Picanha, Méqui, ZARRA, C&Á and more). Every food court counter has a full kitchen behind it that you see over the counter but cannot enter (fryers, griddle and drinks machine for the fast food places, grill, ovens and pots for the restaurants), with tables and spinning ceiling fans in front. Each store has its own look: mannequins in the shop's colours, clothes racks with hangers, bookshelves and a reading corner, shelves of chocolates, aisles of goods. The escalator steps travel, the fountain has a jet and falling water, and ventilation ducts with grilles, fans and a faint wisp of vapour hum quietly when you pass them. Cover breaks the long lanes: ad boards across the covered gallery in front of the stores, a car on display, an information desk, carts, planters with hedges, benches and tall ad columns in the atrium, and menu boards and hedges in the food court, so a clean shot across the mall is rare.
 - **Arena match**: 5 minute rounds with a live leaderboard at the top and a 3D **top-3 podium** at the end, alongside a scrollable full ranking with kills, deaths and headshots for every player from both teams. The rotation cycles through every enabled map + mode pair (`Forja`, `Escritório`, `Shopping Sul Rio` × TDM, free-for-all, CTF and debug defusion by default, plus hora de almoçar on maps with a food court), never repeating the same map or mode back to back. Pick which ones are in play with `GAME_MAPS` and `GAME_MODES`.
 - **Team Deathmatch**: **Bulldogs** (lime) vs **Martelos** (blue), no friendly fire, first team to 50 kills (or most kills at the end of the timer) wins. Teams are shuffled and balanced every match, late joiners go to the smaller side, CS-style auto-balance on respawn, and you can switch to the smaller team from the Esc menu. Each side skydives over its own half; the podium shows the winning team's best three.
 - **Capture the Flag**: steal the enemy flag and bring it to your base while your own flag is home. First to `CTF_CAPTURE_LIMIT` captures wins (3 by default; `0` plays to the timer); dropped flags return after 30 seconds.
@@ -18,7 +18,7 @@ An original browser FPS with Counter-Strike 1.6 style gameplay, made for the Cal
 - **Hammer**: equip slot `3` to run at 280 units/s (12% faster than a pistol), with an upright forge hammer held by its grip and a forward swing. The left hand hangs loose in the lower left of the view.
 - **Day, afternoon and night**: every map runs a 15 minute cycle (day 7 min, afternoon 4, night 4, each phase blending into the next over its last 30 s). Day is the map's own look. The afternoon is golden hour, with a low warm sun and long shadows. The night has stars, a moon from another side, a cool dim light and brighter store signs, screens and lamp halos. It stays readable on purpose (players are as visible as by day, and sight range does not change), and it is only a look: bots, agents and the rules play the same. All players see the same phase because it comes from the server clock, and the kill feed says when it changes ("fim de tarde", "anoitecendo…", "amanheceu"). It costs a few uniform writes per frame, so every graphics tier has it.
 - **Kill feed with weapon icons**: each kill shows the weapon as a light silhouette, Counter-Strike style, drawn from the weapon's own 3D model (the text tag stands in when the browser has no WebGL).
-- **CS feel**: GoldSrc movement (ground friction/accel, air strafing, crouch-jump, 1.2x bunny hop cap), spray patterns, first-shot accuracy, run-and-gun penalty, 4x headshots, armour penetration, silent walking with `Shift`, dynamic crosshair.
+- **CS feel**: GoldSrc movement (ground friction/accel, air strafing, crouch-jump, 1.2x bunny hop cap), spray patterns, first-shot accuracy, run-and-gun penalty, 4x headshots, armour penetration, silent walking with `Alt`, dynamic crosshair. Sprint, slide, lean and prone are in testing, see "Movimento experimental" below.
 - **Netcode**: authoritative server at 60 Hz, client-side prediction with reconciliation, 100 ms entity interpolation, lag-compensated hitscan (rewind up to 250 ms), shared deterministic simulation and spread seeds.
 - **Calindra × Eitri** look: `#131312` charcoal, `#A5FA00` lime, Inter + Fragment Mono, glass tiles. All art, models and sounds are generated at runtime (no copyrighted assets).
 
@@ -123,7 +123,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `aim` / `fire` | Free aim. `aim` holds the crosshair on a world point (`x`, `y`, `z`) or at an angle (`yaw_deg`, `pitch_deg`, pitch up positive) with the pilot standing still, and answers with the material and surface a shot would hit. `fire` holds the trigger for `ms` (50 to 5000, default 150). Any `move_to`, `attack`, `hunt` or `stop` gives the view back to the pilot |
 | `use` | Hold USE standing still: plant or defuse the bug, or as an attacker in hora de almoçar call the colleagues within 80 units. `hunt` already does both on its own |
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
-| `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
+| `walk` / `reload` / `switch_weapon` | Walk silently (`Alt`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
 | `radio` | A radio line to the team: `{ menu, line }` from the Z, X, V and B menus (`comandos`, `grupo`, `respostas`, `calindra`) |
 
@@ -163,7 +163,21 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 ## Controls
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu
+See also [Movimento experimental](#movimento-experimental) for sprint, slide, lean and prone.
+
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `Z` `X` lean · `V` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu
+
+### Movimento experimental
+
+New and still being tested: tell us how it feels with the link in the lobby and in the Esc menu, or [open a feedback issue](https://github.com/sandhilt/calindra-strike/issues/new). It changes the wire format, so `PROTOCOL_VERSION` is 19 and an older tab must reload.
+
+- **Sprint**: hold `Shift` while moving. Sprinting blocks shooting and ends when you fire.
+- **Fôlego**: a meter in the HUD. About 5 s of sprint, 6 s to refill. When it runs out you are winded until it is back to 25%.
+- **Slide**: press `Shift` then `Ctrl` while moving fast.
+- **Lean**: `Z` left, `X` right. The eye and the head hitbox move with it, and a wall stops it.
+- **Prone**: `V` toggles. Slow, small target, 0.3 s lock between changes, no jump.
+- **Silent walk** moved to `Alt`.
+- Bots do not use these moves. MCP agents only read them in `get_state.you`.
 
 ### Graphics (modo desempenho)
 

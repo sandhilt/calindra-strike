@@ -31,7 +31,7 @@ export interface RtProfile {
 /** `high` is what the pass looked like before it had levels. Each step down keeps the effect and lowers its cost. */
 export const RT: Readonly<Record<RtLevel, RtProfile | null>> = {
   off: null,
-  light: { label: 'leve', resolution: 0.5, rays: 3, denoiseSamples: 8, msaa: 0, sceneDepth: true, strength: 0.75, radiusUnits: 40 },
+  light: { label: 'leve', resolution: 0.5, rays: 3, denoiseSamples: 8, msaa: 2, sceneDepth: true, strength: 0.75, radiusUnits: 40 },
   medium: { label: 'médio', resolution: 0.5, rays: 6, denoiseSamples: 12, msaa: 2, sceneDepth: true, strength: 0.85, radiusUnits: 40 },
   high: { label: 'alto', resolution: 1, rays: 8, denoiseSamples: 16, msaa: 4, sceneDepth: false, strength: 0.85, radiusUnits: 40 },
 };

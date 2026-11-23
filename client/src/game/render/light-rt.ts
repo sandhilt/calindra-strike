@@ -111,6 +111,8 @@ export class LightRt {
   dispose(): void {
     this.composer.dispose();
     this.occlusion.dispose();
+    this.occlusion.gtaoMaterial.dispose();
+    this.occlusion.blendMaterial.dispose();
     this.output.dispose();
   }
 }

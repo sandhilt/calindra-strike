@@ -518,6 +518,7 @@ export class ClientGame {
     this.lightRt?.dispose();
     this.lightRt = null;
     this.lightRtLevel = 'off';
+    this.rtGovernor.restart();
     try {
       this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1, profile);
       this.lightRtLevel = level;

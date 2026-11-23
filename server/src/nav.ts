@@ -112,13 +112,20 @@ export class NavGrid {
     this.closed = new Uint32Array(n);
   }
 
-  /** A hull can travel between two neighbouring nodes at the higher of their heights. */
+  /**
+   * A hull can travel between two neighbouring nodes at the higher of their heights, and fall or jump through the lower
+   * node's column between the two heights: a floor under an upper floor is a neighbour but not a drop.
+   */
   private clear(a: NavNode, b: NavNode): boolean {
     const h = Math.max(a.y, b.y) + 0.5;
     for (const t of [0.25, 0.5, 0.75]) {
       const x = a.x + (b.x - a.x) * t;
       const z = a.z + (b.z - a.z) * t;
       if (this.world.hullOverlaps(x, h, z, STAND_HEIGHT)) return false;
+    }
+    const low = a.y < b.y ? a : b;
+    for (let y = low.y + STAND_HEIGHT / 2; y < h; y += STAND_HEIGHT / 2) {
+      if (this.world.hullOverlaps(low.x, y, low.z, STAND_HEIGHT)) return false;
     }
     return true;
   }

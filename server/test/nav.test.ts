@@ -3,9 +3,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { NavGrid } from '../src/nav.ts';
 
-const [forja, escritorio] = getMaps();
+const [forja, escritorio, shopping] = getMaps();
 const navF = new NavGrid(new CollisionWorld(forja), forja);
 const navE = new NavGrid(new CollisionWorld(escritorio), escritorio);
+const navS = new NavGrid(new CollisionWorld(shopping), shopping);
 
 function route(nav: NavGrid, a: [number, number, number], b: [number, number, number]) {
   const s = nav.nearest(...a);
@@ -51,5 +52,31 @@ describe('NavGrid', () => {
     const p = route(navE, [-200, 0, -300], [-900, 128, -940]);
     assert.notEqual(p, null);
     assert.equal(p!.at(-1)!.y, 128);
+  });
+
+  it('rides an escalator from the mall atrium up to each food court', () => {
+    for (const side of [-1, 1]) {
+      const p = route(navS, [0, 0, side * 450], [0, 192, side * 860]);
+      assert.notEqual(p, null);
+      assert.equal(p!.at(-1)!.y, 192);
+      for (let i = 1; i < p!.length; i++) assert.ok(p![i].y - p![i - 1].y <= 40, 'no edge rises more than a jump');
+    }
+  });
+
+  it('comes back down from each food court counter by an escalator, never through the floor', () => {
+    for (const r of shopping.restaurants) {
+      for (const base of shopping.flagBases) {
+        const p = route(navS, [r.x, r.y, r.z], [base.x, 0, base.z]);
+        assert.notEqual(p, null);
+        assert.equal(p!.at(-1)!.y, 0);
+        assert.ok(p!.some((n) => n.y > 0 && n.y < 192), 'passes the escalator steps');
+      }
+    }
+  });
+
+  it('walks into a mall store through its door', () => {
+    const p = route(navS, [0, 0, -450], [-352, 0, -1000]);
+    assert.notEqual(p, null);
+    assert.equal(p!.every((n) => n.y < 1), true);
   });
 });

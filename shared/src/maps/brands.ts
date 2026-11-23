@@ -1,0 +1,49 @@
+/**
+ * Parody storefronts for the Shopping Sul Rio map. Each brand is drawn by the client as a sign texture;
+ * `food` brands are the food court restaurants, `shop` brands the ground floor stores.
+ */
+export const STORE_BRANDS = {
+  kfg: { name: 'KFG', kind: 'food' },
+  'burguer-rei': { name: 'Burguer Rei', kind: 'food' },
+  'mania-picanha': { name: 'Mania de Picanha', kind: 'food' },
+  parrilha: { name: 'Parrilha do Sul', kind: 'food' },
+  mequi: { name: 'Méqui', kind: 'food' },
+  outbaque: { name: 'Outbaque', kind: 'food' },
+  madeiro: { name: 'Madeiro', kind: 'food' },
+  bobis: { name: "Bobi's", kind: 'food' },
+  zarra: { name: 'ZARRA', kind: 'shop' },
+  cea: { name: 'C&Á', kind: 'shop' },
+  rener: { name: 'Rener', kind: 'shop' },
+  hew: { name: 'H&W', kind: 'shop' },
+  'cacau-chou': { name: 'Cacau Chou', kind: 'shop' },
+  amerikanas: { name: 'Amerikanas', kind: 'shop' },
+  riachuela: { name: 'Riachuela', kind: 'shop' },
+  travessura: { name: 'Livraria da Travessura', kind: 'shop' },
+} as const satisfies Record<string, { name: string; kind: 'food' | 'shop' }>;
+
+export type StoreBrand = keyof typeof STORE_BRANDS;
+type BrandsOfKind<K extends 'food' | 'shop'> = { [B in StoreBrand]: (typeof STORE_BRANDS)[B]['kind'] extends K ? B : never }[StoreBrand];
+export type FoodBrand = BrandsOfKind<'food'>;
+export type ShopBrand = BrandsOfKind<'shop'>;
+export type BrandMat = `brand:${StoreBrand}`;
+
+export function brandMat(brand: StoreBrand): BrandMat {
+  return `brand:${brand}`;
+}
+
+export function brandOfMat(mat: string): StoreBrand | null {
+  if (!mat.startsWith('brand:')) return null;
+  const id = mat.slice('brand:'.length);
+  return isStoreBrand(id) ? id : null;
+}
+
+export function isBrandMat(mat: string): mat is BrandMat {
+  return brandOfMat(mat) !== null;
+}
+
+function isStoreBrand(id: string): id is StoreBrand {
+  return Object.hasOwn(STORE_BRANDS, id);
+}
+
+/** Signs are drawn on a 2:1 panel; the map authors them at this width over height. */
+export const SIGN_ASPECT = 2;

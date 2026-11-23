@@ -130,7 +130,7 @@ describe('Team Deathmatch', () => {
     assert.equal(victim.team, 1);
   });
 
-  it('rotates TDM Forja -> FFA Escritório -> FFA Forja -> TDM Escritório', () => {
+  it('rotates TDM Forja -> FFA Escritório -> TDM Shopping -> FFA Forja', () => {
     const { game } = setup(2);
     const seen: string[] = [];
     for (let m = 0; m < 4; m++) {
@@ -139,7 +139,7 @@ describe('Team Deathmatch', () => {
       game.update(); // -> podium
       for (let i = 0; i < 5 * 60 + 2; i++) game.update(); // -> next match
     }
-    assert.deepEqual(seen, ['tdm@0', 'ffa@1', 'ffa@0', 'tdm@1']);
+    assert.deepEqual(seen, ['tdm@0', 'ffa@1', 'tdm@2', 'ffa@0']);
   });
 
   it('clears teams in free-for-all', () => {

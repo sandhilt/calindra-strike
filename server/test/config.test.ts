@@ -28,7 +28,7 @@ describe('map and mode selection', () => {
     const cfg = loadConfig();
     assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse']);
     const game = new Game({ ...base, modes: cfg.modes, maps: cfg.maps });
-    assert.equal((game.combos).length, 8);
+    assert.equal((game.combos).length, 12);
     assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse']));
     assert.deepEqual(cfg.maps, []);
   });

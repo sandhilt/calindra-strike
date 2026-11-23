@@ -1,10 +1,11 @@
 import { vec3 } from '../math.ts';
-import type { Box, MapFeature, MapLight, Mat } from './types.ts';
+import type { Box, MapFeature, MapLight, MapProp, Mat } from './types.ts';
 
 export interface BoxOpts {
   solid?: boolean;
   shoot?: boolean;
   visible?: boolean;
+  tint?: number;
 }
 
 export interface Opening {
@@ -22,7 +23,9 @@ export interface Opening {
 export class MapBuilder {
   readonly boxes: Box[] = [];
   readonly lights: MapLight[] = [];
+  readonly props: MapProp[] = [];
   readonly points: { x: number; z: number }[] = [];
+  readonly restaurants: { x: number; y: number; z: number }[] = [];
   private rot = 0;
   private readonly authoredFeatures: MapFeature[] = [];
 
@@ -49,7 +52,7 @@ export class MapBuilder {
     let ax = x;
     let az = z;
     for (let i = 0; i < this.rot; i++) {
-      const nx = -az;
+      const nx = 0 - az;
       az = ax;
       ax = nx;
     }
@@ -66,6 +69,7 @@ export class MapBuilder {
       solid: o.solid ?? true,
       shootThrough: o.shoot ?? false,
       visible: o.visible ?? true,
+      ...(o.tint === undefined ? {} : { tint: o.tint }),
     });
   }
 
@@ -79,13 +83,66 @@ export class MapBuilder {
   }
 
   /** Non-solid decorative strip (neon trims etc). */
-  deco(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, mat: Mat = 'lime'): void {
-    this.add(x1, y1, z1, x2, y2, z2, mat, { solid: false, shoot: true });
+  deco(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, mat: Mat = 'lime', tint?: number): void {
+    this.add(x1, y1, z1, x2, y2, z2, mat, { solid: false, shoot: true, tint });
+  }
+
+  /** Places a prop, turning it with the block being replayed like every other authored thing. */
+  prop(p: MapProp): void {
+    this.props.push(this.rotateProp(p));
+  }
+
+  private rotateProp(p: MapProp): MapProp {
+    const [x, z] = this.rotXZ(p.x, p.z);
+    const turn = (this.rot * Math.PI) / 2;
+    switch (p.kind) {
+      case 'ceilingFan':
+      case 'fountain':
+        return { ...p, x, z };
+      case 'mannequin':
+      case 'clothesRack':
+      case 'vent':
+        return { ...p, x, z, yaw: p.yaw - turn };
+      case 'escalator': {
+        const [dirX, dirZ] = this.rotXZ(p.dirX, p.dirZ);
+        return { ...p, x, z, dirX, dirZ };
+      }
+    }
+  }
+
+  /**
+   * A solid staircase that is drawn as a moving escalator. The step boxes stay for collision and navigation
+   * but are not drawn: the client animates its own steps over them.
+   */
+  escalator(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, mat: Mat = 'metal'): void {
+    const first = this.boxes.length;
+    this.stairs(x1, x2, z1, z2, dir, height, mat);
+    for (const box of this.boxes.slice(first)) box.visible = false;
+    const alongX = dir === '+x' || dir === '-x';
+    const sign = dir === '+x' || dir === '+z' ? 1 : -1;
+    const foot = alongX
+      ? { x: sign > 0 ? x1 : x2, z: (z1 + z2) / 2 }
+      : { x: (x1 + x2) / 2, z: sign > 0 ? z1 : z2 };
+    this.prop({
+      kind: 'escalator',
+      x: foot.x,
+      z: foot.z,
+      dirX: alongX ? sign : 0,
+      dirZ: alongX ? 0 : sign,
+      width: alongX ? z2 - z1 : x2 - x1,
+      length: alongX ? x2 - x1 : z2 - z1,
+      height,
+    });
   }
 
   light(x: number, y: number, z: number, color = '#b6ff4a'): void {
     const [ax, az] = this.rotXZ(x, z);
     this.lights.push({ x: ax, y, z: az, color });
+  }
+
+  restaurant(x: number, y: number, z: number): void {
+    const [ax, az] = this.rotXZ(x, z);
+    this.restaurants.push({ x: ax, y, z: az });
   }
 
   point(x: number, z: number): void {

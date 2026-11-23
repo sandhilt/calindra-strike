@@ -41,6 +41,17 @@ test('only the high tier sparkles', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].fx.sparkle), ['high']);
 });
 
+test('on performance the ambient motion and the vent smoke are off, and elsewhere they are on', () => {
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].ambientMotion), ['high', 'low']);
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].ventSmoke), ['high', 'low']);
+  assert.equal(QUALITY.performance.ambientMotion, false);
+  assert.equal(QUALITY.performance.ventSmoke, false);
+});
+
+test('escalator steps are not an ambient column: no tier can switch them off', () => {
+  assert.deepEqual(Object.keys(QUALITY.performance).filter((key) => /escalator/i.test(key)), []);
+});
+
 test('outside the high tier every surface throws the same plain sparks, with no glints and no fade', () => {
   const plain = sparkPlan('concrete', false);
   for (const surface of Object.keys(SPARK_LOOK) as Surface[]) assert.deepEqual(sparkPlan(surface, false), plain, surface);

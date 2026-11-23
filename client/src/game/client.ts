@@ -62,6 +62,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
+import { VentHum } from './vent-hum.ts';
 import { radioMenuKey, type OpenRadioMenu, type RadioKeyResult } from './radio-menu.ts';
 import { RADIO_VOICE, createSpeaker } from './speech.ts';
 import type { StreakSound } from './sound-packs/types.ts';
@@ -204,6 +205,7 @@ export class ClientGame {
   private readonly podium = new PodiumScene();
   private readonly muzzleLight = new THREE.PointLight('#ffcf8a', 0, 420, 0);
   private world: WorldView | null = null;
+  private ventHum: VentHum | null = null;
   private collision!: CollisionWorld;
   private map!: MapDef;
   private mapIndex = -1;
@@ -452,7 +454,10 @@ export class ClientGame {
     this.applyLightRt(profile.lightRt);
     this.effects.setQuality(quality);
     this.view.setQuality(quality);
-    if (this.world) applyShadowQuality(this.world.sun, profile);
+    if (this.world) {
+      applyShadowQuality(this.world.sun, profile);
+      this.world.setQuality(profile);
+    }
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }
 
@@ -553,6 +558,8 @@ export class ClientGame {
     this.spectatorPose = overviewPose(this.map.bounds);
     this.world?.dispose();
     this.world = buildWorld(this.map, this.scene, QUALITY[this.settings.quality]);
+    this.ventHum?.dispose();
+    this.ventHum = new VentHum(this.map.props.filter((p) => p.kind === 'vent'), (at) => this.sfx.airLoop(at));
     const t = this.map.theme;
     this.sunDir.set(t.sunDir.x, t.sunDir.y, t.sunDir.z).normalize();
     this.view.setLighting(t.hemiSky, t.hemiGround, t.sun, t.sunIntensity);
@@ -1428,6 +1435,7 @@ export class ClientGame {
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
+      this.world.update(dt);
       followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.sunDir);
       this.world.sky.position.copy(this.camera.position);
     }
@@ -1455,6 +1463,7 @@ export class ClientGame {
     this.updateHud(zoomed);
     const f = v3.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
     this.sfx.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, f.x, f.y, f.z);
+    this.ventHum?.update(dt, this.camera.position);
   };
 
   /** Holds the followed player's weapon in the viewmodel; false when there is nothing to draw. */
@@ -1817,6 +1826,7 @@ export class ClientGame {
     this.flagRenderer?.dispose();
     this.bombRenderer?.dispose();
     this.world?.dispose();
+    this.ventHum?.dispose();
     this.lightRt?.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

@@ -45,6 +45,13 @@ export interface QualityProfile {
   envMapPx: number;
   /** Light ray-marched lighting, on only where the graphics card supports it. */
   lightRt: boolean;
+  /**
+   * Scenery that moves for looks only: ceiling fans, vent fans, fountain water and jet. On for high and low,
+   * off for performance, where they stand still. Escalator steps are not part of this: they move on every tier.
+   */
+  ambientMotion: boolean;
+  /** Faint vapour drifting out of the vents. On for high and low; off for performance, where it is not even built. */
+  ventSmoke: boolean;
   /** Minimum gap between redraws of the defuse laptop screen, in ms. */
   laptopScreenRefreshMs: number;
   fx: FxProfile;
@@ -60,6 +67,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 2048,
     envMapPx: 256,
     lightRt: true,
+    ambientMotion: true,
+    ventSmoke: true,
     laptopScreenRefreshMs: 100,
     fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10, sparkle: true },
   },
@@ -72,6 +81,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 256,
     lightRt: false,
+    ambientMotion: true,
+    ventSmoke: true,
     laptopScreenRefreshMs: 100,
     fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6, sparkle: false },
   },
@@ -84,6 +95,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 64,
     lightRt: false,
+    ambientMotion: false,
+    ventSmoke: false,
     laptopScreenRefreshMs: 250,
     fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4, sparkle: false },
   },

@@ -1,6 +1,8 @@
-import type { Box, MapDef, Mat } from '@calindra-strike/shared';
+import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { QualityProfile } from './quality.ts';
+import { buildProps } from './props.ts';
+import { signMaterial } from './store-signs.ts';
 import { TEX, TEX_SCALE } from './textures.ts';
 
 interface Bucket {
@@ -43,6 +45,8 @@ function faceUV(n: [number, number, number], p: number[], scale: number, b: Box,
 }
 
 function materialFor(mat: Mat): THREE.Material {
+  const brand = brandOfMat(mat);
+  if (brand) return signMaterial(brand);
   switch (mat) {
     case 'lime':
       return new THREE.MeshStandardMaterial({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 1.8, roughness: 0.4 });
@@ -69,6 +73,18 @@ function materialFor(mat: Mat): THREE.Material {
       const t = TEX.logo();
       return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.7, roughness: 0.5 });
     }
+    case 'water':
+      return new THREE.MeshStandardMaterial({
+        map: TEX.water(),
+        color: '#8fd8f2',
+        emissive: '#1d6a8a',
+        emissiveIntensity: 0.35,
+        transparent: true,
+        opacity: 0.78,
+        roughness: 0.05,
+        metalness: 0.15,
+        depthWrite: false,
+      });
     case 'plant':
       return new THREE.MeshStandardMaterial({ map: TEX.plant(), roughness: 0.9, vertexColors: true });
     default: {
@@ -91,8 +107,15 @@ export interface WorldView {
   sun: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
   fog: THREE.Fog;
+  /** Advances the moving scenery (fans, escalator steps, fountain water, vent smoke) by dt seconds. */
+  update(dt: number): void;
+  /** Takes a graphics tier chosen mid-match: starts or stops the ambient motion and builds or drops the vent smoke. */
+  setQuality(profile: QualityProfile): void;
   dispose(): void;
 }
+
+const WHITE = new THREE.Color(1, 1, 1);
+const TINT = new THREE.Color();
 
 function skyDome(map: MapDef): THREE.Mesh {
   const t = map.theme;
@@ -209,6 +232,7 @@ function glowSprite(color: string): THREE.SpriteMaterial {
 export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProfile): WorldView {
   const group = new THREE.Group();
   const buckets = new Map<Mat, Bucket>();
+  const materials = new Map<Mat, THREE.Material>();
 
   for (const b of map.boxes) {
     if (!b.visible || b.mat === 'clip') continue;
@@ -217,7 +241,8 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
       bk = { pos: [], nrm: [], uv: [], col: [], idx: [] };
       buckets.set(b.mat, bk);
     }
-    const scale = TEX_SCALE[b.mat] ?? 128;
+    const scale = isBrandMat(b.mat) ? 0 : TEX_SCALE[b.mat] ?? 128;
+    const tint = b.tint === undefined ? WHITE : TINT.set(b.tint);
     const h = b.max.y - b.min.y;
     for (const f of FACES) {
       if (f.n[1] === -1 && b.min.y <= 0.01) continue; // never visible
@@ -232,7 +257,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
         let ao = 1;
         if (f.n[1] === 0 && b.mat !== 'ground' && b.mat !== 'carpet') ao = p[1] <= b.min.y + 0.01 ? (h > 120 ? 0.62 : 0.72) : 1;
         if (f.n[1] === -1) ao = 0.55;
-        bk.col.push(ao, ao, ao);
+        bk.col.push(ao * tint.r, ao * tint.g, ao * tint.b);
       });
       bk.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
@@ -246,13 +271,18 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     geo.setAttribute('color', new THREE.Float32BufferAttribute(bk.col, 3));
     geo.setIndex(bk.idx);
     geo.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geo, materialFor(mat));
-    const caster = !['glass', 'lime', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);
+    const material = materialFor(mat);
+    materials.set(mat, material);
+    const mesh = new THREE.Mesh(geo, material);
+    const caster = !isBrandMat(mat) && !['glass', 'water', 'lime', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);
     mesh.castShadow = caster;
-    mesh.receiveShadow = mat !== 'lime' && mat !== 'glass';
-    if (mat === 'glass') mesh.renderOrder = 5;
+    mesh.receiveShadow = mat !== 'lime' && mat !== 'glass' && mat !== 'water';
+    if (mat === 'glass' || mat === 'water') mesh.renderOrder = 5;
     group.add(mesh);
   }
+
+  const props = buildProps(map.props, (mat) => materials.get(mat), profile);
+  group.add(props.group);
 
   // glow at map light points
   for (const l of map.lights) {
@@ -295,9 +325,16 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     sun,
     hemi,
     fog,
+    update(dt) {
+      props.update(dt);
+    },
+    setQuality(next) {
+      props.setQuality(next);
+    },
     dispose() {
       scene.remove(group);
       group.traverse((o) => {
+        if (o instanceof THREE.InstancedMesh) o.dispose();
         const m = o as THREE.Mesh;
         if (m.geometry) m.geometry.dispose();
         const mat = m.material as THREE.Material | THREE.Material[] | undefined;

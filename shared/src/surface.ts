@@ -1,9 +1,10 @@
-import type { Mat } from './maps/types.ts';
+import { isBrandMat } from './maps/brands.ts';
+import type { BaseMat, Mat } from './maps/types.ts';
 
 /** What a bullet hits, grouped by how it sounds and sparks. The client plays it and the MCP reports it to agents. */
 export type Surface = 'ground' | 'concrete' | 'plaster' | 'brick' | 'tile' | 'metal' | 'container' | 'wood' | 'crate' | 'glass' | 'screen' | 'cloth' | 'plant';
 
-export const SURFACE_OF: Readonly<Record<Mat, Surface>> = {
+export const SURFACE_OF: Readonly<Record<BaseMat, Surface>> = {
   ground: 'ground',
   concrete: 'concrete',
   charcoal: 'concrete',
@@ -24,8 +25,9 @@ export const SURFACE_OF: Readonly<Record<Mat, Surface>> = {
   carpet: 'cloth',
   sofa: 'cloth',
   plant: 'plant',
+  water: 'glass',
 };
 
 export function surfaceOf(mat: Mat): Surface {
-  return SURFACE_OF[mat];
+  return isBrandMat(mat) ? 'plaster' : SURFACE_OF[mat];
 }

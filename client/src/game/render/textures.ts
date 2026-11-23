@@ -117,6 +117,21 @@ export function drawLogo(g: CanvasRenderingContext2D, cx: number, cy: number, si
 const S = 512;
 
 export const TEX: Record<string, () => THREE.CanvasTexture> = {
+  water: () =>
+    canvasTexture(256, (g, s) => {
+      g.fillStyle = '#6fc4e6';
+      g.fillRect(0, 0, s, s);
+      const r = rand(31);
+      g.strokeStyle = 'rgba(255,255,255,0.45)';
+      g.lineWidth = 2;
+      for (let i = 0; i < 40; i++) {
+        const x = r() * s;
+        const y = r() * s;
+        g.beginPath();
+        g.ellipse(x, y, 10 + r() * 26, 3 + r() * 6, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+    }),
   ground: () =>
     canvasTexture(S, (g, s) => {
       g.fillStyle = '#b8a283';
@@ -403,4 +418,5 @@ export const TEX_SCALE: Record<string, number> = {
   screen: 0,
   eitri: 0,
   logo: 0,
+  water: 160,
 };

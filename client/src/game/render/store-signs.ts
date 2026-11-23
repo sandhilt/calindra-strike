@@ -1,0 +1,196 @@
+import type { StoreBrand } from '@calindra-strike/shared';
+import * as THREE from 'three';
+import { canvasTexture } from './textures.ts';
+
+const W = 512;
+const H = 256;
+
+type G = CanvasRenderingContext2D;
+
+function panel(g: G, color: string): void {
+  g.fillStyle = color;
+  g.fillRect(0, 0, W, H);
+}
+
+/** Text centred on (x, y), shrunk until it fits `maxW`. */
+function label(g: G, text: string, x: number, y: number, size: number, color: string, font = 'Arial Black, Arial, sans-serif', maxW = W - 40, style = ''): void {
+  let s = size;
+  do {
+    g.font = `${style} ${s}px ${font}`;
+    s -= 2;
+  } while (g.measureText(text).width > maxW && s > 10);
+  g.fillStyle = color;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, x, y);
+}
+
+function outlined(g: G, text: string, x: number, y: number, size: number, fill: string, stroke: string, font: string, maxW = W - 40, style = ''): void {
+  label(g, text, x, y, size, fill, font, maxW, style);
+  g.lineWidth = Math.max(3, size / 14);
+  g.strokeStyle = stroke;
+  g.strokeText(text, x, y);
+  g.fillText(text, x, y);
+}
+
+const SERIF = 'Georgia, "Times New Roman", serif';
+
+const SIGNS: Record<StoreBrand, (g: G) => void> = {
+  kfg(g) {
+    panel(g, '#ffffff');
+    g.fillStyle = '#c8102e';
+    for (let i = 0; i < 4; i++) g.fillRect(24 + i * 44, 0, 26, H);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(110, 120, 62, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#1b1b1b';
+    g.lineWidth = 6;
+    g.stroke();
+    g.fillStyle = '#1b1b1b';
+    for (const ex of [88, 132]) {
+      g.beginPath();
+      g.arc(ex, 108, 14, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.beginPath();
+    g.moveTo(96, 150);
+    g.quadraticCurveTo(110, 184, 124, 150);
+    g.fill();
+    g.beginPath();
+    g.moveTo(80, 198);
+    g.lineTo(110, 186);
+    g.lineTo(80, 174);
+    g.moveTo(140, 198);
+    g.lineTo(110, 186);
+    g.lineTo(140, 174);
+    g.fill();
+    outlined(g, 'KFG', 360, 116, 150, '#c8102e', '#ffffff', 'Arial Black, Arial, sans-serif', 300, 'italic');
+    label(g, 'Kentucky Frango Gostoso', 360, 210, 28, '#1b1b1b', 'Arial, sans-serif', 300, 'bold');
+  },
+  'burguer-rei'(g) {
+    panel(g, '#f5ebdc');
+    g.strokeStyle = '#1f5fbf';
+    g.lineWidth = 18;
+    g.beginPath();
+    g.ellipse(W / 2, H / 2, 230, 112, 0, Math.PI * 0.15, Math.PI * 1.35);
+    g.stroke();
+    g.fillStyle = '#f5a623';
+    g.beginPath();
+    g.ellipse(W / 2, 92, 190, 64, 0, Math.PI, 0);
+    g.fill();
+    g.beginPath();
+    g.ellipse(W / 2, 168, 190, 40, 0, 0, Math.PI);
+    g.fill();
+    outlined(g, 'BURGUER REI', W / 2, 130, 70, '#d62300', '#502314', 'Arial Black, Arial, sans-serif', 400);
+  },
+  'mania-picanha'(g) {
+    panel(g, '#141414');
+    g.fillStyle = '#e0261b';
+    g.beginPath();
+    g.moveTo(40, 220);
+    for (let i = 0; i <= 8; i++) g.lineTo(40 + i * 54, i % 2 ? 150 : 200);
+    g.lineTo(472, 220);
+    g.fill();
+    label(g, 'MANIA DE', W / 2, 64, 56, '#ffffff');
+    label(g, 'PICANHA', W / 2, 136, 92, '#ffb400');
+  },
+  parrilha(g) {
+    panel(g, '#3b2416');
+    g.strokeStyle = '#d4a24c';
+    g.lineWidth = 6;
+    g.strokeRect(16, 16, W - 32, H - 32);
+    for (let i = 0; i < 6; i++) {
+      g.beginPath();
+      g.moveTo(120 + i * 54, 188);
+      g.lineTo(120 + i * 54, 220);
+      g.stroke();
+    }
+    label(g, 'Parrilha', W / 2, 96, 96, '#d4a24c', SERIF, W - 60, 'italic bold');
+    label(g, 'DO SUL · CARNES NA BRASA', W / 2, 166, 26, '#f3e3c3', 'Arial, sans-serif', W - 80, 'bold');
+  },
+  mequi(g) {
+    panel(g, '#da291c');
+    g.strokeStyle = '#ffc72c';
+    g.lineWidth = 30;
+    g.lineCap = 'butt';
+    g.beginPath();
+    g.moveTo(70, 210);
+    g.bezierCurveTo(70, 20, 170, 20, 170, 210);
+    g.moveTo(170, 210);
+    g.bezierCurveTo(170, 20, 270, 20, 270, 210);
+    g.stroke();
+    label(g, 'Méqui', 390, 128, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 220);
+  },
+  outbaque(g) {
+    panel(g, '#5a1a12');
+    g.strokeStyle = '#e8c47a';
+    g.lineWidth = 14;
+    g.beginPath();
+    g.moveTo(60, 200);
+    g.quadraticCurveTo(110, 120, 60, 60);
+    g.stroke();
+    label(g, 'Outbaque', 285, 104, 92, '#f4e2b8', SERIF, 380, 'italic bold');
+    label(g, 'STEAKHOUSE', 285, 186, 34, '#e8c47a', 'Arial, sans-serif', 380, 'bold');
+  },
+  madeiro(g) {
+    panel(g, '#121212');
+    label(g, 'MADEIRO', W / 2, 104, 104, '#ffffff', SERIF, W - 50, 'bold');
+    g.fillStyle = '#c4161c';
+    g.fillRect(80, 160, W - 160, 6);
+    label(g, 'o burger mais gostoso do escritório', W / 2, 200, 24, '#d9d9d9', 'Arial, sans-serif', W - 60, 'italic');
+  },
+  bobis(g) {
+    panel(g, '#ffffff');
+    g.fillStyle = '#e30613';
+    g.fillRect(0, 0, W, 28);
+    g.fillRect(0, H - 28, W, 28);
+    outlined(g, "Bobi's", W / 2, 128, 130, '#e30613', '#1b1b1b', SERIF, W - 60, 'italic bold');
+  },
+  zarra(g) {
+    panel(g, '#f7f7f5');
+    g.save();
+    g.translate(W / 2, H / 2);
+    g.scale(1.3, 1);
+    label(g, 'ZARRA', 0, 6, 120, '#111111', 'Didot, "Bodoni MT", ' + SERIF, 340);
+    g.restore();
+  },
+  cea(g) {
+    panel(g, '#0050a0');
+    label(g, 'C&Á', W / 2, 132, 150, '#ffffff', 'Arial Black, Arial, sans-serif', W - 80);
+  },
+  rener(g) {
+    panel(g, '#2b2b2b');
+    label(g, 'Rener', W / 2, 128, 130, '#ffffff', SERIF, W - 80, 'bold');
+  },
+  hew(g) {
+    panel(g, '#e50010');
+    label(g, 'H&W', W / 2, 132, 150, '#ffffff', 'Brush Script MT, ' + SERIF, W - 80, 'italic bold');
+  },
+  'cacau-chou'(g) {
+    panel(g, '#4a2513');
+    label(g, 'Cacau Chou', W / 2, 112, 92, '#e9c27a', 'Brush Script MT, ' + SERIF, W - 50, 'italic bold');
+    label(g, 'CHOCOLATES', W / 2, 196, 30, '#f5e6c8', 'Arial, sans-serif', W - 80, 'bold');
+  },
+  amerikanas(g) {
+    panel(g, '#e60014');
+    label(g, 'amerikanas', W / 2, 128, 96, '#ffffff', 'Arial Black, Arial, sans-serif', W - 50);
+  },
+  riachuela(g) {
+    panel(g, '#ffffff');
+    label(g, 'RIACHUELA', W / 2, 116, 84, '#1c2a5a', 'Arial Black, Arial, sans-serif', W - 50);
+    g.fillStyle = '#c9a227';
+    g.fillRect(120, 176, W - 240, 8);
+  },
+  travessura(g) {
+    panel(g, '#1f3d2b');
+    label(g, 'Livraria da', W / 2, 78, 48, '#efe6cf', SERIF, W - 60, 'italic');
+    label(g, 'Travessura', W / 2, 158, 92, '#efe6cf', SERIF, W - 60, 'bold');
+  },
+};
+
+/** Lit sign material so the logo reads in the shade under the food court. */
+export function signMaterial(brand: StoreBrand): THREE.Material {
+  const t = canvasTexture(W, (g) => SIGNS[brand](g), false, W, H);
+  return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.6, roughness: 0.5 });
+}

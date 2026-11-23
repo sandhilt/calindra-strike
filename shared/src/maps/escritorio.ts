@@ -150,9 +150,11 @@ export function buildEscritorio(): MapDef {
     flagBases: [{ x: -920, z: -240 }, { x: 920, z: 240 }],
     dropHeight: 1000,
     airdropPoints: b.points,
+    restaurants: [],
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,
+    props: b.props,
     theme: {
       skyTop: '#3d7fd6',
       skyHorizon: '#cfe5ff',

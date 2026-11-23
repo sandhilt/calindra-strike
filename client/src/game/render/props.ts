@@ -1,0 +1,456 @@
+import type { MapProp, Mat, PropKind } from '@calindra-strike/shared';
+import * as THREE from 'three';
+import {
+  CASCADE_DROP,
+  CEILING_FAN_RAD_PER_S,
+  JET_DROP,
+  VENT_FAN_RAD_PER_S,
+  WISPS_PER_VENT,
+  dropPose,
+  escalatorPhase,
+  fanAngle,
+  fillStepSlot,
+  lifeFraction,
+  newStepSlot,
+  RISER_THICKNESS_UNITS,
+  stepGeometry,
+  TREAD_THICKNESS_UNITS,
+  wispPose,
+  type DropPose,
+  type StepSlot,
+  type WispPose,
+} from './prop-motion.ts';
+import { addClothesRack, addEscalatorBody, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
+import { newPropMaterial, Parts } from './prop-parts.ts';
+import type { QualityProfile } from './quality.ts';
+import { canvasTexture } from './textures.ts';
+
+type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
+
+/** What a prop kind hands back to the world: something to put in the scene, and how it moves. */
+export interface PropGroup {
+  readonly object: THREE.Object3D;
+  update(dt: number): void;
+  /** Takes a graphics tier mid-match: starts or stops motion and builds or drops the optional parts. */
+  setQuality(profile: QualityProfile): void;
+}
+
+export interface PropContext {
+  /** Models that never move are added here and drawn together as one mesh. */
+  readonly statics: Parts;
+  readonly materialOf: (mat: Mat) => THREE.Material | undefined;
+  readonly profile: QualityProfile;
+}
+
+type Builder<K extends PropKind> = (props: readonly PropOf<K>[], ctx: PropContext) => PropGroup;
+
+const still = (): PropGroup => ({ object: new THREE.Group(), update() {}, setQuality() {} });
+
+/** Shared by the builders below: a clock that only runs while the tier allows ambient motion. */
+class MotionClock {
+  seconds = 0;
+  running: boolean;
+  constructor(profile: QualityProfile) {
+    this.running = profile.ambientMotion;
+  }
+  tick(dt: number): boolean {
+    if (!this.running) return false;
+    this.seconds += dt;
+    return true;
+  }
+}
+
+/** A spin of instanced parts around the prop's own axis, with a start angle of its own for each. */
+interface SpinSlot {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  scale: number;
+  /** The fan's own axis: vertical for ceiling fans, the wall normal for vent fans. */
+  axis: THREE.Vector3;
+  seed: number;
+}
+
+class Spinners {
+  readonly mesh: THREE.InstancedMesh;
+  private readonly position = new THREE.Vector3();
+  private readonly scale = new THREE.Vector3();
+  private readonly quat = new THREE.Quaternion();
+  private readonly spin = new THREE.Quaternion();
+  private readonly yawAxis = new THREE.Vector3(0, 1, 0);
+  private readonly matrix = new THREE.Matrix4();
+
+  constructor(
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    private readonly slots: readonly SpinSlot[],
+    private readonly radPerSecond: number,
+  ) {
+    this.mesh = new THREE.InstancedMesh(geometry, material, slots.length);
+    this.mesh.frustumCulled = false;
+    this.pose(0);
+  }
+
+  pose(seconds: number): void {
+    this.slots.forEach((s, i) => {
+      this.quat.setFromAxisAngle(this.yawAxis, s.yaw);
+      this.spin.setFromAxisAngle(s.axis, fanAngle(seconds, this.radPerSecond, s.seed));
+      this.quat.multiply(this.spin);
+      this.matrix.compose(this.position.set(s.x, s.y, s.z), this.quat, this.scale.setScalar(s.scale));
+      this.mesh.setMatrixAt(i, this.matrix);
+    });
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+const AXIS_Y = new THREE.Vector3(0, 1, 0);
+const AXIS_Z = new THREE.Vector3(0, 0, 1);
+
+function seedOf(x: number, z: number): number {
+  const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+function groupOf(...children: THREE.Object3D[]): THREE.Group {
+  const g = new THREE.Group();
+  g.add(...children);
+  return g;
+}
+
+function buildCeilingFans(fans: readonly PropOf<'ceilingFan'>[], ctx: PropContext): PropGroup {
+  if (fans.length === 0) return still();
+  const BLADE_RADIUS = 40;
+  const blades = new Parts();
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2;
+    blades.box(BLADE_RADIUS - 7, 0.9, 8.5, 0xdcc9a0, { x: Math.cos(a) * (BLADE_RADIUS / 2 + 3), y: 0, z: -Math.sin(a) * (BLADE_RADIUS / 2 + 3), rot: [0.12, a, 0] });
+  }
+  blades.cylinder(5.2, 5.2, 2.4, 12, 0x3a3128, { x: 0, y: 0, z: 0 });
+  for (const f of fans) addFanMount(ctx.statics, f);
+  const slots = fans.map((f): SpinSlot => ({ x: f.x, y: f.y, z: f.z, yaw: 0, scale: f.radius / BLADE_RADIUS, axis: AXIS_Y, seed: seedOf(f.x, f.z) * 6 }));
+  const geometry = blades.merge();
+  if (!geometry) return still();
+  const spinners = new Spinners(geometry, newPropMaterial(), slots, CEILING_FAN_RAD_PER_S);
+  const clock = new MotionClock(ctx.profile);
+  return {
+    object: spinners.mesh,
+    update(dt) {
+      if (clock.tick(dt)) spinners.pose(clock.seconds);
+    },
+    setQuality(profile) {
+      clock.running = profile.ambientMotion;
+    },
+  };
+}
+
+function buildMannequins(items: readonly PropOf<'mannequin'>[], ctx: PropContext): PropGroup {
+  for (const m of items) addMannequin(ctx.statics, m);
+  return still();
+}
+
+function buildClothesRacks(items: readonly PropOf<'clothesRack'>[], ctx: PropContext): PropGroup {
+  for (const r of items) addClothesRack(ctx.statics, r);
+  return still();
+}
+
+const ESCALATOR_STEP_COLOR = 0xaeb4bb;
+const ESCALATOR_RISER_COLOR = 0x4a4e55;
+const ESCALATOR_NOSING_COLOR = 0xf2c200;
+
+function instancedBoxes(count: number, color: number, material: THREE.MeshStandardMaterialParameters): THREE.InstancedMesh {
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color, ...material }), count);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+/** Steps travel on every tier: the escalator is gameplay scenery, not an ambient extra. */
+function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  const per = stepGeometry(items[0]).count + 1;
+  const total = per * items.length;
+  const treads = instancedBoxes(total, ESCALATOR_STEP_COLOR, { roughness: 0.5, metalness: 0.2 });
+  const nosings = instancedBoxes(total, ESCALATOR_NOSING_COLOR, { roughness: 0.6, emissive: ESCALATOR_NOSING_COLOR, emissiveIntensity: 0.25 });
+  const risers = instancedBoxes(total, ESCALATOR_RISER_COLOR, { roughness: 0.7 });
+  for (const e of items) addEscalatorBody(ctx.statics, e, stepGeometry(e).rise);
+  const slot: StepSlot = newStepSlot();
+  const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const matrix = new THREE.Matrix4();
+  const yaws = items.map((e) => Math.atan2(-e.dirZ, e.dirX));
+  let seconds = 0;
+
+  const place = (mesh: THREE.InstancedMesh, index: number, e: PropOf<'escalator'>, yaw: number, along: number, y: number, sx: number, sy: number, sz: number): void => {
+    quat.setFromAxisAngle(AXIS_Y, yaw);
+    position.set(e.x + e.dirX * along, y, e.z + e.dirZ * along);
+    matrix.compose(position, quat, scale.set(sx, sy, sz));
+    mesh.setMatrixAt(index, matrix);
+  };
+
+  const pose = (): void => {
+    items.forEach((e, n) => {
+      const shape = { length: e.length, height: e.height };
+      const phase = escalatorPhase(seconds, shape);
+      const width = e.width - 1;
+      for (let i = 0; i < per; i++) {
+        const index = n * per + i;
+        fillStepSlot(slot, i - 1 + phase, shape);
+        const length = slot.treadTo - slot.treadFrom;
+        if (slot.treadOn && length > 0.01) {
+          const thick = Math.min(TREAD_THICKNESS_UNITS, slot.treadTop);
+          place(treads, index, e, yaws[n], (slot.treadFrom + slot.treadTo) / 2, slot.treadTop - thick / 2, length, thick, width);
+        } else {
+          place(treads, index, e, yaws[n], 0, 0, 0, 0, 0);
+        }
+        if (slot.treadOn && length > 3) place(nosings, index, e, yaws[n], slot.treadFrom + 1.2, slot.treadTop + 0.3, 2.4, 0.6, width);
+        else place(nosings, index, e, yaws[n], 0, 0, 0, 0, 0);
+        if (slot.riserOn) {
+          place(risers, index, e, yaws[n], slot.riserAt - RISER_THICKNESS_UNITS / 2, (slot.riserBottom + slot.riserTop) / 2, RISER_THICKNESS_UNITS, slot.riserTop - slot.riserBottom, width);
+        } else {
+          place(risers, index, e, yaws[n], 0, 0, 0, 0, 0);
+        }
+      }
+    });
+    for (const mesh of [treads, nosings, risers]) mesh.instanceMatrix.needsUpdate = true;
+  };
+  pose();
+  return {
+    object: groupOf(treads, nosings, risers),
+    update(dt) {
+      seconds += dt;
+      pose();
+    },
+    setQuality() {},
+  };
+}
+
+const JET_ARCS = 6;
+const JET_DROPS_PER_ARC = 8;
+const CASCADE_ARCS = 14;
+const CASCADE_DROPS_PER_ARC = 3;
+const JET_HEIGHT_UNITS = 88;
+/** Pose the water stands in when ambient motion is off. */
+const STILL_WATER_SECONDS = 0.37;
+
+function buildFountains(items: readonly PropOf<'fountain'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  const water = new THREE.MeshStandardMaterial({ color: 0xd8f3ff, emissive: 0x4aa8c8, emissiveIntensity: 0.4, transparent: true, opacity: 0.8, roughness: 0.1, depthWrite: false });
+  const perFountain = JET_ARCS * JET_DROPS_PER_ARC + CASCADE_ARCS * CASCADE_DROPS_PER_ARC;
+  const drops = new THREE.InstancedMesh(new THREE.SphereGeometry(2, 5, 4), water, perFountain * items.length);
+  drops.frustumCulled = false;
+  drops.renderOrder = 6;
+  const columnGeometry = new THREE.CylinderGeometry(1.8, 4.5, JET_HEIGHT_UNITS, 8, 1, true);
+  columnGeometry.translate(0, JET_HEIGHT_UNITS / 2, 0);
+  const columns = items.map((f) => {
+    const column = new THREE.Mesh(columnGeometry, water);
+    column.position.set(f.x, f.y, f.z);
+    column.renderOrder = 6;
+    return column;
+  });
+  const flow = ctx.materialOf('water');
+  const surface = flow instanceof THREE.MeshStandardMaterial ? flow : null;
+  const pose: DropPose = { r: 0, y: 0 };
+  const position = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scale = new THREE.Vector3(1, 1, 1);
+  const matrix = new THREE.Matrix4();
+  const clock = new MotionClock(ctx.profile);
+
+  const apply = (seconds: number): void => {
+    items.forEach((f, n) => {
+      let index = n * perFountain;
+      const launch = (spec: typeof JET_DROP, arcs: number, perArc: number, spin: number): void => {
+        for (let k = 0; k < arcs; k++) {
+          const angle = (k * Math.PI * 2) / arcs + spin;
+          for (let i = 0; i < perArc; i++) {
+            dropPose(pose, spec, lifeFraction(seconds, spec.lifeSeconds, i / perArc + k * 0.071));
+            matrix.compose(position.set(f.x + Math.cos(angle) * pose.r, f.y + pose.y, f.z + Math.sin(angle) * pose.r), quat, scale);
+            drops.setMatrixAt(index++, matrix);
+          }
+        }
+      };
+      launch(JET_DROP, JET_ARCS, JET_DROPS_PER_ARC, 0.3);
+      launch(CASCADE_DROP, CASCADE_ARCS, CASCADE_DROPS_PER_ARC, 0.1);
+      columns[n].scale.y = 1 + 0.07 * Math.sin(seconds * 3.1);
+    });
+    drops.instanceMatrix.needsUpdate = true;
+    if (surface?.map) surface.map.offset.set(seconds * 0.03, seconds * 0.012 + 0.015 * Math.sin(seconds * 1.3));
+  };
+  apply(clock.running ? 0 : STILL_WATER_SECONDS);
+  return {
+    object: groupOf(drops, ...columns),
+    update(dt) {
+      if (clock.tick(dt)) apply(clock.seconds);
+    },
+    setQuality(profile) {
+      clock.running = profile.ambientMotion;
+    },
+  };
+}
+
+const SMOKE_SIZE_UNITS = 15;
+const VENT_FAN_REFERENCE_RADIUS = 10;
+
+function softBlob(): THREE.CanvasTexture {
+  return canvasTexture(64, (g, s) => {
+    const grd = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.45, 'rgba(255,255,255,0.45)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, s, s);
+  }, false);
+}
+
+/** Vapour wisps of every vent as one point cloud: a single draw call, and not built at all when the tier has no smoke. */
+class VentSmoke {
+  readonly points: THREE.Points;
+  private readonly material: THREE.PointsMaterial;
+  private readonly positions: Float32Array;
+  private readonly colors: Float32Array;
+  private readonly wisp: WispPose = { out: 0, up: 0, side: 0, alpha: 0 };
+  private seconds = 0;
+
+  constructor(private readonly vents: readonly PropOf<'vent'>[]) {
+    const count = vents.length * WISPS_PER_VENT;
+    this.positions = new Float32Array(count * 3);
+    this.colors = new Float32Array(count * 4);
+    for (let i = 0; i < count; i++) this.colors.set([0.86, 0.9, 0.93, 0], i * 4);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 4));
+    this.material = new THREE.PointsMaterial({ size: SMOKE_SIZE_UNITS, map: softBlob(), vertexColors: true, transparent: true, depthWrite: false });
+    this.points = new THREE.Points(geometry, this.material);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 7;
+    this.pose();
+  }
+
+  update(dt: number): void {
+    this.seconds += dt;
+    this.pose();
+  }
+
+  private pose(): void {
+    this.vents.forEach((v, n) => {
+      const outX = -Math.sin(v.yaw);
+      const outZ = -Math.cos(v.yaw);
+      const seed = seedOf(v.x, v.z);
+      for (let i = 0; i < WISPS_PER_VENT; i++) {
+        wispPose(this.wisp, i, this.seconds, seed);
+        const k = n * WISPS_PER_VENT + i;
+        this.positions[k * 3] = v.x + outX * (this.wisp.out + 2) - outZ * this.wisp.side;
+        this.positions[k * 3 + 1] = v.y + this.wisp.up;
+        this.positions[k * 3 + 2] = v.z + outZ * (this.wisp.out + 2) + outX * this.wisp.side;
+        this.colors[k * 4 + 3] = this.wisp.alpha;
+      }
+    });
+    this.points.geometry.attributes.position.needsUpdate = true;
+    this.points.geometry.attributes.color.needsUpdate = true;
+  }
+
+  dispose(): void {
+    this.points.removeFromParent();
+    this.points.geometry.dispose();
+    this.material.map?.dispose();
+    this.material.dispose();
+  }
+}
+
+function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  const blades = new Parts();
+  const R = VENT_FAN_REFERENCE_RADIUS;
+  for (let k = 0; k < 5; k++) {
+    const a = (k * Math.PI * 2) / 5;
+    blades.box(R - 1.5, 3, 0.5, 0x4a4d53, { x: Math.cos(a) * (R / 2 + 0.7), y: Math.sin(a) * (R / 2 + 0.7), z: 0, rot: [0.5, 0, a] });
+  }
+  blades.cylinder(1.8, 1.8, 1.4, 8, 0x9a9fa6, { x: 0, y: 0, z: 0, rot: [Math.PI / 2, 0, 0] });
+  for (const v of items) addVentFrame(ctx.statics, v);
+  const slots = items.map((v): SpinSlot => ({
+    x: v.x - Math.sin(v.yaw) * 1,
+    y: v.y,
+    z: v.z - Math.cos(v.yaw) * 1,
+    yaw: v.yaw,
+    scale: (Math.min(v.width, v.height) / 2 - 3) / R,
+    axis: AXIS_Z,
+    seed: seedOf(v.x, v.z) * 6,
+  }));
+  const geometry = blades.merge();
+  if (!geometry) return still();
+  const spinners = new Spinners(geometry, newPropMaterial(), slots, VENT_FAN_RAD_PER_S);
+  const clock = new MotionClock(ctx.profile);
+  const root = groupOf(spinners.mesh);
+  let smoke: VentSmoke | null = null;
+  const setSmoke = (wanted: boolean): void => {
+    if (wanted && !smoke) {
+      smoke = new VentSmoke(items);
+      root.add(smoke.points);
+    } else if (!wanted && smoke) {
+      smoke.dispose();
+      smoke = null;
+    }
+  };
+  setSmoke(ctx.profile.ventSmoke);
+  return {
+    object: root,
+    update(dt) {
+      if (clock.tick(dt)) spinners.pose(clock.seconds);
+      smoke?.update(dt);
+    },
+    setQuality(profile) {
+      clock.running = profile.ambientMotion;
+      setSmoke(profile.ventSmoke);
+    },
+  };
+}
+
+/** One builder per prop kind: a kind added to `MapProp` without one here fails the typecheck. */
+const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
+  ceilingFan: buildCeilingFans,
+  mannequin: buildMannequins,
+  clothesRack: buildClothesRacks,
+  escalator: buildEscalators,
+  fountain: buildFountains,
+  vent: buildVents,
+};
+
+function isPropKind(kind: string): kind is PropKind {
+  return Object.hasOwn(PROP_BUILDERS, kind);
+}
+
+function buildKind<K extends PropKind>(kind: K, props: readonly MapProp[], ctx: PropContext): PropGroup {
+  const own = props.filter((p): p is PropOf<K> => p.kind === kind);
+  return PROP_BUILDERS[kind](own, ctx);
+}
+
+export interface PropsView {
+  readonly group: THREE.Group;
+  update(dt: number): void;
+  setQuality(profile: QualityProfile): void;
+}
+
+export function buildProps(props: readonly MapProp[], materialOf: PropContext['materialOf'], profile: QualityProfile): PropsView {
+  const statics = new Parts();
+  const ctx: PropContext = { statics, materialOf, profile };
+  const groups = Object.keys(PROP_BUILDERS).filter(isPropKind).map((kind) => buildKind(kind, props, ctx));
+  const group = new THREE.Group();
+  const geometry = statics.merge();
+  if (geometry) {
+    const mesh = new THREE.Mesh(geometry, newPropMaterial());
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  for (const g of groups) group.add(g.object);
+  return {
+    group,
+    update(dt) {
+      for (const g of groups) g.update(dt);
+    },
+    setQuality(next) {
+      for (const g of groups) g.setQuality(next);
+    },
+  };
+}

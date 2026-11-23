@@ -134,9 +134,11 @@ export function buildForja(): MapDef {
     flagBases: [{ x: 0, z: -1400 }, { x: 0, z: 1400 }],
     dropHeight: 1150,
     airdropPoints: b.points,
+    restaurants: [],
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,
+    props: b.props,
     theme: {
       skyTop: '#1f2b47',
       skyHorizon: '#f2b27a',

@@ -155,6 +155,20 @@ export class NavGrid {
     return best;
   }
 
+  /** Every node a player can reach on foot from `start`, walking, stepping, jumping up and dropping down. */
+  reachableFrom(start: NavNode): NavNode[] {
+    const seen = new Set<number>([start.id]);
+    const queue = [start];
+    for (let i = 0; i < queue.length; i++) {
+      for (const e of queue[i].edges) {
+        if (seen.has(e.to)) continue;
+        seen.add(e.to);
+        queue.push(this.nodes[e.to]);
+      }
+    }
+    return queue;
+  }
+
   randomNode(random: () => number): NavNode {
     return this.nodes[Math.floor(random() * this.nodes.length)];
   }

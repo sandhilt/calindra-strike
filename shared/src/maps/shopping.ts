@@ -1,5 +1,6 @@
 import { brandMat, STORE_BRANDS, type FoodBrand, type ShopBrand } from './brands.ts';
 import { MapBuilder } from './builder.ts';
+import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
@@ -16,6 +17,8 @@ const GALLERY_Z = -672;
 const FACADE_Z = -880;
 const ROOF = 448;
 const DROP_HEIGHT = 1000;
+/** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
+const ROOF_CLIP_MARGIN = 256;
 const STORE_XS = [-1056, -352, 352, 1056] as const;
 const ESCALATOR_XS = [[480, 576], [-576, -480]] as const;
 const ESCALATOR_FOOT_Z = -352;
@@ -169,6 +172,8 @@ export function buildShopping(): MapDef {
       b.deco(a, DECK + RAIL, GALLERY_Z - 5, c, DECK + RAIL + 4, GALLERY_Z + 1, 'charcoal');
     }
     b.add(-X, ROOF, -Z, X, ROOF + SLAB, GALLERY_Z, 'white');
+    // the roof top is outside the mall and nobody can walk there from the floor, so a glider hits the side of this column instead of landing
+    b.add(-X, ROOF + SLAB, -Z, X, DROP_HEIGHT + ROOF_CLIP_MARGIN, GALLERY_Z, 'clip', { visible: false, shoot: true });
     for (const px of [-1240, -760, -200, 200, 760, 1240]) {
       b.block(px, -696, 40, 40, DECK - SLAB, 'white');
       b.block(px, -696, 40, 40, ROOF - DECK, 'white', DECK);
@@ -200,6 +205,8 @@ export function buildShopping(): MapDef {
 
     b.deco(-X, 120, -560, -X + 2, 280, -400, 'logo');
     b.deco(-X, 100, -300, -X + 2, 260, -140, 'eitri');
+
+    coverShopping(b);
 
     b.point(0, -480);
     b.point(-1150, -200);

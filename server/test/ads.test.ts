@@ -47,12 +47,12 @@ describe('aim down sights on the server', () => {
     place(viewer, 300, 0, WEAPON.RIFLE);
     place(aimer, 0, 0, WEAPON.RIFLE);
     for (let i = 0; i < 6; i++) game.update();
+    const hip = rowOf(inbox, viewer, aimer.id)[6];
+    assert.equal(hip & (RF_AIM | RF_ZOOM), 0);
     hold(game, aimer, BTN.ATTACK2);
-    const row = rowOf(inbox, viewer, aimer.id);
-    assert.ok(row[6] & RF_AIM);
-    assert.equal(row[6] & RF_ZOOM, 0);
+    assert.equal(rowOf(inbox, viewer, aimer.id)[6], hip | RF_AIM);
     hold(game, aimer, 0);
-    assert.equal(rowOf(inbox, viewer, aimer.id)[6] & RF_AIM, 0);
+    assert.equal(rowOf(inbox, viewer, aimer.id)[6], hip);
   });
 
   it('keeps the AWP scope on RF_ZOOM and never raises RF_AIM', () => {
@@ -62,11 +62,11 @@ describe('aim down sights on the server', () => {
     place(viewer, 300, 0, WEAPON.RIFLE);
     place(sniper, 0, 0, WEAPON.SNIPER);
     for (let i = 0; i < 6; i++) game.update();
+    const hip = rowOf(inbox, viewer, sniper.id)[6];
+    assert.equal(hip & (RF_AIM | RF_ZOOM), 0);
     hold(game, sniper, BTN.ATTACK2);
     hold(game, sniper, 0);
-    const row = rowOf(inbox, viewer, sniper.id);
-    assert.ok(row[6] & RF_ZOOM);
-    assert.equal(row[6] & RF_AIM, 0);
+    assert.equal(rowOf(inbox, viewer, sniper.id)[6], hip | RF_ZOOM);
   });
 
   it('tells the player their own aim in the packed state', () => {

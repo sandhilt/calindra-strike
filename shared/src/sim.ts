@@ -664,7 +664,7 @@ function interruptShellReload(s: PlayerState, def: WeaponDef, attack: boolean): 
   if (s.deploy === 0 && s.tick >= s.nextFire) s.reload = 0;
 }
 
-function slotWeapon(s: PlayerState, req: number): WeaponId | -1 {
+export function slotWeapon(s: PlayerState, req: number): WeaponId | -1 {
   switch (req) {
     case 1:
       return s.primary;

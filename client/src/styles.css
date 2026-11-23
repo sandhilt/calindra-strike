@@ -1573,17 +1573,75 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-/* Only the settings scroll: the title and the way back into the game stay where they are. */
+.menu-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 30px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.menu-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-tab svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--lime);
+}
+
+.menu-tab:hover,
+.menu-tab[aria-selected='true'] {
+  color: var(--text);
+}
+
+.menu-tab[aria-selected='true'] {
+  border-bottom-color: var(--lime);
+}
+
+.menu-tab:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: -2px;
+}
+
+/* Only the page scrolls: the title, the tabs and the way back into the game stay where they are.
+   Every page sits in the same grid cell and the hidden ones keep their size, so the area is as tall as the tallest tab and the buttons below never jump. */
 .menu-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 6px 30px 14px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 40px;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
+
+.menu-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+}
+
+.menu-panel.active { visibility: visible; }
+
+.menu-rows { max-width: 640px; padding-top: 8px; }
 
 .menu-col {
   min-width: 0;
@@ -1638,13 +1696,8 @@ input:focus-visible {
   color: var(--lime);
 }
 
-.menu-wide {
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--line);
-}
-
-.menu-wide .controls { max-width: none; margin-top: 10px; padding-bottom: 8px; }
-.menu-wide .controls-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.menu-panel .controls { max-width: none; margin-top: 10px; padding-bottom: 8px; }
+.menu-panel .controls-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 
 .menu .hint {
   display: block;
@@ -1768,10 +1821,8 @@ input:focus-visible {
 }
 
 @media (max-width: 820px) {
-  .menu-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .menu-head,
+  .menu-tabs,
   .menu-body,
   .menu .actions {
     padding-left: 20px;

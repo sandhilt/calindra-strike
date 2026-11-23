@@ -63,6 +63,7 @@ import {
   getMap,
   waterSurfaceAt,
   lerpAngle,
+  liftAt,
   rayHitbox,
   recoilOffset,
   shellsToLoad,
@@ -339,6 +340,7 @@ export class ClientGame {
   /** What `auto` runs: lowered by the frame-time governor and kept for the rest of the match. */
   private rtCeiling: RtLevel = AUTO_RT_START;
   private readonly rtGovernor = new RtGovernor();
+  private inLift = false;
   private menuOpen = false;
   private elapsed = 0;
 
@@ -509,6 +511,12 @@ export class ClientGame {
       this.world.setQuality(profile);
     }
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
+  }
+
+  /** Says how to ride once on entering a lift: it climbs by itself and only goes down while crouch is held. */
+  private hintLift(hud: Hud, inside: boolean): void {
+    if (inside && !this.inLift) hud.info('elevador: sobe sozinho, segure agachar (Ctrl ou C) para descer');
+    this.inLift = inside;
   }
 
   /** The level the player chose (or `auto` settled on), on a tier that has the pass. */
@@ -1891,6 +1899,7 @@ export class ClientGame {
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
     hud.setStamina(s.stamina / STAMINA_MAX, showStamina, showStamina && s.winded);
     hud.setStance(s.stance, this.alive, s.lean);
+    this.hintLift(hud, !this.spectator && this.alive && liftAt(this.map.lifts, s.x, s.y, s.z) !== undefined);
 
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn

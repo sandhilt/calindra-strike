@@ -5,7 +5,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { leavesOcclusion } from './occlusion-filter.ts';
 import type { RtProfile } from './rt-levels.ts';
-import { isSoftwareRenderer, type GpuFacts } from './rt-support.ts';
+import { isIntegratedRenderer, isSoftwareRenderer, type GpuFacts } from './rt-support.ts';
 
 /** The occlusion pass without the scene's glows, sky, glass and effects, which it would otherwise draw as solid walls. */
 class SolidOcclusionPass extends GTAOPass {
@@ -95,6 +95,7 @@ export function readGpuFacts(renderer: THREE.WebGLRenderer): GpuFacts {
   return {
     webgl2: renderer.capabilities.isWebGL2,
     software: isSoftwareRenderer(name),
+    integrated: isIntegratedRenderer(name),
     floatTargets: gl.getExtension('EXT_color_buffer_float') !== null || gl.getExtension('EXT_color_buffer_half_float') !== null,
     maxTextureSize: renderer.capabilities.maxTextureSize,
     textureUnits: renderer.capabilities.maxTextures,

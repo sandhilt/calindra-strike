@@ -3,6 +3,8 @@ export interface GpuFacts {
   webgl2: boolean;
   /** A software rasteriser (SwiftShader, llvmpipe, a basic render driver) stands in for a card. */
   software: boolean;
+  /** An integrated GPU (Intel, or an AMD APU) that shares memory with the processor; a laptop's discrete card is the other one. */
+  integrated: boolean;
   /** Can render to half-float targets, which the lighting passes need to keep their range. */
   floatTargets: boolean;
   maxTextureSize: number;
@@ -19,6 +21,16 @@ const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic render|m
 export function isSoftwareRenderer(name: string): boolean {
   return SOFTWARE_RENDERER.test(name);
 }
+
+const INTEGRATED_RENDERER = /intel(?!.*arc\(tm\) [ab]\d{3})|radeon(?:\(tm\))? (?:graphics|\d{3}m)\b/i;
+
+/** Intel graphics (but not a discrete Arc A or B card) and AMD's `Radeon Graphics` or `780M` style APUs. */
+export function isIntegratedRenderer(name: string): boolean {
+  return INTEGRATED_RENDERER.test(name);
+}
+
+/** What the player can do when the browser runs the game on the integrated card of a laptop that also has a discrete one. */
+export const INTEGRATED_GPU_TIP = 'seu navegador está usando a placa de vídeo integrada: no Windows, em Configurações > Sistema > Tela > Gráficos, escolha "Alto desempenho" para o navegador';
 
 /** Whether this card can run the light ray-marched lighting: a real GPU with WebGL 2 and room for the extra passes. */
 export function lightRtSupported(f: GpuFacts): boolean {

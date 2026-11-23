@@ -35,29 +35,48 @@ test('at a whole step the moving steps sit exactly on the stair boxes', () => {
   }
 });
 
-test('while they move no step pokes out of the escalator or above its top', () => {
-  const { count } = stepGeometry(SHAPE);
-  const slot = newStepSlot();
-  for (let f = 0; f < 1; f += 0.05) {
-    for (let i = 0; i <= count; i++) {
-      fillStepSlot(slot, i - 1 + f, SHAPE);
-      if (slot.treadOn) {
-        assert.ok(slot.treadFrom >= 0 && slot.treadTo <= SHAPE.length && slot.treadTo >= slot.treadFrom);
-        assert.ok(slot.treadTop > 0 && slot.treadTop <= SHAPE.height);
-      }
-      if (slot.riserOn) {
-        assert.ok(slot.riserAt > 0 && slot.riserAt <= SHAPE.length);
-        assert.ok(slot.riserBottom >= 0 && slot.riserTop <= SHAPE.height && slot.riserTop > slot.riserBottom);
+for (const travel of ['up', 'down'] as const) {
+  test(`steps moving ${travel} stay inside the escalator`, () => {
+    const { count, depth } = stepGeometry(SHAPE);
+    const period = depth / ESCALATOR_SPEED_UNITS_PER_S;
+    const slot = newStepSlot();
+    for (let sample = 0; sample <= 20; sample++) {
+      const phase = escalatorPhase(sample * period / 20, SHAPE, travel);
+      for (let i = 0; i <= count; i++) {
+        fillStepSlot(slot, i - 1 + phase, SHAPE);
+        if (slot.treadOn) {
+          assert.ok(slot.treadFrom >= 0 && slot.treadTo <= SHAPE.length && slot.treadTo >= slot.treadFrom);
+          assert.ok(slot.treadTop > 0 && slot.treadTop <= SHAPE.height);
+        }
+        if (slot.riserOn) {
+          assert.ok(slot.riserAt > 0 && slot.riserAt <= SHAPE.length);
+          assert.ok(slot.riserBottom >= 0 && slot.riserTop <= SHAPE.height && slot.riserTop > slot.riserBottom);
+        }
       }
     }
-  }
-});
+  });
+}
 
 test('the steps travel at the escalator speed and the motion repeats once per step', () => {
   const { depth } = stepGeometry(SHAPE);
-  assert.ok(Math.abs(escalatorPhase(0, SHAPE)) < 1e-9);
-  assert.ok(Math.abs(escalatorPhase(depth / ESCALATOR_SPEED_UNITS_PER_S / 2, SHAPE) - 0.5) < 1e-9);
-  assert.ok(Math.abs(escalatorPhase(depth / ESCALATOR_SPEED_UNITS_PER_S, SHAPE)) < 1e-6);
+  const period = depth / ESCALATOR_SPEED_UNITS_PER_S;
+  for (const travel of ['up', 'down'] as const) {
+    assert.equal(escalatorPhase(0, SHAPE, travel), 0);
+    assert.ok(Math.abs(escalatorPhase(period / 2, SHAPE, travel) - 0.5) < 1e-9);
+    const phase = escalatorPhase(period / 4, SHAPE, travel);
+    assert.ok(Math.abs(escalatorPhase(1.25 * period, SHAPE, travel) - phase) < 1e-9);
+  }
+});
+
+test('downhill travel mirrors the uphill phase modulo one step', () => {
+  const period = stepGeometry(SHAPE).depth / ESCALATOR_SPEED_UNITS_PER_S;
+  for (const fraction of [0, 0.1, 0.25, 0.6, 0.99, 1, 1.01]) {
+    const seconds = fraction * period;
+    const up = escalatorPhase(seconds, SHAPE, 'up');
+    const down = escalatorPhase(seconds, SHAPE, 'down');
+    assert.ok(down >= 0 && down < 1);
+    assert.ok(Math.abs(down - (1 - up) % 1) < 1e-9);
+  }
 });
 
 test('fountain drops fly out and fall, ending below where they started', () => {

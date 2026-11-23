@@ -49,3 +49,15 @@ export function parseRtLevel(value: unknown): RtLevel {
   if (typeof value === 'boolean') return value ? DEFAULT_RT_LEVEL : 'off';
   return isRtLevel(value) ? value : DEFAULT_RT_LEVEL;
 }
+
+/** The step one notch cheaper, never below `light`: the lowest level the frame-time governor falls back to. */
+export function cheaperRtLevel(level: RtLevel): RtLevel {
+  if (level === 'high') return 'medium';
+  if (level === 'medium') return 'light';
+  return level;
+}
+
+/** The cheaper of the chosen level and a ceiling. `off` is the cheapest, so a player's choice of it always wins. */
+export function capRtLevel(chosen: RtLevel, ceiling: RtLevel): RtLevel {
+  return RT_LEVELS.indexOf(chosen) <= RT_LEVELS.indexOf(ceiling) ? chosen : ceiling;
+}

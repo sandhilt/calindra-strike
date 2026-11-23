@@ -55,7 +55,7 @@ function wallShelves(r: Room, x: number, z: number, width: number, depth: number
       r.box(x - width / 2 + 5 + i * 9, z, 7.6, depth - 4, Math.min(h, gap - 4), y + 1.6, 'white', palette[Math.floor(rnd() * palette.length)]);
     }
   }
-  r.box(x, z - depth / 2 + 0.5, width, 1, 96, 8, 'desk', shelfTint);
+  r.box(x, z - depth / 2 + 0.75, width, 1, 96, 8, 'desk', shelfTint);
 }
 
 function plinth(r: Room, x: number, z: number, tint: Hex): number {
@@ -303,14 +303,24 @@ function bunting(r: Room, z: number, fromX: number, toX: number, y: number): voi
   }
 }
 
+/**
+ * The candy gondolas start past the storefront window counters (they stand at x 90..210, depth 130..154), so the aisles
+ * open toward the middle of the store. The rows leave a 50 unit aisle on the bot grid line at depth 216.
+ */
+const CANDY_ROWS = [88, 181, 251] as const;
+const CANDY_X = 258;
+const CANDY_LENGTH = 80;
+/** A ceiling fan's rod climbs 42.5 above its mount, so this keeps the top inside the 176..192 slab under the food court. */
+const FAN_MOUNT_Y = 133;
+
 function amerikanas(r: Room): void {
   shell(r, { floor: 'tile', floorTint: 0xeceae4, wall: AMERIKANAS_WHITE, trim: AMERIKANAS_RED });
   r.box(0, 3, 2 * STORE_HALF_WIDTH - 4, 2, 32, 118, 'white', AMERIKANAS_RED);
   r.box(0, 4.4, 2 * STORE_HALF_WIDTH - 4, 0.4, 3, 130, 'white', AMERIKANAS_WHITE);
   for (const x of [-230, -80, 80, 230]) r.box(x, 150, 76, 12, 1, CEILING - 1, 'white', AMERIKANAS_RED);
   checkeredAisle(r);
-  r.fan(-215, 135, 160, 34);
-  r.fan(0, 205, 160, 36);
+  r.fan(-215, 135, FAN_MOUNT_Y, 34);
+  r.fan(0, 205, FAN_MOUNT_Y, 36);
 
   wallShelves(r, 0, 8, 320, 14, 4, HOUSEHOLD, 51, AMERIKANAS_WHITE);
   counter(r, AMERIKANAS_RED, 0xf5f5f5);
@@ -318,10 +328,9 @@ function amerikanas(r: Room): void {
   checkoutCandy(r, 40, 62);
   lollipopStand(r, -108, 62);
 
-  for (const z of [100, 235]) gondola(r, 215, z, 190, 20, SWEETS, 52 + z, true);
-  gondola(r, 215, 170, 190, 20, SWEETS, 53, true);
+  for (const z of CANDY_ROWS) gondola(r, CANDY_X, z, CANDY_LENGTH, 20, SWEETS, 52 + z, true);
   [122, 150, 198, 226, 254].forEach((z, i) => sweetBin(r, 329, z, 60 + i));
-  bunting(r, 135, 120, 310, 150);
+  bunting(r, 135, CANDY_X - CANDY_LENGTH / 2, CANDY_X + CANDY_LENGTH / 2, 150);
 
   r.solid(-215, 100, 190, 30, 24, 0, 'white', AMERIKANAS_WHITE);
   r.box(-215, 100, 191, 31, 6, 0, 'white', AMERIKANAS_RED);

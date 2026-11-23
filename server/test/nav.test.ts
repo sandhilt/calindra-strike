@@ -74,6 +74,19 @@ describe('NavGrid', () => {
     }
   });
 
+  it('walks down the candy aisle of the Amerikanas store', () => {
+    const landmark = shopping.features.find((f) => f.kind === 'landmark' && f.name === 'Amerikanas');
+    assert.ok(landmark);
+    const north = landmark.z < 0;
+    // The aisle runs along room x 232 at depth 216 on the bot grid; the south half is the north one turned 180 degrees.
+    const aisle: [number, number, number] = north ? [landmark.x + 232, 0, -1152 + 216] : [landmark.x - 232, 0, 1152 - 216];
+    const p = route(navS, [0, 0, north ? -450 : 450], aisle);
+    assert.notEqual(p, null);
+    const end = p!.at(-1)!;
+    assert.ok(Math.hypot(end.x - aisle[0], end.z - aisle[2]) < 30, 'ends in the aisle');
+    assert.equal(p!.every((n) => n.y < 1), true);
+  });
+
   it('walks into a mall store through its door', () => {
     const p = route(navS, [0, 0, -450], [-352, 0, -1000]);
     assert.notEqual(p, null);

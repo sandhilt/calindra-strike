@@ -159,6 +159,7 @@ export class Overlays {
           group(
             'vídeo',
             seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
+            toggle('ray tracing', 'luz e sombra de contato (só no gráfico alta, pesa na placa de vídeo)', () => s.lightRt, (v) => (s.lightRt = v)),
             h(
               'button',
               { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },

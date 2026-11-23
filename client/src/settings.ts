@@ -24,6 +24,8 @@ export interface Settings {
   showNet: boolean;
   /** The gun and its hands sit on the left of the view instead of the right. Only the first-person view changes. */
   leftHanded: boolean;
+  /** The screen-space light-ray pass (`lightRt`); it only ever runs on tiers whose profile has it (alta). */
+  lightRt: boolean;
 }
 
 const KEY = 'calindra-strike:settings:v1';
@@ -48,6 +50,7 @@ export const defaults = (): Settings => ({
   quality: 'high',
   showNet: false,
   leftHanded: false,
+  lightRt: true,
 });
 
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : d);
@@ -81,6 +84,7 @@ export function loadSettings(): Settings {
     quality: parseQuality(o.quality),
     showNet: o.showNet === true,
     leftHanded: o.leftHanded === true,
+    lightRt: typeof o.lightRt === 'boolean' ? o.lightRt : d.lightRt,
   };
 }
 

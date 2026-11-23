@@ -454,6 +454,7 @@ export class ClientGame {
       this.applyQuality();
       this.onResize();
     }
+    this.applyLightRt(QUALITY[s.quality].lightRt && s.lightRt);
     this.input.sensitivity = s.sensitivity;
     this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
@@ -468,7 +469,7 @@ export class ClientGame {
     const profile = QUALITY[quality];
     this.appliedQuality = quality;
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
-    this.applyLightRt(profile.lightRt);
+    this.applyLightRt(profile.lightRt && this.settings.lightRt);
     this.effects.setQuality(quality);
     this.view.setQuality(quality);
     if (this.world) {

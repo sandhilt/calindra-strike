@@ -225,6 +225,7 @@ export function renderView(
   world?: CollisionWorld,
 ): object {
   const s = v.self;
+  const equipped = s && weaponDef(s.weapon);
   const slots = s ? weaponSlots(s) : null;
   const describeRelative = relative(s);
   const me = v.roster.find((r) => r[0] === v.id);
@@ -276,7 +277,7 @@ export function renderView(
       armor: s?.armor ?? 0,
       pos: s ? [s.x, s.y, s.z] : null,
       yawDeg,
-      weapon: s ? weaponDef(s.weapon).name : null,
+      weapon: equipped?.name ?? null,
       slots: slots ? {
         primary: weaponDef(slots.primary).name,
         pistol: weaponDef(slots.pistol).name,
@@ -295,8 +296,9 @@ export function renderView(
       lean: s ? Math.round(s.lean * 100) / 100 : 0,
       onGround: s?.onGround ?? false,
       floor: s ? floorOf(v, s) : null,
-      zoom: s?.zoom ?? 0,
-      maxZoom: s ? weaponDef(s.weapon).zoomFov.length : 0,
+      aiming: s?.aiming ?? false,
+      zoom: equipped?.ads ? Number(s?.aiming ?? false) : s?.zoom ?? 0,
+      maxZoom: equipped?.ads ? 1 : equipped?.zoomFov.length ?? 0,
       actions,
       intent,
     },

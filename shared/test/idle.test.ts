@@ -15,6 +15,11 @@ describe('idle activity', () => {
     assert.equal(isActiveCommand(cmd({ buttons: BTN.FWD | BTN.PRONE }), { ...still, buttons: BTN.FWD | BTN.PRONE }), true);
   });
 
+  it('counts holding ATTACK2 while stationary as activity on each command', () => {
+    const held = cmd({ buttons: BTN.ATTACK2 });
+    assert.equal(isActiveCommand(held, held), true);
+  });
+
   it('does not count a prone latch that is only held', () => {
     assert.equal(isActiveCommand(cmd({ buttons: BTN.PRONE }), { ...still, buttons: BTN.PRONE }), false);
   });

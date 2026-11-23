@@ -1,4 +1,4 @@
-import { BTN, CollisionWorld, MapBuilder, RF_PRONE, RF_SLIDE, RF_SPRINT, STANCE, STANCES, WEAPON, getMaps, leanOfRow, stanceFromFlags } from '@calindra-strike/shared';
+import { BTN, CollisionWorld, MapBuilder, RF_PRONE, RF_SLIDE, RF_SPRINT, STANCE, STANCES, WEAPON, getMaps, giveWeapon, leanOfRow, stanceFromFlags } from '@calindra-strike/shared';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, type ServerPlayer } from '../src/game.ts';
@@ -85,6 +85,23 @@ describe('snapshots', () => {
     assert.ok(row[6] & RF_PRONE && row[6] & RF_SPRINT && row[6] & RF_SLIDE);
     assert.equal(leanOfRow(row), 0.46);
   });
+});
+
+it('applies hammer heavy damage on secondary-only and light damage with both buttons', () => {
+  for (const [buttons, damage] of [[BTN.ATTACK2, 95], [BTN.ATTACK | BTN.ATTACK2, 55]]) {
+    const { game, join } = setup();
+    const attacker = join('Attacker');
+    const target = join('Target');
+    place(attacker, 0, 50);
+    place(target, 0, 0);
+    giveWeapon(attacker.state, WEAPON.HAMMER);
+    attacker.state.deploy = 0;
+    target.state.armor = 0;
+    for (let i = 0; i < 5; i++) game.update();
+    game.input(attacker, [{ seq: 1, buttons, yaw: 0, pitch: -0.45, weapon: 0, interp: game.now() }]);
+    game.update();
+    assert.equal(target.state.health, 100 - damage);
+  }
 });
 
 describe('bot aim heights', () => {

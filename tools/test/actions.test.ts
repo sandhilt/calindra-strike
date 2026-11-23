@@ -96,10 +96,55 @@ test('a manual zoom strips the brain auto-scope; null leaves it', () => {
   assert.ok(pressed(auto.apply(cmd(BTN.ATTACK2), s), BTN.ATTACK2));
 });
 
-test('a weapon without a scope never gets ATTACK2 from zoom', () => {
+test('the hammer never gets ATTACK2 from zoom', () => {
   const o = new ActionOverlay();
   o.zoom = 1;
-  for (let i = 0; i < 40; i++) assert.ok(!pressed(o.apply(cmd(), player(WEAPON.RIFLE)), BTN.ATTACK2));
+  for (let i = 0; i < 40; i++) assert.ok(!pressed(o.apply(cmd(), player(WEAPON.HAMMER)), BTN.ATTACK2));
+});
+
+test('ADS holds through commands while deploying and reloading and yields to objective use', () => {
+  const o = new ActionOverlay();
+  const s = player(WEAPON.RIFLE);
+  o.adsZoom = 1;
+  s.deploy = 1;
+  assert.ok(pressed(o.apply(cmd(0, 1), s), BTN.ATTACK2));
+  s.deploy = 0;
+  s.reload = 2;
+  assert.ok(pressed(o.apply(cmd(0, 2), s), BTN.ATTACK2));
+  o.use = true;
+  assert.equal(o.apply(cmd(0, 3), s).buttons, BTN.USE);
+  o.use = false;
+  s.reload = 0;
+  assert.ok(pressed(o.apply(cmd(0, 4), s), BTN.ATTACK2));
+  o.adsZoom = 0;
+  assert.equal(o.apply(cmd(0, 5), s).buttons, 0);
+});
+
+test('weapon switch commands clear ADS before a secondary swing can fire', () => {
+  const o = new ActionOverlay();
+  const s = player(WEAPON.RIFLE);
+  o.adsZoom = 1;
+  o.requestWeapon(3);
+  const switched = o.apply(cmd(0, 1), s);
+  assert.equal(switched.weapon, 3);
+  assert.equal(switched.buttons & BTN.ATTACK2, 0);
+  assert.equal(o.echo(s.weapon).zoom, null);
+  assert.equal(o.apply(cmd(0, 2), s).buttons & BTN.ATTACK2, 0);
+  o.adsZoom = 1;
+  assert.equal(o.apply(cmd(0, 3), s).buttons & BTN.ATTACK2, 0);
+});
+
+test('requesting the slot already equipped keeps the ADS request', () => {
+  const o = new ActionOverlay();
+  const s = player(WEAPON.RIFLE);
+  s.primary = WEAPON.RIFLE;
+  o.adsZoom = 1;
+  o.requestWeapon(1);
+  const request = o.apply(cmd(0, 1), s);
+  assert.equal(request.weapon, 1);
+  assert.ok(pressed(request, BTN.ATTACK2));
+  assert.ok(pressed(o.apply(cmd(0, 2), s), BTN.ATTACK2));
+  assert.equal(o.echo(s.weapon).zoom, 1);
 });
 
 test('during the AWP bolt cycle zoom 0 cancels the re-scope and a positive level waits', () => {
@@ -311,10 +356,13 @@ test('slideBlocker names what stops a slide, and is null when it would start', (
 
 test('sprintBlockers lists the latched actions that stop a sprint', () => {
   const o = new ActionOverlay();
-  assert.deepEqual(o.sprintBlockers(), []);
+  assert.deepEqual(o.sprintBlockers(WEAPON.RIFLE), []);
   o.walk = true;
   o.prone = true;
-  assert.deepEqual(o.sprintBlockers(), ['walk', 'prone']);
+  assert.deepEqual(o.sprintBlockers(WEAPON.RIFLE), ['walk', 'prone']);
+  o.adsZoom = 1;
+  assert.deepEqual(o.sprintBlockers(WEAPON.RIFLE), ['walk', 'prone', 'zoom']);
+  assert.deepEqual(o.sprintBlockers(WEAPON.SNIPER), ['walk', 'prone']);
 });
 
 /** The overlay drives the real sim, so the blocker and the sim cannot drift apart. */

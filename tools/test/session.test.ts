@@ -256,12 +256,13 @@ async function playing(weapon: WeaponId = WEAPON.SNIPER, onGround = true) {
   const joined = ctx.session.join(args);
   ctx.socket.message(welcome);
   await joined;
-  const live = (w: WeaponId = weapon, ground = onGround, dropping = false) => {
+  const live = (w: WeaponId = weapon, ground = onGround, dropping = false, state: Partial<ReturnType<typeof createPlayerState>> = {}) => {
     const s = createPlayerState();
     s.dropping = dropping;
     s.health = 100;
     s.weapon = w;
     s.onGround = ground;
+    Object.assign(s, state);
     ctx.socket.message({ t: 'snap', time: 200, ack: 0, me: packState(s), ps: [[1, 0, 0, 0, 0, 0, RF_ALIVE, w]], ad: [] });
   };
   live();
@@ -303,11 +304,11 @@ test('zoom scopes the AWP with one ATTACK2 and rejects weapons without a scope o
   assert.equal(awp.tickButtons().filter((b) => b & BTN.ATTACK2).length, 1);
   assert.equal((await awp.call('zoom', { level: 3 })).isError, true);
   awp.session.close();
-  const rifle = await playing(WEAPON.RIFLE);
-  const res = await rifle.call('zoom', { level: 1 });
+  const hammer = await playing(WEAPON.HAMMER);
+  const res = await hammer.call('zoom', { level: 1 });
   assert.equal(res.isError, true);
   assert.match(JSON.stringify(res), /Weapon has no scope/);
-  rifle.session.close();
+  hammer.session.close();
 });
 
 test('crouch, walk and zoom reset when the player dies, even if no tick ran in between', async () => {
@@ -350,10 +351,68 @@ test('latched actions and pending requests reset when the map changes', async ()
   session.close();
 });
 
-test('zoom 0 on a weapon without a scope is an error and keeps the pilot auto-scope', async () => {
-  const { call, session } = await playing(WEAPON.RIFLE);
+test('zoom 0 also rejects the hammer without setting a request', async () => {
+  const { call, session } = await playing(WEAPON.HAMMER);
   assert.equal((await call('zoom', { level: 0 })).isError, true);
   assert.equal(JSON.parse(JSON.stringify(session.getState())).you.actions.zoom, null);
+  session.close();
+});
+
+test('ADS zoom reports effective snapshot aim separately from its held request', async () => {
+  const { call, live, session, tickButtons } = await playing(WEAPON.RIFLE);
+  const you = () => JSON.parse(JSON.stringify(session.getState())).you;
+  assert.equal((await call('zoom', { level: 2 })).isError, true);
+  assert.equal((await call('zoom', { level: 1 })).isError, undefined);
+  const sprint = await call('sprint', { on: true });
+  assert.deepEqual(JSON.parse(sprint.content[0].text).blockedBy, ['zoom']);
+  assert.partialDeepStrictEqual(you(), { aiming: false, zoom: 0, maxZoom: 1 });
+  assert.equal(you().actions.zoom, 1);
+  assert.ok(tickButtons().every((b) => b & BTN.ATTACK2));
+  live(WEAPON.RIFLE, true, false, { aiming: true });
+  assert.partialDeepStrictEqual(you(), { aiming: true, zoom: 1, maxZoom: 1 });
+  live(WEAPON.RIFLE, true, false, { reload: 5 });
+  assert.partialDeepStrictEqual(you(), { aiming: false, zoom: 0, maxZoom: 1 });
+  assert.equal(you().actions.zoom, 1);
+  assert.ok(tickButtons().every((b) => b & BTN.ATTACK2));
+  await call('zoom', { level: 0 });
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
+  session.close();
+});
+
+test('an authoritative weapon change clears ADS and preserves the AWP manual level', async () => {
+  const { call, live, session, tickButtons } = await playing();
+  const requestedZoom = () => JSON.parse(JSON.stringify(session.getState())).you.actions.zoom;
+  await call('zoom', { level: 1 });
+  live(WEAPON.PISTOL);
+  assert.equal(requestedZoom(), null);
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
+  await call('zoom', { level: 1 });
+  live(WEAPON.LMG);
+  assert.equal(requestedZoom(), null);
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
+  live(WEAPON.SNIPER);
+  assert.equal(requestedZoom(), 1);
+  session.close();
+});
+
+test('ADS clears on death, on a living respawn and on leave', async () => {
+  const { call, live, socket, tickButtons, session } = await playing(WEAPON.RIFLE);
+  await call('zoom', { level: 1 });
+  socket.message({ t: 'snap', time: 300, me: null, ps: [], ad: [] });
+  live();
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
+  await call('zoom', { level: 1 });
+  live(WEAPON.RIFLE, false, true);
+  live();
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
+  await call('zoom', { level: 1 });
+  session.close();
+  const joined = session.join(args);
+  socket.readyState = 1;
+  socket.message(welcome);
+  await joined;
+  live();
+  assert.ok(tickButtons().every((b) => !(b & BTN.ATTACK2)));
   session.close();
 });
 
@@ -402,7 +461,7 @@ test('get_state reports ducked, onGround, zoom, maxZoom and the requested action
   });
   awp.session.close();
   const rifle = await playing(WEAPON.RIFLE);
-  assert.equal(JSON.parse(JSON.stringify(rifle.session.getState())).you.maxZoom, 0);
+  assert.equal(JSON.parse(JSON.stringify(rifle.session.getState())).you.maxZoom, 1);
   rifle.session.close();
 });
 

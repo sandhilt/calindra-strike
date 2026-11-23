@@ -5,11 +5,16 @@ import { closeTo } from './helpers.ts';
 import { traceNoSightsWeapon } from './ads-trace.ts';
 import {
   BTN,
+  AIR_ACCELERATE,
+  AIR_WISHSPEED_CAP,
+  BUNNYJUMP_MAX_FACTOR,
   CollisionWorld,
   type MapDef,
   MapBuilder,
+  PRONE_SPREAD_MULT,
   SPRINT_OUT_TICKS,
   STANCE,
+  TICK_DT,
   WEAPON,
   type WeaponId,
   applyCmd,
@@ -124,11 +129,12 @@ describe('aim down sights', () => {
     tick(s, BTN.ATTACK2);
     assert.equal(s.aiming, true);
     tick(s, BTN.ATTACK2 | BTN.RELOAD);
-    assert.ok(s.reload > 0);
+    assert.equal(s.reload, weaponDef(WEAPON.RIFLE).reloadTicks);
     assert.equal(s.aiming, false);
-    tick(s, BTN.ATTACK2, weaponDef(WEAPON.RIFLE).reloadTicks - 2);
+    tick(s, BTN.ATTACK2, s.reload - 1);
+    assert.equal(s.reload, 1);
     assert.equal(s.aiming, false);
-    tick(s, BTN.ATTACK2, 3);
+    assert.equal(tick(s, BTN.ATTACK2 | BTN.ATTACK).length, 1);
     assert.equal(s.reload, 0);
     assert.equal(s.aiming, true);
   });
@@ -148,10 +154,53 @@ describe('aim down sights', () => {
     assert.equal(s.aiming, true);
     tick(s, BTN.ATTACK2, 1, 2);
     assert.equal(s.weapon, WEAPON.PISTOL);
-    assert.ok(s.deploy > 0);
+    assert.equal(s.deploy, weaponDef(WEAPON.PISTOL).deployTicks - 1);
     assert.equal(s.aiming, false);
-    tick(s, BTN.ATTACK2, weaponDef(WEAPON.PISTOL).deployTicks + 2);
+    tick(s, BTN.ATTACK2, s.deploy - 1);
+    assert.equal(s.deploy, 1);
+    assert.equal(s.aiming, false);
+    assert.equal(tick(s, BTN.ATTACK2 | BTN.ATTACK).length, 1);
+    assert.equal(s.deploy, 0);
     assert.equal(s.aiming, true);
+  });
+
+  it('uses hip movement until the weapon tick finishes the reload or deploy', () => {
+    for (const timer of ['reload', 'deploy'] as const) {
+      const s = player(WEAPON.RIFLE);
+      s[timer] = 1;
+      const hip = structuredClone(s);
+      tick(s, BTN.FWD | BTN.ATTACK2);
+      tick(hip, BTN.FWD);
+      assert.equal(s[timer], 0);
+      assert.equal(s.aiming, true);
+      assert.equal(speedOf(s), speedOf(hip));
+      tick(s, BTN.FWD | BTN.ATTACK2, 60);
+      tick(hip, BTN.FWD, 60);
+      assert.ok(speedOf(s) < speedOf(hip));
+    }
+  });
+
+  it('aims and fires on the same command that interrupts a shotgun reload', () => {
+    const s = player(WEAPON.SHOTGUN);
+    s.mag[s.weapon]--;
+    tick(s, BTN.RELOAD | BTN.ATTACK2);
+    assert.ok(s.reload > 1);
+    assert.equal(s.aiming, false);
+    assert.equal(tick(s, BTN.ATTACK | BTN.ATTACK2).length, 1);
+    assert.equal(s.reload, 0);
+    assert.equal(s.aiming, true);
+  });
+
+  it('uses ADS speed for the bunnyhop cap and air acceleration', () => {
+    const s = player(WEAPON.RIFLE);
+    const speed = weaponDef(s.weapon).ads!.speed;
+    s.vx = weaponDef(s.weapon).speed * BUNNYJUMP_MAX_FACTOR;
+    tick(s, BTN.JUMP | BTN.ATTACK2);
+    assert.equal(s.onGround, false);
+    closeTo(s.vx, speed * BUNNYJUMP_MAX_FACTOR * 0.65, 9);
+    s.vz = 40;
+    tick(s, BTN.FWD | BTN.ATTACK2);
+    closeTo(40 - s.vz, Math.min(AIR_WISHSPEED_CAP + 40, AIR_ACCELERATE * speed * TICK_DT), 9);
   });
 
   it('crouching, lying down, sliding, leaning and jumping keep the aim', () => {
@@ -168,6 +217,14 @@ describe('aim down sights', () => {
     tick(j, BTN.ATTACK2 | BTN.JUMP, 5);
     assert.equal(j.onGround, false);
     assert.equal(j.aiming, true);
+    const slide = player(WEAPON.RIFLE);
+    tick(slide, BTN.FWD | BTN.SPRINT, 30);
+    const hipSlide = structuredClone(slide);
+    tick(slide, BTN.FWD | BTN.DUCK | BTN.ATTACK2);
+    tick(hipSlide, BTN.FWD | BTN.DUCK);
+    assert.ok(slide.slide > 0);
+    assert.equal(slide.aiming, true);
+    assert.equal(speedOf(slide), speedOf(hipSlide));
   });
 
   it('the dropping skydiver never aims', () => {
@@ -204,12 +261,20 @@ describe('aim down sights', () => {
     assert.equal(aimed.mag[WEAPON.RIFLE], hip.mag[WEAPON.RIFLE]);
   });
 
-  it('keeps moving fast spreads wider than standing still, aimed or not', () => {
+  it('normalises moving spread against ADS speed before applying stance and ADS multipliers', () => {
     const s = player(WEAPON.RIFLE);
+    const { spread, ads } = weaponDef(s.weapon);
+    assert.ok(ads);
+    s.vx = ads.speed * 0.67;
+    const hip = computeSpread(s);
     s.aiming = true;
-    const still = computeSpread(s);
-    tick(s, BTN.FWD | BTN.ATTACK2, 90);
-    assert.ok(computeSpread(s) > still);
+    const moving = (spread.base + spread.move * 0.5) * ads.spreadMult;
+    closeTo(computeSpread(s), moving, 9);
+    assert.ok(hip < spread.base + spread.move * 0.5);
+    s.stance = STANCE.CROUCH;
+    closeTo(computeSpread(s), moving * spread.duckMult, 9);
+    s.stance = STANCE.PRONE;
+    closeTo(computeSpread(s), moving * spread.duckMult * PRONE_SPREAD_MULT, 9);
   });
 });
 
@@ -220,15 +285,19 @@ describe('weapons without sights', () => {
     tick(s, 0);
     assert.equal(s.zoom, 1);
     assert.equal(s.aiming, false);
-    assert.equal(maxSpeedFor(s), weaponDef(WEAPON.SNIPER).scopedSpeed);
+    assert.equal(maxSpeedFor(s), 150);
   });
 
   it('the hammer keeps its heavy swing and never aims', () => {
     const s = player(WEAPON.HAMMER);
-    const shots = tick(s, BTN.ATTACK2);
-    assert.equal(shots.length, 1);
-    assert.equal(shots[0].heavy, true);
+    const [first, second] = tick(s, BTN.ATTACK2, 61);
+    assert.equal(first.heavy, true);
+    assert.equal(second.heavy, true);
+    assert.equal(second.tick - first.tick, 60);
     assert.equal(s.aiming, false);
+    const [primary, nextPrimary] = tick(player(WEAPON.HAMMER), BTN.ATTACK | BTN.ATTACK2, 28);
+    assert.equal(primary.heavy, false);
+    assert.equal(nextPrimary.tick - primary.tick, 27);
   });
 
   it('holding ATTACK2 does not stop an AWP or hammer sprint', () => {

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { LUNCH_RUSH_TAG, lunchAnnouncement, lunchMessage, lunchStatus, lunchView } from '../src/game/lunch.ts';
+import { LUNCH_RUSH_TAG, followersOf, followersText, lunchAnnouncement, lunchMessage, lunchStatus, lunchView } from '../src/game/lunch.ts';
 
 describe('hora de almoçar HUD', () => {
   it('reads the snapshot rows into named colleagues', () => {
@@ -46,5 +46,15 @@ describe('hora do rush', () => {
     assert.match(lunchAnnouncement(rush, 'KFG').rush ?? '', /HORA DO RUSH/);
     assert.ok(lunchStatus(rush, 0, 'KFG').every((row) => row.text.startsWith(LUNCH_RUSH_TAG)));
     assert.ok(lunchStatus(calm, 0, 'KFG').every((row) => !row.text.includes(LUNCH_RUSH_TAG)));
+  });
+
+  it('counts only the colleagues following this player', () => {
+    const view = lunchView([0, 30_000], [[1, 7, 0, 0, 0, 0], [1, 8, 0, 0, 0, 0], [2, 7, 0, 0, 0, 0], [0, -1, 0, 0, 0, 0]]);
+    assert.ok(view);
+    assert.equal(followersOf(view, 7), 1, 'a seated colleague no longer follows');
+    assert.equal(followersOf(view, 8), 1);
+    assert.equal(followersOf(view, 9), 0);
+    assert.equal(followersText(1, 3), '1 de 3 colegas te seguindo');
+    assert.equal(followersText(2, 3), '2 de 3 colegas te seguindo');
   });
 });

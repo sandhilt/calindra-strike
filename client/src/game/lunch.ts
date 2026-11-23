@@ -33,6 +33,15 @@ export function lunchStatus(view: LunchView, now: number, restaurant: string): {
   ];
 }
 
+/** Colleagues walking behind this player right now. */
+export function followersOf(view: LunchView, playerId: number): number {
+  return view.colleagues.filter((c) => c.kind === 'following' && c.leader === playerId).length;
+}
+
+export function followersText(count: number, total: number): string {
+  return count === 1 ? `1 de ${total} colegas te seguindo` : `${count} de ${total} colegas te seguindo`;
+}
+
 export const LUNCH_RUSH_TAG = 'HORA DO RUSH';
 export const LUNCH_RUSH_PITCH = `a praça lota ${LUNCH_RUSH_SPEED}x mais rápido`;
 

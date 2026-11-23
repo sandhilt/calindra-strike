@@ -56,6 +56,9 @@ export interface SpectatorBar {
 
 /** How long the Black Friday banner stays on screen, in ms. */
 const BLACK_FRIDAY_BANNER_MS = 4500;
+
+/** How long the lunch round banner stays on screen, in ms. */
+const LUNCH_BANNER_MS = 4500;
 const RANK_COLORS = ['#ffd23f', '#dfe4ea', '#e8a066'];
 
 export class Hud {
@@ -75,6 +78,10 @@ export class Hud {
     h('span', { text: BLACK_FRIDAY_PITCH }),
   ]);
   private blackFridayTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly lunchBanner = h('div', { class: 'lunch-banner hidden', role: 'alert' });
+  private lunchBannerTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly lunchFollowers = h('div', { class: 'lunch-followers glass hidden', role: 'status' });
+  private lunchFollowersText = '';
   private readonly bombCarry = h('div', { class: 'bomb-carry hidden', role: 'status' });
   private readonly plantFill = h('i', { style: 'width:0%' });
   private readonly plantBar = h('div', { class: 'bomb-bar glass hidden' }, [this.plantFill]);
@@ -197,6 +204,8 @@ export class Hud {
       this.bombStatus,
       this.bombCarry,
       this.blackFridayBanner,
+      this.lunchBanner,
+      this.lunchFollowers,
       this.plantBar,
       this.bombActivity,
       this.defuseCanvas,
@@ -371,6 +380,37 @@ export class Hud {
     void this.blackFridayBanner.offsetWidth;
     this.blackFridayBanner.style.animation = '';
     this.blackFridayTimer = setTimeout(() => this.blackFridayBanner.classList.add('hidden'), durationMs);
+  }
+
+  /** Big centred banner at the start of a lunch round: the restaurant's logo and name, and the rush hour call when it is one. */
+  announceLunch(logo: HTMLCanvasElement, restaurant: string, rush: { tag: string; pitch: string } | null, durationMs = LUNCH_BANNER_MS): void {
+    clearTimeout(this.lunchBannerTimer);
+    logo.className = 'lunch-logo';
+    const nodes: Node[] = [h('span', { class: 'lunch-kicker', text: 'destino do almoço' }), logo, h('b', { class: 'lunch-name', text: restaurant })];
+    if (rush) nodes.push(h('strong', { class: 'lunch-rush', text: rush.tag }), h('span', { class: 'lunch-pitch', text: rush.pitch }));
+    this.lunchBanner.replaceChildren(...nodes);
+    this.lunchBanner.classList.toggle('rush', rush !== null);
+    this.lunchBanner.classList.remove('hidden');
+    this.lunchBanner.style.animation = 'none';
+    void this.lunchBanner.offsetWidth;
+    this.lunchBanner.style.animation = '';
+    this.lunchBannerTimer = setTimeout(() => this.lunchBanner.classList.add('hidden'), durationMs);
+  }
+
+  clearLunchBanner(): void {
+    clearTimeout(this.lunchBannerTimer);
+    this.lunchBanner.classList.add('hidden');
+  }
+
+  /** The colleagues following this player; hidden at zero, so only a leader sees it. */
+  setLunchFollowers(count: number, total: number, text: string): void {
+    const key = `${count}/${total}`;
+    if (this.lunchFollowersText === key) return;
+    this.lunchFollowersText = key;
+    this.lunchFollowers.classList.toggle('hidden', count === 0);
+    if (count === 0) return;
+    const dots = Array.from({ length: total }, (_, i) => h('i', { class: i < count ? 'on' : '' }));
+    this.lunchFollowers.replaceChildren(...dots, h('span', { text }));
   }
 
   clearBlackFridayBanner(): void {

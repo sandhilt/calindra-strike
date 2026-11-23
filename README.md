@@ -173,6 +173,7 @@ New and still being tested: tell us how it feels with the link in the lobby, or 
 
 - **Sprint**: hold `Shift` while moving. Sprinting blocks shooting and ends when you fire.
 - **Fôlego**: a bar at the bottom centre of the HUD, with a bolt icon and the percentage. It shows while you sprint, slide, refill or are winded, and fades when full. Green when healthy, amber below 40%, red and pulsing with "sem fôlego" (and a faint red edge) when winded. The white mark on the bar is where sprint comes back (25%). About 5 s of sprint, 6 s to refill.
+- **Postura**: next to health and armour, a body silhouette shows whether you stand, crouch or lie down, with its name under it. It turns lime while you are lowered and follows every change at once.
 - **Slide**: press `Shift` then `Ctrl` while moving fast.
 - **Lean**: `←` left, `→` right. The eye and the head hitbox move with it, and a wall stops it.
 - **Prone**: `↓` toggles. Slow, small target, 0.3 s lock between changes, no jump.

@@ -6,6 +6,8 @@ import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
+import { STANCE, type Stance } from '@calindra-strike/shared';
+import { STANCE_VIEWS } from './stance-view.ts';
 import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
 export interface LeaderRow {
@@ -95,6 +97,10 @@ export class Hud {
   private staminaPercent = 100;
   private staminaVisible = false;
   private staminaLevel: StaminaLevel = 'ok';
+  private readonly stanceIcon = h('span', { class: 'stance-icon', 'aria-hidden': 'true' });
+  private readonly stanceName = h('span', { class: 'stance-name' });
+  private readonly stanceChip = h('div', { class: 'vital stance glass', role: 'status' }, [this.stanceIcon, this.stanceName]);
+  private stance: Stance | null = null;
   private readonly wName = h('b', { text: '' });
   private readonly wTag = h('small', { text: '' });
   private readonly wBox = h('div', { class: 'wname' }, [this.wName, this.wTag]);
@@ -193,7 +199,7 @@ export class Hud {
       this.bombActivity,
       this.defuseCanvas,
       this.staminaBar,
-      h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
+      h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor, this.stanceChip]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
       this.ch,
       this.hitm,
@@ -378,6 +384,17 @@ export class Hud {
     this.feed.append(el);
     while (this.feed.children.length > 6) this.feed.firstElementChild?.remove();
     setTimeout(() => el.remove(), 6500);
+  }
+
+  /** Standing, crouched or lying down: the icon follows the local player and is only redrawn when the stance changes. */
+  setStance(stance: Stance): void {
+    if (this.stance === stance) return;
+    this.stance = stance;
+    const view = STANCE_VIEWS[stance];
+    this.stanceIcon.replaceChildren(svg(ICONS[view.icon]));
+    this.stanceName.textContent = view.label;
+    this.stanceChip.setAttribute('aria-label', `postura: ${view.label}`);
+    this.stanceChip.classList.toggle('lowered', stance !== STANCE.STAND);
   }
 
   setStamina(fraction: number, visible: boolean, winded: boolean): void {

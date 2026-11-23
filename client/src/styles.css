@@ -895,6 +895,31 @@ input:focus-visible {
   color: var(--lime);
 }
 
+/* Stance chip: a body silhouette that follows standing, crouching and lying down; lime while lowered. */
+.vital.stance {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 74px;
+  padding: 8px 12px;
+  color: var(--muted);
+}
+
+.vital.stance .stance-icon { display: grid; }
+.vital.stance svg { width: 30px; height: 30px; color: currentColor; }
+.vital.stance .stance-name { font: 700 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.vital.stance.lowered { color: var(--lime); }
+.vital.stance .stance-icon svg { animation: stance-pop 0.18s ease-out; }
+
+@keyframes stance-pop {
+  from { transform: scale(0.8); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vital.stance .stance-icon svg { animation: none; }
+}
+
 .vital .v {
   font-family: var(--mono);
   font-size: 34px;

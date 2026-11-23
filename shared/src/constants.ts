@@ -45,6 +45,8 @@ export const SLIDE_END_SPEED = 120; // a slide that slows below this units/s end
 export const SLIDE_STAMINA_COST = 20;
 /** Sideways reach of the eye at full lean, before a wall shortens it. */
 export const LEAN_OFFSET_UNITS = 18;
+/** The leaning eye stops this short of a wall, so the view never pokes into it. */
+export const LEAN_WALL_MARGIN_UNITS = 6;
 export const LEAN_RATE_PER_TICK = 0.14; // lean (-1..1) moves this much per tick toward its target
 export const LEAN_HEAD_SHIFT_UNITS = 14; // the head hitbox follows the lean this far, the body half as far
 export const LEAN_BODY_SHIFT_UNITS = 7;

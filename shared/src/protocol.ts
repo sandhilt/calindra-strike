@@ -4,6 +4,7 @@ import type { LunchEvent } from './lunch.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
 import { radioLine } from './radio.ts';
 import type { Cmd, PlayerState } from './sim.ts';
+import { STANCE } from './stance.ts';
 import { PRIMARY_CHOICES, WEAPON_COUNT, type WeaponId } from './weapons.ts';
 
 export const MAX_MESSAGE_BYTES = 4096;
@@ -237,11 +238,19 @@ const F_JUMP = 4;
 const F_DROP = 8;
 const F_ATK = 16;
 const F_ATK2 = 32;
+const F_PRONE = 64;
+const F_SPRINT = 128;
+const F_WINDED = 256;
+const F_DUCKHELD = 512;
 
 export function packState(s: PlayerState): number[] {
   const flags =
     (s.onGround ? F_GROUND : 0) |
-    (s.ducked ? F_DUCK : 0) |
+    (s.stance === STANCE.CROUCH ? F_DUCK : 0) |
+    (s.stance === STANCE.PRONE ? F_PRONE : 0) |
+    (s.sprinting ? F_SPRINT : 0) |
+    (s.winded ? F_WINDED : 0) |
+    (s.duckHeld ? F_DUCKHELD : 0) |
     (s.jumpHeld ? F_JUMP : 0) |
     (s.dropping ? F_DROP : 0) |
     (s.attackHeld ? F_ATK : 0) |
@@ -268,12 +277,17 @@ export function packState(s: PlayerState): number[] {
     s.zoom,
     s.protect,
     s.resumeZoom,
+    round(s.stamina, 1e4),
+    s.slide,
+    round(s.lean, 1e3),
+    s.stanceLock,
     ...s.mag,
     ...s.reserve,
   ];
 }
 
-export const PACKED_STATE_LEN = 21 + WEAPON_COUNT * 2;
+const PACKED_HEAD_LEN = 25;
+export const PACKED_STATE_LEN = PACKED_HEAD_LEN + WEAPON_COUNT * 2;
 
 export function unpackState(a: number[], s: PlayerState): void {
   s.x = a[0];
@@ -284,7 +298,10 @@ export function unpackState(a: number[], s: PlayerState): void {
   s.vz = a[5];
   const f = a[6];
   s.onGround = (f & F_GROUND) !== 0;
-  s.ducked = (f & F_DUCK) !== 0;
+  s.stance = (f & F_PRONE) !== 0 ? STANCE.PRONE : (f & F_DUCK) !== 0 ? STANCE.CROUCH : STANCE.STAND;
+  s.sprinting = (f & F_SPRINT) !== 0;
+  s.winded = (f & F_WINDED) !== 0;
+  s.duckHeld = (f & F_DUCKHELD) !== 0;
   s.jumpHeld = (f & F_JUMP) !== 0;
   s.dropping = (f & F_DROP) !== 0;
   s.attackHeld = (f & F_ATK) !== 0;
@@ -303,9 +320,13 @@ export function unpackState(a: number[], s: PlayerState): void {
   s.zoom = a[18];
   s.protect = a[19];
   s.resumeZoom = a[20];
+  s.stamina = a[21];
+  s.slide = a[22];
+  s.lean = a[23];
+  s.stanceLock = a[24];
   for (let i = 0; i < WEAPON_COUNT; i++) {
-    s.mag[i] = a[21 + i];
-    s.reserve[i] = a[21 + WEAPON_COUNT + i];
+    s.mag[i] = a[PACKED_HEAD_LEN + i];
+    s.reserve[i] = a[PACKED_HEAD_LEN + WEAPON_COUNT + i];
   }
 }
 

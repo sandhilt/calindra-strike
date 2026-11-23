@@ -40,7 +40,7 @@ describe('parseClientMessage', () => {
   it('accepts every button bit and rejects the next one', () => {
     assert.equal(BTN_MASK, Object.values(BTN).reduce((all, bit) => all | bit, 0));
     assert.partialDeepStrictEqual(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, BTN.USE | BTN.FWD, 0, 0, 0, 0]] })), { t: 'in' });
-    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, 2048, 0, 0, 0, 0]] })), null);
+    assert.equal(parseClientMessage(JSON.stringify({ t: 'in', c: [[1, BTN_MASK + 1, 0, 0, 0, 0]] })), null);
   });
 
   it('rejects oversized payloads and too many commands', () => {

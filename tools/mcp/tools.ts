@@ -153,7 +153,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'crouch',
-    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox. Inside a glass lift shaft, crouch goes down (the cab rises by itself while you stand).',
+    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox.',
     properties: { on: { type: 'boolean' } },
     required: ['on'],
     run: (s, a) => s.setCrouch(boolean(a, 'on')),

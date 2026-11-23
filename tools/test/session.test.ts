@@ -1232,7 +1232,7 @@ test('get_state names the floor, lists the glass lifts and the supply stands, an
   assert.equal(state.lifts.length, 2);
   assert.equal(state.lifts[0].riding, false);
   assert.deepEqual(state.lifts[0].floors, [{ y: 0, name: 'térreo' }, { y: 192, name: 'praça de alimentação' }, { y: 384, name: 'Mirante' }]);
-  assert.match(state.lifts[0].rules, /crouch/);
+  assert.match(state.lifts[0].rules, /no buttons/);
   assert.equal(state.supplies.length, 2);
   assert.partialDeepStrictEqual(state.supplies[0], { floor: 'Mirante', ready: true, secondsLeft: 0, inReach: true, youNeedIt: true });
   assert.partialDeepStrictEqual(state.supplies[1], { ready: false, inReach: false });

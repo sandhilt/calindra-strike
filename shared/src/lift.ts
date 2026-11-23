@@ -18,13 +18,9 @@ export interface Lift {
   stops: readonly number[];
 }
 
-/** Ticks a rider stands still in the cab before it starts to rise, re-armed whenever they leave or crouch down (1.5 s, a tuning value). */
-export const LIFT_BOARD_DELAY_TICKS = 90;
+/** Ticks the cab stands still at every stop, and after a rider boards (1.5 s, a tuning value). */
+export const LIFT_STOP_WAIT_TICKS = 90;
 export const LIFT_SPEED_UNITS = 150;
-/** Speed near a stop, so the doorway stays level with the floor for a second and a half. */
-export const LIFT_DWELL_SPEED_UNITS = 28;
-/** Distance either side of a stop where the cab crawls: about what a step up or a doorway allows. */
-export const LIFT_DWELL_RADIUS_UNITS = 20;
 /** Feet this far above the last stop are still carried, so a hop at the top does not drop the rider down the shaft. */
 export const LIFT_TOP_SLACK_UNITS = 8;
 /** Height of the doorway of a stop above its floor. */
@@ -40,27 +36,41 @@ export function liftAt(lifts: readonly Lift[], x: number, y: number, z: number):
   );
 }
 
-/** Climb speed at height `y`: slow around every stop. */
-export function liftSpeed(lift: Lift, y: number): number {
-  return lift.stops.some((stop) => Math.abs(y - stop) <= LIFT_DWELL_RADIUS_UNITS) ? LIFT_DWELL_SPEED_UNITS : LIFT_SPEED_UNITS;
+/** 1 rises, -1 descends. */
+export type LiftDir = 1 | -1;
+
+const AT_STOP_EPSILON = 1e-6;
+
+export interface LiftRide {
+  y: number;
+  dir: LiftDir;
+  /** Ticks left before the cab moves again. */
+  wait: number;
 }
 
-/** Feet height after one tick of riding, never past the first or last stop. */
-export function liftRide(lift: Lift, y: number, down: boolean, dt: number): number {
-  const next = y + (down ? -1 : 1) * liftSpeed(lift, y) * dt;
-  return Math.min(liftTop(lift), Math.max(liftBottom(lift), next));
+/**
+ * One tick of an ordinary elevator: it holds for `wait` ticks, then travels in `dir` and stops, for a new wait, at
+ * the next stop. At the first stop it can only go up and at the last only down, so a rider never presses anything.
+ */
+export function liftStep(lift: Lift, y: number, dir: LiftDir, wait: number, dt: number): LiftRide {
+  const heading: LiftDir = y >= liftTop(lift) - AT_STOP_EPSILON ? -1 : y <= liftBottom(lift) + AT_STOP_EPSILON ? 1 : dir;
+  if (wait > 0) return { y, dir: heading, wait: wait - 1 };
+  const reach = y + heading * LIFT_SPEED_UNITS * dt;
+  const stop = heading > 0
+    ? lift.stops.find((s) => s > y + AT_STOP_EPSILON && s <= reach)
+    : lift.stops.findLast((s) => s < y - AT_STOP_EPSILON && s >= reach);
+  if (stop !== undefined) return { y: stop, dir: heading, wait: LIFT_STOP_WAIT_TICKS };
+  return { y: reach, dir: heading, wait: 0 };
 }
 
-/** Seconds to ride from one height to another by holding up or crouch, counting the crawl at the stops passed. */
-export function liftRideSeconds(lift: Lift, from: number, to: number, dt = 1 / 60): number {
-  let y = from;
-  let ticks = 0;
-  const down = to < from;
-  while (down ? y > to : y < to) {
-    const next = liftRide(lift, y, down, dt);
-    if (next === y) return Infinity;
-    y = next;
-    ticks++;
+const MAX_RIDE_TICKS = 60 * 600;
+
+/** Seconds from boarding at height `from` (going up, unless it is the top) until the cab stands at `to`, counting every wait on the way. */
+export function liftRideSeconds(lift: Lift, from: number, to: number, wait = LIFT_STOP_WAIT_TICKS, dt = 1 / 60): number {
+  let ride: LiftRide = { y: from, dir: 1, wait };
+  for (let ticks = 0; ticks < MAX_RIDE_TICKS; ticks++) {
+    if (Math.abs(ride.y - to) <= 1) return ticks * dt;
+    ride = liftStep(lift, ride.y, ride.dir, ride.wait, dt);
   }
-  return ticks * dt;
+  return Infinity;
 }

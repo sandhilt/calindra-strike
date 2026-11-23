@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BTN, CollisionWorld, LIFT_BOARD_DELAY_TICKS, LIFT_DWELL_RADIUS_UNITS, LIFT_DWELL_SPEED_UNITS, LIFT_SPEED_UNITS, MapBuilder, STANCE, WEAPON,
-  applyCmd, createPlayerState, getMaps, liftAt, liftRide, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
+  BTN, CollisionWorld, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, STANCE, WEAPON,
+  applyCmd, createPlayerState, getMaps, liftAt, liftRideSeconds, liftStep, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
 const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384] };
@@ -46,48 +46,59 @@ describe('lift field', () => {
     assert.equal(liftAt([], 0, 0, 150), undefined);
   });
 
-  it('climbs at full speed, crawls around every stop and holds at both ends', () => {
-    assert.equal(liftRide(LIFT, 60, false, 1), 60 + LIFT_SPEED_UNITS);
-    assert.equal(liftRide(LIFT, 192, false, 1), 192 + LIFT_DWELL_SPEED_UNITS);
-    assert.equal(liftRide(LIFT, 192 + LIFT_DWELL_RADIUS_UNITS + 1, false, 1), 192 + LIFT_DWELL_RADIUS_UNITS + 1 + LIFT_SPEED_UNITS);
-    assert.equal(liftRide(LIFT, 0, false, 1), LIFT_DWELL_SPEED_UNITS, 'leaves the ground floor slowly');
-    assert.equal(liftRide(LIFT, 380, false, 1), 384, 'never past the last stop');
-    assert.equal(liftRide(LIFT, 0, true, 1), 0, 'never below the first stop');
-    assert.equal(liftRide(LIFT, 384, false, 1), 384);
-    assert.equal(liftRide(LIFT, 384, true, 1), 384 - LIFT_DWELL_SPEED_UNITS, 'leaves the top slowly');
-    assert.equal(liftRide(LIFT, 300, true, 1), 300 - LIFT_SPEED_UNITS);
+  it('holds for the wait, then travels at full speed and stops at the next stop for another wait', () => {
+    assert.deepEqual(liftStep(LIFT, 0, 1, 5, 1), { y: 0, dir: 1, wait: 4 });
+    assert.deepEqual(liftStep(LIFT, 10, 1, 0, 1), { y: 10 + LIFT_SPEED_UNITS, dir: 1, wait: 0 });
+    assert.deepEqual(liftStep(LIFT, 100, 1, 0, 1), { y: 192, dir: 1, wait: LIFT_STOP_WAIT_TICKS });
+    assert.deepEqual(liftStep(LIFT, 192, 1, 0, 1), { y: 192 + LIFT_SPEED_UNITS, dir: 1, wait: 0 });
+    assert.deepEqual(liftStep(LIFT, 300, -1, 0, 1), { y: 192, dir: -1, wait: LIFT_STOP_WAIT_TICKS });
   });
 
-  it('takes a few seconds to ride, and the crawl at a stop is the only slow part', () => {
+  it('only goes up from the first stop and only down from the last, whatever it was doing', () => {
+    assert.equal(liftStep(LIFT, 0, -1, 0, 1 / 60).dir, 1);
+    assert.equal(liftStep(LIFT, 384, 1, 0, 1 / 60).dir, -1);
+    assert.equal(liftStep(LIFT, 384, 1, 0, 1 / 60).y < 384, true);
+    assert.equal(liftStep(LIFT, 0, -1, 0, 1 / 60).y > 0, true);
+  });
+
+  it('takes a few seconds to ride, with a wait at every floor', () => {
     const toTop = liftRideSeconds(LIFT, 0, 384);
     const toDeck = liftRideSeconds(LIFT, 0, 192);
-    assert.ok(toTop > 4 && toTop < 10, 'ground to top took ' + toTop);
-    assert.ok(toDeck > 1.5 && toDeck < toTop);
+    assert.ok(toTop > 5 && toTop < 10, 'ground to top took ' + toTop);
+    assert.ok(toDeck > 2.5 && toDeck < toTop);
+    assert.ok(liftRideSeconds(LIFT, 192, 0) > toDeck, 'from the middle it goes up first');
     assert.ok(Math.abs(liftRideSeconds(LIFT, 384, 0) - toTop) < 0.2, 'down takes as long as up');
   });
 });
 
 describe('riding a lift', () => {
-  it('carries a standing player from the ground floor to the top floor and holds them there, grounded', () => {
+  it('goes up from the ground floor to the top floor, stops at each floor, then comes back down, always grounded', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 0, 150);
     let top = 0;
-    for (let i = 0; i < 60 * 12; i++) {
+    let deckTicks = 0;
+    let wentDown = false;
+    let prev = s.y;
+    for (let i = 0; i < 60 * 20; i++) {
       step(w, s, 0);
       top = Math.max(top, s.y);
+      if (s.y === 192) deckTicks++;
+      if (s.y < prev) wentDown = true;
+      prev = s.y;
       assert.ok(s.onGround, 'a rider is always grounded');
     }
-    assert.equal(s.y, 384);
     assert.equal(top, 384, 'never above the top stop');
+    assert.ok(deckTicks >= LIFT_STOP_WAIT_TICKS, 'waited at the food court floor for ' + deckTicks + ' ticks');
+    assert.ok(wentDown, 'turned round at the top');
   });
 
-  it('ignores a jump while riding, so hopping cannot outrun the cab', () => {
+  it('ignores crouch and jump: nothing a rider presses changes where the cab goes', () => {
     const w = shaftWorld();
     const a = rider(w, 0, 0, 150);
     const b = rider(w, 0, 0, 150);
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 400; i++) {
       step(w, a, 0);
-      step(w, b, i % 2 ? BTN.JUMP : 0);
+      step(w, b, i % 2 ? BTN.JUMP | BTN.DUCK : BTN.DUCK);
     }
     assert.equal(b.y, a.y);
   });
@@ -95,7 +106,7 @@ describe('riding a lift', () => {
   it('updates sprint, stamina and stance while the cab replaces jumping and gravity', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 192, 150);
-    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS; i++) step(w, s, 0);
+    for (let i = 0; i < LIFT_STOP_WAIT_TICKS; i++) step(w, s, 0);
     const startY = s.y;
     const startStamina = s.stamina;
     step(w, s, BTN.FWD | BTN.SPRINT | BTN.JUMP);
@@ -105,30 +116,29 @@ describe('riding a lift', () => {
     assert.equal(s.sprinting, true);
     assert.ok(s.stamina < startStamina);
 
-    const beforeDescent = s.y;
     const beforeRecovery = s.stamina;
     step(w, s, BTN.DUCK);
-    assert.ok(s.y < beforeDescent);
     assert.equal(s.stance, STANCE.CROUCH);
     assert.equal(s.sprinting, false);
     assert.ok(s.stamina > beforeRecovery);
   });
 
-  it('crawls through an intermediate stop for long enough to walk out of its doorway', () => {
+  it('waits at a stop for long enough to walk out of its doorway', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 0, 150);
     let ticksAtDoor = 0;
     for (let i = 0; i < 60 * 8; i++) {
       step(w, s, 0);
-      if (s.y >= 192 - 18 && s.y <= 192 + 24) ticksAtDoor++;
+      if (s.y === 192) ticksAtDoor++;
     }
-    assert.ok(ticksAtDoor >= 60, 'the doorway stays reachable for ' + ticksAtDoor + ' ticks');
+    assert.ok(ticksAtDoor >= LIFT_STOP_WAIT_TICKS - 1, 'the doorway is level for ' + ticksAtDoor + ' ticks');
   });
 
   it('steps out onto the deck through the doorway at the stop, and is then not carried any more', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 0, 150);
-    for (let i = 0; i < 600 && s.y < 192 - 4; i++) step(w, s, 0);
+    for (let i = 0; i < 600 && s.y !== 192; i++) step(w, s, 0);
+    assert.equal(s.y, 192);
     // the doorway is on the -z side: yaw 0 faces -z
     for (let i = 0; i < 90; i++) step(w, s, BTN.FWD);
     assert.ok(s.z < 94, 'left the shaft, at z=' + s.z);
@@ -145,29 +155,14 @@ describe('riding a lift', () => {
     assert.ok(s.z >= 100, 'stopped by the wall, z=' + s.z);
   });
 
-  it('goes down while crouch is held and holds on the ground floor', () => {
+  it('boards at the top going down, and at the middle going up first', () => {
     const w = shaftWorld();
-    const s = rider(w, 0, 0, 150);
-    for (let i = 0; i < 60 * 12; i++) step(w, s, 0);
-    assert.equal(s.y, 384);
-    let lowest = s.y;
-    for (let i = 0; i < 60 * 12; i++) {
-      step(w, s, BTN.DUCK);
-      lowest = Math.min(lowest, s.y);
-    }
-    assert.equal(lowest, 0);
-    assert.equal(s.y, 0);
-  });
-
-  it('turns round mid-shaft: releasing crouch climbs again from where the rider is', () => {
-    const w = shaftWorld();
-    const s = rider(w, 0, 0, 150);
-    for (let i = 0; i < 60 * 12; i++) step(w, s, 0);
-    for (let i = 0; i < 40; i++) step(w, s, BTN.DUCK);
-    const lowered = s.y;
-    assert.ok(lowered < 384);
-    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS + 20; i++) step(w, s, 0);
-    assert.ok(s.y > lowered);
+    const top = rider(w, 0, 384, 150);
+    for (let i = 0; i < 2 * LIFT_STOP_WAIT_TICKS + 20; i++) step(w, top, 0);
+    assert.ok(top.y < 384, 'the top floor only goes down');
+    const mid = rider(w, 0, 192, 150);
+    for (let i = 0; i < LIFT_STOP_WAIT_TICKS + 20; i++) step(w, mid, 0);
+    assert.ok(mid.y > 192, 'the middle floor goes up first');
   });
 
   it('is not grounded by the cab once the rider steps out of an open shaft between floors: gravity takes over', () => {
@@ -175,7 +170,7 @@ describe('riding a lift', () => {
     b.add(-2000, -32, -2000, 2000, 0, 2000, 'ground');
     const open = new CollisionWorld({ ...getMaps()[0], boxes: b.boxes, lifts: [LIFT] });
     const s = rider(open, 0, 0, 150);
-    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS + 90; i++) step(open, s, 0);
+    for (let i = 0; i < LIFT_STOP_WAIT_TICKS + 45; i++) step(open, s, 0);
     assert.ok(s.y > 100 && s.y < 192, 'riding at ' + s.y);
     // yaw -90 degrees faces +x
     let leftAt = -1;
@@ -190,37 +185,13 @@ describe('riding a lift', () => {
     assert.ok(s.y < y, 'falls');
   });
 
-  it('waits after boarding before it rises, and again after the rider crouches down', () => {
-    const w = shaftWorld();
-    const s = rider(w, 0, 192, 150);
-    const doorway = s.y;
-    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS - 6; i++) step(w, s, 0);
-    assert.equal(s.y, doorway, 'still at the doorway');
-    for (let i = 0; i < 4; i++) step(w, s, 0);
-    assert.ok(s.y > doorway, 'rises once the wait is over');
-    for (let i = 0; i < 30; i++) step(w, s, BTN.DUCK);
-    const lowered = s.y;
-    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS - 1; i++) step(w, s, 0);
-    assert.equal(s.y, lowered, 'stays put while the rider gets ready to walk out');
-    for (let i = 0; i < 4; i++) step(w, s, 0);
-    assert.ok(s.y > lowered);
-  });
-
-  it('goes down at once, without the boarding wait', () => {
-    const w = shaftWorld();
-    const s = rider(w, 0, 192, 150);
-    const doorway = s.y;
-    step(w, s, BTN.DUCK);
-    assert.ok(s.y < doorway);
-  });
-
   it('is deterministic: the same inputs give the same heights every time', () => {
     const run = () => {
       const w = shaftWorld();
       const s = rider(w, 10, 0, 150);
       const ys: number[] = [];
-      for (let i = 0; i < 400; i++) {
-        step(w, s, i > 200 ? BTN.DUCK : 0);
+      for (let i = 0; i < 600; i++) {
+        step(w, s, 0);
         ys.push(s.y);
       }
       return ys;
@@ -248,21 +219,21 @@ describe('the Shopping Sul Rio lifts', () => {
       const s = rider(world, 0, 0, doorZ(530));
       for (let i = 0; i < 24; i++) step(world, s, BTN.FWD, yaw);
       assert.ok(Math.abs(s.z) > 560 && Math.abs(s.z) < 672, 'inside the shaft at z=' + s.z);
-      for (let i = 0; i < 600 && s.y < 192 - 4; i++) step(world, s, 0, yaw);
+      for (let i = 0; i < 600 && s.y !== 192; i++) step(world, s, 0, yaw);
       for (let i = 0; i < 90; i++) step(world, s, BTN.FWD, yaw);
       assert.ok(Math.abs(s.z) > 690, 'out on the deck, z=' + s.z);
       assert.ok(Math.abs(s.y - 192) < 1, 'level with the deck, y=' + s.y);
     });
 
-    it(`takes a rider all the way to the Mirante, holds there, and brings them back down with crouch (${side < 0 ? 'north' : 'south'} half)`, () => {
+    it(`takes a rider all the way to the Mirante, and brings them back down by itself (${side < 0 ? 'north' : 'south'} half)`, () => {
       const s = rider(world, 0, 0, doorZ(530));
       for (let i = 0; i < 24; i++) step(world, s, BTN.FWD, yaw);
-      for (let i = 0; i < 60 * 8; i++) step(world, s, 0, yaw);
+      for (let i = 0; i < 60 * 12 && s.y !== 384; i++) step(world, s, 0, yaw);
       assert.equal(s.y, 384);
       for (let i = 0; i < 30; i++) step(world, s, BTN.FWD, yaw);
       assert.ok(Math.abs(s.z) > 690 && Math.abs(s.y - 384) < 1, 'out on the Mirante at ' + [s.z, s.y]);
       for (let i = 0; i < 40; i++) step(world, s, BTN.BACK, yaw);
-      for (let i = 0; i < 60 * 12 && s.y > 0; i++) step(world, s, BTN.DUCK, yaw);
+      for (let i = 0; i < 60 * 30 && s.y > 0; i++) step(world, s, 0, yaw);
       assert.equal(s.y, 0);
       for (let i = 0; i < 120; i++) step(world, s, BTN.BACK, yaw);
       assert.ok(Math.abs(s.z) < 550, 'walked out into the atrium, z=' + s.z);

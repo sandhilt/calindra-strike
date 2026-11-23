@@ -515,7 +515,7 @@ export class ClientGame {
 
   /** Says how to ride once on entering a lift: it climbs by itself and only goes down while crouch is held. */
   private hintLift(hud: Hud, inside: boolean): void {
-    if (inside && !this.inLift) hud.info('elevador: sobe sozinho, segure agachar (Ctrl ou C) para descer');
+    if (inside && !this.inLift) hud.info('elevador: espere, ele sobe e desce sozinho e para em cada andar');
     this.inLift = inside;
   }
 

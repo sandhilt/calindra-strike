@@ -868,7 +868,7 @@ export class BotBrain {
       }
       return null;
     }
-    let buttons = target.y < s.y ? BTN.DUCK : 0;
+    let buttons = 0;
     if (Math.hypot(target.x - s.x, target.z - s.z) > CAB_CENTRE_UNITS) {
       const [yaw] = anglesTo(s.x, 0, s.z, target.x, 0, target.z);
       this.turnTo(yaw, 0, 1 / 60, this.aim.walkTurnDegPerSecond);

@@ -38,7 +38,7 @@ import {
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
-import { LIFT_BOARD_DELAY_TICKS, liftAt, liftRide, type Lift } from './lift.ts';
+import { LIFT_STOP_WAIT_TICKS, liftAt, liftStep, type Lift, type LiftDir } from './lift.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
 import { STANCE, STANCES, isLowered, type BodyBox, type Stance } from './stance.ts';
@@ -74,7 +74,8 @@ export interface PlayerState {
   slide: number; // ticks left, 0 = not sliding
   lean: number; // -1 full left .. 1 full right
   stanceLock: number; // ticks left before prone may change
-  liftWait: number; // ticks a rider must still wait in a lift cab before it rises
+  liftWait: number; // ticks the lift cab still holds before it moves
+  liftDir: LiftDir; // the way the cab goes next
   jumpHeld: boolean;
   dropping: boolean;
   attackHeld: boolean;
@@ -138,7 +139,8 @@ export function createPlayerState(): PlayerState {
     slide: 0,
     lean: 0,
     stanceLock: 0,
-    liftWait: LIFT_BOARD_DELAY_TICKS,
+    liftWait: LIFT_STOP_WAIT_TICKS,
+    liftDir: 1,
     jumpHeld: false,
     dropping: false,
     attackHeld: false,
@@ -215,7 +217,8 @@ export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw:
   s.slide = 0;
   s.lean = 0;
   s.stanceLock = 0;
-  s.liftWait = LIFT_BOARD_DELAY_TICKS;
+  s.liftWait = LIFT_STOP_WAIT_TICKS;
+  s.liftDir = 1;
   s.dropping = true;
   s.health = MAX_HEALTH;
   s.armor = 0;
@@ -413,18 +416,19 @@ function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number)
  * The cab moves vertically after the rider has moved across its floor.
  * The rider is always grounded, so nothing in the shaft pulls them back down to the floor below.
  */
-function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift, descending: boolean, dt: number): void {
+function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift, dt: number): void {
   if (!liftAt(w.map.lifts, s.x, s.y, s.z)) {
     // stepped out of the shaft this tick: from here on the floor is whatever is under the feet
     s.vy = 0;
-    s.liftWait = LIFT_BOARD_DELAY_TICKS;
+    s.liftWait = LIFT_STOP_WAIT_TICKS;
+    s.liftDir = 1;
     s.onGround = checkGround(w, s);
     return;
   }
-  if (descending) s.liftWait = LIFT_BOARD_DELAY_TICKS;
-  else if (s.liftWait > 0) s.liftWait--;
-  const holding = !descending && s.liftWait > 0;
-  const rise = holding ? 0 : liftRide(lift, s.y, descending, dt) - s.y;
+  const ride = liftStep(lift, s.y, s.liftDir, s.liftWait, dt);
+  s.liftDir = ride.dir;
+  s.liftWait = ride.wait;
+  const rise = ride.y - s.y;
   s.y += w.clipAxis(s.x, s.y, s.z, hullHeight(s), 1, rise);
   s.vy = 0;
   s.onGround = true;
@@ -608,7 +612,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   if (s.onGround) walkMove(w, s, dt);
   else airMove(w, s, dt);
   if (lift) {
-    rideLift(w, s, lift, duckDown, dt);
+    rideLift(w, s, lift, dt);
   } else {
     verticalMove(w, s, dt);
 

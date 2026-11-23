@@ -393,7 +393,7 @@ function floorOf(v: WorldView, s: PlayerState): { index: number; name: string; y
 }
 
 const LIFT_RULES =
-  'Walk into the shaft: the cab carries you up by itself and holds at the top floor; hold crouch (the crouch tool) to go down. It crawls at every floor, so step out through that floor\'s doorway while its height is level with you (jumping is off inside). The ground floor doorway faces the atrium; the others open onto their floor across the edge. move_to (give y for the floor) and hunt ride it for you.';
+  'Walk into the shaft and wait: it works like an ordinary elevator with no buttons, going up from the ground floor and down from the top floor, and it stops about 1.5 seconds at every floor, so step out through that floor\'s doorway while its height is level with you (jumping is off inside). The ground floor doorway faces the atrium; the others open onto their floor across the edge. move_to (give y for the floor) and hunt ride it for you.';
 
 function describeLifts(v: WorldView, describeRelative: Relative): object[] {
   const map = getMap(v.match.map);
@@ -408,7 +408,7 @@ function describeLifts(v: WorldView, describeRelative: Relative): object[] {
         ...describeRelative(centre),
         floors,
         riding,
-        secondsToTop: riding && s ? Math.round(liftRideSeconds(lift, s.y, lift.stops[lift.stops.length - 1]) * 10) / 10 : null,
+        secondsToTop: riding && s ? Math.round(liftRideSeconds(lift, s.y, lift.stops[lift.stops.length - 1], 0) * 10) / 10 : null,
         rules: LIFT_RULES,
       };
     })

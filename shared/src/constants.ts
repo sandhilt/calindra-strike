@@ -170,3 +170,11 @@ export const LUNCH_TRAIL_STEP_UNITS = 24; // leader positions are kept every thi
 export const LUNCH_TRAIL_MAX_POINTS = 240;
 export const LUNCH_SEAT_RADIUS_UNITS = 180; // a colleague this close to a restaurant counter sits down
 export const LUNCH_SEAT_HEIGHT_UNITS = 48; // ...and on the same floor
+
+// Day cycle (tuning values): the phases follow each other in this order and then start over.
+export const DAY_PHASES = ['day', 'afternoon', 'night'] as const;
+export type DayPhase = (typeof DAY_PHASES)[number];
+/** Length of each phase's slot, its closing transition included: 15 min for the whole cycle. */
+export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000, afternoon: 4 * 60_000, night: 4 * 60_000 };
+/** The last stretch of a slot is spent blending into the next phase. */
+export const DAY_TRANSITION_MS = 30_000;

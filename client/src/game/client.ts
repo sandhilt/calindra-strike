@@ -38,6 +38,10 @@ import {
   type ServerMsg,
   type ShotInfo,
   type VoteInfo,
+  type DayCycle,
+  type DayPhase,
+  dayCycleAt,
+  dayCycleTarget,
   TICK_MS,
   TICK_RATE,
   WEAPON,
@@ -83,6 +87,7 @@ import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
+import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
 import { lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
@@ -196,6 +201,8 @@ const VIEWMODEL_MUZZLE_FX_DISTANCE_UNITS = 30;
 const VIEWMODEL_MAGAZINE_FX_DISTANCE_UNITS = 22;
 /** Half-width of the floor probe under a magazine or casing. */
 const DEBRIS_PROBE_HALF_SIZE_UNITS = 2;
+/** The kill feed line when the light starts heading for a phase. */
+const DAY_PHASE_NOTICE: Readonly<Record<DayPhase, string>> = { day: 'amanheceu', afternoon: 'fim de tarde', night: 'anoitecendo…' };
 
 export class ClientGame {
   readonly renderer: THREE.WebGLRenderer;
@@ -213,7 +220,11 @@ export class ClientGame {
   private collision!: CollisionWorld;
   private map!: MapDef;
   private mapIndex = -1;
-  private sunDir = new THREE.Vector3();
+  private dayLooks: Record<DayPhase, DayLook> | null = null;
+  private readonly dayLook = createLook();
+  private readonly dayCycle: DayCycle = { phase: 'day', next: 'afternoon', blend: 0 };
+  private dayLit = false;
+  private dayAnnounced: DayPhase | null = null;
 
   readonly myId: number;
   private readonly names = new Map<number, { name: string; personal: string; team: number; bot: boolean }>();
@@ -318,7 +329,7 @@ export class ClientGame {
     this.renderer = new THREE.WebGLRenderer({ antialias: QUALITY[settings.quality].antialias, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = DAY_EXPOSURE;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.autoClear = true;
@@ -482,6 +493,30 @@ export class ClientGame {
     }
   }
 
+  /** Lights the world for the shared clock's phase. Settled phases cost nothing, a transition only rewrites values. */
+  private updateDayLight(world: WorldView): void {
+    const looks = this.dayLooks;
+    if (!looks) return;
+    const cycle = this.dayCycle;
+    const settled = this.dayLit && cycle.blend === 0;
+    const before = cycle.phase;
+    dayCycleAt(this.serverNow(), cycle);
+    this.announceDayPhase(dayCycleTarget(cycle));
+    if (settled && cycle.blend === 0 && cycle.phase === before) return;
+    this.dayLit = true;
+    const look = this.dayLook;
+    lookAt(look, looks, cycle);
+    world.applyLook(look);
+    this.renderer.toneMappingExposure = look.exposure;
+    this.view.setLighting(look.hemiSky, look.hemiGround, look.sun, look.sunIntensity, look.hemiIntensity / looks.day.hemiIntensity);
+  }
+
+  private announceDayPhase(target: DayPhase): void {
+    if (target === this.dayAnnounced) return;
+    if (this.dayAnnounced !== null) this.hud.info(DAY_PHASE_NOTICE[target]);
+    this.dayAnnounced = target;
+  }
+
   private drawScene(): void {
     if (this.lightRt) {
       try {
@@ -566,9 +601,8 @@ export class ClientGame {
     this.world = buildWorld(this.map, this.scene, QUALITY[this.settings.quality]);
     this.ventHum?.dispose();
     this.ventHum = new VentHum(this.map.props.filter((p) => p.kind === 'vent'), (at) => this.sfx.airLoop(at));
-    const t = this.map.theme;
-    this.sunDir.set(t.sunDir.x, t.sunDir.y, t.sunDir.z).normalize();
-    this.view.setLighting(t.hemiSky, t.hemiGround, t.sun, t.sunIntensity);
+    this.dayLooks = buildLooks(this.map.theme);
+    this.dayLit = false;
     for (const a of this.airdrops.values()) {
       this.scene.remove(a.group);
       a.dispose();
@@ -1462,7 +1496,8 @@ export class ClientGame {
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
       this.world.update(dt);
-      followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.sunDir);
+      this.updateDayLight(this.world);
+      followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.world.sunDir);
       this.world.sky.position.copy(this.camera.position);
     }
 
@@ -1850,6 +1885,7 @@ export class ClientGame {
     this.input.dispose();
     this.sfx.dispose();
     this.flagRenderer?.dispose();
+    this.colleaguesView?.dispose();
     this.bombRenderer?.dispose();
     this.world?.dispose();
     this.ventHum?.dispose();

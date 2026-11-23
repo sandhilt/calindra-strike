@@ -8,6 +8,7 @@ import {
   type Mat,
   type Surface,
   AUDIBLE_INTENSITY,
+  dayCycleAt,
   heardIntensity,
   type BombPoint,
   unpackState,
@@ -175,6 +176,12 @@ const MEDIUM = 0.2;
 const MAX_HEARD = 12;
 type Relative = (p: { x: number; z: number }) => { distance: number | null; bearingDeg: number | null };
 
+/** The light of the map now: only its look changes with it, what an agent perceives does not. */
+function timeOfDay(serverMs: number): { phase: string; next: string; blend: number } {
+  const { phase, next, blend } = dayCycleAt(serverMs);
+  return { phase, next, blend: Math.round(blend * 100) / 100 };
+}
+
 /** The sounds above the audible floor, loudest first, with where they came from and how loud they were. */
 function heardSounds(sounds: readonly ViewSound[], relative: Relative, listening: boolean): object[] {
   if (!listening) return [];
@@ -222,6 +229,7 @@ export function renderView(
     phase: v.match.phase,
     mode: v.match.mode,
     map: getMap(v.match.map).name,
+    timeOfDay: timeOfDay(v.time),
     endsInMs: v.match.phase === 'warmup' ? null : Math.max(0, v.match.endsAt - v.time),
     ...(v.match.phase === 'podium'
       ? {

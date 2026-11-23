@@ -85,6 +85,8 @@ export interface MapTheme {
   hemiSky: string;
   hemiGround: string;
   hemiIntensity: number;
+  /** Replaces what the day cycle would derive from this day theme for the afternoon or the night. */
+  phases?: Partial<Record<'afternoon' | 'night', Partial<Omit<MapTheme, 'phases'>>>>;
 }
 
 export interface MapLight {

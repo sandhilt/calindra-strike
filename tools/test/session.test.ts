@@ -98,6 +98,7 @@ test('session hello, snapshot layout, event bounds, cadence and closed tools', a
   const state = JSON.parse(JSON.stringify(session.getState()));
   assert.equal(state.you.hp, 75);
   assert.equal(state.you.mag, 15);
+  assert.deepEqual(state.timeOfDay, { phase: 'day', next: 'afternoon', blend: 0 });
   assert.equal(state.others[0].distance, 100);
   assert.equal(state.others[0].bearingDeg, 90);
   assert.deepEqual(state.airdrops[0], { x: 60, z: 70, distance: 86, bearingDeg: 144 });

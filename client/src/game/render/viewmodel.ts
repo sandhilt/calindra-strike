@@ -9,6 +9,10 @@ import { restingJumpPose, stepJumpPose } from './jump-pose.ts';
 import { SwingPlayer } from './hammer-swing.ts';
 import { type KickFeel, type KickState, fireKick, kickFeelFor, kickTotal, pistolShotPose, stepKick } from './kick-anim.ts';
 
+/** Sky light on the gun at full day; the day cycle scales it. */
+const VIEWMODEL_HEMI_INTENSITY = 1.4;
+/** Strength of the studio reflections on the gun at full day, scaled the same way. */
+const VIEWMODEL_ENV_INTENSITY = 0.55;
 /** Model units the old magazine falls before it leaves the view, and the spare starts below the well. */
 const MAG_FALL_UNITS = 12;
 /** Roll and pitch of the gun at full tilt while reloading, in radians. */
@@ -128,7 +132,7 @@ export class ViewModel {
   constructor(color: string, quality: Quality) {
     this.beltLinks = QUALITY[quality].fx.beltLinks;
     this.sleeve = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.55), roughness: 0.85 });
-    this.hemi = new THREE.HemisphereLight('#ffffff', '#444444', 1.4);
+    this.hemi = new THREE.HemisphereLight('#ffffff', '#444444', VIEWMODEL_HEMI_INTENSITY);
     this.sun = new THREE.DirectionalLight('#ffffff', 2.2);
     this.sun.position.set(-0.4, 1, 0.3);
     this.scene.add(this.hemi, this.sun, this.camera);
@@ -160,9 +164,12 @@ export class ViewModel {
     if (this.weaponId === WEAPON.LMG) this.weaponId = -1;
   }
 
-  setLighting(sky: string, ground: string, sun: string, sunIntensity: number): void {
+  /** Lights the gun like the world. `hemiScale` is the world's sky light relative to full day, and Colors are copied, so this can run every frame. */
+  setLighting(sky: THREE.ColorRepresentation, ground: THREE.ColorRepresentation, sun: THREE.ColorRepresentation, sunIntensity: number, hemiScale = 1): void {
     this.hemi.color.set(sky);
     this.hemi.groundColor.set(ground);
+    this.hemi.intensity = VIEWMODEL_HEMI_INTENSITY * hemiScale;
+    this.scene.environmentIntensity = VIEWMODEL_ENV_INTENSITY * hemiScale;
     this.sun.color.set(sun);
     this.sun.intensity = Math.min(2.6, sunIntensity * 0.8);
   }
@@ -475,6 +482,6 @@ export class ViewModel {
   /** Soft studio reflections so metal parts don't render black. */
   setEnvironment(env: THREE.Texture): void {
     this.scene.environment = env;
-    this.scene.environmentIntensity = 0.55;
+    this.scene.environmentIntensity = VIEWMODEL_ENV_INTENSITY;
   }
 }

@@ -105,6 +105,8 @@ Things you can play with:
 
 ## Scenery in get_state
 
+- `timeOfDay` is the map's light (`phase` `day` | `afternoon` | `night`, `next`, `blend` 0..1 into the next phase). The cycle is a look only: night does not change what you perceive or how far you see, and it does not affect tactics.
+
 - `scene` (null while dead or dropping): `facing` is the crosshair surface (null for sky), `cover` lists nearby visible walls, boxes, windows and platforms (needs line of sight), `doors` includes openings and stairs, `landmarks` gives named places (map knowledge, no line of sight), `sprays` shows decals and authors. Lists are capped and nearest-first. No MCP tool places a spray (`G`, 10 per spawn, 2 s apart, is browser-only).
 
 ## Connection and protocol

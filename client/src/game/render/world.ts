@@ -1,5 +1,6 @@
 import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
 import { buildProps } from './props.ts';
 import { signMaterial } from './store-signs.ts';
@@ -107,6 +108,10 @@ export interface WorldView {
   sun: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
   fog: THREE.Fog;
+  /** Where the sun's light comes from now; the day cycle moves it, `followShadow` reads it. */
+  sunDir: THREE.Vector3;
+  /** Paints the sky, lights, fog and glows with a look of the day cycle. Only writes values, nothing is allocated. */
+  applyLook(look: DayLook): void;
   /** Advances the moving scenery (fans, escalator steps, fountain water, vent smoke) by dt seconds. */
   update(dt: number): void;
   /** Takes a graphics tier chosen mid-match: starts or stops the ambient motion and builds or drops the vent smoke. */
@@ -117,20 +122,31 @@ export interface WorldView {
 const WHITE = new THREE.Color(1, 1, 1);
 const TINT = new THREE.Color();
 
-function skyDome(map: MapDef): THREE.Mesh {
+type SkyUniforms = {
+  top: { value: THREE.Color };
+  horizon: { value: THREE.Color };
+  bottom: { value: THREE.Color };
+  sunColor: { value: THREE.Color };
+  sunDir: { value: THREE.Vector3 };
+  stars: { value: number };
+};
+
+function skyDome(map: MapDef): { mesh: THREE.Mesh; uniforms: SkyUniforms } {
   const t = map.theme;
   const sd = new THREE.Vector3(t.sunDir.x, t.sunDir.y, t.sunDir.z).normalize();
+  const uniforms: SkyUniforms = {
+    top: { value: new THREE.Color(t.skyTop) },
+    horizon: { value: new THREE.Color(t.skyHorizon) },
+    bottom: { value: new THREE.Color(t.skyBottom) },
+    sunColor: { value: new THREE.Color(t.sun) },
+    sunDir: { value: sd },
+    stars: { value: 0 },
+  };
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
-    uniforms: {
-      top: { value: new THREE.Color(t.skyTop) },
-      horizon: { value: new THREE.Color(t.skyHorizon) },
-      bottom: { value: new THREE.Color(t.skyBottom) },
-      sunColor: { value: new THREE.Color(t.sun) },
-      sunDir: { value: sd },
-    },
+    uniforms,
     vertexShader: /* glsl */ `
       varying vec3 vDir;
       void main() {
@@ -139,14 +155,26 @@ function skyDome(map: MapDef): THREE.Mesh {
         gl_Position = p.xyww;
       }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunColor; uniform vec3 sunDir;
+      uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunColor; uniform vec3 sunDir; uniform float stars;
       varying vec3 vDir;
+      float hash31(vec3 p) {
+        p = fract(p * 0.1031);
+        p += dot(p, p.zyx + 31.32);
+        return fract((p.x + p.y) * p.z);
+      }
       void main() {
         vec3 d = normalize(vDir);
         float h = d.y;
         vec3 c = h > 0.0 ? mix(horizon, top, pow(clamp(h, 0.0, 1.0), 0.55)) : mix(horizon, bottom, pow(clamp(-h, 0.0, 1.0), 0.35));
         float s = max(dot(d, sunDir), 0.0);
         c += sunColor * (pow(s, 900.0) * 6.0 + pow(s, 18.0) * 0.35 + pow(s, 3.0) * 0.08);
+        if (stars > 0.0 && h > 0.04) {
+          vec3 p = d * 170.0;
+          vec3 cell = floor(p);
+          float r = hash31(cell);
+          float twinkle = step(0.965, r) * smoothstep(0.42, 0.0, length(fract(p) - 0.5));
+          c += vec3(0.85, 0.9, 1.0) * twinkle * (0.55 + 0.9 * fract(r * 91.7)) * stars * smoothstep(0.04, 0.3, h);
+        }
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -155,7 +183,7 @@ function skyDome(map: MapDef): THREE.Mesh {
   const m = new THREE.Mesh(new THREE.SphereGeometry(9000, 48, 24), mat);
   m.frustumCulled = false;
   m.renderOrder = -10;
-  return m;
+  return { mesh: m, uniforms };
 }
 
 /** Distant silhouettes: mountains for Forja, a skyline for the office. */
@@ -214,6 +242,9 @@ function horizon(map: MapDef): THREE.Object3D {
   return g;
 }
 
+/** Opacity of a map light's halo in daylight; the night look raises it. */
+const GLOW_OPACITY = 0.55;
+
 function glowSprite(color: string): THREE.SpriteMaterial {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -226,7 +257,7 @@ function glowSprite(color: string): THREE.SpriteMaterial {
   g.fillRect(0, 0, 128, 128);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 });
+  return new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: GLOW_OPACITY });
 }
 
 export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProfile): WorldView {
@@ -284,18 +315,33 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
   const props = buildProps(map.props, (mat) => materials.get(mat), profile);
   group.add(props.group);
 
+  const emissives: { mat: THREE.MeshStandardMaterial; base: number }[] = [];
+  for (const material of materials.values()) {
+    if (material instanceof THREE.MeshStandardMaterial && material.emissiveIntensity > 0 && material.emissive.getHex() !== 0) emissives.push({ mat: material, base: material.emissiveIntensity });
+  }
+
   // glow at map light points
+  const halos: THREE.SpriteMaterial[] = [];
   for (const l of map.lights) {
-    const s = new THREE.Sprite(glowSprite(l.color));
+    const halo = glowSprite(l.color);
+    halos.push(halo);
+    const s = new THREE.Sprite(halo);
     s.position.set(l.x, l.y, l.z);
     s.scale.set(140, 140, 1);
     group.add(s);
   }
 
   const t = map.theme;
-  const sky = skyDome(map);
+  const dome = skyDome(map);
+  const sky = dome.mesh;
   group.add(sky);
-  group.add(horizon(map));
+  const scenery = horizon(map);
+  group.add(scenery);
+  const silhouettes: { mat: THREE.MeshBasicMaterial; base: THREE.Color }[] = [];
+  scenery.traverse((o) => {
+    const mat = (o as THREE.Mesh).material;
+    if (mat instanceof THREE.MeshBasicMaterial) silhouettes.push({ mat, base: mat.color.clone() });
+  });
 
   const hemi = new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiIntensity);
   group.add(hemi);
@@ -325,6 +371,28 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     sun,
     hemi,
     fog,
+    sunDir: sd,
+    applyLook(look) {
+      const u = dome.uniforms;
+      u.top.value.copy(look.skyTop);
+      u.horizon.value.copy(look.skyHorizon);
+      u.bottom.value.copy(look.skyBottom);
+      u.sunColor.value.copy(look.sun);
+      u.sunDir.value.copy(look.sunDir);
+      u.stars.value = look.stars;
+      hemi.color.copy(look.hemiSky);
+      hemi.groundColor.copy(look.hemiGround);
+      hemi.intensity = look.hemiIntensity;
+      sun.color.copy(look.sun);
+      sun.intensity = look.sunIntensity;
+      sd.copy(look.sunDir);
+      fog.color.copy(look.fog);
+      fog.near = look.fogNear;
+      fog.far = look.fogFar;
+      for (const e of emissives) e.mat.emissiveIntensity = e.base * look.glow;
+      for (const halo of halos) halo.opacity = Math.min(1, GLOW_OPACITY * look.glow);
+      for (const s of silhouettes) s.mat.color.copy(s.base).multiplyScalar(look.scenery);
+    },
     update(dt) {
       props.update(dt);
     },

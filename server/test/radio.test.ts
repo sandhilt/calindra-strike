@@ -4,7 +4,7 @@ import { RADIO_COOLDOWN_TICKS, TICK_MS, WEAPON, radioLineAt, type GameMode, type
 import { Game, type GameOptions, type ServerPlayer, type Spectator } from '../src/game.ts';
 
 const LINE = radioLineAt('comandos', 1)!.id;
-const OTHER_LINE = radioLineAt('calindra', 5)!.id;
+const OTHER_LINE = radioLineAt('calindra-2', 2)!.id;
 
 function setup(mode: GameMode, players: number, opts: Partial<GameOptions> = {}) {
   const game = new Game({ maxPlayers: 16, matchMs: 120_000, podiumMs: 5_000, warmupMinPlayers: 2, modes: mode, random: () => 0.3, ...opts });

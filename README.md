@@ -53,25 +53,12 @@ Choose clássico or sound-new in the in-game sound pack menu. The separate anunc
 
 ### Radio lines (Calindra menu)
 
-The radio menus (Z, X, V and B) are one table, `RADIO_MENUS` in `shared/src/radio.ts`. The in-game menu, the server's validation, the MCP `radio` tool and the bots all read it, so a new Calindra line is one entry there:
+Press B for Calindra or N for Calindra 2. The in-game menus, server validation, MCP `radio` tool and bots all read `RADIO_MENUS` in `shared/src/radio.ts`. Calindra fills its nine slots, and Calindra 2 has room for more lines.
 
-```ts
-{
-  id: 'calindra',
-  // ...
-  lines: [
-    { text: 'Borumbaaa!', speech: 'Borumbá!' },
-    // ...
-    { text: 'Eiiiitriiiiii!', speech: 'Êitri!' },
-    { text: 'Your new line!' },
-  ],
-},
-```
-
-- **Append at the end.** The wire carries an id built from the position (menu number times ten plus the slot, so the Calindra lines are 41-49). Inserting or reordering changes what the existing ids mean for a client or an MCP agent built before the change.
+- **Append at the end.** The wire carries an id built from the position (menu number times ten plus the slot, so Calindra uses 41-49 and Calindra 2 uses 51-52). Inserting or reordering changes what the existing ids mean for a client or an MCP agent built before the change.
 - **Nine lines at most.** Players pick a line with the digits 1-9; a test fails past nine.
 - **`speech` is optional.** `text` is what the feed and the menu show. Add `speech` when the text reads badly aloud (stretched letters, English words, acronyms), with the spelling the browser's speech synthesis should say.
-- **Bots use it on their own.** Server bots and dev bots draw from the whole Calindra menu now and then (`BOT_RADIO_LINES.calindra` in `shared/src/bot-radio.ts`). To have bots say it on a specific moment instead (round start, enemy down, a plant), add its exact `text` to that trigger's list in the same file.
+- **Bots use it on their own.** Server bots and dev bots draw from both Calindra menus now and then (`BOT_RADIO_LINES.calindra` in `shared/src/bot-radio.ts`). To have bots say it on a specific moment instead (round start, enemy down, a plant), add its exact `text` to that trigger's list in the same file.
 - **Update the agreed lines.** The first test in `shared/test/radio.test.ts` lists each menu's size and the Calindra texts on purpose, so a changed line shows up in review. Add the new one there, then run `node --run test` and `node --run typecheck`.
 - **Ship server and client together.** A server without the line drops it as an unknown id, silently. Old clients still work, they just do not offer it. No `PROTOCOL_VERSION` bump is needed.
 - **MCP agents.** The `radio` tool lists the lines in its description, so agents see the new one once their MCP runs the new code. For an MCP pinned to a commit (see the `bump-calindra-strike-mcp` skill), bump the pin after pushing.
@@ -126,7 +113,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `walk` / `reload` / `switch_weapon` | Walk silently (`Alt`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `sprint` / `slide` / `lean` / `prone` | Sprint until changed (`on`; it only runs while the pilot moves forward standing, drains stamina, and walk, crouch, prone or firing end it), slide once (needs a sprint at 240 units/s or more and 20% stamina; the result says `requested` and the reason when it cannot start), lean (`side`: `left`, `right` or `off`) or lie down until changed (`on`). A latched crouch hides the slide press, so release it first |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
-| `radio` | A radio line to the team: `{ menu, line }` from the Z, X, V and B menus (`comandos`, `grupo`, `respostas`, `calindra`) |
+| `radio` | A radio line to the team: `{ menu, line }` from the Z, X, V, B and N menus (`comandos`, `grupo`, `respostas`, `calindra`, `calindra-2`) |
 
 The server stays authoritative. The agent is subject to the same origin check, access code, rate limits and player caps as a browser.
 
@@ -170,7 +157,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 See also [Movimento experimental](#movimento-experimental) for sprint, slide, lean and prone.
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→`, `F` `H` or the mouse side buttons lean · `Ctrl` `Ctrl` (two quick taps) or `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` aim (hold) or AWP scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** tab of the Esc menu. The Esc menu keeps its settings on tabs, **jogo**, **áudio**, **vídeo**, **mira** and **controles**, each with an icon. Click one or use `←` `→`, `Home` and `End` on the tab bar; the menu reopens on the tab you last used, and the buttons below stay in place. The tab table and its keys are in `client/src/ui/overlays.ts` and `client/src/ui/menu-tabs.ts`.
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→`, `F` `H` or the mouse side buttons lean · `Ctrl` `Ctrl` (two quick taps) or `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` aim (hold) or AWP scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` `N` radio menus (comandos, grupo, respostas, Calindra, Calindra 2), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** tab of the Esc menu. The Esc menu keeps its settings on tabs, **jogo**, **áudio**, **vídeo**, **mira** and **controles**, each with an icon. Click one or use `←` `→`, `Home` and `End` on the tab bar; the menu reopens on the tab you last used, and the buttons below stay in place. The tab table and its keys are in `client/src/ui/overlays.ts` and `client/src/ui/menu-tabs.ts`.
 
 ### Movimento experimental
 

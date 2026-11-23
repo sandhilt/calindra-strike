@@ -68,6 +68,20 @@ export const RADIO_MENUS = [
       { text: 'Aí é cabeçada!' },
       { text: 'Hoje é quarta-feira, meus bacanos!' },
       { text: 'Eiiiitriiiiii!', speech: 'Êitri!' },
+      { text: 'ninguém é obrigado estar aqui' },
+      { text: 'esses cara do back e do front', speech: 'esses cara do béqui e do frânt' },
+      { text: 'roda nem um yarn test', speech: 'roda nem um iárn tést' },
+      { text: 'A batata tá azeitada' },
+    ],
+  },
+  {
+    id: 'calindra-2',
+    key: 'KeyN',
+    keyLabel: 'N',
+    label: 'Calindra 2',
+    lines: [
+      { text: 'Avinagrou' },
+      { text: 'Vou dar um soco na sua cara' },
     ],
   },
 ] as const satisfies readonly {
@@ -84,7 +98,7 @@ export type RadioMenuId = RadioMenu['id'];
 export const RADIO_MENU_IDS: readonly RadioMenuId[] = RADIO_MENUS.map((m) => m.id);
 
 export interface RadioLine {
-  /** Wire id: menu number (1-based) times ten plus the slot, so Z is 11-16 and B is 41-45. */
+  /** Wire id: menu number (1-based) times ten plus the slot, so Z is 11-16 and B is 41-49 and N is 51-52. */
   readonly id: number;
   readonly menu: RadioMenuId;
   readonly slot: number;

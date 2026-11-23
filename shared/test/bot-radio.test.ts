@@ -44,8 +44,8 @@ describe('bot radio table', () => {
     assert.deepEqual(textsOf('hurt'), ['Tô tomando tiro!', 'Me cobre!']);
   });
 
-  it('takes the whole Calindra menu, and calls it rarely', () => {
-    assert.deepEqual(BOT_RADIO_LINES.calindra, RADIO_LINES.filter((l) => l.menu === 'calindra').map((l) => l.id));
+  it('draws rarely from both Calindra menus', () => {
+    assert.deepEqual(BOT_RADIO_LINES.calindra, [41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52]);
     assert.ok(BOT_RADIO_CHANCE.calindra < BOT_RADIO_CHANCE.roundStart);
   });
 

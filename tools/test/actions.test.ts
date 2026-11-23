@@ -1,6 +1,10 @@
-import { test } from 'node:test';
+import { describe, it, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BTN, WEAPON, createPlayerState, type Cmd, type WeaponId } from '../../shared/src/index.ts';
+import {
+  BTN, CollisionWorld, MapBuilder, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, STANCE, WEAPON,
+  applyCmd, createPlayerState, getMaps, spawnState,
+  type Cmd, type MapDef, type WeaponId,
+} from '../../shared/src/index.ts';
 import { ActionOverlay } from '../mcp/actions.ts';
 import * as actions from '../mcp/actions.ts';
 
@@ -216,4 +220,161 @@ test('manual use holds through both commands, stops movement and fire, and reset
   assert.equal(o.apply(cmd(), null).buttons & BTN.USE, 0);
   o.reset();
   assert.equal(o.apply(cmd(), player()).buttons & BTN.USE, 0);
+});
+
+/** What the server's last snapshot would show for a player running flat out. */
+function sprinter() {
+  const s = player(WEAPON.RIFLE);
+  Object.assign(s, { sprinting: true, vx: SLIDE_MIN_SPEED + 60, stamina: STAMINA_MAX });
+  return s;
+}
+
+test('sprint latches SPRINT on every cmd, even without a player snapshot, and releases', () => {
+  const o = new ActionOverlay();
+  o.sprint = true;
+  assert.ok(pressed(o.apply(cmd(), null), BTN.SPRINT));
+  assert.ok(pressed(o.apply(cmd(BTN.FWD), player()), BTN.SPRINT | BTN.FWD));
+  o.sprint = false;
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.SPRINT));
+});
+
+test('lean maps each side to its own button and off releases both', () => {
+  const o = new ActionOverlay();
+  o.lean = 'left';
+  assert.equal(o.apply(cmd(), player()).buttons, BTN.LEAN_LEFT);
+  o.lean = 'right';
+  assert.equal(o.apply(cmd(), player()).buttons, BTN.LEAN_RIGHT);
+  o.lean = 'off';
+  assert.equal(o.apply(cmd(), player()).buttons, 0);
+});
+
+test('prone latches PRONE on every cmd and releases', () => {
+  const o = new ActionOverlay();
+  o.prone = true;
+  assert.ok(pressed(o.apply(cmd(), null), BTN.PRONE));
+  assert.ok(pressed(o.apply(cmd(), player()), BTN.PRONE));
+  o.prone = false;
+  assert.ok(!pressed(o.apply(cmd(), player()), BTN.PRONE));
+});
+
+test('reset releases sprint, lean, prone and a pending slide', () => {
+  const o = new ActionOverlay();
+  o.sprint = true;
+  o.lean = 'left';
+  o.prone = true;
+  o.requestSlide();
+  o.reset();
+  assert.equal(o.apply(cmd(), sprinter()).buttons, 0);
+  assert.deepEqual(o.echo(), { crouch: false, walk: false, zoom: null, sprint: false, lean: 'off', prone: false });
+});
+
+test('slide presses DUCK on exactly one apply and does not mutate the incoming cmd', () => {
+  const o = new ActionOverlay();
+  const input = cmd(BTN.FWD | BTN.SPRINT);
+  o.requestSlide();
+  assert.ok(pressed(o.apply(input, sprinter()), BTN.DUCK));
+  assert.equal(input.buttons, BTN.FWD | BTN.SPRINT);
+  assert.ok(!pressed(o.apply(input, sprinter()), BTN.DUCK));
+});
+
+test('a slide request is dropped, not queued, when the state no longer allows it', () => {
+  const o = new ActionOverlay();
+  const slow = sprinter();
+  slow.vx = 10;
+  o.requestSlide();
+  assert.ok(!pressed(o.apply(cmd(), slow), BTN.DUCK));
+  assert.ok(!pressed(o.apply(cmd(), sprinter()), BTN.DUCK), 'the request is gone once the state recovers');
+  o.requestSlide();
+  assert.ok(!pressed(o.apply(cmd(), null), BTN.DUCK), 'no snapshot, no press');
+});
+
+test('slideBlocker names what stops a slide, and is null when it would start', () => {
+  const o = new ActionOverlay();
+  assert.equal(o.slideBlocker(sprinter()), null);
+  const blocked = (mutate: (s: ReturnType<typeof sprinter>) => void) => {
+    const s = sprinter();
+    mutate(s);
+    return o.slideBlocker(s);
+  };
+  assert.match(blocked((s) => { s.sprinting = false; }) ?? '', /Not sprinting/);
+  assert.match(blocked((s) => { s.onGround = false; }) ?? '', /Not on the ground/);
+  assert.match(blocked((s) => { s.slide = 5; }) ?? '', /Already sliding/);
+  assert.match(blocked((s) => { s.vx = SLIDE_MIN_SPEED - 1; }) ?? '', /Too slow/);
+  assert.match(blocked((s) => { s.stamina = SLIDE_STAMINA_COST - 1; }) ?? '', /Not enough stamina/);
+  assert.match(blocked((s) => { s.dropping = true; }) ?? '', /dropping/);
+  o.crouch = true;
+  assert.match(o.slideBlocker(sprinter()) ?? '', /crouch\(false\)/);
+  o.crouch = false;
+  o.prone = true;
+  assert.match(o.slideBlocker(sprinter()) ?? '', /prone\(false\)/);
+});
+
+test('sprintBlockers lists the latched actions that stop a sprint', () => {
+  const o = new ActionOverlay();
+  assert.deepEqual(o.sprintBlockers(), []);
+  o.walk = true;
+  o.prone = true;
+  assert.deepEqual(o.sprintBlockers(), ['walk', 'prone']);
+});
+
+/** The overlay drives the real sim, so the blocker and the sim cannot drift apart. */
+describe('slide request against the movement sim', () => {
+  const flat = () => {
+    const b = new MapBuilder();
+    b.add(-4000, -32, -4000, 4000, 0, 4000, 'ground');
+    const map: MapDef = { ...getMaps()[0], boxes: b.boxes };
+    return new CollisionWorld(map);
+  };
+  let seq = 0;
+  const run = (world: CollisionWorld, o: ActionOverlay, s: ReturnType<typeof createPlayerState>, ticks: number) => {
+    for (let i = 0; i < ticks; i++) applyCmd(world, s, o.apply(cmd(BTN.FWD, ++seq), s), 7);
+  };
+  const standing = (world: CollisionWorld) => {
+    const s = createPlayerState();
+    spawnState(s, 0, 0.1, 0, 0, WEAPON.RIFLE);
+    s.dropping = false;
+    s.pitch = 0;
+    run(world, new ActionOverlay(), s, 10);
+    return s;
+  };
+  /** Requests a slide when the blocker allows it and returns what the sim did with that command. */
+  const trySlide = (world: CollisionWorld, o: ActionOverlay, s: ReturnType<typeof createPlayerState>) => {
+    const blocker = o.slideBlocker(s);
+    if (blocker === null) o.requestSlide();
+    run(world, o, s, 1);
+    return { blocker, slid: s.slide > 0 };
+  };
+
+  type Sim = ReturnType<typeof createPlayerState>;
+  const cases: { name: string; ticks: number; tweak?: (s: Sim) => void; slides: boolean }[] = [
+    { name: 'running flat out', ticks: 40, slides: true },
+    { name: 'too slow', ticks: 2, slides: false },
+    { name: 'out of stamina', ticks: 40, tweak: (s) => { s.stamina = SLIDE_STAMINA_COST - 1; }, slides: false },
+    { name: 'in the air', ticks: 40, tweak: (s) => { s.y = 200; s.onGround = false; }, slides: false },
+  ];
+  for (const { name, ticks, tweak, slides } of cases) {
+    it(name + ': the blocker is null exactly when the sim starts a slide', () => {
+      const world = flat();
+      const o = new ActionOverlay();
+      o.sprint = true;
+      const s = standing(world);
+      run(world, o, s, ticks);
+      tweak?.(s);
+      const { blocker, slid } = trySlide(world, o, s);
+      assert.equal(slid, slides, String(blocker));
+      assert.equal(blocker === null, slides);
+      if (slides) assert.equal(s.stance, STANCE.CROUCH);
+    });
+  }
+
+  it('a second slide request while sliding is refused and the sim agrees', () => {
+    const world = flat();
+    const o = new ActionOverlay();
+    o.sprint = true;
+    const s = standing(world);
+    run(world, o, s, 40);
+    assert.equal(trySlide(world, o, s).slid, true);
+    const again = o.slideBlocker(s);
+    assert.match(again ?? '', /Already sliding/);
+  });
 });

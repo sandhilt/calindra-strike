@@ -107,7 +107,7 @@ export class Pilot {
       bomb: bombState(view),
       bombPlaces: view.bomb.length || colleagues ? bombPlaces(view, world) : undefined,
       colleagues,
-      restaurants: map.restaurants,
+      restaurants: view.lunch.length >= 3 ? map.restaurants.slice(view.lunch[2], view.lunch[2] + 1) : map.restaurants,
       interiors: map.interiors,
       supplies: map.supplies.map((stand, i) => ({ ...stand, ready: (view.supplies[i] ?? 0) === 0 })),
       flagBases: map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) })),

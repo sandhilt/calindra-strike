@@ -124,7 +124,7 @@ export interface MapDef {
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];
   /** Food court counters where Hora de almoçar seats colleagues; empty on maps that cannot play it. */
-  restaurants: { x: number; y: number; z: number }[];
+  restaurants: { x: number; y: number; z: number; name: string }[];
   /** Named floors, lowest first; empty on maps with a single level. Agents read the floor they stand on from it. */
   floors: readonly { y: number; name: string }[];
   /** Glass lifts of the map; empty where there are none. */

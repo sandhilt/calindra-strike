@@ -9,26 +9,26 @@ export interface ColleagueView {
   z: number;
   yaw: number;
 }
-export interface LunchView { attackers: number; endsAt: number; colleagues: ColleagueView[] }
+export interface LunchView { attackers: number; endsAt: number; target: number; colleagues: ColleagueView[] }
 
 export function lunchView(header: readonly number[], rows: readonly number[][]): LunchView | null {
   if (header.length < 2) return null;
-  const [attackers, endsAt] = header;
+  const [attackers, endsAt, target = 0] = header;
   const colleagues = rows.map(([kind, leader, x, y, z, yaw], i): ColleagueView => ({
     name: LUNCH_COLLEAGUES[i] ?? 'Colega',
     kind: LUNCH_KINDS[kind] ?? 'waiting',
     leader, x, y, z, yaw,
   }));
-  return { attackers, endsAt, colleagues };
+  return { attackers, endsAt, target, colleagues };
 }
 
 /** One status line per team for the objective panel. */
-export function lunchStatus(view: LunchView, now: number): { team: number; text: string }[] {
+export function lunchStatus(view: LunchView, now: number, restaurant: string): { team: number; text: string }[] {
   const seated = view.colleagues.filter((c) => c.kind === 'seated').length;
   const secs = Math.max(0, Math.ceil((view.endsAt - now) / 1000));
   return [
-    { team: view.attackers, text: `levando o time pro almoço · ${seated}/${view.colleagues.length} sentados` },
-    { team: 1 - view.attackers, text: `segurando no escritório · ${secs} s pra lotar a praça` },
+    { team: view.attackers, text: `levando o time pro ${restaurant} · ${seated}/${view.colleagues.length} sentados` },
+    { team: 1 - view.attackers, text: `segurando no escritório · ${secs} s pro ${restaurant} lotar` },
   ];
 }
 

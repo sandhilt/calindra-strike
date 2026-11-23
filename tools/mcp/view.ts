@@ -380,7 +380,7 @@ export function lunchColleagues(v: WorldView): Colleague[] | undefined {
 }
 
 const LUNCH_RULES = {
-  attacker: `Take every colleague to lunch before secondsLeft runs out. Stand within ${LUNCH_USE_RADIUS_UNITS} units of a waiting colleague and call use: it follows your path, escalators included. Walk to a restaurant; a following colleague sits when within ${LUNCH_SEAT_RADIUS_UNITS} units of one on its floor. All seated wins the round. If you die, the colleagues you led stop and wait where they are.`,
+  attacker: `Take every colleague to lunch before secondsLeft runs out. Stand within ${LUNCH_USE_RADIUS_UNITS} units of a waiting colleague and call use: it follows your path, escalators included. Walk to the restaurant marked target: true (named in restaurants); a following colleague sits only when within ${LUNCH_SEAT_RADIUS_UNITS} units of that one on its floor, any other restaurant does not count. The target changes every round. All seated wins the round. If you die, the colleagues you led stop and wait where they are.`,
   defender: 'Keep the colleagues from lunch until secondsLeft reaches 0: the food court fills up and your team wins the round. Kill whoever leads colleagues; they stop where their leader dies and must be called again.',
 } as const;
 
@@ -438,7 +438,7 @@ function describeSupplies(v: WorldView, describeRelative: Relative): object[] {
 function describeLunch(v: WorldView, describeRelative: Relative): object | null {
   const colleagues = lunchColleagues(v);
   if (!colleagues) return null;
-  const [attackers, endsAt] = v.lunch;
+  const [attackers, endsAt, targetIndex = 0] = v.lunch;
   const s = v.self;
   const role = v.roster.find((r) => r[0] === v.id)?.[3] === attackers ? 'attacker' : 'defender';
   const name = (id: number) => v.roster.find((r) => r[0] === id)?.[1] ?? String(id);
@@ -459,7 +459,7 @@ function describeLunch(v: WorldView, describeRelative: Relative): object | null 
       inUseReach: c.kind === 'waiting' && !!s && Math.hypot(c.x - s.x, c.y - s.y, c.z - s.z) <= LUNCH_USE_RADIUS_UNITS,
     })),
     restaurants: getMap(v.match.map).restaurants
-      .map((r) => ({ pos: [r.x, r.y, r.z], ...describeRelative(r) }))
+      .map((r, i) => ({ name: r.name, target: i === targetIndex, pos: [r.x, r.y, r.z], ...describeRelative(r) }))
       .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
   };
 }

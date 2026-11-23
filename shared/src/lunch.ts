@@ -19,7 +19,8 @@ export type Colleague = Placed & (
   | { kind: 'following'; leader: number; trail: readonly LunchPoint[] }
   | { kind: 'seated' }
 );
-export interface LunchRound { attackers: number; endsAtTick: number }
+/** `target` indexes the restaurant of the food court this round has to reach; sitting down anywhere else does not count. */
+export interface LunchRound { attackers: number; endsAtTick: number; target: number }
 export interface LunchPlaces { hold: LunchPoint; restaurants: readonly LunchPoint[] }
 export interface LunchActor extends LunchPoint { id: number; team: number; alive: boolean; using: boolean }
 export type LunchAction = 'follow' | 'stop' | 'seated' | 'served' | 'full';
@@ -47,8 +48,8 @@ function flat(a: LunchPoint, b: LunchPoint): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-function seatAt(c: Placed, restaurants: readonly LunchPoint[]): LunchPoint | null {
-  return restaurants.find((r) => flat(c, r) <= LUNCH_SEAT_RADIUS_UNITS && Math.abs(c.y - r.y) <= LUNCH_SEAT_HEIGHT_UNITS) ?? null;
+function seatAt(c: Placed, restaurant: LunchPoint | undefined): LunchPoint | null {
+  return restaurant && flat(c, restaurant) <= LUNCH_SEAT_RADIUS_UNITS && Math.abs(c.y - restaurant.y) <= LUNCH_SEAT_HEIGHT_UNITS ? restaurant : null;
 }
 
 /** Walks one tick along the leader's trail, stopping `gap` short of the leader. */
@@ -99,7 +100,7 @@ export function stepLunch(colleagues: readonly Colleague[], places: LunchPlaces,
     const rank = ranks.get(leader.id) ?? 0;
     ranks.set(leader.id, rank + 1);
     const moved = walk(c, leader, LUNCH_FOLLOW_GAP_UNITS + rank * LUNCH_FOLLOW_SPACING_UNITS);
-    const seat = seatAt(moved, places.restaurants);
+    const seat = seatAt(moved, places.restaurants[round.target]);
     if (!seat) return moved;
     events.push({ k: 'lunch', what: 'seated', team: leader.team, by: leader.id, who });
     return { kind: 'seated', x: moved.x, y: seat.y, z: moved.z, yaw: Math.atan2(-(seat.x - moved.x), -(seat.z - moved.z)) };

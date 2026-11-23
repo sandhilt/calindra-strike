@@ -27,7 +27,7 @@ export class MapBuilder {
   readonly lights: MapLight[] = [];
   readonly props: MapProp[] = [];
   readonly points: { x: number; z: number }[] = [];
-  readonly restaurants: { x: number; y: number; z: number }[] = [];
+  readonly restaurants: { x: number; y: number; z: number; name: string }[] = [];
   readonly lifts: Lift[] = [];
   readonly supplies: SupplyPoint[] = [];
   readonly interiors: SupplyPoint[] = [];
@@ -148,9 +148,9 @@ export class MapBuilder {
     this.lights.push({ x: ax, y, z: az, color });
   }
 
-  restaurant(x: number, y: number, z: number): void {
+  restaurant(x: number, y: number, z: number, name: string): void {
     const [ax, az] = this.rotXZ(x, z);
-    this.restaurants.push({ x: ax, y, z: az });
+    this.restaurants.push({ x: ax, y, z: az, name });
   }
 
   /** A lift shaft's inner footprint and the floors it serves, turned with the half being replayed. */

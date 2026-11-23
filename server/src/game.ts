@@ -288,7 +288,7 @@ export class Game {
   private attackers: 0 | 1 = 0;
   private bombRound: BombRound = { variant: 0, blackFriday: false };
   private colleagues: Colleague[] = [];
-  private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0 };
+  private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0 };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
   private winner = -1;
@@ -395,7 +395,8 @@ export class Game {
       this.colleagues = [];
       return;
     }
-    this.lunchRound = { attackers: this.attackers, endsAtTick: this.tick + LUNCH_ROUND_TICKS };
+    const target = Math.floor(this.random() * this.map.restaurants.length);
+    this.lunchRound = { attackers: this.attackers, endsAtTick: this.tick + LUNCH_ROUND_TICKS, target };
     this.colleagues = startLunch(this.flagBases()[1 - this.attackers]);
   }
 
@@ -421,7 +422,7 @@ export class Game {
   }
 
   private lunchSnapshot(): number[] {
-    return this.mode === 'almoco' ? [this.lunchRound.attackers, this.msAt(this.lunchRound.endsAtTick)] : [];
+    return this.mode === 'almoco' ? [this.lunchRound.attackers, this.msAt(this.lunchRound.endsAtTick), this.lunchRound.target] : [];
   }
 
   /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */
@@ -955,7 +956,7 @@ export class Game {
       bomb: this.bomb,
       bombPlaces: this.bombPlaces(),
       colleagues: this.colleagues,
-      restaurants: this.map.restaurants,
+      restaurants: this.mode === 'almoco' ? this.map.restaurants.slice(this.lunchRound.target, this.lunchRound.target + 1) : this.map.restaurants,
       interiors: this.map.interiors,
       supplies: this.map.supplies.map((stand, at) => ({ ...stand, ready: this.supplyReadyAt[at] <= this.tick })),
     };

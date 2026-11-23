@@ -4,7 +4,7 @@ import { LUNCH_COLLEAGUES, colleagueFromRow, colleagueRow, getMaps, modeFitsMap,
 
 const hold = { x: 0, y: 0, z: 0 };
 const places: LunchPlaces = { hold, restaurants: [{ x: 0, y: 0, z: -1200 }] };
-const round = { attackers: 1, endsAtTick: 10_000 };
+const round = { attackers: 1, endsAtTick: 10_000, target: 0 };
 
 function actor(over: Partial<LunchActor>): LunchActor {
   return { id: 7, team: 1, alive: true, using: false, x: 0, y: 0, z: 0, ...over };
@@ -24,6 +24,18 @@ function lead(start: Colleague[], leaderAt: (tick: number) => Partial<LunchActor
 }
 
 describe('hora de almoçar', () => {
+  it('a colleague sits only at the round target, not at another restaurant', () => {
+    const two: LunchPlaces = { hold, restaurants: [{ x: 0, y: 0, z: -1200 }, { x: 600, y: 0, z: -1200 }] };
+    const at = (x: number): Colleague[] => startLunch(hold).map(() => ({ kind: 'following', leader: 7, trail: [], x, y: 0, z: -1200, yaw: 0 }));
+    const leader = [actor({ x: 0, y: 0, z: -1200 })];
+    const wrong = stepLunch(at(600), two, leader, round, 0);
+    assert.ok(wrong.colleagues.every((c) => c.kind === 'following'), 'the other restaurant does not seat anyone');
+    const right = stepLunch(at(0), two, leader, round, 0);
+    assert.equal(right.outcome, 'served');
+    const other = stepLunch(at(600), two, leader, { ...round, target: 1 }, 0);
+    assert.equal(other.outcome, 'served', 'the target moves with the round');
+  });
+
   it('starts every colleague waiting at the hold point', () => {
     const colleagues = startLunch(hold);
     assert.equal(colleagues.length, LUNCH_COLLEAGUES.length);

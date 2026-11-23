@@ -16,9 +16,9 @@ describe('hora de almoçar HUD', () => {
   it('shows the seated count to the attackers and the time left to the defenders', () => {
     const view = lunchView([0, 30_000], [[2, -1, 0, 0, 0, 0], [0, -1, 0, 0, 0, 0]]);
     assert.ok(view);
-    const [attack, defend] = lunchStatus(view, 20_000);
+    const [attack, defend] = lunchStatus(view, 20_000, 'KFG');
     assert.equal(attack.team, 0);
-    assert.match(attack.text, /1\/2 sentados/);
+    assert.match(attack.text, /KFG · 1\/2 sentados/);
     assert.equal(defend.team, 1);
     assert.match(defend.text, /10 s/);
   });

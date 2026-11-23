@@ -1886,7 +1886,7 @@ export class ClientGame {
     hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
-    hud.setFlags(this.lunch ? lunchStatus(this.lunch, now) : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
+    hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
     hud.setStamina(s.stamina / STAMINA_MAX, showStamina, showStamina && s.winded);

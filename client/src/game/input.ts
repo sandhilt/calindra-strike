@@ -35,7 +35,7 @@ export class Input {
       if (this.locked && (e.code === 'Tab' || e.code === 'Space' || e.ctrlKey || e.code.startsWith('Arrow'))) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
-      this.prone = nextProne(this.prone, e.code === 'KeyV', this.movementButtons());
+      this.prone = nextProne(this.prone, e.code === 'ArrowDown', this.movementButtons());
       switch (e.code) {
         case 'Digit1':
           this.weaponReq = 1;
@@ -132,8 +132,8 @@ export class Input {
     if (this.keys.has('ControlLeft') || this.keys.has('KeyC') || this.keys.has('ControlRight')) b |= BTN.DUCK;
     if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) b |= BTN.SPRINT;
     if (this.keys.has('AltLeft') || this.keys.has('AltRight')) b |= BTN.WALK;
-    if (this.keys.has('KeyZ')) b |= BTN.LEAN_LEFT;
-    if (this.keys.has('KeyX')) b |= BTN.LEAN_RIGHT;
+    if (this.keys.has('ArrowLeft')) b |= BTN.LEAN_LEFT;
+    if (this.keys.has('ArrowRight')) b |= BTN.LEAN_RIGHT;
     return b;
   }
 

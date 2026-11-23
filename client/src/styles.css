@@ -1169,7 +1169,7 @@ input:focus-visible {
 }
 
 /* scope */
-/* CS 1.6 AWP scope: lens almost the full screen height, dark rim, thin black cross */
+/* The AWP lens, surround and reticle share the same radius. */
 .scope {
   position: absolute;
   inset: 0;
@@ -1188,43 +1188,51 @@ input:focus-visible {
 }
 .scope.on { opacity: 1; transform: scale(1); }
 
-/* Lens glass inside the scope: clear, so the magnified view stays sharp. Only a faint glare across the top and a thin ring. */
-.scope-glass {
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  /* Keep the scope out of an opacity group so the blur can sample the canvas behind the HUD. */
+  .scope.scope-blur {
+    transition: none;
+    transform: none;
+  }
+
+  .scope.scope-blur.on {
+    background: none;
+  }
+
+  .scope.scope-blur.on::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    -webkit-mask-image: radial-gradient(circle, transparent calc(var(--r) - 1px), #000 calc(var(--r) + 1px));
+    mask-image: radial-gradient(circle, transparent calc(var(--r) - 1px), #000 calc(var(--r) + 1px));
+  }
+}
+
+.scope-glass,
+.scope-reticle {
   position: absolute;
   left: 50%;
   top: 50%;
   width: calc(var(--r) * 2);
   height: calc(var(--r) * 2);
   transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 18%, transparent 30%);
-  box-shadow: inset 0 0 0 1px rgba(150, 210, 255, 0.18);
 }
+
+.scope-glass {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.85), inset 0 2px 3px rgba(255, 255, 255, 0.12);
+}
+
+.scope-reticle {
+  fill: #000;
+  filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.85));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scope { transition: none; transform: none; }
 }
-
-.scope::before,
-.scope::after {
-  content: '';
-  position: absolute;
-  background: #000;
-}
-
-.scope::before {
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-}
-
-.scope::after {
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-}
-
 
 /* center announcements */
 .center {

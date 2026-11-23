@@ -45,6 +45,8 @@ export interface QualityProfile {
   envMapPx: number;
   /** Light ray-marched lighting, on only where the graphics card supports it. */
   lightRt: boolean;
+  /** Blur outside the AWP lens. On for high only. */
+  scopeBlur: boolean;
   /**
    * Scenery that moves for looks only: vent fans, fountain water and jet. On for high and low,
    * off for performance, where they stand still. Ceiling fans are not part of this: they turn on every tier. Escalator steps are not part of this: they move on every tier.
@@ -69,6 +71,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 2048,
     envMapPx: 256,
     lightRt: true,
+    scopeBlur: true,
     ambientMotion: true,
     waterRipples: true,
     ventSmoke: true,
@@ -84,6 +87,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 256,
     lightRt: false,
+    scopeBlur: false,
     ambientMotion: true,
     waterRipples: true,
     ventSmoke: true,
@@ -99,6 +103,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 64,
     lightRt: false,
+    scopeBlur: false,
     ambientMotion: false,
     waterRipples: false,
     ventSmoke: false,

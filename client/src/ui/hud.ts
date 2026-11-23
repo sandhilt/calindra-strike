@@ -124,7 +124,20 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
+  private readonly scope = h('div', { class: 'scope', 'aria-hidden': 'true' }, [
+    h('div', { class: 'scope-glass' }),
+    svg(`<svg class="scope-reticle" viewBox="-100 -100 200 200">
+      <path d="M-100 0H100 M0 -100V100" fill="none" stroke="black" stroke-width=".35"/>
+      ${[0, 90, 180, 270].map((angle) => `
+        <g transform="rotate(${angle})">
+          <path d="M100 -1.2H63L51 0 63 1.2H100Z"/>
+          <path d="M4 -1V1 M12 -1V1 M20 -1V1 M28 -1V1 M36 -1V1 M44 -1V1"
+                fill="none" stroke="black" stroke-width=".3"/>
+          <circle cx="8" r=".65"/><circle cx="16" r=".65"/><circle cx="24" r=".65"/>
+          <circle cx="32" r=".65"/><circle cx="40" r=".65"/><circle cx="48" r=".65"/>
+        </g>`).join('')}
+    </svg>`),
+  ]);
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
   /** Spectator controls call back here; the game decides what each action does. */
   onSpectate: (action: SpectatorAction) => void = () => {};
@@ -551,6 +564,10 @@ export class Hud {
 
   setProtect(on: boolean): void {
     this.protect.style.opacity = on ? '1' : '0';
+  }
+
+  setScopeBlur(enabled: boolean): void {
+    this.scope.classList.toggle('scope-blur', enabled);
   }
 
   setScope(overlay: ScopeOverlay): void {

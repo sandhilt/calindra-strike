@@ -109,7 +109,7 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' }), h('div', { class: 'scope-mil' })]);
+  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
   /** Spectator controls call back here; the game decides what each action does. */
   onSpectate: (action: SpectatorAction) => void = () => {};
@@ -477,9 +477,7 @@ export class Hud {
     this.protect.style.opacity = on ? '1' : '0';
   }
 
-  /** The optic keeps its look while it fades out, so the class only changes when a scope is on. */
   setScope(overlay: ScopeOverlay): void {
-    if (overlay !== 'none') this.scope.classList.toggle('optic', overlay === 'optic');
     this.scope.classList.toggle('on', overlay !== 'none');
   }
 

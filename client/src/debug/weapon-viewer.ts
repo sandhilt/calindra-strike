@@ -93,7 +93,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
       }, (v) => `${v}°`, nothing),
       checkRow('andando', 'balanço de caminhada', () => walking, (v) => (walking = v), nothing),
       checkRow('correndo', 'pose de corrida', () => running, (v) => (running = v), nothing),
-      checkRow('mirando', 'pose de mira e luneta', () => aiming, (v) => (aiming = v), nothing),
+      checkRow('mirando', 'pose de mira, com o ponto vermelho', () => aiming, (v) => (aiming = v), nothing),
       checkRow('canhoto', 'arma no lado esquerdo', () => leftHanded, (v) => view.setLeftHanded((leftHanded = v)), nothing),
     );
 
@@ -167,7 +167,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     h('header', { class: 'menu-head' }, [h('div', {}, [h('h2', { text: 'debug' }), h('p', { class: 'sub', text: 'armas, animações e ângulo' })]), exit]),
     h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [weaponHost, reloadHost, placementHost, copied, readout])]),
   ]);
-  const scopeHost = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' }), h('div', { class: 'scope-mil' })]);
+  const scopeHost = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
   const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, scopeHost, panel]);
   root.replaceChildren(stage);
 
@@ -193,7 +193,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     if (holdFire && def.fireTicks > 0) for (let i = autoFireShots(carry, dt, def.fireTicks); i > 0; i--) view.fire(false);
     aimT = stepBlend(aimT, previewAim(def, aiming && !running, aimT).aiming, dt, ADS_BLEND_SECONDS);
     const aim = previewAim(def, aiming && !running, aimT);
-    scopeHost.className = `scope${aim.overlay === 'none' ? '' : ' on'}${aim.overlay === 'optic' ? ' optic' : ''}`;
+    scopeHost.className = `scope${aim.overlay === 'none' ? '' : ' on'}`;
     view.update({
       speed: previewMovementSpeed(walking, running),
       stance: STANCE.STAND,

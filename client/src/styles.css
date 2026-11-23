@@ -1181,45 +1181,6 @@ input:focus-visible {
   width: 1px;
 }
 
-/* War-game optic of an aimed rifle: a smaller lens, a lighter mask and a thin reticle with mil ticks.
-   The AWP keeps the CS mask above; the two share the fade and the reduced-motion rule. */
-.scope-mil { display: none; }
-.scope.optic {
-  --r: min(41vh, 41vw);
-  background: radial-gradient(
-    circle at center,
-    transparent 0,
-    transparent calc(var(--r) - 12px),
-    rgba(0, 0, 0, 0.5) calc(var(--r) - 4px),
-    rgba(0, 0, 0, 0.86) calc(var(--r) - 1px),
-    rgba(0, 0, 0, 0.72) calc(var(--r) + 1px),
-    rgba(0, 0, 0, 0.72) 100%
-  );
-}
-.scope.optic::before,
-.scope.optic::after { background: none; }
-.scope.optic .scope-glass { box-shadow: inset 0 0 0 2px rgba(20, 24, 22, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.35); }
-.scope.optic .scope-mil {
-  --tick: 30px;
-  --mil: rgba(8, 10, 9, 0.92);
-  --gap: 14px;
-  display: block;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--r) * 1.84);
-  height: calc(var(--r) * 1.84);
-  transform: translate(-50%, -50%);
-  background:
-    radial-gradient(circle at center, #ff3b30 0, #ff3b30 1.5px, transparent 2.5px),
-    linear-gradient(to right, var(--mil) 0, var(--mil) calc(50% - var(--gap)), transparent calc(50% - var(--gap)), transparent calc(50% + var(--gap)), var(--mil) calc(50% + var(--gap)), var(--mil) 100%) center / 100% 1px no-repeat,
-    linear-gradient(to bottom, var(--mil) 0, var(--mil) calc(50% - var(--gap)), transparent calc(50% - var(--gap)), transparent calc(50% + var(--gap)), var(--mil) calc(50% + var(--gap)), var(--mil) 100%) center / 1px 100% no-repeat,
-    linear-gradient(to right, transparent calc(50% - 0.5px), var(--mil) calc(50% - 0.5px), var(--mil) calc(50% + 0.5px), transparent calc(50% + 0.5px)) center / var(--tick) 9px repeat-x,
-    linear-gradient(to bottom, transparent calc(50% - 0.5px), var(--mil) calc(50% - 0.5px), var(--mil) calc(50% + 0.5px), transparent calc(50% + 0.5px)) center / 9px var(--tick) repeat-y;
-  -webkit-mask: radial-gradient(circle at center, #000 calc(50% - 1px), transparent 50%);
-  mask: radial-gradient(circle at center, #000 calc(50% - 1px), transparent 50%);
-}
-
 
 /* center announcements */
 .center {

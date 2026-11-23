@@ -31,8 +31,8 @@ export interface RecoilDef {
   recovery: number; // recoil index recovered per second when not firing
 }
 
-/** 'scope' draws a lens over the view and hides the gun, 'sights' keeps the gun in view, raised to the eye. */
-export type AdsKind = 'sights' | 'scope';
+/** Both keep the gun in view, raised to the eye: 'sights' lines up the iron sights, 'dot' looks through a red dot optic on the gun. */
+export type AdsKind = 'sights' | 'dot';
 
 export interface AdsDef {
   kind: AdsKind;
@@ -235,7 +235,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 221,
     scopedSpeed: 221,
     zoomFov: [],
-    ads: { kind: 'scope', fov: 45, speed: 150, spreadMult: 0.55 },
+    ads: { kind: 'dot', fov: 66, speed: 175, spreadMult: 0.65 },
     spread: { base: 0.0035, move: 0.11, air: 0.25, duckMult: 0.75, perShot: 0.004, perShotMax: 0.035 },
     recoil: { climb: 0.75, maxPitch: 7, sway: 1.6, swayPeriod: 14, swayStart: 7, recovery: 8 },
   }),

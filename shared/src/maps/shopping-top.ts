@@ -12,6 +12,9 @@ import type { EscalatorTravel } from './types.ts';
 
 /** Doorway in the front rail for the lift: the shaft walls stand just outside it. */
 export const LIFT_GAP_HALF = 62;
+/** Landing plate under the cab's floor (which tops out half a unit above the stop), so the two never share a surface. */
+const LANDING_THICKNESS = 4;
+const LANDING_DROP = 1;
 const HEDGE = 66;
 const LOW_HEDGE = 22;
 const BOARD = 140;
@@ -146,6 +149,8 @@ function liftShaft(b: MapBuilder): void {
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK + doorTop, DECK3);
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK3 + doorTop, ROOF);
   b.deco(x0 - 2, ROOF, zFront - 2, x1 + 2, ROOF + 4, zBack + 2, 'charcoal');
+  // The cab only follows its riders, so an upper doorway would open onto an empty shaft while it is elsewhere.
+  for (const stop of [DECK, DECK3]) b.deco(LIFT_MIN_X, stop - LANDING_THICKNESS, LIFT_MIN_Z, LIFT_MAX_X, stop - LANDING_DROP, LIFT_MAX_Z, 'metal');
   b.lift(LIFT_MIN_X, LIFT_MIN_Z, LIFT_MAX_X, LIFT_MAX_Z, [0, DECK, DECK3]);
   b.prop({
     kind: 'lift', x: (LIFT_MIN_X + LIFT_MAX_X) / 2, z: (LIFT_MIN_Z + LIFT_MAX_Z) / 2, yaw: 0,

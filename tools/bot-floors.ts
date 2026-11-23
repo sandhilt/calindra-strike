@@ -79,7 +79,7 @@ function run(map: string, mode: string, bots: number, seconds: number, seed: num
       const first = trail.samples[0];
       const near = trail.samples.every((q) => Math.hypot(q.x - first.x, q.z - first.z) < STUCK_RADIUS_UNITS && Math.abs(q.y - first.y) < 24);
       const guarding = game.map.flagBases.some((base) => Math.hypot(base.x - s.x, base.z - s.z) < GUARD_RADIUS_UNITS);
-      const busy = p.using || guarding || s.tick - s.lastFire < stuckSeconds * TICK_RATE;
+      const busy = p.using || guarding || p.brain.browsing || s.tick - s.lastFire < stuckSeconds * TICK_RATE;
       if (!near || busy) continue;
       trail.stuckAt = { x: s.x, y: s.y, z: s.z };
       tally.stuckEpisodes++;

@@ -943,6 +943,7 @@ export class Game {
       bombPlaces: this.bombPlaces(),
       colleagues: this.colleagues,
       restaurants: this.map.restaurants,
+      interiors: this.map.interiors,
       supplies: this.map.supplies.map((stand, at) => ({ ...stand, ready: this.supplyReadyAt[at] <= this.tick })),
     };
     for (const p of list) {

@@ -107,6 +107,7 @@ export class Pilot {
       bombPlaces: view.bomb.length || colleagues ? bombPlaces(view, world) : undefined,
       colleagues,
       restaurants: map.restaurants,
+      interiors: map.interiors,
       flagBases: map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) })),
     });
     if (this.brain.directiveEnded) return idle;

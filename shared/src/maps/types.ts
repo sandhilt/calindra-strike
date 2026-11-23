@@ -121,6 +121,8 @@ export interface MapDef {
   restaurants: { x: number; y: number; z: number }[];
   /** Glass lifts of the map; empty where there are none. */
   lifts: readonly Lift[];
+  /** Places inside shops and rooms that roaming bots walk to now and then, so interiors are not left empty; empty where there are none. */
+  interiors: readonly SupplyPoint[];
   /** Supply stands where a player restocks health, armour and ammunition; empty where there are none. */
   supplies: readonly SupplyPoint[];
   boxes: Box[];

@@ -81,6 +81,7 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
     b.block(cx, -1100, 140, 36, 40, 'desk');
     b.landmark(STORE_BRANDS[brand].name, cx, -1000);
     dressStore(new Room(b, cx, 0, -Z), brand);
+    b.interior(cx, 0, -1010);
   });
 }
 
@@ -220,6 +221,7 @@ export function buildShopping(): MapDef {
     restaurants: b.restaurants,
     lifts: b.lifts,
     supplies: b.supplies,
+    interiors: b.interiors,
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

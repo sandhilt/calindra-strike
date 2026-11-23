@@ -81,6 +81,7 @@ function lounge(b: MapBuilder): void {
   b.deco(-264, DECK3 + 44, -1112, 264, DECK3 + 48, -1068, 'white', 0x3a2a1c);
   b.deco(-240, DECK3 + 110, -1150, 240, DECK3 + 190, -1148, brandMat('cacau-chou'));
   b.landmark('Café do Mirante', 0, -1090);
+  b.interior(0, DECK3, -1030);
   for (const x of [-840, 840]) {
     sofa(b, x, -1090, -1);
     sofa(b, x + 220, -1090, -1);

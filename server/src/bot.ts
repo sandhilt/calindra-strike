@@ -54,6 +54,8 @@ export interface BotEnv {
   restaurants?: readonly LunchPoint[];
   /** Supply stands of the map and whether each one is full. */
   supplies?: readonly { x: number; y: number; z: number; ready: boolean }[];
+  /** Places in shops and rooms that roaming bots now and then walk to. */
+  interiors?: readonly { x: number; y: number; z: number }[];
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
@@ -228,6 +230,12 @@ const CTF_DEFENDER_CYCLE = 4;
 const JUMP_LAUNCH_DISTANCE_UNITS = 72; // how close to the next node a bot starts its jump
 const JUMP_MIN_ALIGN_SPEED_UNITS = 60; // slower than this the bot is not carrying momentum in a wrong direction
 const JUMP_MIN_ALIGNMENT = Math.cos(35 * DEG); // moving within this angle of the node when jumping
+/** Roaming picks above this roll go to a shop or room interior when the map has any: the last fifth of the dice. Below it a bot chases an enemy up to 0.65 and wanders to a random node up to here. */
+const INTERIOR_ROAM_FROM = 0.8;
+const INTERIOR_GOAL_TICKS = 30 * TICK_RATE; // far enough to walk across the mall before the bot gives up
+const BROWSE_MIN_TICKS = 3 * TICK_RATE;
+const BROWSE_EXTRA_TICKS = 4 * TICK_RATE;
+const BROWSE_TURN_RAD_PER_S = 0.7;
 const RESTOCK_GOAL_TICKS = 20 * TICK_RATE; // a walk to a supply stand is allowed this long before the bot replans
 const CAB_CENTRE_UNITS = 12; // a rider this close to the cell the path rides from stands still
 const WAYPOINT_RADIUS_UNITS = 26; // arrived at a nav node
@@ -411,6 +419,8 @@ export class BotBrain {
   private reached = false;
   private ended = false;
   get arrived(): boolean { return this.reached; }
+  /** Standing in a shop or room on purpose, looking around. */
+  get browsing(): boolean { return this.browseUntil > 0; }
 
   /** True once after the bot picks up a new enemy, so the game can call it out on the radio. */
   takeSpotted(): boolean {
@@ -450,6 +460,9 @@ export class BotBrain {
   private jumps: boolean[] = [];
   /** Per path node: the way there from the node before it is a lift ride. */
   private lifts: boolean[] = [];
+  /** The roaming goal is a shop or room interior, where the bot browses on arrival. */
+  private goalIsInterior = false;
+  private browseUntil = 0;
   private pathIdx = 0;
   /** Closest the bot has been to the current waypoint, to tell that it has gone past it. */
   private waypointClosest = Infinity;
@@ -530,6 +543,8 @@ export class BotBrain {
 
   private pickGoal(self: BotAgent, env: BotEnv): void {
     const s = self.state;
+    this.goalIsInterior = false;
+    this.browseUntil = 0;
     if (this.directive?.kind === 'goto') {
       this.goal = this.directive;
       this.goalUntil = Infinity;
@@ -566,13 +581,17 @@ export class BotBrain {
     const r = env.random();
     const drop = env.airdrops.find((d) => d.landed && Math.hypot(d.x - s.x, d.z - s.z) < 1600);
     const enemy = this.nearestEnemy(self, env);
+    const interior = env.interiors?.length && r > INTERIOR_ROAM_FROM ? env.interiors[Math.floor(env.random() * env.interiors.length)] : null;
     if (drop && r < 0.6) this.goal = { x: drop.x, y: drop.y, z: drop.z };
-    else if (enemy && r < 0.85) this.goal = { x: enemy.state.x, y: enemy.state.y, z: enemy.state.z };
+    else if (interior) {
+      this.goal = { x: interior.x, y: interior.y, z: interior.z };
+      this.goalIsInterior = true;
+    } else if (enemy && r < 0.65) this.goal = { x: enemy.state.x, y: enemy.state.y, z: enemy.state.z };
     else {
       const n = env.nav.randomNode(env.random);
       this.goal = { x: n.x, y: n.y, z: n.z };
     }
-    this.goalUntil = env.tick + 180 + Math.floor(env.random() * 180);
+    this.goalUntil = env.tick + (this.goalIsInterior ? INTERIOR_GOAL_TICKS : 180 + Math.floor(env.random() * 180));
     this.repathAt = 0;
   }
 
@@ -748,7 +767,10 @@ export class BotBrain {
     }
     const node = this.navigationNode(self, env);
     if (!node) {
-      if (this.goal && atPoint(s, this.goal)) this.pickGoal(self, env);
+      if (this.goal && atPoint(s, this.goal)) {
+        if (this.goalIsInterior && this.browse(env, dt)) return this.cmd(0, weapon, env);
+        this.pickGoal(self, env);
+      }
       this.repathAt = Math.min(this.repathAt, env.tick + 10);
       if (bombGoal?.holdRadiusUnits != null && Math.hypot(bombGoal.x - s.x, bombGoal.z - s.z) < APPROACH_RADIUS_UNITS) {
         const [yaw] = anglesTo(s.x, 0, s.z, bombGoal.x, 0, bombGoal.z);
@@ -759,12 +781,14 @@ export class BotBrain {
       const ride = this.cabControls(s, env);
       if (ride !== null) buttons |= ride;
       else {
-        const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
+        // riding may have just advanced the path: steer to the node it now points at
+        const next = this.path[this.pathIdx] ?? node;
+        const [yaw] = anglesTo(s.x, 0, s.z, next.x, 0, next.z);
         this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
         // Steer with the keys, not just the view: a bot that only walks forward carries its momentum past a sharp turn
         // (a ramp foot, a doorway) while it is still turning, and slides off the side.
         buttons |= moveButtons(wrapAngle(yaw - this.yaw));
-        if (this.jumps[this.pathIdx] && readyToJump(s, node)) buttons |= BTN.JUMP;
+        if (this.jumps[this.pathIdx] && readyToJump(s, next)) buttons |= BTN.JUMP;
       }
     }
 
@@ -810,9 +834,21 @@ export class BotBrain {
    * Inside a lift shaft the cab does the walking: stand in the middle and wait, crouching to go down, until the floor
    * the path leaves at is level with the bot. Null when the bot is not riding.
    */
+  /** A bot that reaches a shop or room interior looks around for a few seconds before it moves on. True while it does. */
+  private browse(env: BotEnv, dt: number): boolean {
+    if (this.browseUntil === 0) this.browseUntil = env.tick + BROWSE_MIN_TICKS + Math.floor(env.random() * BROWSE_EXTRA_TICKS);
+    if (env.tick >= this.browseUntil) return false;
+    this.yaw = wrapAngle(this.yaw + BROWSE_TURN_RAD_PER_S * dt);
+    return true;
+  }
+
   private cabControls(s: PlayerState, env: BotEnv): number | null {
-    if (!liftAt(env.world.map.lifts, s.x, s.y, s.z)) return null;
-    const ahead = this.lifts.indexOf(true, this.pathIdx);
+    const shaft = liftAt(env.world.map.lifts, s.x, s.y, s.z);
+    if (!shaft) return null;
+    // only a ride that leaves from this shaft counts: a later ride in another one is not ours yet
+    const next = this.lifts.indexOf(true, this.pathIdx);
+    const inShaft = (n: NavNode) => n.x > shaft.minX && n.x < shaft.maxX && n.z > shaft.minZ && n.z < shaft.maxZ;
+    const ahead = next >= 0 && inShaft(this.path[next]) ? next : -1;
     const target = this.path[ahead >= 0 ? ahead : this.pathIdx];
     if (!target) return null;
     if (Math.abs(target.y - s.y) <= REACH_MAX_HEIGHT_UNITS) {

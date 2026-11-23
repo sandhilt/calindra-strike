@@ -30,6 +30,7 @@ export class MapBuilder {
   readonly restaurants: { x: number; y: number; z: number }[] = [];
   readonly lifts: Lift[] = [];
   readonly supplies: SupplyPoint[] = [];
+  readonly interiors: SupplyPoint[] = [];
   private rot = 0;
   private readonly authoredFeatures: MapFeature[] = [];
 
@@ -157,6 +158,12 @@ export class MapBuilder {
     const [ax1, az1] = this.rotXZ(minX, minZ);
     const [ax2, az2] = this.rotXZ(maxX, maxZ);
     this.lifts.push({ minX: Math.min(ax1, ax2), maxX: Math.max(ax1, ax2), minZ: Math.min(az1, az2), maxZ: Math.max(az1, az2), stops });
+  }
+
+  /** A place inside a room that roaming bots visit, standing on a floor at `y`. */
+  interior(x: number, y: number, z: number): void {
+    const [ax, az] = this.rotXZ(x, z);
+    this.interiors.push({ x: ax, y, z: az });
   }
 
   /** A supply stand with its floor at `y`. */

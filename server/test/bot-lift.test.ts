@@ -64,6 +64,12 @@ describe('bots and the glass lift', () => {
     });
   }
 
+  it('crosses the mall from one top floor to the other, riding down one shaft and up the other', () => {
+    const r = trip([0, 384, -616], [0, 384, 800]);
+    assert.ok(r.seconds < 40, `took ${r.seconds}s, stopped at ${[r.state.x, r.state.y, r.state.z].map(Math.round)}`);
+    assert.ok(Math.abs(r.state.y - 384) <= 20);
+  });
+
   it('does not wait in the cab forever when its goal changes mid-ride', () => {
     const self = agent(0, 0, -520);
     const env: BotEnv = { world: collision, nav, random: seeded(3), players: [self], airdrops: [], tick: 0, now: 0, mode: 'tdm' };

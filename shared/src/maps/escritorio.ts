@@ -153,6 +153,7 @@ export function buildEscritorio(): MapDef {
     restaurants: [],
     lifts: [],
     supplies: [],
+    interiors: [],
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

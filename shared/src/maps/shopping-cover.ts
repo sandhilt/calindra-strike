@@ -82,20 +82,17 @@ function infoDesk(b: MapBuilder, x: number, z: number): void {
   b.landmark('Informações', x, z);
 }
 
-/** Ad boards that cross the covered walkway in front of the stores, alternating sides so no straight line gets through. */
+/**
+ * Ad boards that cross the covered walkway on its atrium edge. None stands against the storefronts: the windows,
+ * counters and partitions already crowd that side, so a board there only made a maze of walls in front of the doors.
+ */
 function gallery(b: MapBuilder): void {
-  const front = -880;
   const edge = -672;
   const run = 110;
-  const boards: readonly (readonly [number, 'store' | 'atrium', StoreBrand])[] = [
-    [-1300, 'atrium', 'zarra'], [-950, 'store', 'mequi'], [-840, 'atrium', 'cea'], [-640, 'store', 'rener'],
-    [-500, 'atrium', 'hew'], [-60, 'store', 'kfg'], [90, 'atrium', 'bobis'], [560, 'store', 'amerikanas'],
-    [1230, 'atrium', 'cacau-chou'],
+  const boards: readonly (readonly [number, StoreBrand])[] = [
+    [-1300, 'zarra'], [-840, 'cea'], [-500, 'hew'], [90, 'bobis'], [1230, 'cacau-chou'],
   ];
-  for (const [x, side, brand] of boards) {
-    const z = side === 'store' ? front + 12 + run / 2 : edge - 8 - run / 2;
-    board(b, x, z, run, GALLERY_FLOOR, WALL, brand);
-  }
+  for (const [x, brand] of boards) board(b, x, edge - 8 - run / 2, run, GALLERY_FLOOR, WALL, brand);
 }
 
 function atrium(b: MapBuilder): void {

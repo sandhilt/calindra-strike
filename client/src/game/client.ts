@@ -20,6 +20,7 @@ import {
   radioLine,
   radioMenuById,
   TEAMS,
+  LUNCH_COLLEAGUES,
   ZOOM_SENSITIVITY_RATIO,
   PROTOCOL_VERSION,
   type PlayerState,
@@ -73,6 +74,8 @@ import { BLACK_FRIDAY_PITCH, BLACK_FRIDAY_TAG, DEFUSE_BANNER_MS, useRefusal, bee
 import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
+import { ColleaguesView } from './render/colleagues.ts';
+import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
@@ -255,6 +258,8 @@ export class ClientGame {
   private readonly remotes = new Map<number, Remote>();
   private flags: FlagView[] = [];
   private flagRenderer?: FlagsView;
+  private lunch: LunchView | null = null;
+  private colleaguesView?: ColleaguesView;
   private bomb: BombView | null = null;
   private announcedBombRound = '';
   private bombRenderer?: BombRenderer;
@@ -575,6 +580,10 @@ export class ClientGame {
     this.flagRenderer?.dispose();
     this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
+    this.lunch = null;
+    this.colleaguesView?.dispose();
+    this.colleaguesView = new ColleaguesView();
+    this.scene.add(this.colleaguesView.group);
     this.bombRenderer?.dispose();
     this.bombRenderer = new BombRenderer(bases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
@@ -650,6 +659,7 @@ export class ClientGame {
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
     this.flags = flagViews(m.fl);
+    this.lunch = this.match.mode === 'almoco' ? lunchView(m.lu, m.lc) : null;
     const bomb = this.match.mode === 'defuse' ? bombView(m.bm) : null;
     this.bomb = bomb;
     this.collision.setProp(bomb ? bombStandBox(bomb.state, bomb) : null);
@@ -763,6 +773,9 @@ export class ClientGame {
       }
       case 'bomb':
         this.onBombEvent(e);
+        break;
+      case 'lunch':
+        this.onLunchEvent(e);
         break;
       case 'shot':
         this.onRemoteShot(e);
@@ -933,10 +946,21 @@ export class ClientGame {
     return this.cameraMode === 'first' ? this.followedId : -1;
   }
 
+  private onLunchEvent(e: Extract<GameEvent, { k: 'lunch' }>): void {
+    const actor = this.nameOf(e.by);
+    const text = lunchMessage(e, actor.name, LUNCH_COLLEAGUES[e.who] ?? 'colega', this.match.phase === 'live');
+    if (e.what === 'served' || e.what === 'full') {
+      this.hud.announce(e.what === 'full' ? 'acabaram os lugares' : 'todo mundo almoçou', text, e.team !== this.myTeam);
+      return;
+    }
+    this.hud.info(text, e.by >= 0 ? actor.color : TEAMS[e.team].color);
+  }
+
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
     if (info.mode !== 'ctf') this.flags = [];
+    if (info.mode !== 'almoco') this.lunch = null;
     if (info.mode !== 'defuse') {
       this.bomb = null;
       this.announcedBombRound = '';
@@ -1428,6 +1452,7 @@ export class ClientGame {
     this.updateRemotes(dt);
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
+    this.colleaguesView?.update(this.lunch?.colleagues ?? [], dt);
     this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
     this.beepBomb(this.serverNow());
     this.typeOnBomb();
@@ -1672,7 +1697,7 @@ export class ClientGame {
     hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
-    hud.setFlags(this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
+    hud.setFlags(this.lunch ? lunchStatus(this.lunch, now) : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
 
     if (this.spectator) {

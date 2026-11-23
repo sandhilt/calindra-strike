@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -158,3 +158,15 @@ export const BOMB_DESK_SIZE_UNITS = 50;
 export const BOMB_DESK_HEIGHT_UNITS = 30;
 export const BOMB_CRATE_SIZE_UNITS = 32;
 export const BOMB_CRATE_HEIGHT_UNITS = 24;
+
+// Hora de almoçar (tuning values)
+export const LUNCH_ROUND_TICKS = 90 * TICK_RATE; // a round lasts 90 s, then the food court is full
+export const LUNCH_WIN_ROUNDS = 4; // rounds to win the match early
+export const LUNCH_USE_RADIUS_UNITS = 80; // how close a rescuer stands to call a colleague with USE
+export const LUNCH_WALK_UNITS_PER_TICK = MAX_SPEED / TICK_RATE; // colleagues keep up with a running player
+export const LUNCH_FOLLOW_GAP_UNITS = 64; // the first follower stops this far behind its leader
+export const LUNCH_FOLLOW_SPACING_UNITS = 44; // each further follower trails this much more
+export const LUNCH_TRAIL_STEP_UNITS = 24; // leader positions are kept every this many units walked
+export const LUNCH_TRAIL_MAX_POINTS = 240;
+export const LUNCH_SEAT_RADIUS_UNITS = 180; // a colleague this close to a restaurant counter sits down
+export const LUNCH_SEAT_HEIGHT_UNITS = 48; // ...and on the same floor

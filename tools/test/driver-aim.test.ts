@@ -31,7 +31,7 @@ function drive(skill: number, random: () => number, enemy: { x: number; y: numbe
   for (let tick = 1; tick <= ticks; tick++) {
     const snap: Snap = {
       t: 'snap', time: tick * TICK_MS, ack: 0, me: packState(state),
-      ps: [[2, enemy.x, enemy.y, enemy.z, 0, 0, RF_ALIVE]], ad: [], fl: [], bm: [],
+      ps: [[2, enemy.x, enemy.y, enemy.z, 0, 0, RF_ALIVE]], ad: [], fl: [], bm: [], lu: [], lc: [],
     };
     inputs.push(driver.drive(snap, FORJA, 1, teams, tick));
   }
@@ -49,7 +49,7 @@ function ticksToFirstShot(skill: number, seed: number): number {
   for (let tick = 1; tick <= 120; tick++) {
     const snap: Snap = {
       t: 'snap', time: tick * TICK_MS, ack: 0, me: packState(state),
-      ps: [[2, ENEMY.x, ENEMY.y, ENEMY.z, 0, 0, RF_ALIVE]], ad: [], fl: [], bm: [],
+      ps: [[2, ENEMY.x, ENEMY.y, ENEMY.z, 0, 0, RF_ALIVE]], ad: [], fl: [], bm: [], lu: [], lc: [],
     };
     if (driver.drive(snap, FORJA, 1, teams, tick).buttons & BTN.ATTACK) return tick;
   }
@@ -86,7 +86,7 @@ describe('dev bot aim moves like a hand', () => {
     const teams = new Map([[1, 0]]);
     const yaws = [];
     for (let tick = 1; tick <= 60; tick++) {
-      const snap: Snap = { t: 'snap', time: tick * TICK_MS, ack: 0, me: packState(state), ps: [], ad: [], fl: [], bm: [] };
+      const snap: Snap = { t: 'snap', time: tick * TICK_MS, ack: 0, me: packState(state), ps: [], ad: [], fl: [], bm: [], lu: [], lc: [] };
       yaws.push(driver.drive(snap, FORJA, 1, teams, tick).yaw);
     }
     const heading = yaws.at(-1)!;

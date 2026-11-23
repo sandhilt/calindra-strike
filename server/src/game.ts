@@ -58,6 +58,14 @@ import {
   pickLegendary,
   rayHitbox,
   round,
+  LUNCH_ROUND_TICKS,
+  LUNCH_WIN_ROUNDS,
+  colleagueRow,
+  modeFitsMap,
+  startLunch,
+  stepLunch,
+  type Colleague,
+  type LunchRound,
   spawnState,
   bombSpawnScore,
   practiceRound,
@@ -122,7 +130,7 @@ export function resolveModes(m: ModeSetting | GameMode[] | undefined): GameMode[
  */
 function rotationFor(maps: number[], modes: GameMode[]): { map: number; mode: GameMode }[] {
   const left: { map: number; mode: GameMode }[] = [];
-  for (const mode of modes) for (const map of maps) left.push({ map, mode });
+  for (const mode of modes) for (const map of maps) if (modeFitsMap(mode, getMap(map))) left.push({ map, mode });
   if (left.length === 0) throw new Error('No playable map/mode combination');
   const out = [left.shift() as { map: number; mode: GameMode }];
   while (left.length) {
@@ -267,6 +275,8 @@ export class Game {
   /** Team that carries and plants; the other team defends. Swaps after every round. */
   private attackers: 0 | 1 = 0;
   private bombRound: BombRound = { variant: 0, blackFriday: false };
+  private colleagues: Colleague[] = [];
+  private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0 };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
   private winner = -1;
@@ -335,6 +345,7 @@ export class Game {
   private scoreLimit(): number {
     if (this.mode === 'ctf') return this.ctfLimit;
     if (this.mode === 'defuse') return this.defuseLimit;
+    if (this.mode === 'almoco') return LUNCH_WIN_ROUNDS;
     return MODE_RULES[this.mode].killScore ? this.tdmLimit : 0;
   }
 
@@ -360,6 +371,42 @@ export class Game {
     this.matchHadBlackFriday = false;
     this.startBombRound();
     this.syncBombStand();
+    this.startLunchRound();
+  }
+
+  /** Colleagues wait at the defenders' base; the attackers have one round to take them all to lunch. */
+  private startLunchRound(): void {
+    if (this.mode !== 'almoco') {
+      this.colleagues = [];
+      return;
+    }
+    this.lunchRound = { attackers: this.attackers, endsAtTick: this.tick + LUNCH_ROUND_TICKS };
+    this.colleagues = startLunch(this.flagBases()[1 - this.attackers]);
+  }
+
+  /** Warmup plays rounds too, unscored, so a lone player can practise leading colleagues to lunch. */
+  private updateLunch(): void {
+    if (this.mode !== 'almoco' || this.phase === 'podium') return;
+    const actors = [...this.players.values()].map((p) => ({
+      id: p.id, team: p.team, alive: p.alive, using: p.using, x: p.state.x, y: p.state.y, z: p.state.z,
+    }));
+    const places = { hold: this.flagBases()[1 - this.attackers], restaurants: this.map.restaurants };
+    const result = stepLunch(this.colleagues, places, actors, this.lunchRound, this.tick);
+    this.colleagues = result.colleagues;
+    for (const event of result.events) this.emit(event);
+    if (!result.outcome) return;
+    if (this.phase === 'live') {
+      const winner = result.outcome === 'served' ? this.attackers : 1 - this.attackers;
+      this.teamScores[winner]++;
+      this.scoreDirty = true;
+      if (this.teamScores[winner] >= LUNCH_WIN_ROUNDS) this.endPending = true;
+    }
+    this.attackers = this.attackers === 0 ? 1 : 0;
+    this.startLunchRound();
+  }
+
+  private lunchSnapshot(): number[] {
+    return this.mode === 'almoco' ? [this.lunchRound.attackers, this.msAt(this.lunchRound.endsAtTick)] : [];
   }
 
   /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */
@@ -890,6 +937,8 @@ export class Game {
       flagBases: this.flagBases(),
       bomb: this.bomb,
       bombPlaces: this.bombPlaces(),
+      colleagues: this.colleagues,
+      restaurants: this.map.restaurants,
     };
     for (const p of list) {
       if (!p.brain || !p.alive || p.queue.length >= 2) continue;
@@ -1428,6 +1477,7 @@ export class Game {
 
     this.updateFlags();
     this.updateBomb();
+    this.updateLunch();
     this.syncBombStand();
     this.recordHistory();
     this.flushEvents();
@@ -1565,7 +1615,9 @@ export class Game {
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);
     const fl = this.flagSnapshot();
     const bm = this.bombSnapshot();
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)}}`;
+    const lu = this.lunchSnapshot();
+    const lc = this.colleagues.map(colleagueRow);
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';

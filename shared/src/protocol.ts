@@ -1,5 +1,6 @@
 import type { FlagEvent } from './ctf.ts';
 import type { BombEvent } from './defuse.ts';
+import type { LunchEvent } from './lunch.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
 import { radioLine } from './radio.ts';
 import type { Cmd, PlayerState } from './sim.ts';
@@ -121,14 +122,15 @@ export function encodeCmd(c: Cmd): number[] {
 // ------------------------------------------------------------ server -> client
 
 export type MatchPhase = 'warmup' | 'live' | 'podium';
-export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse';
-export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse'];
+export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse' | 'almoco';
+export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', 'almoco'];
 
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
   tdm: 'team deathmatch',
   ctf: 'capture a bandeira',
   defuse: 'debug defusion',
+  almoco: 'hora de almoçar',
 };
 
 export const MODE_RULES = {
@@ -136,6 +138,7 @@ export const MODE_RULES = {
   tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true },
   ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false },
   defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false },
+  almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false },
 } as const;
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
 
@@ -178,6 +181,7 @@ export type GameEvent =
   | { k: 'spray'; id: number; p: number[]; n: number[]; r: number; left: number }
   | FlagEvent
   | BombEvent
+  | LunchEvent
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
@@ -203,7 +207,8 @@ export type ServerMsg =
   // plantByMs: server ms when the attackers lose the laptop to the other team, 0 once planted or when the limit is off.
   // state: 0 home, 1 carried, 2 planting, 3 dropped, 4 planted. actorId is the carrier (carried, planting) or the defuser (planted), -1 if none.
   // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[] }
+  // lu (hora de almoçar only, [] otherwise): [attackers, roundEndsAtMs]; lc: one colleagueRow per colleague.
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
   | { t: 'score'; s: number[][]; ts: number[] }

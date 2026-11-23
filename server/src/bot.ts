@@ -17,6 +17,9 @@ import {
   clamp,
   eyeHeight,
   inBombReach,
+  LUNCH_USE_RADIUS_UNITS,
+  type Colleague,
+  type LunchPoint,
   weaponDef,
   wrapAngle,
 } from '@calindra-strike/shared';
@@ -42,6 +45,8 @@ export interface BotEnv {
   flagBases?: readonly FlagBase[];
   bomb?: BombState;
   bombPlaces?: BombPlaces;
+  colleagues?: readonly Colleague[];
+  restaurants?: readonly LunchPoint[];
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
@@ -99,6 +104,44 @@ export function pickBombGoal(self: BotAgent, env: BotEnv): BombGoal | null {
   const anchor = carrier?.state ?? places.site;
   if (bomb.kind === 'planting') return { ...guardPatrolPoint(anchor, self, env.tick), holdRadiusUnits: null };
   return { x: anchor.x, y: anchor.y, z: anchor.z, holdRadiusUnits: null, settleRadiusUnits: ESCORT_TRAIL_UNITS };
+}
+
+/** Stand this far inside the reach that counts on the server before holding USE on a colleague. */
+const LUNCH_HOLD_RADIUS_UNITS = LUNCH_USE_RADIUS_UNITS - 24;
+
+function nearest<T extends LunchPoint>(from: LunchPoint, points: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestD = Infinity;
+  for (const p of points) {
+    const d = Math.hypot(p.x - from.x, (p.y - from.y) * 2, p.z - from.z);
+    if (d < bestD) {
+      best = p;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Hora de almoçar: an attacker leading colleagues walks to the nearest restaurant, otherwise fetches the nearest waiting
+ * colleague and holds USE beside it. Defenders hunt whoever leads a colleague, or patrol around the ones still waiting.
+ */
+export function pickLunchGoal(self: BotAgent, env: BotEnv): BombGoal | null {
+  if (env.mode !== 'almoco' || !env.colleagues?.length || !env.restaurants?.length || !env.bombPlaces || (self.team !== 0 && self.team !== 1)) return null;
+  const s = self.state;
+  const waiting = env.colleagues.filter((c) => c.kind === 'waiting');
+  if (self.team === env.bombPlaces.attackers) {
+    const leading = env.colleagues.some((c) => c.kind === 'following' && c.leader === self.id);
+    const target = leading ? null : nearest(s, waiting);
+    if (target) return { x: target.x, y: target.y, z: target.z, holdRadiusUnits: LUNCH_HOLD_RADIUS_UNITS };
+    const table = nearest(s, env.restaurants);
+    return table && { ...table, holdRadiusUnits: null };
+  }
+  const led = env.colleagues.find((c) => c.kind === 'following');
+  const leader = led?.kind === 'following' ? [...env.players].find((p) => p.id === led.leader && p.alive) : undefined;
+  if (leader) return { x: leader.state.x, y: leader.state.y, z: leader.state.z, holdRadiusUnits: null, settleRadiusUnits: ESCORT_TRAIL_UNITS };
+  const anchor = nearest(s, waiting) ?? env.bombPlaces.site;
+  return { ...guardPatrolPoint(anchor, self, env.tick), holdRadiusUnits: null };
 }
 
 const ESCORT_TRAIL_UNITS = 150; // an escort trails its carrier at about this distance
@@ -461,7 +504,7 @@ export class BotBrain {
         return;
       }
     }
-    const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env);
+    const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
     if (objective) {
       this.goal = { x: objective.x, y: objective.y, z: objective.z };
       // An escort's goal is the carrier, which moves every tick: replanning each time restarted the path from the nearest
@@ -531,7 +574,7 @@ export class BotBrain {
     if (s.dropping) {
       // glide toward the action and dive once roughly above it
       const enemy = this.nearestEnemy(self, env);
-      const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env);
+      const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
       const tx = objective?.x ?? (enemy ? enemy.state.x : 0);
       const tz = objective?.z ?? (enemy ? enemy.state.z : 0);
       const d = Math.hypot(tx - s.x, tz - s.z);
@@ -541,7 +584,7 @@ export class BotBrain {
       return this.cmd(buttons, weapon, env);
     }
 
-    const bombGoal = pickBombGoal(self, env);
+    const bombGoal = pickBombGoal(self, env) ?? pickLunchGoal(self, env);
     const holding = holdsPosition(self, bombGoal, env.bomb?.kind);
 
     // --- perception

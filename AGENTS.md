@@ -94,6 +94,8 @@ tools ──► server, shared
 
 - **Sound packs** live in `client/src/game/sound-packs/`: export a SoundPack and register it in SOUND_PACKS; omitted voices use classic. Runtime-loaded mods are not supported.
 
+- **Hora de almoçar** rules are pure in `shared/src/lunch.ts` (`stepLunch`, tuning in `constants.ts` under `LUNCH_`). The server runs them in `Game.updateLunch`, reusing `attackers` from debug defusion for the side that leads, and the client draws colleagues with `ColleaguesView` (`client/src/game/render/colleagues.ts`, the player `Avatar` in white). A map plays the mode only when it lists `restaurants` (`MapBuilder.restaurant`), checked by `modeFitsMap` when the rotation is built.
+
 - **Store signs** are the `STORE_BRANDS` table in `shared/src/maps/brands.ts` (parody names, `food` or `shop`). A map puts one up with `b.deco(..., brandMat('kfg'))` on a 2:1 panel, and the client draws it from the `SIGNS` table in `client/src/game/render/store-signs.ts`, a `Record<StoreBrand, ...>`, so a brand without a drawing fails the typecheck. Sign mats count as plaster for impacts.
 
 - **Shared code is deterministic.** Client prediction and the server run the same simulation from `shared/`. Do not add randomness, wall-clock time or environment-specific behavior there; use the seeded spread helpers. A change to movement or weapons affects both sides and needs a test in `shared/test/`.

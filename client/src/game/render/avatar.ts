@@ -54,6 +54,19 @@ function canopyTexture(color: string): THREE.CanvasTexture {
   return t;
 }
 
+/** Colours of the trim, trousers and boots, and whether the figure carries a weapon. */
+export interface AvatarLook {
+  armed: boolean;
+  trim: string;
+  pants: string;
+  boots: string;
+}
+const SOLDIER_LOOK: AvatarLook = { armed: true, trim: '#232322', pants: '#30302e', boots: '#151515' };
+/** Hora de almoçar colleagues: the same figure, white from head to toe and unarmed. */
+export const COLLEAGUE_LOOK: AvatarLook = { armed: false, trim: '#dcdcd6', pants: '#ecece8', boots: '#d2d2cc' };
+/** Unarmed arms hang by the sides instead of pointing a gun forward (radians around the shoulders). */
+const HANGING_ARMS_RAD = -1.35;
+
 export interface AvatarPose {
   speed: number;
   ducked: boolean;
@@ -89,13 +102,14 @@ export class Avatar {
   constructor(
     readonly name: string,
     readonly color: string,
+    private readonly look: AvatarLook = SOLDIER_LOOK,
   ) {
     const body = this.mat({ color, roughness: 0.6 });
-    const dark = this.mat({ color: '#232322', roughness: 0.8 });
-    const pants = this.mat({ color: '#30302e', roughness: 0.9 });
+    const dark = this.mat({ color: look.trim, roughness: 0.8 });
+    const pants = this.mat({ color: look.pants, roughness: 0.9 });
     const lime = this.mat({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 0.9 });
     const visor = this.mat({ color: '#0b0c0b', roughness: 0.1, metalness: 0.8, emissive: '#1d2f05', emissiveIntensity: 1 });
-    const boots = this.mat({ color: '#151515', roughness: 0.9 });
+    const boots = this.mat({ color: look.boots, roughness: 0.9 });
 
     // legs pivot at the hip
     for (const [leg, x] of [
@@ -169,7 +183,8 @@ export class Avatar {
     this.tag.renderOrder = 10;
     this.root.add(this.tag);
 
-    this.setWeapon(WEAPON.RIFLE);
+    if (look.armed) this.setWeapon(WEAPON.RIFLE);
+    else this.supportArm.visible = false;
   }
 
   private mat(p: THREE.MeshStandardMaterialParameters): THREE.MeshStandardMaterial {
@@ -240,7 +255,7 @@ export class Avatar {
     }
 
     this.recoil = Math.max(0, this.recoil - dt * 10);
-    this.mount.rotation.x = p.pitch * 0.85 + this.recoil * 0.12 + (p.reloading ? -0.5 : 0);
+    this.mount.rotation.x = this.look.armed ? p.pitch * 0.85 + this.recoil * 0.12 + (p.reloading ? -0.5 : 0) : HANGING_ARMS_RAD;
     this.head.rotation.x = p.pitch * 0.5;
     const blow = this.swing.step(dt);
     this.rightArm.rotation.set(...blow.arm);

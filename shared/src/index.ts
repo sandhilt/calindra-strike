@@ -15,3 +15,4 @@ export * from './bot-chat.ts';
 export * from './bot-talk.ts';
 export * from './bot-radio.ts';
 export * from './maps/scenery.ts';
+export * from './lunch.ts';

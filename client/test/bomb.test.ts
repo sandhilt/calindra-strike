@@ -125,7 +125,7 @@ test('feed names the team that scored the round', () => {
 });
 
 test('score unit per mode', () => {
-  assert.deepEqual(['tdm', 'ffa', 'ctf', 'defuse'].map((mode) => scoreUnit(mode as 'tdm')), ['kills', 'kills', 'capturas', 'pontos']);
+  assert.deepEqual(['tdm', 'ffa', 'ctf', 'defuse', 'almoco'].map((mode) => scoreUnit(mode as 'tdm')), ['kills', 'kills', 'capturas', 'pontos', 'rodadas']);
 });
 
 test('the defuser keeps the finished laptop with the banner for 3 s after the defuse', () => {

@@ -29,3 +29,4 @@ Maintained source for verifying user-facing behavior. Read this index, then the 
 - [Match flow](./match-flow.md): warmup, live, podium and the next map in the rotation.
 - [Access control](./access-control.md): allowed origins and the optional join code.
 - [Spectating](./spectate.md): timed team choice, independent spectator capacity, server broadcasts and action restrictions.
+- [Remap match controls](./rebind-controls.md): keyboard and mouse capture, conflicts, resets and persistence in a WebGL-capable browser.

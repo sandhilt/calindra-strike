@@ -1,4 +1,5 @@
 import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS, type RadioMenu } from '@calindra-strike/shared';
+import { type ActionId, type Bindings, actionBindingLabel } from '../game/bindings.ts';
 import { BLACK_FRIDAY_PITCH, type BombRole, type CarryNotice } from '../game/bomb.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
@@ -145,10 +146,11 @@ export class Hud {
   ]);
   private readonly center = h('div', { class: 'center' });
   private readonly dropAlt = h('div', { class: 'alt', text: '' });
+  private readonly dropHint = h('div', { class: 'hint' });
   private readonly drop = h('div', { class: 'drop-hud glass hidden' }, [
     h('div', { class: 'label', text: 'em queda livre' }),
     this.dropAlt,
-    h('div', { class: 'hint' }, [h('span', { class: 'kbd', text: 'WASD' }), 'planar  ·  ', h('span', { class: 'kbd', text: 'Ctrl' }), 'mergulhar']),
+    this.dropHint,
   ]);
   private readonly deathBy = h('div', { class: 'by' });
   private readonly deathMeta = h('div', { class: 'meta' });
@@ -172,7 +174,14 @@ export class Hud {
   private dmgTimers = new Map<HTMLElement, number>();
   private last = new Map<string, string>();
 
-  constructor(parent: HTMLElement) {
+  setBindings(bindings: Bindings): void {
+    const movement = (['forward', 'left', 'back', 'right'] satisfies ActionId[])
+      .map((id) => actionBindingLabel(bindings, id)).join(' · ');
+    this.dropHint.replaceChildren(hintKey(movement), 'planar · ', hintKey(actionBindingLabel(bindings, 'crouch')), 'mergulhar');
+  }
+
+  constructor(parent: HTMLElement, bindings: Bindings) {
+    this.setBindings(bindings);
     for (let i = 0; i < 4; i++) {
       const l = h('i');
       this.chLines.push(l);

@@ -37,6 +37,7 @@ interface MenuRows {
   toggle(icon: IconName, label: string, text: string, get: () => boolean, set: (v: boolean) => void, available?: boolean): HTMLElement;
   readonly canSpeak: boolean;
   benchmark(): void;
+  changed(): void;
 }
 
 interface MenuTab {
@@ -136,7 +137,10 @@ const MENU_TABS: Record<MenuTabId, MenuTab> = {
   controls: {
     label: 'controles',
     icon: 'controls',
-    build: () => controlsList(),
+    build: (s, rows) => controlsList(s.bindings, (bindings) => {
+      s.bindings = bindings;
+      rows.changed();
+    }),
   },
 };
 
@@ -210,10 +214,10 @@ export class Overlays {
       h('div', { class: 'click-to-play' }, [
         gameLogo('game-logo cta-logo'),
         h('h2', { class: 'wordmark', text: 'pronto?' }),
-        h('p', { text: 'Planeje a queda com WASD e dispute o pódio com mais kills.' }),
+        h('p', { text: 'Controle a queda e dispute o pódio com mais kills.' }),
         weapons,
         this.readyCountdownEl,
-        h('p', { class: 'label', text: 'esc solta o mouse · tab mostra o placar' }),
+        h('p', { class: 'label', text: 'esc solta o mouse' }),
       ]),
     ]);
     this.menu = h('div', { class: 'overlay hidden' }, [this.buildMenu()]);
@@ -237,6 +241,7 @@ export class Overlays {
       seg: (icon, label, options, get, set, hint) => withIcon(icon, choiceRow(label, options, get, set, changed, hint)),
       toggle: (icon, label, text, get, set, available = true) =>
         withIcon(icon, checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada')),
+      changed,
       canSpeak: browserEngine() !== null,
       benchmark: () => this.hooks.benchmark(),
     };
@@ -246,7 +251,6 @@ export class Overlays {
       const tab = h('button', { class: 'menu-tab', type: 'button', role: 'tab', id: `menu-tab-${id}`, 'aria-controls': `menu-panel-${id}`, onclick: () => this.selectMenuTab(id) }, [svg(ICONS[icon]), label]);
       this.menuTabs.set(id, tab);
       const page = build(s, rows);
-      // A page with nothing to focus (the key list) is itself a stop, so the keyboard can scroll it.
       const readOnly = page.querySelector('button, input, a') === null;
       this.menuPanels.set(id, h('div', { class: 'menu-panel', role: 'tabpanel', id: `menu-panel-${id}`, 'aria-labelledby': `menu-tab-${id}`, tabindex: readOnly ? 0 : undefined }, [page]));
     }
@@ -328,6 +332,7 @@ export class Overlays {
   }
 
   showMenu(v: boolean, team: TeamPanel | null = null): void {
+    if (!v) this.menu.querySelector<HTMLDialogElement>('.binding-capture[open]')?.close();
     this.menu.classList.toggle('hidden', !v);
     if (v) this.click.classList.add('hidden');
     const spectating = team?.kind === 'spectator';
@@ -478,6 +483,7 @@ export class Overlays {
   }
 
   disconnected(reason: string, onBack: () => void): void {
+    this.menu.querySelector<HTMLDialogElement>('.binding-capture[open]')?.close();
     this.root.append(
       h('div', { class: 'overlay' }, [
         h('div', { class: 'toast glass' }, [

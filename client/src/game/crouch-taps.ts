@@ -1,12 +1,6 @@
 /** Two crouch presses this close together (ms) lie the player down; tuning value. */
 export const DOUBLE_TAP_MS = 300;
 
-const CROUCH_KEYS: ReadonlySet<string> = new Set(['ControlLeft', 'ControlRight', 'KeyC']);
-
-export function isCrouchKey(code: string): boolean {
-  return CROUCH_KEYS.has(code);
-}
-
 export type CrouchTapState = { readonly kind: 'idle' } | { readonly kind: 'tapped'; readonly at: number };
 
 export const CROUCH_TAPS_IDLE: CrouchTapState = { kind: 'idle' };
@@ -14,7 +8,7 @@ export const CROUCH_TAPS_IDLE: CrouchTapState = { kind: 'idle' };
 export interface CrouchPress {
   /** performance.now() of the key press. */
   readonly now: number;
-  /** Shift is held, so this press is the slide gesture and not a tap. */
+  /** Sprint is held, so this press is the slide gesture and not a tap. */
   readonly sprinting: boolean;
   readonly prone: boolean;
 }

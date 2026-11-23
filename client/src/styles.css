@@ -2916,3 +2916,24 @@ input:focus-visible {
   bottom: 16px;
   width: auto;
 }
+
+.bindings-grid { display: grid; gap: 8px; }
+.binding-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.binding-row .binding-key, .binding-hint .kbd { height: auto; min-height: 26px; white-space: normal; overflow-wrap: anywhere; }
+.binding-key { cursor: pointer; color: inherit; }
+.binding-row .btn { padding: 5px 9px; }
+.binding-row .btn:disabled { opacity: 0.45; cursor: default; }
+.binding-hint, .controls-grid .control { flex-wrap: wrap; }
+.controls-grid .control .kbd { height: auto; min-height: 26px; }
+.binding-capture {
+  color: var(--text);
+  background: var(--bg-3);
+  padding: 24px;
+  max-width: calc(100vw - 32px);
+}
+.binding-capture::backdrop { background: rgb(0 0 0 / 65%); }

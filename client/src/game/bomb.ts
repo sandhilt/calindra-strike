@@ -1,4 +1,7 @@
 import { BLACK_FRIDAY_DISCOUNT_PERCENT, BLACK_FRIDAY_FUSE_MS, BOMB_SITE_RADIUS_UNITS, DEFUSE_MS, DEFUSE_RADIUS_UNITS, PLANT_MS, TEAMS, fuseMs, inBombReach, type BombAction, type BombPoint, type GameMode } from '@calindra-strike/shared';
+import { actionBindingLabel } from './bindings.ts';
+
+const DEFAULT_USE_LABEL = actionBindingLabel({}, 'use');
 
 export type BombView = { x: number; y: number; z: number; variant: number; attackers: number; blackFriday: boolean; plantByAt: number } & (
   | { state: 'home' }
@@ -69,18 +72,18 @@ export const BLACK_FRIDAY_TAG = `BLACK FRIDAY ${BLACK_FRIDAY_DISCOUNT_PERCENT}% 
 /** What the Black Friday announcement says: how much of the fuse is left. */
 export const BLACK_FRIDAY_PITCH = `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF no pavio · só ${BLACK_FRIDAY_FUSE_MS / 1000}s para desarmar`;
 
-export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice = false): string {
-  const status = roundStatus(bomb, now, viewerId, viewerTeam, name, practice);
+export function bombStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice = false, useLabel = DEFAULT_USE_LABEL): string {
+  const status = roundStatus(bomb, now, viewerId, viewerTeam, name, practice, useLabel);
   return bomb.blackFriday ? `${BLACK_FRIDAY_TAG} · ${status}` : status;
 }
 
-function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean): string {
-  const status = phaseStatus(bomb, now, viewerId, viewerTeam, name, practice);
+function roundStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean, useLabel: string): string {
+  const status = phaseStatus(bomb, now, viewerId, viewerTeam, name, practice, useLabel);
   const left = bomb.state === 'dropped' ? null : plantSecondsLeft(bomb, now);
   return left === null ? status : `${status} · ${left}s para plantar`;
 }
 
-function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean): string {
+function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: number, name: (id: number) => string, practice: boolean, useLabel: string): string {
   const attacking = practice || viewerTeam === bomb.attackers;
   const watching = viewerTeam < 0;
   if (bomb.state === 'home') return watching ? 'o bug está na base' : attacking ? 'pegue o bug na base' : 'defenda o site';
@@ -92,24 +95,24 @@ function phaseStatus(bomb: BombView, now: number, viewerId: number, viewerTeam: 
     return `${fallen} · troca de lado em ${Math.max(0, Math.ceil((handOverAt - now) / 1000))}s`;
   }
   if (bomb.state === 'carried' || bomb.state === 'planting') {
-    if (bomb.carrier === viewerId) return bomb.state === 'planting' ? 'plantando…' : 'segure E no site para plantar';
+    if (bomb.carrier === viewerId) return bomb.state === 'planting' ? 'plantando…' : `segure ${useLabel} no site para plantar`;
     return bomb.state === 'planting' ? `${name(bomb.carrier)} está plantando` : `${name(bomb.carrier)} leva o bug`;
   }
   if (bomb.defuser === viewerId) return 'desarmando…';
   const clock = practice ? '' : ` · ${secondsLeft(bomb, now)}s`;
   if (bomb.defuser >= 0) return `${name(bomb.defuser)} desarma o bug${clock}`;
-  const hint = practice || (!attacking && !watching) ? ' · segure E perto dele' : '';
+  const hint = practice || (!attacking && !watching) ? ` · segure ${useLabel} perto dele` : '';
   return `bug plantado${clock}${hint}`;
 }
 
 export interface CarryNotice { title: string; hint: string }
 
 /** The warning shown to the player who holds the bug, null for everyone else (spectators included). */
-export function carryNotice(bomb: BombView, viewerId: number): CarryNotice | null {
+export function carryNotice(bomb: BombView, viewerId: number, useLabel = DEFAULT_USE_LABEL): CarryNotice | null {
   if ((bomb.state !== 'carried' && bomb.state !== 'planting') || bomb.carrier !== viewerId) return null;
   return bomb.state === 'planting'
-    ? { title: 'plantando o bug', hint: 'não solte o E até terminar' }
-    : { title: 'você está com o bug', hint: 'leve até o círculo vermelho e segure E' };
+    ? { title: 'plantando o bug', hint: `não solte o ${useLabel} até terminar` }
+    : { title: 'você está com o bug', hint: `leve até o círculo vermelho e segure ${useLabel}` };
 }
 
 export interface BombRole { side: 'attack' | 'defend'; label: string; goal: string }

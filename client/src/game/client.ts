@@ -81,6 +81,7 @@ import { VentHum } from './vent-hum.ts';
 import { radioMenuKey, type OpenRadioMenu, type RadioKeyResult } from './radio-menu.ts';
 import { RADIO_VOICE, createSpeaker } from './speech.ts';
 import type { StreakSound } from './sound-packs/types.ts';
+import { type Bindings, actionBindingLabel } from './bindings.ts';
 import { Input } from './input.ts';
 import { ReloadPlayback } from './reload-playback.ts';
 import type { Connection } from './net.ts';
@@ -333,6 +334,7 @@ export class ClientGame {
   private deathPos = new THREE.Vector3();
   private killerId = -1;
   private scoreboardOpen = false;
+  private controlLabels: ReturnType<typeof matchControlLabels>;
   private chatOpen = false;
   private radioMenu: OpenRadioMenu = null;
   private readonly speakRadio = createSpeaker(RADIO_VOICE, 'radio');
@@ -374,10 +376,12 @@ export class ClientGame {
     container.append(this.renderer.domElement);
     this.renderer.domElement.tabIndex = -1;
 
-    this.input = new Input(this.renderer.domElement);
+    this.controlLabels = matchControlLabels(settings.bindings);
+    this.input = new Input(this.renderer.domElement, settings.bindings);
     this.input.sensitivity = settings.sensitivity;
+    this.input.onPress = (code) => this.onBoundPress(code);
     this.input.onKey = (code, down, e) => this.onKey(code, down, e);
-    this.hud = new Hud(container);
+    this.hud = new Hud(container, settings.bindings);
     this.sfx = new Sfx(settings.volume, settings.soundPack);
     this.sfx.setAnnouncer(settings.announcer);
     this.effects = new Effects(this.scene);
@@ -493,6 +497,11 @@ export class ClientGame {
       this.onResize();
     }
     this.applyLightRt(this.wantedRtLevel());
+    if (this.controlLabels.bindings !== s.bindings) {
+      this.controlLabels = matchControlLabels(s.bindings);
+      this.input.setBindings(s.bindings);
+      this.hud.setBindings(s.bindings);
+    }
     this.input.sensitivity = s.sensitivity;
     this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
@@ -1042,11 +1051,11 @@ export class ClientGame {
       return;
     }
     hud.setBomb({
-      text: bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name, this.match.phase === 'warmup'),
+      text: bombStatus(bomb, now, this.myId, this.myTeam, id => this.nameOf(id).name, this.match.phase === 'warmup', this.controlLabels.use),
       plant: plantProgress(bomb, now),
       role: bombRole(bomb, this.myTeam, this.match.phase === 'warmup'),
       blackFriday: bomb.blackFriday,
-      carry: this.spectator ? null : carryNotice(bomb, this.myId),
+      carry: this.spectator ? null : carryNotice(bomb, this.myId, this.controlLabels.use),
       activity: this.spectator ? bombActivity(bomb, now, id => this.nameOf(id)) : null,
     });
     const defusing = bomb.state === 'planted' && bomb.defuser >= 0 && bomb.defuser === this.laptopViewerId();
@@ -1181,25 +1190,19 @@ export class ClientGame {
         return true;
       }
     }
-    if (code === 'KeyG') {
-      if (down && !e.repeat && this.input.locked && !this.menuOpen && !this.podiumActive) this.net.send({ t: 'spray' });
-      return true;
-    }
-    if (code === 'Tab') {
-      if (this.input.locked) e.preventDefault();
-      this.scoreboardOpen = down;
-      return true;
-    }
-    if (down && this.input.locked && (code === 'Enter' || code === 'KeyY' || code === 'KeyT')) {
-      e.preventDefault();
+    return this.menuOpen || this.podiumActive;
+  }
+
+  private onBoundPress(code: string): void {
+    if (!this.input.locked || this.menuOpen || this.podiumActive || this.spectator) return;
+    if (this.input.matches('spray', code)) this.net.send({ t: 'spray' });
+    if (this.input.matches('chat', code)) {
       this.chatOpen = true;
       this.setRadioMenu(null);
       this.input.enabled = false;
       this.input.releaseAll();
       this.hud.openChat(true);
-      return true;
     }
-    return false;
   }
 
   private canUseRadio(): boolean {
@@ -1920,7 +1923,7 @@ export class ClientGame {
     hud.setTeamBadge(tdm ? this.myTeam : -1);
     hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
-    hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
+    hud.showScoreboard(this.spectator ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
@@ -1955,9 +1958,9 @@ export class ClientGame {
 
     hud.setVitals(Math.max(0, Math.ceil(s.health)), Math.ceil(s.armor));
     const slots = [
-      { key: '1', label: weaponDef(s.primary).tag, active: s.weapon === s.primary },
-      { key: '2', label: 'FAÍSCA', active: s.weapon === WEAPON.PISTOL },
-      { key: '3', label: 'MARTELO', active: s.weapon === WEAPON.HAMMER },
+      { key: this.controlLabels.primary, label: weaponDef(s.primary).tag, active: s.weapon === s.primary },
+      { key: this.controlLabels.secondary, label: 'FAÍSCA', active: s.weapon === WEAPON.PISTOL },
+      { key: this.controlLabels.melee, label: 'MARTELO', active: s.weapon === WEAPON.HAMMER },
     ];
     hud.setWeapon(def.name, def.tag, s.mag[def.id], this.match.phase === 'warmup' ? '∞' : s.reserve[def.id], def.legendary, def.slot === 3, slots);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
@@ -2047,7 +2050,7 @@ export class ClientGame {
     const carrying = !this.spectator && (bomb.state === 'carried' || bomb.state === 'planting') && bomb.carrier === this.myId;
     if (carrying) {
       const site = this.map.flagBases[1 - bomb.attackers];
-      targets.push({ ...site, y: this.collision.groundBelow(site.x, this.map.dropHeight, site.z, PLAYER_RADIUS) + 100, label: 'site · segure E para plantar' });
+      targets.push({ ...site, y: this.collision.groundBelow(site.x, this.map.dropHeight, site.z, PLAYER_RADIUS) + 100, label: `site · segure ${this.controlLabels.use} para plantar` });
       return;
     }
     const at = this.bombRenderer?.position() ?? bomb;
@@ -2094,3 +2097,13 @@ export class ClientGame {
 }
 
 export { PROTOCOL_VERSION };
+
+function matchControlLabels(bindings: Bindings) {
+  return {
+    bindings,
+    use: actionBindingLabel(bindings, 'use'),
+    primary: actionBindingLabel(bindings, 'primary'),
+    secondary: actionBindingLabel(bindings, 'secondary'),
+    melee: actionBindingLabel(bindings, 'melee'),
+  };
+}

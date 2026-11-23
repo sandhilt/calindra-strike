@@ -1,17 +1,22 @@
 import { BTN, DEG, MAX_PITCH, clamp, wrapAngle } from '@calindra-strike/shared';
-import { CROUCH_TAPS_IDLE, type CrouchTapState, isCrouchKey, pressCrouch } from './crouch-taps.ts';
+import { CROUCH_TAPS_IDLE, type CrouchTapState, pressCrouch } from './crouch-taps.ts';
 import { PRONE_CANCEL_BUTTONS, nextProne } from './prone-input.ts';
 
-/** Side buttons of the mouse (back and forward): `MouseEvent.button` 3 and 4, as bits of the held mask. */
-const MOUSE_BACK_BUTTON = 3;
-const MOUSE_FORWARD_BUTTON = 4;
-const MOUSE_BACK = 1 << MOUSE_BACK_BUTTON;
-const MOUSE_FORWARD = 1 << MOUSE_FORWARD_BUTTON;
+import { ACTIONS, ACTION_IDS, type ActionId, type Bindings, effectiveBindings, mouseBinding } from './bindings.ts';
+
+const BUTTON_ACTIONS = ACTION_IDS.flatMap((id) => {
+  const bit = ACTIONS[id].bit;
+  return bit === undefined ? [] : [{ id, bit }];
+});
+
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select') !== null);
+}
 
 /** Keyboard + mouse state. Uses `code` so WASD works on any keyboard layout. */
 export class Input {
-  private keys = new Set<string>();
-  private mouse = 0;
+  private readonly held = new Set<string>();
+  private bindings: Bindings;
   private prone = false;
   private crouchTap: CrouchTapState = CROUCH_TAPS_IDLE;
   yaw = 0;
@@ -27,59 +32,37 @@ export class Input {
   lookDX = 0; // accumulated for viewmodel sway
   lookDY = 0;
   onKey: (code: string, down: boolean, e: KeyboardEvent) => boolean = () => false;
+  onPress: (code: string) => void = () => {};
   private readonly el: HTMLElement;
   private readonly disposers: (() => void)[] = [];
 
-  constructor(el: HTMLElement) {
+  constructor(el: HTMLElement, bindings: Bindings) {
     this.el = el;
+    this.bindings = bindings;
     const on = <K extends keyof DocumentEventMap>(t: K, f: (e: DocumentEventMap[K]) => void, opts?: AddEventListenerOptions) => {
-      document.addEventListener(t, f as EventListener, opts);
-      this.disposers.push(() => document.removeEventListener(t, f as EventListener, opts));
+      document.addEventListener(t, f, opts);
+      this.disposers.push(() => document.removeEventListener(t, f, opts));
     };
     on('keydown', (e) => {
-      if (this.locked && (e.code === 'AltLeft' || e.code === 'AltRight')) e.preventDefault();
-      if (this.onKey(e.code, true, e)) return;
-      if (!this.enabled) return;
-      if (this.locked && (e.code === 'Tab' || e.code === 'Space' || e.ctrlKey || e.code.startsWith('Arrow'))) e.preventDefault();
-      if (e.repeat) return;
-      this.keys.add(e.code);
-      const buttons = this.movementButtons();
-      if (isCrouchKey(e.code)) {
-        const next = pressCrouch(this.crouchTap, { now: performance.now(), sprinting: (buttons & BTN.SPRINT) !== 0, prone: this.prone });
-        this.crouchTap = next.state;
-        this.prone = next.prone;
-      } else {
-        this.prone = nextProne(this.prone, e.code === 'ArrowDown', buttons);
-        if (buttons & PRONE_CANCEL_BUTTONS) this.crouchTap = CROUCH_TAPS_IDLE;
-      }
-      switch (e.code) {
-        case 'Digit1':
-          this.weaponReq = 1;
-          break;
-        case 'Digit2':
-          this.weaponReq = 2;
-          break;
-        case 'Digit3':
-          this.weaponReq = 3;
-          break;
-        case 'KeyQ':
-          this.weaponReq = 4;
-          break;
-      }
+      if (isTyping(e.target) || e.isComposing) return;
+      if (this.onKey(e.code, true, e) || !this.active) return;
+      if (e.code !== 'Escape' && (e.code === 'Tab' || e.code === 'Space' || e.ctrlKey
+        || e.code === 'AltLeft' || e.code === 'AltRight' || e.code.startsWith('Arrow') || ACTION_IDS.some((id) => this.matches(id, e.code)))) e.preventDefault();
+      if (!e.repeat) this.press(e.code);
     });
     on('keyup', (e) => {
+      this.held.delete(e.code);
       if (this.locked && (e.code === 'AltLeft' || e.code === 'AltRight')) e.preventDefault();
       this.onKey(e.code, false, e);
-      this.keys.delete(e.code);
     });
     on('mousedown', (e) => {
-      if (!(this.locked || this.debug) || !this.enabled) return;
-      if (e.button === MOUSE_BACK_BUTTON || e.button === MOUSE_FORWARD_BUTTON) e.preventDefault();
-      this.mouse |= 1 << e.button;
+      if (!this.active || isTyping(e.target)) return;
+      const code = mouseBinding(e.button);
+      if (!code) return;
+      e.preventDefault();
+      this.press(code);
     });
-    on('mouseup', (e) => {
-      this.mouse &= ~(1 << e.button);
-    });
+    on('mouseup', (e) => this.held.delete(mouseBinding(e.button)));
     on('mousemove', (e) => {
       if (!this.locked || !this.enabled) return;
       const k = this.sensitivity * 0.022 * DEG * this.zoomSensScale;
@@ -94,7 +77,7 @@ export class Input {
         if (!this.locked || !this.enabled) return;
         this.wheelAcc += e.deltaY;
         if (Math.abs(this.wheelAcc) > 40) {
-          this.weaponReq = this.wheelAcc > 0 ? 5 : 6; // next / previous (resolved by the game)
+          this.requestWeapon(this.wheelAcc > 0 ? 'WheelDown' : 'WheelUp');
           this.wheelAcc = 0;
         }
       },
@@ -103,6 +86,9 @@ export class Input {
     on('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.el;
       if (!this.locked) this.releaseAll();
+    });
+    on('auxclick', (e) => {
+      if (this.active) e.preventDefault();
     });
     on('contextmenu', (e) => {
       if (this.locked) e.preventDefault();
@@ -113,8 +99,9 @@ export class Input {
   }
 
   releaseAll(): void {
-    this.keys.clear();
-    this.mouse = 0;
+    this.held.clear();
+    this.weaponReq = 0;
+    this.wheelAcc = 0;
     this.clearProne();
   }
 
@@ -126,7 +113,7 @@ export class Input {
   async lock(): Promise<void> {
     try {
       // raw input when supported: no OS acceleration, like CS m_rawinput 1
-      await (this.el.requestPointerLock as (o?: unknown) => Promise<void>).call(this.el, { unadjustedMovement: true });
+      await this.el.requestPointerLock({ unadjustedMovement: true });
     } catch {
       try {
         await this.el.requestPointerLock();
@@ -136,34 +123,62 @@ export class Input {
     }
   }
 
-  down(code: string): boolean {
-    return this.keys.has(code);
+  setBindings(bindings: Bindings): void {
+    if (this.bindings === bindings) return;
+    this.bindings = bindings;
+    this.releaseAll();
   }
 
-  private movementButtons(): number {
-    let b = 0;
-    if (this.keys.has('KeyW')) b |= BTN.FWD;
-    if (this.keys.has('KeyS')) b |= BTN.BACK;
-    if (this.keys.has('KeyA')) b |= BTN.LEFT;
-    if (this.keys.has('KeyD')) b |= BTN.RIGHT;
-    if (this.keys.has('Space')) b |= BTN.JUMP;
-    if (this.keys.has('ControlLeft') || this.keys.has('KeyC') || this.keys.has('ControlRight')) b |= BTN.DUCK;
-    if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) b |= BTN.SPRINT;
-    if (this.keys.has('AltLeft') || this.keys.has('AltRight')) b |= BTN.WALK;
-    if (this.keys.has('ArrowLeft') || this.keys.has('KeyF') || this.mouse & MOUSE_BACK) b |= BTN.LEAN_LEFT;
-    if (this.keys.has('ArrowRight') || this.keys.has('KeyH') || this.mouse & MOUSE_FORWARD) b |= BTN.LEAN_RIGHT;
-    return b;
+  matches(id: ActionId, code: string): boolean {
+    return effectiveBindings(this.bindings, id).includes(code);
+  }
+
+  down(id: ActionId): boolean {
+    for (const code of effectiveBindings(this.bindings, id)) {
+      if (this.held.has(code)) return true;
+    }
+    return false;
+  }
+
+  private get active(): boolean {
+    return this.enabled && (this.locked || this.debug);
+  }
+
+  private press(code: string): void {
+    this.held.add(code);
+    const buttons = this.boundButtons();
+    if (this.matches('crouch', code)) {
+      const next = pressCrouch(this.crouchTap, { now: performance.now(), sprinting: (buttons & BTN.SPRINT) !== 0, prone: this.prone });
+      this.crouchTap = next.state;
+      this.prone = next.prone;
+    }
+    this.prone = nextProne(this.prone, this.matches('prone', code), buttons);
+    if (buttons & PRONE_CANCEL_BUTTONS) this.crouchTap = CROUCH_TAPS_IDLE;
+    this.requestWeapon(code);
+    this.onPress(code);
+  }
+
+  private requestWeapon(code: string): void {
+    for (const id of ACTION_IDS) {
+      const req = ACTIONS[id].weapon;
+      if (req !== undefined && this.matches(id, code)) {
+        this.weaponReq = req;
+        return;
+      }
+    }
+  }
+
+  private boundButtons(): number {
+    let buttons = 0;
+    for (const { id, bit } of BUTTON_ACTIONS) {
+      if (this.down(id)) buttons |= bit;
+    }
+    return buttons;
   }
 
   buttons(): number {
-    if (!this.enabled || !(this.locked || this.debug)) return 0;
-    let b = this.movementButtons();
-    if (this.prone) b |= BTN.PRONE;
-    if (this.keys.has('KeyR')) b |= BTN.RELOAD;
-    if (this.keys.has('KeyE')) b |= BTN.USE;
-    if (this.mouse & 1) b |= BTN.ATTACK;
-    if (this.mouse & 4) b |= BTN.ATTACK2;
-    return b;
+    if (!this.active) return 0;
+    return this.boundButtons() | (this.prone ? BTN.PRONE : 0);
   }
 
   takeWeaponRequest(): number {

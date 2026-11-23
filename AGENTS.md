@@ -94,6 +94,8 @@ tools ──► server, shared
 
 - **Aim down sights (ADS).** The `ads` definition in `shared/src/weapons.ts` supplies FOV, speed and spread tuning. The sim evaluates held `ATTACK2` for movement and again after weapon timers advance. Aiming slows movement, tightens spread, ends sprinting and drops during reload and deploy. The self snapshot carries `aiming` and remote rows use `RF_AIM`. `RF_ZOOM` marks the AWP scope. Bots only auto-scope the AWP. MCP `zoom(1)` holds ADS and `zoom(0)` releases it, with objective use taking priority and weapon changes clearing the latch. `you.aiming` reports effective ADS. The AWP keeps levels 0 to 2 and the hammer rejects zoom.
 
+- **Remappable controls.** Add the action id and one row to `ACTIONS` in `client/src/game/bindings.ts`. The `Record<ActionId, Action>` requires a row for each id. Set a `BTN` bit or weapon request there for input handling, or handle client-only actions in `ClientGame`. `Settings.bindings` stores only overrides. The lobby, pause menu and weapon viewer share `controlsList`, which resolves the same bindings as `Input`. List fixed contextual shortcuts in `controls-list.ts`.
+
 - **Radio lines** are the `RADIO_MENUS` table in `shared/src/radio.ts`; append, never insert or reorder (the wire id is the position). See "Radio lines" in `README.md`.
 
 - **Kill feed weapon icons** are baked at runtime from `buildWeapon` in `client/src/game/render/weapon-icons.ts` (side view, flat light tones, one icon per entry of `WEAPONS`), so a new weapon gets its icon with its model and needs no extra art. A kill by a weapon without a model fails `client/test/weapon-icons.test.ts`. Baking uses a throwaway WebGL renderer on first kill and returns null without WebGL, where the feed shows the text tag.

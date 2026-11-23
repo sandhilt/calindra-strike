@@ -1,5 +1,6 @@
 import { PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId } from '@calindra-strike/shared';
 
+import { type Bindings, parseBindings } from './game/bindings.ts';
 import { type Quality, parseQuality } from './game/render/quality.ts';
 import { DEFAULT_RT_CHOICE, type RtChoice, parseRtChoice } from './game/render/rt-levels.ts';
 import { DEFAULT_SOUND_PACK, isSoundPackId } from './game/sound-packs/index.ts';
@@ -27,6 +28,7 @@ export interface Settings {
   leftHanded: boolean;
   /** Level of the screen-space light-ray pass; it only ever runs on tiers whose profile has `lightRt` (alta). Old saves held a boolean. */
   lightRt: RtChoice;
+  bindings: Bindings;
 }
 
 const KEY = 'calindra-strike:settings:v1';
@@ -52,6 +54,7 @@ export const defaults = (): Settings => ({
   showNet: false,
   leftHanded: false,
   lightRt: DEFAULT_RT_CHOICE,
+  bindings: {},
 });
 
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : d);
@@ -86,6 +89,7 @@ export function loadSettings(): Settings {
     showNet: o.showNet === true,
     leftHanded: o.leftHanded === true,
     lightRt: parseRtChoice(o.lightRt),
+    bindings: parseBindings(o.bindings),
   };
 }
 

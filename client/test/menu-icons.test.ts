@@ -1,42 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CONTROLS, CONTROL_SECTIONS } from '../src/ui/controls-list.ts';
+import { controlRows, CONTROL_SECTIONS } from '../src/ui/controls-list.ts';
+import { ACTIONS, ACTION_IDS } from '../src/game/bindings.ts';
 import { ICONS } from '../src/ui/icons.ts';
 
-test('every control row has a registered icon, keys and a label', () => {
-  for (const row of CONTROLS) {
-    assert.ok(row.icon in ICONS, `unknown icon ${row.icon}`);
-    assert.ok(row.keys.trim().length > 0);
-    assert.ok(row.label.trim().length > 0);
-  }
-});
-
-test('every control section has a registered icon and at least one row', () => {
+test('control groups have registered icons and contain actions', () => {
   for (const section of CONTROL_SECTIONS) {
-    assert.ok(section.icon in ICONS, `unknown icon ${section.icon}`);
-    assert.ok(CONTROLS.some((r) => r.section === section.id), `empty section ${section.id}`);
+    assert.ok(section.icon in ICONS, section.icon);
+    assert.ok(ACTION_IDS.some((id) => ACTIONS[id].group === section.id), section.id);
   }
-  for (const row of CONTROLS) assert.ok(CONTROL_SECTIONS.some((s) => s.id === row.section));
+  for (const id of ACTION_IDS) assert.ok(CONTROL_SECTIONS.some((section) => section.id === ACTIONS[id].group));
 });
 
-test('the controls table keeps the keys the lobby always listed', () => {
-  const byKeys = new Map(CONTROLS.map((r) => [r.keys, r.label]));
-  const expected: [string, string][] = [
-    ['WASD', 'mover'],
-    ['Espaço', 'pular'],
-    ['Ctrl', 'agachar / mergulhar'],
-    ['Shift', 'correr'],
-    ['Shift + Ctrl', 'deslizar'],
-    ['← →', 'inclinar'],
-    ['Ctrl Ctrl', 'deitar (dois toques) · ↓'],
-    ['Alt', 'andar em silêncio'],
-    ['1 2 3', 'armas · Q última'],
-    ['R', 'recarregar'],
-    ['E', 'plantar / desarmar o bug'],
-    ['Mouse 2', 'mirar (segurar) · luneta da AWP'],
-    ['Tab', 'placar · Y chat'],
-  ];
-  for (const [keys, label] of expected) assert.equal(byKeys.get(keys), label);
+test('gesture rows use current bindings and contextual shortcuts are marked fixed', () => {
+  const movement = controlRows({ sprint: ['KeyU'], crouch: ['Mouse3'] }, 'movimento');
+  assert.partialDeepStrictEqual(movement, [
+    { keys: 'U + Mouse 3', label: 'deslizar' },
+    { keys: 'Mouse 3', label: 'deitar (dois toques)' },
+  ]);
+  assert.ok(controlRows({}, 'interface').every((row) => row.keys && row.label.includes('(fixo)')));
 });
 
 test('icons are 24 grid or weapon silhouettes, all non-empty svg', () => {

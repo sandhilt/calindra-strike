@@ -89,7 +89,8 @@ import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
-import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
+import { lunchAnnouncement, lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
+import { LunchTargetView } from './render/lunch-target.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { SuppliesView } from './render/supply.ts';
 import { Avatar } from './render/avatar.ts';
@@ -297,6 +298,9 @@ export class ClientGame {
   private flagRenderer?: FlagsView;
   private lunch: LunchView | null = null;
   private colleaguesView?: ColleaguesView;
+  private lunchTargetView?: LunchTargetView;
+  /** The `endsAt` of the round last announced: it changes once per round. */
+  private announcedLunchRound = 0;
   private bomb: BombView | null = null;
   private announcedBombRound = '';
   private bombRenderer?: BombRenderer;
@@ -676,6 +680,10 @@ export class ClientGame {
     this.colleaguesView?.dispose();
     this.colleaguesView = new ColleaguesView();
     this.scene.add(this.colleaguesView.group);
+    this.lunchTargetView?.dispose();
+    this.lunchTargetView = new LunchTargetView();
+    this.scene.add(this.lunchTargetView.group);
+    this.announcedLunchRound = 0;
     this.bombRenderer?.dispose();
     this.bombRenderer = new BombRenderer(bases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
@@ -752,6 +760,7 @@ export class ClientGame {
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
     this.flags = flagViews(m.fl);
     this.lunch = this.match.mode === 'almoco' ? lunchView(m.lu, m.lc) : null;
+    this.announceLunchRound();
     const bomb = this.match.mode === 'defuse' ? bombView(m.bm) : null;
     this.bomb = bomb;
     this.collision.setProp(bomb ? bombStandBox(bomb.state, bomb) : null);
@@ -1049,6 +1058,25 @@ export class ClientGame {
   private laptopViewerId(): number {
     if (!this.spectator) return this.myId;
     return this.cameraMode === 'first' ? this.followedId : -1;
+  }
+
+  /** The restaurant of this round, for the beacon: null outside the mode. */
+  private lunchTarget(): { x: number; y: number; z: number; name: string; rush: boolean } | null {
+    const place = this.lunch ? this.map.restaurants[this.lunch.target] : undefined;
+    return this.lunch && place ? { ...place, rush: this.lunch.rush } : null;
+  }
+
+  /** Once per round: says where the colleagues must sit, and when it is a rush hour. */
+  private announceLunchRound(): void {
+    if (!this.lunch || this.lunch.endsAt === this.announcedLunchRound) return;
+    this.announcedLunchRound = this.lunch.endsAt;
+    const place = this.map.restaurants[this.lunch.target];
+    if (!place) return;
+    const { destination, rush } = lunchAnnouncement(this.lunch, place.name);
+    this.hud.info(destination, '#ffe9a8');
+    if (!rush) return;
+    this.hud.info(rush, '#ff7a5c');
+    this.sfx.blackFriday();
   }
 
   private onLunchEvent(e: Extract<GameEvent, { k: 'lunch' }>): void {
@@ -1593,6 +1621,7 @@ export class ClientGame {
     this.suppliesView?.update(this.supplyFull, this.elapsed);
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
     this.colleaguesView?.update(this.lunch?.colleagues ?? [], dt);
+    this.lunchTargetView?.update(this.lunchTarget(), this.elapsed);
     this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
     this.beepBomb(this.serverNow());
     this.typeOnBomb();
@@ -2049,6 +2078,7 @@ export class ClientGame {
     this.sfx.dispose();
     this.flagRenderer?.dispose();
     this.colleaguesView?.dispose();
+    this.lunchTargetView?.dispose();
     this.bombRenderer?.dispose();
     this.suppliesView?.dispose();
     this.world?.dispose();

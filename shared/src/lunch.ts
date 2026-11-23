@@ -1,5 +1,5 @@
 import {
-  LUNCH_FOLLOW_GAP_UNITS, LUNCH_FOLLOW_SPACING_UNITS, LUNCH_SEAT_HEIGHT_UNITS, LUNCH_SEAT_RADIUS_UNITS, LUNCH_TRAIL_MAX_POINTS,
+  LUNCH_ROUND_TICKS, LUNCH_RUSH_ROUND_TICKS, LUNCH_FOLLOW_GAP_UNITS, LUNCH_FOLLOW_SPACING_UNITS, LUNCH_SEAT_HEIGHT_UNITS, LUNCH_SEAT_RADIUS_UNITS, LUNCH_TRAIL_MAX_POINTS,
   LUNCH_TRAIL_STEP_UNITS, LUNCH_USE_RADIUS_UNITS, LUNCH_WALK_UNITS_PER_TICK,
 } from './constants.ts';
 
@@ -19,8 +19,11 @@ export type Colleague = Placed & (
   | { kind: 'following'; leader: number; trail: readonly LunchPoint[] }
   | { kind: 'seated' }
 );
-/** `target` indexes the restaurant of the food court this round has to reach; sitting down anywhere else does not count. */
-export interface LunchRound { attackers: number; endsAtTick: number; target: number }
+/**
+ * `target` indexes the restaurant of the food court this round has to reach; sitting down anywhere else does not count.
+ * A `rush` round is a rush hour: the clock runs `LUNCH_RUSH_SPEED` times faster, so it ends that much sooner.
+ */
+export interface LunchRound { attackers: number; endsAtTick: number; target: number; rush: boolean }
 export interface LunchPlaces { hold: LunchPoint; restaurants: readonly LunchPoint[] }
 export interface LunchActor extends LunchPoint { id: number; team: number; alive: boolean; using: boolean }
 export type LunchAction = 'follow' | 'stop' | 'seated' | 'served' | 'full';
@@ -36,6 +39,11 @@ export function modeFitsMap(mode: GameMode, map: MapDef): boolean {
 }
 
 const HOLD_OFFSETS = [[-40, 0], [40, 0], [0, 44]] as const;
+
+/** How many ticks a round lasts, at the normal pace or in a rush hour. */
+export function lunchRoundTicks(rush: boolean): number {
+  return rush ? LUNCH_RUSH_ROUND_TICKS : LUNCH_ROUND_TICKS;
+}
 
 export function startLunch(hold: LunchPoint): Colleague[] {
   return LUNCH_COLLEAGUES.map((_, i) => {

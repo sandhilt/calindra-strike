@@ -67,7 +67,8 @@ import {
   pickLegendary,
   rayHitbox,
   round,
-  LUNCH_ROUND_TICKS,
+  LUNCH_RUSH_CHANCE,
+  lunchRoundTicks,
   LUNCH_WIN_ROUNDS,
   colleagueRow,
   modeFitsMap,
@@ -290,7 +291,7 @@ export class Game {
   private attackers: 0 | 1 = 0;
   private bombRound: BombRound = { variant: 0, blackFriday: false };
   private colleagues: Colleague[] = [];
-  private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0 };
+  private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0, rush: false };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
   private winner = -1;
@@ -398,7 +399,8 @@ export class Game {
       return;
     }
     const target = Math.floor(this.random() * this.map.restaurants.length);
-    this.lunchRound = { attackers: this.attackers, endsAtTick: this.tick + LUNCH_ROUND_TICKS, target };
+    const rush = this.random() < LUNCH_RUSH_CHANCE;
+    this.lunchRound = { attackers: this.attackers, endsAtTick: this.tick + lunchRoundTicks(rush), target, rush };
     this.colleagues = startLunch(this.flagBases()[1 - this.attackers]);
   }
 
@@ -424,7 +426,7 @@ export class Game {
   }
 
   private lunchSnapshot(): number[] {
-    return this.mode === 'almoco' ? [this.lunchRound.attackers, this.msAt(this.lunchRound.endsAtTick), this.lunchRound.target] : [];
+    return this.mode === 'almoco' ? [this.lunchRound.attackers, this.msAt(this.lunchRound.endsAtTick), this.lunchRound.target, this.lunchRound.rush ? 1 : 0] : [];
   }
 
   /** Only debug defusion draws, so seeded sequences of the other modes stay untouched. */

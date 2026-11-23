@@ -1,10 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { LUNCH_COLLEAGUES, colleagueFromRow, colleagueRow, getMaps, modeFitsMap, startLunch, stepLunch, type Colleague, type LunchActor, type LunchPlaces } from '../src/index.ts';
+import { LUNCH_COLLEAGUES, LUNCH_ROUND_TICKS, LUNCH_RUSH_SPEED, colleagueFromRow, lunchRoundTicks, colleagueRow, getMaps, modeFitsMap, startLunch, stepLunch, type Colleague, type LunchActor, type LunchPlaces } from '../src/index.ts';
 
 const hold = { x: 0, y: 0, z: 0 };
 const places: LunchPlaces = { hold, restaurants: [{ x: 0, y: 0, z: -1200 }] };
-const round = { attackers: 1, endsAtTick: 10_000, target: 0 };
+const round = { attackers: 1, endsAtTick: 10_000, target: 0, rush: false };
 
 function actor(over: Partial<LunchActor>): LunchActor {
   return { id: 7, team: 1, alive: true, using: false, x: 0, y: 0, z: 0, ...over };
@@ -94,4 +94,10 @@ describe('hora de almoçar', () => {
     for (const c of startLunch(hold)) assert.deepEqual(colleagueFromRow(colleagueRow(c)), c);
     assert.equal(colleagueFromRow([2, -1, 0, 0, 0, 0]).kind, 'seated');
   });
+});
+
+it('a rush hour round is the normal round at the rush speed, so it ends that many times sooner', () => {
+  assert.equal(lunchRoundTicks(false), LUNCH_ROUND_TICKS);
+  assert.equal(lunchRoundTicks(true), LUNCH_ROUND_TICKS / LUNCH_RUSH_SPEED);
+  assert.ok(lunchRoundTicks(true) < lunchRoundTicks(false));
 });

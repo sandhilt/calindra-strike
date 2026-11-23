@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, DEFUSE_MS, DUCK_EYE, PLANT_MS, STAND_EYE } from '@calindra-strike/shared';
+import { CollisionWorld, DEFUSE_MS, DUCK_EYE, LEAN_OFFSET_UNITS, PLANT_MS, STANCE, STAND_EYE } from '@calindra-strike/shared';
 import { bombView } from '../src/game/bomb.ts';
 import { bombActivity } from '../src/game/spectate/activity.ts';
 import {
@@ -26,7 +26,7 @@ import {
 import { scrollsPage, spectatorAction, stepTarget } from '../src/game/spectate/controls.ts';
 
 const open: RayWorld = { trace: () => null };
-const player: FollowedPlayer = { x: 100, y: 0, z: 200, yaw: 0, pitch: 0, ducked: false };
+const player: FollowedPlayer = { x: 100, y: 0, z: 200, yaw: 0, pitch: 0, stance: STANCE.STAND, onGround: true, sliding: false, lean: 0 };
 
 test('Space cycles first person, locked chase, free chase and free camera, then wraps', () => {
   assert.deepEqual(CAMERA_MODES, ['first', 'chase', 'orbit', 'free']);
@@ -39,7 +39,7 @@ test('Space cycles first person, locked chase, free chase and free camera, then 
 
 test('first person sits in the eyes and follows ducking', () => {
   assert.equal(eyePose(player).y, STAND_EYE);
-  assert.equal(eyePose({ ...player, ducked: true }).y, DUCK_EYE);
+  assert.equal(eyePose({ ...player, stance: STANCE.CROUCH }).y, DUCK_EYE);
 });
 
 test('look direction matches the player view convention', () => {
@@ -212,4 +212,9 @@ test('no activity while the bug is idle, carried or planted without a defuser', 
     assert.ok(bomb);
     assert.equal(bombActivity(bomb, 1000, actor), null);
   }
+});
+
+test('first-person spectating offsets the eye along the player right vector', () => {
+  const eye = eyePose({ ...player, yaw: Math.PI / 2, lean: 1 });
+  assert.equal(eye.z, player.z - LEAN_OFFSET_UNITS);
 });

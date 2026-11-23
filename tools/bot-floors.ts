@@ -15,7 +15,7 @@ const STUCK_RELEASE_UNITS = 96;
 /** Height at which a bot counts as one floor higher: halfway to each floor of a mall. */
 const FLOOR_SPLITS_UNITS = [96, 296] as const;
 const STORE_DEPTH_UNITS = 880;
-/** A bot this close to a flag base is guarding it (CTF, debug defusion), which is standing still on purpose. */
+/** A bot this close to a flag base or a restaurant counter is guarding it or waiting at its goal (CTF, debug defusion, hora de almoçar), which is standing still on purpose. */
 const GUARD_RADIUS_UNITS = 200;
 const SPOT_CELL_UNITS = 96;
 const SAMPLE_TICKS = TICK_RATE;
@@ -78,7 +78,7 @@ function run(map: string, mode: string, bots: number, seconds: number, seed: num
       if (trail.samples.length < stuckSeconds) continue;
       const first = trail.samples[0];
       const near = trail.samples.every((q) => Math.hypot(q.x - first.x, q.z - first.z) < STUCK_RADIUS_UNITS && Math.abs(q.y - first.y) < 24);
-      const guarding = game.map.flagBases.some((base) => Math.hypot(base.x - s.x, base.z - s.z) < GUARD_RADIUS_UNITS);
+      const guarding = [...game.map.flagBases, ...game.map.restaurants].some((spot) => Math.hypot(spot.x - s.x, spot.z - s.z) < GUARD_RADIUS_UNITS);
       const busy = p.using || guarding || p.brain.browsing || s.tick - s.lastFire < stuckSeconds * TICK_RATE;
       if (!near || busy) continue;
       trail.stuckAt = { x: s.x, y: s.y, z: s.z };

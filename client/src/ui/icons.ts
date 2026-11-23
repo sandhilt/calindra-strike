@@ -1,5 +1,9 @@
 /** Inline SVG icons (24x24 unless noted, currentColor), written in code: the game ships no icon art. */
 export const ICONS = {
+  /** Body silhouettes for the stance indicator: standing, crouching and lying down. */
+  stanceStand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"/><path d="M12 7v8M12 9l-4 4M12 9l4 4M12 15l-3 6M12 15l3 6"/></svg>',
+  stanceCrouch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="2"/><path d="M10 11l2 4M10 12l-4 3M10 12l5 1M12 15h5v6M12 15l-3 6M3 21h18"/></svg>',
+  stanceProne: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="15" r="2"/><path d="M8 16h11M12 16l-2-3M19 16l3 3M3 21h18"/></svg>',
   gauge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-6"/><circle cx="12" cy="17" r="1.6" fill="currentColor"/></svg>',
   heart: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg>',

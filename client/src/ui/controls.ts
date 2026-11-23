@@ -14,11 +14,6 @@ export function group(title: string, ...rows: HTMLElement[]): HTMLElement {
   return h('section', { class: 'menu-group' }, [h('h3', { text: title }), ...rows]);
 }
 
-/** A group whose heading carries an icon. */
-export function iconGroup(icon: IconName, title: string, ...rows: HTMLElement[]): HTMLElement {
-  return h('section', { class: 'menu-group' }, [h('h3', {}, [svg(ICONS[icon]), title]), ...rows]);
-}
-
 /** Puts an icon in front of a settings row's label. */
 export function withIcon(icon: IconName, settingsRow: HTMLElement): HTMLElement {
   settingsRow.querySelector('.row-label')?.prepend(svg(ICONS[icon]));

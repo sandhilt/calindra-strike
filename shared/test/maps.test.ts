@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, STAND_HEIGHT, getMaps, describeBox, MapBuilder } from '../src/index.ts';
+import { BOMB_SITE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, PLAYER_RADIUS, CollisionWorld, STAND_HEIGHT, floorAt, inBombReach, getMaps, describeBox, MapBuilder } from '../src/index.ts';
+
+import { BAY_ESCALATORS, BAY_TOP_Z, DECK, DECK3, FACADE_Z } from '../src/maps/shopping-levels.ts';
 
 for (const map of getMaps()) {
   describe(`map ${map.id}`, () => {
@@ -15,6 +17,33 @@ for (const map of getMaps()) {
         const y = world.groundBelow(base.x, map.dropHeight, base.z, 16);
         assert.equal(y, 0);
         assert.equal(world.hullOverlaps(base.x, y + 0.1, base.z, STAND_HEIGHT), false);
+      }
+    });
+
+    it('uses open, mirrored Mirante bases for Shopping defusion', () => {
+      if (map.id !== 'shopping') {
+        assert.equal(map.defuseBases, undefined);
+        return;
+      }
+      assert.ok(map.defuseBases);
+      const [north, south] = map.defuseBases;
+      assert.deepEqual(south, { x: -north.x, y: north.y, z: -north.z });
+      assert.ok(north.x < 0 && north.z < 0);
+      for (const base of map.defuseBases) {
+        assert.equal(base.y, DECK3);
+        assert.equal(floorAt(map.floors, base.y)?.name, 'Mirante');
+        assert.equal(world.groundBelow(base.x, base.y, base.z, PLAYER_RADIUS), base.y);
+        assert.equal(world.hullOverlaps(base.x, base.y, base.z, STAND_HEIGHT), false);
+        assert.ok(Math.abs(base.z) < -FACADE_Z - BOMB_SITE_RADIUS_UNITS, 'plant zone stays outside the storefront');
+        assert.ok(map.supplies.every(stand => !inBombReach(base, stand, BOMB_SITE_RADIUS_UNITS)));
+        assert.ok(map.lifts.every(lift => base.x < lift.minX || base.x > lift.maxX || base.z < lift.minZ || base.z > lift.maxZ));
+        for (const radius of [BOMB_SITE_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, CTF_PICKUP_RADIUS_UNITS]) {
+          assert.equal(inBombReach(base, { ...base, y: DECK }, radius), false);
+        }
+      }
+      for (const bay of BAY_ESCALATORS) {
+        const nearestX = Math.max(bay.x1, Math.min(bay.x2, north.x));
+        assert.ok(Math.hypot(nearestX - north.x, BAY_TOP_Z - north.z) >= 64);
       }
     });
 

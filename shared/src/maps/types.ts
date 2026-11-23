@@ -1,3 +1,4 @@
+import type { BombPoint } from '../defuse.ts';
 import type { Lift } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
 import type { Vec3 } from '../math.ts';
@@ -121,6 +122,8 @@ export interface MapDef {
   subtitle: string;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   dropArea: { minX: number; maxX: number; minZ: number; maxZ: number };
+  /** Debug defusion bases by team, authored at their walking surface. */
+  defuseBases?: readonly [BombPoint, BombPoint];
   flagBases: readonly [{ x: number; z: number }, { x: number; z: number }];
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];

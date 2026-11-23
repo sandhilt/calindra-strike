@@ -416,6 +416,8 @@ function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGro
 
 const LIFT_FRAME_COLOR = 0x2b2e33;
 const LIFT_CAB_COLOR = 0xaab1ba;
+/** Side of one tile of the mall floor texture (`tile` in textures.ts). */
+const LIFT_TILE_UNITS = 96;
 const LIFT_LAMP_ON = 0x6dff7a;
 const LIFT_LAMP_OFF = 0x3a3f46;
 const LIFT_LAMP_WAIT = 0xff5a4e;
@@ -435,7 +437,16 @@ interface Cab {
 function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGroup {
   if (items.length === 0) return still();
   const root = new THREE.Group();
-  const floorMat = new THREE.MeshStandardMaterial({ color: LIFT_CAB_COLOR, roughness: 0.4, metalness: 0.5 });
+  const tile = ctx.materialOf('tile');
+  const tileMap = tile instanceof THREE.MeshStandardMaterial ? tile.map : null;
+  /** The cab floor wears the mall's tile, so riding in does not turn the floor plain grey. One texture copy per shaft sets how often it repeats. */
+  const cabFloor = (width: number, depth: number): THREE.Material => {
+    if (!tileMap) return new THREE.MeshStandardMaterial({ color: LIFT_CAB_COLOR, roughness: 0.4, metalness: 0.5 });
+    const map = tileMap.clone();
+    map.repeat.set(width / LIFT_TILE_UNITS, depth / LIFT_TILE_UNITS);
+    map.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({ map, roughness: 0.35, metalness: 0 });
+  };
   const frameMat = new THREE.MeshStandardMaterial({ color: LIFT_FRAME_COLOR, roughness: 0.6, metalness: 0.3 });
   const doorMat = new THREE.MeshStandardMaterial({ color: 0xbfd6e0, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.45, depthWrite: false });
   const lightMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
@@ -450,6 +461,7 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
     place.rotation.y = lift.yaw;
     root.add(place);
     const half = { x: lift.width / 2, z: lift.depth / 2 };
+    const floorMat = cabFloor(lift.width, lift.depth);
     ctx.statics.at(lift.x, 0, lift.z, lift.yaw);
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) ctx.statics.box(6, lift.height, 6, LIFT_FRAME_COLOR, { x: sx * half.x, y: lift.height / 2, z: sz * half.z });

@@ -1,3 +1,4 @@
+import { RADIO_MENUS } from '@calindra-strike/shared';
 import type { IconName } from './icons.ts';
 
 export type ControlSectionId = 'movimento' | 'combate' | 'interface';
@@ -36,6 +37,6 @@ export const CONTROLS: readonly ControlRow[] = [
   { section: 'combate', keys: 'E', label: 'plantar / desarmar o bug', icon: 'bug' },
   { section: 'combate', keys: 'Mouse 2', label: 'mirar (segurar) · luneta da AWP', icon: 'scope' },
   { section: 'interface', keys: 'Tab', label: 'placar · Y chat', icon: 'scoreboard' },
-  { section: 'interface', keys: 'Z X V B', label: 'rádio', icon: 'radio' },
+  { section: 'interface', keys: RADIO_MENUS.map((menu) => menu.keyLabel).join(' '), label: 'rádio', icon: 'radio' },
   { section: 'interface', keys: 'Esc', label: 'menu', icon: 'menu' },
 ];

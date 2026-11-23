@@ -21,7 +21,7 @@ function radioIdOf(text: string): number {
 /** Lines are radio ids, so the wire and the menus stay the same as for a player's radio. */
 export const BOT_RADIO_LINES: Readonly<Record<BotRadioTrigger, readonly number[]>> = {
   roundStart: ['Vai, vai, vai!', 'Fiquem juntos!'].map(radioIdOf),
-  calindra: RADIO_LINES.filter((l) => l.menu === 'calindra').map((l) => l.id),
+  calindra: RADIO_LINES.filter((l) => l.menu === 'calindra' || l.menu === 'calindra-2').map((l) => l.id),
   enemySpotted: ['Inimigo à vista!', 'Reportando!'].map(radioIdOf),
   enemyDown: ['Inimigo abatido!', 'Setor limpo!'].map(radioIdOf),
   plantAttack: ['Vai explodir!', 'Segura essa posição!'].map(radioIdOf),

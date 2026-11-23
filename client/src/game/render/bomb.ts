@@ -1,4 +1,4 @@
-import { BOMB_SITE_RADIUS_UNITS, BOMB_STAND_SIZE, PLAYER_RADIUS, type FlagBase } from '@calindra-strike/shared';
+import { BOMB_SITE_RADIUS_UNITS, BOMB_STAND_SIZE, PLAYER_RADIUS, type BombPoint } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { defuseProgress, fuseUrgency, secondsLeft, type BombView } from '../bomb.ts';
 import { TEX } from './textures.ts';
@@ -172,12 +172,12 @@ export class BombRenderer {
   private modelShown: LaptopModel | undefined;
   private readonly light: THREE.Mesh;
   private readonly siteRing: THREE.Mesh;
-  private readonly bases: readonly FlagBase[];
+  private readonly bases: readonly BombPoint[];
   private nextScreenAt = 0;
   private screenRefreshMs: number;
   private siteOf = -1;
 
-  constructor(bases: readonly FlagBase[], screenRefreshMs: number) {
+  constructor(bases: readonly BombPoint[], screenRefreshMs: number) {
     this.bases = bases;
     this.screenRefreshMs = screenRefreshMs;
     const canvas = document.createElement('canvas');

@@ -143,7 +143,7 @@ The `desempenho` tier exists for weak machines (integrated graphics, old laptops
 
 ## Document every new feature
 
-Whenever you add a feature, document it in the same change. A feature that is only in the code is not finished.
+Whenever you add a feature, document it in the same change. A feature that is only in the code is not finished. Follow `skills/document-calindra-strike-feature/SKILL.md` for where to write, what to include, and when it is done.
 
 - **Players.** Gameplay, controls, modes, graphics tiers, sounds and menus go in `README.md` (the feature list, the controls line or a settings table).
 - **Settings.** A new env setting also follows "Config comes from env" below.

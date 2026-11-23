@@ -199,6 +199,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
   },
 };
 
+/** The sign drawn on a plain canvas, for the 2D logo of a banner. */
+export function signCanvas(brand: StoreBrand): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const g = canvas.getContext('2d');
+  if (g) SIGNS[brand](g);
+  return canvas;
+}
+
 /** Lit sign material so the logo reads in the shade under the food court. */
 export function signMaterial(brand: StoreBrand): THREE.Material {
   const t = canvasTexture(W, (g) => SIGNS[brand](g), false, W, H);

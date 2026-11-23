@@ -117,7 +117,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     for (const side of [-1, 1]) b.deco(cx + side * 80, DECK + 146, -1056, cx + side * 160, DECK + 150, -1053);
     b.light(cx, DECK + 150, -1000, '#ffd9a0');
     b.landmark(STORE_BRANDS[brand].name, cx, -1000);
-    b.restaurant(cx, DECK, -990, STORE_BRANDS[brand].name);
+    b.restaurant(cx, DECK, -990, brand);
   });
   const tables = [
     ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -940] as const),

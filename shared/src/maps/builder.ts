@@ -1,6 +1,7 @@
 import type { Lift } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
 import { vec3 } from '../math.ts';
+import { STORE_BRANDS, type FoodBrand } from './brands.ts';
 import type { Box, EscalatorTravel, MapFeature, MapLight, MapProp, Mat } from './types.ts';
 
 export interface BoxOpts {
@@ -27,7 +28,7 @@ export class MapBuilder {
   readonly lights: MapLight[] = [];
   readonly props: MapProp[] = [];
   readonly points: { x: number; z: number }[] = [];
-  readonly restaurants: { x: number; y: number; z: number; name: string }[] = [];
+  readonly restaurants: { x: number; y: number; z: number; name: string; brand: FoodBrand }[] = [];
   readonly lifts: Lift[] = [];
   readonly supplies: SupplyPoint[] = [];
   readonly interiors: SupplyPoint[] = [];
@@ -148,9 +149,10 @@ export class MapBuilder {
     this.lights.push({ x: ax, y, z: az, color });
   }
 
-  restaurant(x: number, y: number, z: number, name: string): void {
+  /** A food court counter; the brand gives the name the HUD shows and the logo of the round banner. */
+  restaurant(x: number, y: number, z: number, brand: FoodBrand): void {
     const [ax, az] = this.rotXZ(x, z);
-    this.restaurants.push({ x: ax, y, z: az, name });
+    this.restaurants.push({ x: ax, y, z: az, name: STORE_BRANDS[brand].name, brand });
   }
 
   /** A lift shaft's inner footprint and the floors it serves, turned with the half being replayed. */

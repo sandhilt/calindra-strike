@@ -196,7 +196,7 @@ export const BOMB_CRATE_HEIGHT_UNITS = 24;
 // Hora de almoçar (tuning values)
 export const LUNCH_ROUND_TICKS = 90 * TICK_RATE; // a round lasts 90 s, then the food court is full
 /** Share of rounds that are a rush hour: the food court fills up this many times faster, so the round is that much shorter (tuning values). */
-export const LUNCH_RUSH_CHANCE = 0.25;
+export const LUNCH_RUSH_CHANCE = 0.4;
 export const LUNCH_RUSH_SPEED = 2;
 export const LUNCH_RUSH_ROUND_TICKS = LUNCH_ROUND_TICKS / LUNCH_RUSH_SPEED;
 export const LUNCH_WIN_ROUNDS = 4; // rounds to win the match early

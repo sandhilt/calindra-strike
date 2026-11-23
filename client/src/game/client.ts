@@ -89,7 +89,8 @@ import { flagViews, flagMessage, flagStatus, type FlagView } from './flags.ts';
 import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
-import { lunchAnnouncement, lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
+import { signCanvas } from './render/store-signs.ts';
+import { followersOf, followersText, lunchAnnouncement, LUNCH_RUSH_PITCH, LUNCH_RUSH_TAG, lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { LunchTargetView } from './render/lunch-target.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { SuppliesView } from './render/supply.ts';
@@ -684,6 +685,7 @@ export class ClientGame {
     this.lunchTargetView = new LunchTargetView();
     this.scene.add(this.lunchTargetView.group);
     this.announcedLunchRound = 0;
+    this.hud.clearLunchBanner();
     this.bombRenderer?.dispose();
     this.bombRenderer = new BombRenderer(bases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
@@ -1074,6 +1076,7 @@ export class ClientGame {
     if (!place) return;
     const { destination, rush } = lunchAnnouncement(this.lunch, place.name);
     this.hud.info(destination, '#ffe9a8');
+    this.hud.announceLunch(signCanvas(place.brand), place.name, rush ? { tag: LUNCH_RUSH_TAG, pitch: LUNCH_RUSH_PITCH } : null);
     if (!rush) return;
     this.hud.info(rush, '#ff7a5c');
     this.sfx.blackFriday();
@@ -1093,7 +1096,10 @@ export class ClientGame {
     const before = this.match;
     this.match = info;
     if (info.mode !== 'ctf') this.flags = [];
-    if (info.mode !== 'almoco') this.lunch = null;
+    if (info.mode !== 'almoco') {
+      this.lunch = null;
+      this.hud.clearLunchBanner();
+    }
     if (info.mode !== 'defuse') {
       this.bomb = null;
       this.announcedBombRound = '';
@@ -1923,6 +1929,8 @@ export class ClientGame {
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
+    const following = this.lunch && !this.spectator && this.alive ? followersOf(this.lunch, this.myId) : 0;
+    hud.setLunchFollowers(following, this.lunch?.colleagues.length ?? 0, followersText(following, this.lunch?.colleagues.length ?? 0));
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
     hud.setStamina(s.stamina / STAMINA_MAX, showStamina, showStamina && s.winded);
     hud.setStance(s.stance, this.alive, s.lean);

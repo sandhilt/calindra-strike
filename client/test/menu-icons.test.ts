@@ -28,7 +28,7 @@ test('the controls table keeps the keys the lobby always listed', () => {
     ['Shift', 'correr'],
     ['Shift + Ctrl', 'deslizar'],
     ['← →', 'inclinar'],
-    ['↓', 'deitar'],
+    ['Ctrl Ctrl', 'deitar (dois toques) · ↓'],
     ['Alt', 'andar em silêncio'],
     ['1 2 3', 'armas · Q última'],
     ['R', 'recarregar'],

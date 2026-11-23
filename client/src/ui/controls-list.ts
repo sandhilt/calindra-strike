@@ -28,7 +28,7 @@ export const CONTROLS: readonly ControlRow[] = [
   { section: 'movimento', keys: 'Shift', label: 'correr', icon: 'sprint' },
   { section: 'movimento', keys: 'Shift + Ctrl', label: 'deslizar', icon: 'slide' },
   { section: 'movimento', keys: '← →', label: 'inclinar', icon: 'lean' },
-  { section: 'movimento', keys: '↓', label: 'deitar', icon: 'prone' },
+  { section: 'movimento', keys: 'Ctrl Ctrl', label: 'deitar (dois toques) · ↓', icon: 'prone' },
   { section: 'movimento', keys: 'Alt', label: 'andar em silêncio', icon: 'mute' },
   { section: 'combate', keys: '1 2 3', label: 'armas · Q última', icon: 'gun' },
   { section: 'combate', keys: 'R', label: 'recarregar', icon: 'reload' },

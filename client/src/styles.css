@@ -811,7 +811,7 @@ input:focus-visible {
   width: 280px;
   margin: 0 auto;
   color: var(--level);
-  font: 12px var(--mono);
+  font: 700 14px var(--mono);
   opacity: 0;
   transition: opacity 0.25s;
 }
@@ -832,7 +832,7 @@ input:focus-visible {
 
 .stamina-head svg { width: 18px; height: 18px; flex: none; }
 .stamina-name { flex: 1; }
-.stamina-pct { font-weight: 400; font-size: 14px; letter-spacing: 0.04em; }
+.stamina-pct { font-weight: 700; font-size: 14px; letter-spacing: 0.04em; }
 
 .stamina-winded {
   display: none;

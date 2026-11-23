@@ -168,7 +168,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 See also [Movimento experimental](#movimento-experimental) for sprint, slide, lean and prone.
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→` lean · `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** tab of the Esc menu. The Esc menu keeps its settings on tabs, **jogo**, **áudio**, **vídeo**, **mira** and **controles**, each with an icon. Click one or use `←` `→`, `Home` and `End` on the tab bar; the menu reopens on the tab you last used, and the buttons below stay in place. The tab table and its keys are in `client/src/ui/overlays.ts` and `client/src/ui/menu-tabs.ts`.
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→` lean · `Ctrl` `Ctrl` (two quick taps) or `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** tab of the Esc menu. The Esc menu keeps its settings on tabs, **jogo**, **áudio**, **vídeo**, **mira** and **controles**, each with an icon. Click one or use `←` `→`, `Home` and `End` on the tab bar; the menu reopens on the tab you last used, and the buttons below stay in place. The tab table and its keys are in `client/src/ui/overlays.ts` and `client/src/ui/menu-tabs.ts`.
 
 ### Movimento experimental
 
@@ -179,7 +179,7 @@ New and still being tested: tell us how it feels with the link in the lobby (nex
 - **Postura**: next to health and armour, a body silhouette shows whether you stand, crouch or lie down, with its name under it. It turns lime while you are lowered and follows every change at once.
 - **Slide**: press `Shift` then `Ctrl` while moving fast.
 - **Lean**: `←` left, `→` right. The eye and the head hitbox move with it, and a wall stops it.
-- **Prone**: `↓` toggles. Slow, small target, 0.3 s lock between changes, no jump.
+- **Prone**: tap `Ctrl` (or `C`) twice within 0.3 s to lie down, like in war games; one more tap gets up. `↓` still toggles directly. A `Ctrl` press while `Shift` is held is the slide, never prone. Slow, small target, 0.3 s lock between changes, no jump.
 - **Silent walk** moved to `Alt`.
 - Bots do not use these moves. MCP agents press them with the `sprint`, `slide`, `lean` and `prone` tools and read the result in `get_state.you`.
 

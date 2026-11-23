@@ -171,6 +171,7 @@ export class Overlays {
   private readonly podiumTitle = h('h2', { text: 'pódio' });
   private readonly podiumScore = h('div', { class: 'podium-score hidden' });
   private readonly menuTabs = new Map<MenuTabId, HTMLButtonElement>();
+  private readonly menuBody = h('div', { class: 'menu-body' });
   private readonly menuPanels = new Map<MenuTabId, HTMLElement>();
   private readonly teamRow = h('div', { class: 'team-switch hidden' });
   private readonly menuTitle = h('h2', { text: 'pausado' });
@@ -244,7 +245,10 @@ export class Overlays {
       const { label, icon, build } = MENU_TABS[id];
       const tab = h('button', { class: 'menu-tab', type: 'button', role: 'tab', id: `menu-tab-${id}`, 'aria-controls': `menu-panel-${id}`, onclick: () => this.selectMenuTab(id) }, [svg(ICONS[icon]), label]);
       this.menuTabs.set(id, tab);
-      this.menuPanels.set(id, h('div', { class: 'menu-panel', role: 'tabpanel', id: `menu-panel-${id}`, 'aria-labelledby': `menu-tab-${id}` }, [build(s, rows)]));
+      const page = build(s, rows);
+      // A page with nothing to focus (the key list) is itself a stop, so the keyboard can scroll it.
+      const readOnly = page.querySelector('button, input, a') === null;
+      this.menuPanels.set(id, h('div', { class: 'menu-panel', role: 'tabpanel', id: `menu-panel-${id}`, 'aria-labelledby': `menu-tab-${id}`, tabindex: readOnly ? 0 : undefined }, [page]));
     }
     const tabList = h('div', { class: 'menu-tabs', role: 'tablist', 'aria-label': 'Configurações' }, [...this.menuTabs.values()]);
     tabList.addEventListener('keydown', (e) => {
@@ -256,12 +260,13 @@ export class Overlays {
       this.selectMenuTab(next);
       this.menuTabs.get(next)?.focus();
     });
+    this.menuBody.append(...this.menuPanels.values());
     this.selectMenuTab(lastMenuTab);
 
     return h('div', { class: 'menu glass' }, [
       h('header', { class: 'menu-head' }, [h('div', {}, [this.menuTitle, h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' })]), this.teamRow]),
       tabList,
-      h('div', { class: 'menu-body' }, [...this.menuPanels.values()]),
+      this.menuBody,
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),
         h('button', { class: 'btn join-action', type: 'button', text: 'entrar no jogo', title: 'Entra na partida como jogador (J)', onclick: () => this.hooks.join() }),
@@ -274,6 +279,7 @@ export class Overlays {
   /** One tab is selected at a time. The others stay built but hidden and out of the tab order, so their rows keep their state. */
   private selectMenuTab(id: MenuTabId): void {
     lastMenuTab = id;
+    this.menuBody.scrollTop = 0;
     for (const [tabId, tab] of this.menuTabs) {
       const selected = tabId === id;
       tab.setAttribute('aria-selected', String(selected));

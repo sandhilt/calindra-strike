@@ -1157,7 +1157,8 @@ export class ClientGame {
   }
 
   private onSpectatorKey(code: string, down: boolean, e: KeyboardEvent): boolean {
-    if (code === 'Tab') {
+    // With the menu open Tab keeps its job of moving focus through the menu.
+    if (code === 'Tab' && !this.menuOpen) {
       e.preventDefault();
       this.scoreboardOpen = down;
       return true;

@@ -4,6 +4,7 @@ import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
+import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 
 export interface LeaderRow {
@@ -330,11 +331,14 @@ export class Hud {
     });
   }
 
-  killfeed(killer: string, kc: string, victim: string, vc: string, weapon: string, hs: boolean, involvement: FeedInvolvement): void {
+  /** `icon` is the weapon's silhouette; without one (no WebGL to bake it) the text tag stands in. */
+  killfeed(killer: string, kc: string, victim: string, vc: string, weapon: string, icon: WeaponIcon | null, hs: boolean, involvement: FeedInvolvement): void {
     const el = h('div', { class: `kf glass${involvement ? ` mine-${involvement}` : ''}` }, [
       h('span', { style: `color:${kc}`, text: killer }),
-      h('span', { class: 'w', text: weapon }),
-      hs ? h('span', { class: 'hs', text: 'HS' }) : null,
+      icon
+        ? h('img', { class: 'w-icon', src: icon.src, alt: weapon, title: weapon, width: icon.width, height: icon.height, draggable: 'false' })
+        : h('span', { class: 'w', text: weapon }),
+      hs ? h('span', { class: 'hs', title: 'headshot', text: 'HS' }) : null,
       h('span', { style: `color:${vc}`, text: victim }),
     ]);
     this.pushFeed(el);

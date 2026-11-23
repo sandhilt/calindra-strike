@@ -91,6 +91,7 @@ import { bombActivity } from './spectate/activity.ts';
 import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, mouseLooks, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
+import { weaponIcon } from './render/weapon-icons.ts';
 import { easeFov } from './render/zoom.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
@@ -802,7 +803,7 @@ export class ClientGame {
         const k = this.nameOf(e.by);
         const v = this.nameOf(e.to);
         const def = weaponDef(e.w);
-        this.hud.killfeed(k.name, k.color, v.name, v.color, def.tag, e.hs === 1, this.feedInvolvement(e.by, e.to));
+        this.hud.killfeed(k.name, k.color, v.name, v.color, def.tag, weaponIcon(def.id), e.hs === 1, this.feedInvolvement(e.by, e.to));
         if (e.by === this.myId && e.to !== this.myId) {
           const tier = STREAKS[e.streak];
           this.sfx.kill(e.streak, tier?.sound ?? 'kill');

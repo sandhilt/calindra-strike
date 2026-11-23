@@ -92,6 +92,8 @@ tools ──► server, shared
 
 - **Radio lines** are the `RADIO_MENUS` table in `shared/src/radio.ts`; append, never insert or reorder (the wire id is the position). See "Radio lines" in `README.md`.
 
+- **Kill feed weapon icons** are baked at runtime from `buildWeapon` in `client/src/game/render/weapon-icons.ts` (side view, flat light tones, one icon per entry of `WEAPONS`), so a new weapon gets its icon with its model and needs no extra art. A kill by a weapon without a model fails `client/test/weapon-icons.test.ts`. Baking uses a throwaway WebGL renderer on first kill and returns null without WebGL, where the feed shows the text tag.
+
 - **Sound packs** live in `client/src/game/sound-packs/`: export a SoundPack and register it in SOUND_PACKS; omitted voices use classic. Runtime-loaded mods are not supported.
 
 - **Hora de almoçar** rules are pure in `shared/src/lunch.ts` (`stepLunch`, tuning in `constants.ts` under `LUNCH_`). The server runs them in `Game.updateLunch`, reusing `attackers` from debug defusion for the side that leads, and the client draws colleagues with `ColleaguesView` (`client/src/game/render/colleagues.ts`, the player `Avatar` in white). A map plays the mode only when it lists `restaurants` (`MapBuilder.restaurant`), checked by `modeFitsMap` when the rotation is built. MCP agents read it from `get_state.lunch` (built in `describeLunch` in `tools/mcp/view.ts` from the snapshot rows, decoded by `colleagueFromRow`), `hunt` plays it through the same `pickLunchGoal` as the server bots, and `use` calls the colleagues in reach.

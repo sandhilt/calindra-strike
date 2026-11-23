@@ -26,6 +26,8 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
   ['kfg', 'burguer-rei', 'mania-picanha', 'parrilha'],
   ['mequi', 'outbaque', 'madeiro', 'bobis'],
 ];
+/** The pharmacy on each half's top floor, the other brand from the one on that half's ground floor. */
+const MIRANTE_PHARMACIES = ['pague-pouco', 'droga-raio'] as const satisfies readonly ShopBrand[];
 const STORES: readonly (readonly ShopBrand[])[] = [
   ['zarra', 'cea', 'rener', 'droga-raio'],
   ['cacau-chou', 'amerikanas', 'pague-pouco', 'travessura'],
@@ -175,7 +177,7 @@ export function buildShopping(): MapDef {
       b.block(px, -696, 40, 40, DECK - SLAB, 'white');
       b.block(px, -696, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
-    topFloor(b);
+    topFloor(b, MIRANTE_PHARMACIES[half]);
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through
     b.deco(-X, ROOF + 8, GALLERY_Z, X, ROOF + 12, 0, 'glass');

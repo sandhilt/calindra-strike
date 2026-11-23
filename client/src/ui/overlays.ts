@@ -1,5 +1,5 @@
 import { browserEngine } from '../game/speech.ts';
-import { checkRow, choiceRow, group, rangeRow } from './controls.ts';
+import { checkRow, choiceRow, controlsList, iconGroup, rangeRow, withIcon } from './controls.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { RT_OPTIONS } from '../game/render/rt-levels.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
@@ -8,7 +8,7 @@ import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { isReadyKey, weaponMenuKey } from '../game/weapon-menu.ts';
 import { FEEDBACK_LABEL, FEEDBACK_URL } from '../feedback.ts';
-import { ICONS, gameLogo, h, svg } from './dom.ts';
+import { ICONS, type IconName, gameLogo, h, svg } from './dom.ts';
 
 const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
   [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
@@ -114,22 +114,24 @@ export class Overlays {
       saveSettings(s);
       this.hooks.settingsChanged(s);
     };
-    const slider = (label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) =>
-      rangeRow(label, { min, max, step }, get, set, fmt, changed);
-    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) =>
-      choiceRow(label, options, get, set, changed, hint);
-    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) =>
-      checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada');
+    const slider = (icon: IconName, label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) =>
+      withIcon(icon, rangeRow(label, { min, max, step }, get, set, fmt, changed));
+    const seg = <T>(icon: IconName, label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) =>
+      withIcon(icon, choiceRow(label, options, get, set, changed, hint));
+    const toggle = (icon: IconName, label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) =>
+      withIcon(icon, checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada'));
     const canSpeak = browserEngine() !== null;
 
     return h('div', { class: 'menu glass' }, [
       h('header', { class: 'menu-head' }, [h('div', {}, [this.menuTitle, h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' })]), this.teamRow]),
       h('div', { class: 'menu-body' }, [
         h('div', { class: 'menu-col' }, [
-          group(
+          iconGroup(
+            'game',
             'jogo',
             h('div', { class: 'primary-settings' }, [
               seg(
+                'gun',
                 'arma principal',
                 PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
                 () => s.primary,
@@ -137,6 +139,7 @@ export class Overlays {
                 'vale a partir do próximo salto',
               ),
               seg(
+                'swap',
                 'lado da arma',
                 [
                   { v: false, label: 'direita' },
@@ -146,22 +149,24 @@ export class Overlays {
                 (v) => (s.leftHanded = v),
               ),
             ]),
-            slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
-            slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
+            slider('eye', 'campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
+            slider('mouse', 'sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
           ),
-          group(
+          iconGroup(
+            'audio',
             'áudio',
-            slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
-            seg('pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
-            toggle('anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
-            toggle('voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
+            slider('audio', 'volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
+            seg('music', 'pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
+            toggle('mic', 'anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
+            toggle('radio', 'voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
           ),
         ]),
         h('div', { class: 'menu-col' }, [
-          group(
+          iconGroup(
+            'video',
             'vídeo',
-            seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
-            seg('ray tracing', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'luz e sombra de contato, só no gráfico alta; mais alto pesa mais na placa de vídeo'),
+            seg('video', 'gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
+            seg('sun', 'ray tracing', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'luz e sombra de contato, só no gráfico alta; mais alto pesa mais na placa de vídeo'),
             h(
               'button',
               { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },
@@ -169,6 +174,7 @@ export class Overlays {
             ),
             h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
             seg(
+              'activity',
               'estatísticas',
               [
                 { v: false, label: 'ocultas' },
@@ -178,17 +184,20 @@ export class Overlays {
               (v) => (s.showNet = v),
             ),
           ),
-          group(
+          iconGroup(
+            'target',
             'mira',
-            slider('tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
-            slider('abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
+            slider('expand', 'tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
+            slider('crosshair', 'abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
             seg(
+              'palette',
               'cor',
               CROSSHAIR_COLORS.map((c) => ({ v: c, label: '●', style: `color:${c}` })),
               () => s.crosshairColor,
               (v) => (s.crosshairColor = v),
             ),
             seg(
+              'sliders',
               'comportamento',
               [
                 { v: true, label: 'dinâmica' },
@@ -199,6 +208,7 @@ export class Overlays {
             ),
           ),
         ]),
+        h('div', { class: 'menu-wide' }, [iconGroup('controls', 'controles', controlsList())]),
       ]),
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),

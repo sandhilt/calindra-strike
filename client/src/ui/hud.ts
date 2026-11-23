@@ -6,6 +6,7 @@ import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
+import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
 export interface LeaderRow {
   name: string;
@@ -86,13 +87,14 @@ export class Hud {
   private readonly arBar = h('i', { style: 'width:0%' });
   private readonly armor = h('div', { class: 'vital armor glass' }, [svg(ICONS.shield), h('div', {}, [this.arV, h('div', { class: 'bar' }, [this.arBar])])]);
   private readonly staminaFill = h('i');
-  private readonly staminaBar = h('div', { class: 'stamina', role: 'meter', 'aria-label': 'fôlego', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '100', 'aria-hidden': 'true' }, [
-    h('span', { text: 'fôlego' }),
-    h('div', { class: 'stamina-track' }, [this.staminaFill]),
+  private readonly staminaPct = h('b', { class: 'stamina-pct', text: '100%' });
+  private readonly staminaBar = h('div', { class: 'stamina level-ok', role: 'meter', 'aria-label': 'fôlego', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '100', 'aria-hidden': 'true' }, [
+    h('div', { class: 'stamina-head' }, [svg(ICONS.stamina), h('span', { class: 'stamina-name', text: 'fôlego' }), h('span', { class: 'stamina-winded', text: 'sem fôlego' }), this.staminaPct]),
+    h('div', { class: 'stamina-track' }, [this.staminaFill, h('u', { class: 'stamina-tick', style: `left:${STAMINA_RESUME_FRACTION * 100}%` })]),
   ]);
   private staminaPercent = 100;
   private staminaVisible = false;
-  private staminaWinded = false;
+  private staminaLevel: StaminaLevel = 'ok';
   private readonly wName = h('b', { text: '' });
   private readonly wTag = h('small', { text: '' });
   private readonly wBox = h('div', { class: 'wname' }, [this.wName, this.wTag]);
@@ -383,6 +385,7 @@ export class Hud {
     if (this.staminaPercent !== percent) {
       this.staminaPercent = percent;
       this.staminaFill.style.transform = `scaleX(${percent / 100})`;
+      this.staminaPct.textContent = `${percent}%`;
       this.staminaBar.setAttribute('aria-valuenow', String(percent));
     }
     if (this.staminaVisible !== visible) {
@@ -390,9 +393,10 @@ export class Hud {
       this.staminaBar.classList.toggle('active', visible);
       this.staminaBar.setAttribute('aria-hidden', String(!visible));
     }
-    if (this.staminaWinded !== winded) {
-      this.staminaWinded = winded;
-      this.staminaBar.classList.toggle('winded', winded);
+    const level = staminaLevel(fraction, winded);
+    if (this.staminaLevel !== level) {
+      this.staminaBar.classList.replace(`level-${this.staminaLevel}`, `level-${level}`);
+      this.staminaLevel = level;
     }
   }
 

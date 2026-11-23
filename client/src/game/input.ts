@@ -1,11 +1,13 @@
 import { BTN, DEG, MAX_PITCH, clamp, wrapAngle } from '@calindra-strike/shared';
-import { nextProne } from './prone-input.ts';
+import { CROUCH_TAPS_IDLE, type CrouchTapState, isCrouchKey, pressCrouch } from './crouch-taps.ts';
+import { PRONE_CANCEL_BUTTONS, nextProne } from './prone-input.ts';
 
 /** Keyboard + mouse state. Uses `code` so WASD works on any keyboard layout. */
 export class Input {
   private keys = new Set<string>();
   private mouse = 0;
   private prone = false;
+  private crouchTap: CrouchTapState = CROUCH_TAPS_IDLE;
   yaw = 0;
   pitch = 0;
   sensitivity = 2;
@@ -35,7 +37,15 @@ export class Input {
       if (this.locked && (e.code === 'Tab' || e.code === 'Space' || e.ctrlKey || e.code.startsWith('Arrow'))) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
-      this.prone = nextProne(this.prone, e.code === 'ArrowDown', this.movementButtons());
+      const buttons = this.movementButtons();
+      if (isCrouchKey(e.code)) {
+        const next = pressCrouch(this.crouchTap, { now: performance.now(), sprinting: (buttons & BTN.SPRINT) !== 0, prone: this.prone });
+        this.crouchTap = next.state;
+        this.prone = next.prone;
+      } else {
+        this.prone = nextProne(this.prone, e.code === 'ArrowDown', buttons);
+        if (buttons & PRONE_CANCEL_BUTTONS) this.crouchTap = CROUCH_TAPS_IDLE;
+      }
       switch (e.code) {
         case 'Digit1':
           this.weaponReq = 1;
@@ -103,6 +113,7 @@ export class Input {
 
   clearProne(): void {
     this.prone = false;
+    this.crouchTap = CROUCH_TAPS_IDLE;
   }
 
   async lock(): Promise<void> {

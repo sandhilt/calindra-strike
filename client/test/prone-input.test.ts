@@ -9,8 +9,8 @@ test('prone toggles on presses and persists across ticks', () => {
   assert.equal(nextProne(true, true, 0), false);
 });
 
-test('jump, sprint and duck cancel prone even during a toggle', () => {
-  for (const button of [BTN.JUMP, BTN.SPRINT, BTN.DUCK]) {
+test('jump and sprint cancel prone even during a toggle', () => {
+  for (const button of [BTN.JUMP, BTN.SPRINT]) {
     assert.equal(nextProne(true, false, button), false);
     assert.equal(nextProne(false, true, button), false);
   }

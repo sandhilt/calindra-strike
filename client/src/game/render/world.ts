@@ -50,6 +50,8 @@ function materialFor(mat: Mat): THREE.Material {
   const brand = brandOfMat(mat);
   if (brand) return signMaterial(brand);
   switch (mat) {
+    case 'lamp':
+      return new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffe7b0', emissiveIntensity: 1.5, roughness: 0.5 });
     case 'lime':
       return new THREE.MeshStandardMaterial({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 1.8, roughness: 0.4 });
     case 'glass':
@@ -307,7 +309,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     const material = materialFor(mat);
     materials.set(mat, material);
     const mesh = new THREE.Mesh(geo, material);
-    const caster = !isBrandMat(mat) && !['glass', 'water', 'lime', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);
+    const caster = !isBrandMat(mat) && !['glass', 'water', 'lime', 'lamp', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);
     mesh.castShadow = caster;
     mesh.receiveShadow = mat !== 'lime' && mat !== 'glass' && mat !== 'water';
     if (mat === 'glass' || mat === 'water') mesh.renderOrder = 5;

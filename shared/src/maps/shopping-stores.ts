@@ -25,7 +25,7 @@ function shell(r: Room, d: Dress): void {
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 3, 112, 'white', d.trim);
   r.box(0, 15, 2 * STORE_HALF_WIDTH - 8, 30, 30, CEILING - 36, 'white', STEEL);
   for (const x of [-200, 200]) r.vent(x, CEILING - 21, 30, 'front');
-  for (const x of [-230, -80, 80, 230]) r.box(x, 150, 70, 6, 1.4, CEILING - 1.4, 'white', 0xfff6df);
+  for (const x of [-230, -80, 80, 230]) r.box(x, 150, 70, 6, 1.4, CEILING - 1.4, 'lamp');
 }
 
 /** A table of folded goods: a solid base with stacks of coloured squares on top. */

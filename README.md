@@ -202,7 +202,7 @@ To run without the lobby, open `/?benchmark&tiers=high,high-no-rt,low,performanc
 
 ### Impact sounds
 
-A bullet sounds different on each surface, on every tier. The 20 map materials fall into 13 surfaces (`ground`, `concrete`, `plaster`, `brick`, `tile`, `metal`, `container`, `wood`, `crate`, `glass`, `screen`, `cloth`, `plant`) in `shared/src/surface.ts`, and each surface is a short stack of synthesised layers in `client/src/game/surface-sound.ts` (no sample files). Glass, plants and the lime trim let bullets through, so they never make an impact sound. A new material needs a surface, a sound layer set and a spark look, or the typecheck fails.
+A bullet sounds different on each surface, on every tier. The 21 map materials fall into 13 surfaces (`ground`, `concrete`, `plaster`, `brick`, `tile`, `metal`, `container`, `wood`, `crate`, `glass`, `screen`, `cloth`, `plant`) in `shared/src/surface.ts`, and each surface is a short stack of synthesised layers in `client/src/game/surface-sound.ts` (no sample files). Glass, plants and the lime trim let bullets through, so they never make an impact sound. A new material needs a surface, a sound layer set and a spark look, or the typecheck fails.
 
 ### Weapon side
 

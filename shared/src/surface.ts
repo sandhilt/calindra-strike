@@ -16,6 +16,7 @@ export const SURFACE_OF: Readonly<Record<BaseMat, Surface>> = {
   tile: 'tile',
   metal: 'metal',
   lime: 'metal',
+  lamp: 'plaster',
   container: 'container',
   wood: 'wood',
   desk: 'wood',

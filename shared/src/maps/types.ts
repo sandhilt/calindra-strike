@@ -11,6 +11,7 @@ export type BaseMat =
   | 'crate'
   | 'container'
   | 'lime'
+  | 'lamp'
   | 'glass'
   | 'wood'
   | 'clip'

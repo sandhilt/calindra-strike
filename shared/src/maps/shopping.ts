@@ -10,6 +10,8 @@ import type { EscalatorTravel, MapDef } from './types.ts';
 
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
 const ROOF_CLIP_MARGIN = 256;
+/** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
+const STORE_LAMP_Y = 160;
 const STORE_XS = [-1056, -352, 352, 1056] as const;
 const ESCALATORS = [
   { x1: 480, x2: 576, travel: 'up', name: 'Escada rolante que sobe' },
@@ -81,6 +83,7 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
     b.block(cx, -1100, 140, 36, 40, 'desk');
     b.landmark(STORE_BRANDS[brand].name, cx, -1000);
     dressStore(new Room(b, cx, 0, -Z), brand);
+    for (const lampZ of [60, 190]) b.light(cx, STORE_LAMP_Y, -Z + lampZ, '#ffe9bd');
     b.interior(cx, 0, -1010);
   });
 }

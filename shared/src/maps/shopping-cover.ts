@@ -1,5 +1,6 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
+import { DECK3, X } from './shopping-levels.ts';
 
 /**
  * Cover that breaks the long clean shots of Shopping Sul Rio: ad boards in the covered gallery, a car promotion, an
@@ -143,35 +144,49 @@ const BIN_FLAP_HEIGHT = 11;
  * A mall waste bin: a brushed steel body with a dark lid and a dark swing flap on every side, waist-low so it
  * blocks walking but not a shot. The body is the solid, the rest is decoration.
  */
-function trashBin(b: MapBuilder, x: number, z: number, y0 = 0): void {
+function trashBin(b: MapBuilder, x: number, z: number, y0 = 0, width = BIN_SIDE): void {
   const half = BIN_SIDE / 2;
+  const halfW = width / 2;
   const top = y0 + BIN_HEIGHT;
-  b.block(x, z, BIN_SIDE, BIN_SIDE, BIN_HEIGHT - BIN_LID_HEIGHT, 'metal', y0, { tint: BIN_STEEL });
-  b.deco(x - half - 1, top - BIN_LID_HEIGHT, z - half - 1, x + half + 1, top, z + half + 1, 'charcoal');
+  b.block(x, z, width, BIN_SIDE, BIN_HEIGHT - BIN_LID_HEIGHT, 'metal', y0, { tint: BIN_STEEL });
+  b.deco(x - halfW - 1, top - BIN_LID_HEIGHT, z - half - 1, x + halfW + 1, top, z + half + 1, 'charcoal');
   const flap = BIN_FLAP_WIDTH / 2;
   const flapTop = top - BIN_LID_HEIGHT - 3;
   const flapBottom = flapTop - BIN_FLAP_HEIGHT;
   b.deco(x - flap, flapBottom, z - half - 1, x + flap, flapTop, z - half, 'charcoal');
   b.deco(x - flap, flapBottom, z + half, x + flap, flapTop, z + half + 1, 'charcoal');
-  b.deco(x - half - 1, flapBottom, z - flap, x - half, flapTop, z + flap, 'charcoal');
-  b.deco(x + half, flapBottom, z - flap, x + half + 1, flapTop, z + flap, 'charcoal');
+  b.deco(x - halfW - 1, flapBottom, z - flap, x - halfW, flapTop, z + flap, 'charcoal');
+  b.deco(x + halfW, flapBottom, z - flap, x + halfW + 1, flapTop, z + flap, 'charcoal');
 }
 
-/** One bin at the foot of every escalator, on its inner side against the glass, where bots used to wedge in the gap. */
-function escalatorBin(b: MapBuilder, x1: number, x2: number, footZ: number, y0 = 0): void {
+/** One bin at the foot of an atrium escalator, on its inner side against the glass. */
+function escalatorBin(b: MapBuilder, x1: number, x2: number, footZ: number): void {
   const x = x1 + x2 < 0 ? x2 + BIN_BESIDE_GLASS : x1 - BIN_BESIDE_GLASS;
-  trashBin(b, x, footZ + BIN_SIDE / 2, y0);
+  trashBin(b, x, footZ + BIN_SIDE / 2);
+}
+
+/**
+ * A bay escalator leaves a slit between its outer glass and the wall that is just wide enough to stand in. A bin
+ * as wide as the slit, at its two ends, keeps anybody out of it.
+ */
+function slitBin(b: MapBuilder, x1: number, x2: number, z: number, y0: number): void {
+  const [from, to] = x1 + x2 < 0 ? [-X, x1 - ESCALATOR_GLASS] : [x2 + ESCALATOR_GLASS, X];
+  trashBin(b, (from + to) / 2, z, y0, to - from);
 }
 
 const ATRIUM_ESCALATORS = [{ x1: 480, x2: 576 }, { x1: -576, x2: -480 }] as const;
 const ESCALATOR_FOOT_Z = -352;
 const BAY_ESCALATORS = [{ x1: 1264, x2: 1360 }, { x1: -1360, x2: -1264 }] as const;
 const BAY_FOOT_Z = -756;
+const BAY_TOP_Z = -1076;
 const FOOD_COURT_BINS = [[-720, -870], [720, -870]] as const;
 
 function bins(b: MapBuilder): void {
   for (const { x1, x2 } of ATRIUM_ESCALATORS) escalatorBin(b, x1, x2, ESCALATOR_FOOT_Z);
-  for (const { x1, x2 } of BAY_ESCALATORS) escalatorBin(b, x1, x2, BAY_FOOT_Z, DECK);
+  for (const { x1, x2 } of BAY_ESCALATORS) {
+    slitBin(b, x1, x2, BAY_FOOT_Z - BIN_SIDE / 2, DECK);
+    slitBin(b, x1, x2, BAY_TOP_Z + BIN_SIDE / 2, DECK3);
+  }
   for (const [x, z] of FOOD_COURT_BINS) trashBin(b, x, z, DECK);
 }
 

@@ -124,7 +124,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     b.deco(tx - 4, DECK + 30.4, tz - 4, tx + 4, DECK + 40, tz + 4, 'plant');
     for (const side of [-1, 1]) b.block(tx + side * 52, tz, 22, 22, 18, 'desk', DECK, { tint: CHAIR_TINTS[i % CHAIR_TINTS.length] });
   });
-  for (const x of [-1150, -880, -560, -200, 200, 560, 880, 1150]) b.prop({ kind: 'ceilingFan', x, y: FOOD_CEILING - 44, z: -870, radius: 44 });
+  for (const x of [-1150, -880, -520, -200, 200, 520, 880, 1150]) b.prop({ kind: 'ceilingFan', x, y: FOOD_CEILING - 44, z: -870, radius: 44 });
   for (const x of [-704, 0, 704]) booth(b, x, 0xb8452f);
   const duct = new Room(b, 0, DECK, -Z);
   duct.box(0, 16, 2 * 1380, 32, 36, 126, 'white', 0xc9ced6);

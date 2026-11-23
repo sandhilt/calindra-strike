@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Wader, stepVoice } from '../src/game/wading.ts';
+import { Wader } from '../src/game/wading.ts';
 
 test('only the step from dry to wet counts as entering', () => {
   const wader = new Wader();
@@ -21,9 +21,4 @@ test('reset makes the next wet update an entry again', () => {
   wader.update(true);
   wader.reset();
   assert.equal(wader.update(true), true);
-});
-
-test('footsteps are wet while in water and dry otherwise', () => {
-  assert.equal(stepVoice(true), 'wet');
-  assert.equal(stepVoice(false), 'dry');
 });

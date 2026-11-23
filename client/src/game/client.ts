@@ -89,7 +89,7 @@ import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
-import { Wader, stepVoice } from './wading.ts';
+import { Wader } from './wading.ts';
 import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
@@ -1282,11 +1282,15 @@ export class ClientGame {
     const s = this.me;
     if (before.zoom !== s.zoom && s.zoom > 0) this.sfx.zoom();
     if (before.ground && !s.onGround && s.vy > 0) this.sfx.jump();
-    const wet = waterSurfaceAt(this.map, s.x, s.y, s.z) !== null;
+    const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
+    const wet = surface !== null;
     const entered = this.localWader.update(wet);
     const heavy = before.vy < -480;
     const landed = !before.ground && s.onGround && !before.drop;
-    if (entered || (landed && wet)) this.sfx.splash(heavy);
+    if (entered || (landed && wet)) {
+      this.sfx.splash(heavy);
+      if (surface !== null) this.effects.water.ripple(s.x, surface, s.z, 1);
+    }
     else if (landed) this.sfx.land(heavy);
     if (before.drop && !s.dropping) {
       this.sfx.land(true);
@@ -1305,8 +1309,10 @@ export class ClientGame {
       if (this.stepAcc > 76) {
         this.stepAcc = 0;
         const stepLoud = s.sprinting ? 0.68 : 0.55;
-        if (stepVoice(wet) === 'wet') this.sfx.wetStep(null, stepLoud);
-        else this.sfx.footstep(null, stepLoud);
+        if (surface !== null) {
+          this.sfx.wetStep(null, stepLoud);
+          this.effects.water.ripple(s.x, surface, s.z, 0.5);
+        } else this.sfx.footstep(null, stepLoud);
       }
     }
   }
@@ -1721,19 +1727,24 @@ export class ClientGame {
       if (wasVisible && sliding && !r.sliding) this.sfx.slide(pos);
       r.sliding = sliding;
       const at = { x: s.x, y: s.y, z: s.z };
-      const wet = waterSurfaceAt(this.map, s.x, s.y, s.z) !== null;
-      const entered = r.wader.update(wet);
+      const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
+      const entered = r.wader.update(surface !== null);
       if (wasVisible && ground && !sliding && r.speed > 150) {
         r.step += moved;
         if (r.step > 76) {
           r.step = 0;
           const stepLoud = sprinting ? 1.22 : 1;
-          if (stepVoice(wet) === 'wet') this.sfx.wetStep(at, stepLoud);
-          else this.sfx.footstep(at, stepLoud);
+          if (surface !== null) {
+            this.sfx.wetStep(at, stepLoud);
+            this.effects.water.ripple(s.x, surface, s.z, 0.5);
+          } else this.sfx.footstep(at, stepLoud);
         }
       }
       const landed = wasVisible && ground && !r.ground;
-      if (wasVisible && (entered || (landed && wet))) this.sfx.splash(r.dropping, at);
+      if (wasVisible && surface !== null && (entered || landed)) {
+        this.sfx.splash(r.dropping, at);
+        this.effects.water.ripple(s.x, surface, s.z, 1);
+      }
       else if (landed) this.sfx.land(r.dropping, at);
       r.ground = ground;
       r.dropping = dropping;

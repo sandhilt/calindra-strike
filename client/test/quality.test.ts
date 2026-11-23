@@ -95,3 +95,7 @@ test('the performance tier has no smoke or casings but keeps magazines and trace
   assert.ok(fx.magazines > 0);
   assert.ok(fx.tracers > 0);
 });
+
+test('only the high and low tiers ripple the water', () => {
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].waterRipples), ['high', 'low']);
+});

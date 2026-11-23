@@ -17,9 +17,3 @@ export class Wader {
     this.wasWet = false;
   }
 }
-
-export type StepVoice = 'dry' | 'wet';
-
-export function stepVoice(wet: boolean): StepVoice {
-  return wet ? 'wet' : 'dry';
-}

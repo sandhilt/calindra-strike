@@ -31,6 +31,16 @@ export interface RecoilDef {
   recovery: number; // recoil index recovered per second when not firing
 }
 
+/** 'scope' draws a lens over the view and hides the gun, 'sights' keeps the gun in view, raised to the eye. */
+export type AdsKind = 'sights' | 'scope';
+
+export interface AdsDef {
+  kind: AdsKind;
+  fov: number; // horizontal degrees at 4:3 while aiming (the default view is 90)
+  speed: number; // units/s on the ground while aiming, replaces the weapon speed
+  spreadMult: number; // multiplies the weapon's spread while aiming
+}
+
 export interface WeaponDef {
   id: WeaponId;
   name: string;
@@ -55,6 +65,8 @@ export interface WeaponDef {
   speed: number;
   scopedSpeed: number;
   zoomFov: number[]; // CS-style FOV per zoom level: horizontal degrees at 4:3 (default view is 90)
+  /** Aim down sights, held with the right button. Weapons that have `zoomFov` keep their CS scope and have no `ads`. All values are tuning. */
+  ads?: AdsDef;
   /** CS 1.6 AWP behaviour: discrete accuracy table and automatic re-scope after each bolt cycle. */
   csSniper?: boolean;
   spread: SpreadDef;
@@ -199,6 +211,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 250,
     scopedSpeed: 250,
     zoomFov: [],
+    ads: { kind: 'sights', fov: 78, speed: 200, spreadMult: 0.8 },
     spread: { base: 0.006, move: 0.05, air: 0.18, duckMult: 0.8, perShot: 0.018, perShotMax: 0.06 },
     recoil: { climb: 1.4, maxPitch: 6, sway: 0.6, swayPeriod: 6, swayStart: 2, recovery: 7 },
   }),
@@ -222,6 +235,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 221,
     scopedSpeed: 221,
     zoomFov: [],
+    ads: { kind: 'scope', fov: 45, speed: 150, spreadMult: 0.55 },
     spread: { base: 0.0035, move: 0.11, air: 0.25, duckMult: 0.75, perShot: 0.004, perShotMax: 0.035 },
     recoil: { climb: 0.75, maxPitch: 7, sway: 1.6, swayPeriod: 14, swayStart: 7, recovery: 8 },
   }),
@@ -245,6 +259,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 240,
     scopedSpeed: 240,
     zoomFov: [],
+    ads: { kind: 'sights', fov: 68, speed: 170, spreadMult: 0.7 },
     spread: { base: 0.009, move: 0.04, air: 0.15, duckMult: 0.8, perShot: 0.002, perShotMax: 0.02 },
     recoil: { climb: 0.45, maxPitch: 4, sway: 1, swayPeriod: 10, swayStart: 5, recovery: 9 },
   }),
@@ -268,6 +283,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 230,
     scopedSpeed: 230,
     zoomFov: [],
+    ads: { kind: 'sights', fov: 78, speed: 170, spreadMult: 0.85 },
     spread: { base: 0.065, move: 0.02, air: 0.06, duckMult: 0.9, perShot: 0, perShotMax: 0 },
     recoil: { climb: 3, maxPitch: 6, sway: 0, swayPeriod: 1, swayStart: 99, recovery: 3 },
   }),
@@ -315,6 +331,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 215,
     scopedSpeed: 215,
     zoomFov: [],
+    ads: { kind: 'sights', fov: 70, speed: 120, spreadMult: 0.6 },
     spread: { base: 0.012, move: 0.08, air: 0.25, duckMult: 0.7, perShot: 0.001, perShotMax: 0.02 },
     recoil: { climb: 0.5, maxPitch: 5, sway: 2.2, swayPeriod: 18, swayStart: 8, recovery: 7 },
   }),

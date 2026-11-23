@@ -467,9 +467,9 @@ export class BotBrain {
       const d = Math.hypot(q.state.x - ex, q.state.z - ez);
       if (d > this.aim.sightUnits) continue;
       // field of view ~140 degrees, but close enemies are heard anyway
-      const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + 44, q.state.z);
+      const [yaw] = anglesTo(ex, ey, ez, q.state.x, q.state.y + aimHeight(q.state.stance, false), q.state.z);
       if (d > HEAR_RANGE && Math.abs(wrapAngle(yaw - this.yaw)) > 70 * DEG) continue;
-      if (!hasLineOfSight(env.world, ex, ey, ez, q.state)) continue;
+      if (!hasLineOfSight(env.world, ex, ey, ez, q.state, sightHeights(q.state.stance))) continue;
       // prefer the current target slightly so bots don't flick between people
       const score = d * (q.id === this.targetId ? 0.7 : 1);
       if (score < bestD) {

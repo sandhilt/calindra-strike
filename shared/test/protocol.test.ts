@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BTN, BTN_MASK, RF_ALIVE, RF_DUCK, RF_GROUND, RF_PRONE, RF_SLIDE, RF_SPRINT, RF_ZOOM, STANCE, leanOfRow, parseClientMessage, sanitizeChat, sanitizeName, stanceFromFlags } from '../src/index.ts';
+import { BTN, BTN_MASK, RF_AIM, RF_ALIVE, RF_DUCK, RF_GROUND, RF_PRONE, RF_SLIDE, RF_SPRINT, RF_ZOOM, STANCE, leanOfRow, parseClientMessage, sanitizeChat, sanitizeName, stanceFromFlags } from '../src/index.ts';
 
 describe('parseClientMessage', () => {
   it('accepts a valid hello and input packet', () => {
@@ -94,7 +94,7 @@ describe('remote player rows', () => {
   });
 
   it('gives every row flag its own bit', () => {
-    const bits = [RF_DUCK, RF_ALIVE, RF_GROUND, RF_ZOOM, RF_PRONE, RF_SPRINT, RF_SLIDE];
+    const bits = [RF_DUCK, RF_ALIVE, RF_GROUND, RF_ZOOM, RF_PRONE, RF_SPRINT, RF_SLIDE, RF_AIM];
     assert.equal(new Set(bits).size, bits.length);
     assert.equal(bits.reduce((all, bit) => all | bit, 0), bits.reduce((all, bit) => all + bit, 0));
   });

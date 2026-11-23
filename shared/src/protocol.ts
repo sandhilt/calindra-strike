@@ -210,7 +210,7 @@ export type ServerMsg =
   // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.
   // lu (hora de almoçar only, [] otherwise): [attackers, roundEndsAtMs]; lc: one colleagueRow per colleague.
   // ps rows: [id, x, y, z, yaw, pitch, flags (RF_*), weapon, lean]. lean (-1 left .. 1 right, 0.01 steps) is absent on older rows, read it with leanOfRow.
-  // The stance is in the flags: RF_PRONE, else RF_DUCK (crouch), else standing; read it with stanceFromFlags. RF_SPRINT and RF_SLIDE mark the run and the slide.
+  // The stance is in the flags: RF_PRONE, else RF_DUCK (crouch), else standing; read it with stanceFromFlags. RF_SPRINT and RF_SLIDE mark the run and the slide, RF_AIM the held aim (RF_ZOOM is the AWP scope).
   | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
@@ -244,6 +244,7 @@ const F_PRONE = 64;
 const F_SPRINT = 128;
 const F_WINDED = 256;
 const F_DUCKHELD = 512;
+const F_AIM = 1024;
 
 export function packState(s: PlayerState): number[] {
   const flags =
@@ -256,7 +257,8 @@ export function packState(s: PlayerState): number[] {
     (s.jumpHeld ? F_JUMP : 0) |
     (s.dropping ? F_DROP : 0) |
     (s.attackHeld ? F_ATK : 0) |
-    (s.attack2Held ? F_ATK2 : 0);
+    (s.attack2Held ? F_ATK2 : 0) |
+    (s.aiming ? F_AIM : 0);
   return [
     round(s.x, 1e3),
     round(s.y, 1e3),
@@ -308,6 +310,7 @@ export function unpackState(a: number[], s: PlayerState): void {
   s.dropping = (f & F_DROP) !== 0;
   s.attackHeld = (f & F_ATK) !== 0;
   s.attack2Held = (f & F_ATK2) !== 0;
+  s.aiming = (f & F_AIM) !== 0;
   s.health = a[7];
   s.armor = a[8];
   s.weapon = a[9] as WeaponId;
@@ -343,6 +346,8 @@ export const RF_ZOOM = 64;
 export const RF_PRONE = 128;
 export const RF_SPRINT = 256;
 export const RF_SLIDE = 512;
+/** Aim down sights on a weapon with `ads`. RF_ZOOM stays for the AWP scope only. */
+export const RF_AIM = 1024;
 
 export function stanceFromFlags(flags: number): Stance {
   if (flags & RF_PRONE) return STANCE.PRONE;

@@ -5,6 +5,7 @@ export * from './physics.ts';
 export * from './protocol.ts';
 export * from './radio.ts';
 export * from './sim.ts';
+export * from './stance.ts';
 export * from './weapons.ts';
 export * from './spray.ts';
 export * from './ctf.ts';

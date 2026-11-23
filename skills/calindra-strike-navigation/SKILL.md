@@ -18,8 +18,15 @@ The pilot routes with `NavGrid` from `server/src/nav.ts`, the same grid the serv
 | Walk | up to 18 units (stairs, kerbs) | distance |
 | Jump | up to 40 units (a plain jump reaches 45) | 1.8 times distance plus 30 |
 | Drop | down up to 300 units (roofs, perches) | 1.3 times distance |
+| Lift | between the floors of a glass lift (Shopping Sul Rio) | ride time at walking speed |
 
-Anything above 40 units up, or farther than 300 down, is not an edge. The sky clip above y 600 is ignored.
+Anything above 40 units up, or farther than 300 down, is not an edge (except a lift ride). The sky clip above y 600 is ignored.
+
+## Floors and lifts (Shopping Sul Rio)
+
+- Three floors: térreo (y 0), praça de alimentação (y 192) and Mirante (y 384). `get_state` `you.floor` names yours and `lifts[].floors` lists the heights. `move_to` takes an optional `y`: give the floor height to go to another floor, and the pilot takes escalators or the glass lift by itself. Without `y` the goal is on the floor you stand on.
+- A glass lift is a field, not a vehicle: stand inside its shaft and you rise at a constant speed (crawling at each floor, holding at the top), hold `crouch` to go down. Step out through the doorway while the cab is level with the floor; the ground floor doorway faces the atrium, the others open across the atrium edge. Jumping does nothing inside. If you ride by hand, use `crouch` and `move_to` a point just outside the doorway of the floor you want.
+- The pilot and the server bots use the same grid: lift edges join the shaft cells of each floor, and nothing else leads into or out of a shaft between floors.
 
 ## Choosing destinations
 

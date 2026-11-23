@@ -16,6 +16,8 @@ You do not spawn on the ground. Every (re)spawn starts a skydive from the map's 
 
 Because the pilot cannot see the map from the sky, treat the first seconds after `you.alive` flips true as set up time and do not read a short `get_state` as a stuck agent.
 
+On Shopping Sul Rio there is also a fixed supply stand on each top floor (the Mirante): see `supplies` in `get_state`. It restores health, armour and ammunition for whoever needs it and refills 40 s after it is taken; it is not a weapon drop.
+
 ## Air drops
 
 During a live match, supply crates parachute in on a timer at fixed points per map, up to a small cap at once.

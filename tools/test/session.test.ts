@@ -834,10 +834,10 @@ test('sprays decode names, cap oldest, persist across respawns and clear with a 
   session.close();
 });
 
-async function defusion() {
+async function defusion(map = welcome.match.map) {
   const ctx = setup();
   const joined = ctx.session.join(args);
-  ctx.socket.message({ ...welcome, match: { ...welcome.match, mode: 'defuse' } });
+  ctx.socket.message({ ...welcome, match: { ...welcome.match, mode: 'defuse', map } });
   await joined;
   const self = createPlayerState();
   const snap = (bomb: number[], time = 200) => ctx.socket.message({
@@ -864,6 +864,25 @@ test('bomb perception exposes roles, names, progress, positions and all named ev
   assert.ok(events.every((e: { byName: string }) => e.byName === 'enemy'));
   snap([]);
   assert.equal(JSON.parse(JSON.stringify(session.getState())).bomb, null);
+  session.close();
+});
+
+test('Shopping bomb perception names both Mirante bases and swaps them with the attackers', async () => {
+  const map = getMap(2);
+  assert.ok(map.defuseBases);
+  const { session, snap } = await defusion(2);
+  for (const attackers of [0, 1]) {
+    const home = map.defuseBases[attackers];
+    const site = map.defuseBases[1 - attackers];
+    snap([0, -1, home.x, home.y, home.z, 0, 0, 0, attackers]);
+    assert.partialDeepStrictEqual(session.getState(), {
+      bomb: {
+        pos: [home.x, home.y, home.z],
+        home: { pos: [home.x, home.y, home.z], floor: 'Mirante' },
+        site: { pos: [site.x, site.y, site.z], floor: 'Mirante' },
+      },
+    });
+  }
   session.close();
 });
 

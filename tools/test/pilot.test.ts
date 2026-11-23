@@ -126,6 +126,23 @@ test('hunt plants as carrier and defuses as defender using the server brain', ()
   }
 });
 
+test('hunt plants only on the Mirante when the carrier is aligned with the Shopping site', () => {
+  const map = getMap(2);
+  const world = new CollisionWorld(map);
+  const nav = new NavGrid(world, map);
+  assert.ok(map.defuseBases);
+  const site = map.defuseBases[1];
+  for (const y of [192, site.y]) {
+    const { view, s, pilot } = fixture();
+    Object.assign(view.match, { mode: 'defuse', map: 2 });
+    Object.assign(s, { x: site.x, y, z: site.z });
+    view.roster[0][3] = 0;
+    view.bomb = [1, view.id, s.x, s.y, s.z, 0, 0, 0, 0];
+    const cmd = pilot.nextCmd(view, { kind: 'hunt' }, nav, world, 1);
+    assert.equal(Boolean(cmd.buttons & BTN.USE), y === site.y);
+  }
+});
+
 test('hunt calls a waiting colleague with USE, then leads it away toward lunch', () => {
   const map = getMap(2);
   const world = new CollisionWorld(map);

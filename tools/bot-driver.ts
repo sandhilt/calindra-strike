@@ -1,6 +1,6 @@
 import {
   BTN, CollisionWorld, DEG, TICK_MS, applyCmd, clamp, wrapAngle, PLAYER_RADIUS, RF_ALIVE, RF_DROP, WEAPON, stanceFromFlags, type Stance,
-  createPlayerState, eyeHeight, getMap, unpackState,
+  createPlayerState, defuseBases, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
 import {
@@ -34,6 +34,7 @@ export interface Terrain {
   nav: NavGrid;
   /** Flag bases lowered to the floor, team i's flag sits at `bases[i]`. */
   bases: [BombPoint, BombPoint];
+  bombBases: ReturnType<typeof defuseBases>;
 }
 
 /** What a mode sees of one bot's surroundings when it picks a goal. */
@@ -65,6 +66,7 @@ function navigation(index: number): Terrain {
     x, y: Math.max(0, world.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS)), z,
   });
   const terrain: Terrain = {
+    bombBases: defuseBases(map, (x, z) => atFloor({ x, z }).y),
     world, nav: new NavGrid(world, map), bases: [atFloor(map.flagBases[0]), atFloor(map.flagBases[1])],
   };
   maps.set(index, terrain);

@@ -54,6 +54,7 @@ import {
   ZONE_LEGS,
   absorbArmor,
   applyCmd,
+  isActiveCommand,
   refillReserve,
   clamp,
   createPlayerState,
@@ -220,7 +221,8 @@ export interface ServerPlayer {
   botChat: BotChatMemory | null; // table-talk memory, bots only
   botRadio: TalkMemory<number> | null; // radio table-talk memory, bots only
   token: string; // secret used to rejoin after a drop
-  lastActiveAt: number; // server ms of the last command with a button, look or weapon change
+  lastActiveAt: number; // server ms of the last command that isActiveCommand counts
+  lastCmd: Pick<Cmd, 'buttons' | 'yaw' | 'pitch'>; // what the activity rule compares the next command against
   ready: Readiness; // pending players stay out of the world until they confirm
 }
 
@@ -717,6 +719,7 @@ export class Game {
       botRadio: null,
       token: randomBytes(16).toString('hex'),
       lastActiveAt: this.now(),
+      lastCmd: { buttons: 0, yaw: 0, pitch: 0 },
       ready: this.initialReadiness(),
     };
     if (isTeamMode(this.mode)) p.team = this.pickTeam();
@@ -922,6 +925,7 @@ export class Game {
       botRadio: newTalkMemory<number>(),
       token: '',
       lastActiveAt: 0,
+      lastCmd: { buttons: 0, yaw: 0, pitch: 0 },
       ready: CONFIRMED,
     };
     this.players.set(id, p);
@@ -1466,7 +1470,8 @@ export class Game {
         p.tokens -= 1;
         n++;
         p.lastSeq = cmd.seq;
-        if (cmd.buttons !== 0 || cmd.weapon !== 0 || cmd.yaw !== p.state.yaw || cmd.pitch !== p.state.pitch) p.lastActiveAt = now;
+        if (isActiveCommand(cmd, p.lastCmd)) p.lastActiveAt = now;
+        p.lastCmd = cmd;
         p.using = (cmd.buttons & BTN.USE) !== 0;
         if (p.alive && this.phase !== 'podium') {
           const shot = applyCmd(this.world, p.state, cmd, p.id);

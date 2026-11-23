@@ -1,6 +1,7 @@
 import {
   BTN,
   IDLE_WARNING_LEAD_MS,
+  isActiveCommand,
   type Readiness,
   isTeamMode,
   PLAYER_RADIUS,
@@ -1247,8 +1248,7 @@ export class ClientGame {
 
   private warnIdle(cmd: Cmd): void {
     const now = performance.now();
-    const proneChanged = ((cmd.buttons ^ this.lastButtons) & BTN.PRONE) !== 0;
-    const active = (cmd.buttons & ~BTN.PRONE) !== 0 || proneChanged || cmd.weapon !== 0 || cmd.yaw !== this.lastCmdYaw || cmd.pitch !== this.lastCmdPitch;
+    const active = isActiveCommand(cmd, { buttons: this.lastButtons, yaw: this.lastCmdYaw, pitch: this.lastCmdPitch });
     this.lastCmdYaw = cmd.yaw;
     this.lastCmdPitch = cmd.pitch;
     const phase = this.match.phase;

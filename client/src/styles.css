@@ -372,6 +372,29 @@ input:focus-visible {
 
 .feedback-link:hover { text-decoration-thickness: 2px; }
 
+.hero-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.github-link {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--text);
+  transition: border-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.github-link svg { width: 20px; height: 20px; }
+.github-link:hover { border-color: rgba(165, 250, 0, 0.55); color: var(--lime); transform: translateY(-1px); }
+.github-link:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
 
 .card {
   position: relative;

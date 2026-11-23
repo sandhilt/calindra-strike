@@ -727,7 +727,7 @@ function weaponTick(s: PlayerState, buttons: number, seedBase: number): ShotInfo
     s.zoom = s.resumeZoom;
     s.resumeZoom = 0;
   }
-  if (attack2 && !s.attack2Held && def.zoomFov.length > 0 && s.deploy === 0 && s.reload === 0) {
+  if (attack2 && !s.attack2Held && def.zoomFov.length > 0 && !s.sprinting && s.deploy === 0 && s.reload === 0) {
     if (s.resumeZoom > 0) s.resumeZoom = 0; // right-click during the bolt cancels the re-scope
     else s.zoom = (s.zoom + 1) % (def.zoomFov.length + 1);
   }

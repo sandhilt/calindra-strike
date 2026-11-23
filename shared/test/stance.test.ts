@@ -159,6 +159,19 @@ describe('sprint and stamina', () => {
     assert.equal(s.zoom, 0);
   });
 
+  it('cannot scope in while sprinting', () => {
+    const w = testMap(() => {});
+    const s = grounded(w);
+    s.weapon = WEAPON.SNIPER;
+    run(w, s, 5, RUN);
+    assert.equal(s.sprinting, true);
+    run(w, s, 1, RUN | BTN.ATTACK2);
+    assert.equal(s.zoom, 0);
+    run(w, s, 1, RUN);
+    run(w, s, 1, RUN | BTN.ATTACK2);
+    assert.equal(s.zoom, 0);
+  });
+
   it('keeps its speed through a jump', () => {
     const w = testMap(() => {});
     const s = grounded(w);

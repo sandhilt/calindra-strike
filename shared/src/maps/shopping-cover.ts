@@ -83,14 +83,15 @@ function infoDesk(b: MapBuilder, x: number, z: number): void {
 }
 
 /**
- * Ad boards that cross the covered walkway on its atrium edge. None stands against the storefronts: the windows,
- * counters and partitions already crowd that side, so a board there only made a maze of walls in front of the doors.
+ * Ad boards that cross the covered walkway, one in front of the blank stretch of facade between two stores (the benchmark tour owns the other one). None
+ * stands in front of a shop window or a door: the glass is what the walkway is for, so a board there only hid the
+ * display and made a maze of walls before the entrances.
  */
 function gallery(b: MapBuilder): void {
   const edge = -672;
   const run = 110;
   const boards: readonly (readonly [number, StoreBrand])[] = [
-    [-1300, 'zarra'], [-840, 'cea'], [-500, 'hew'], [90, 'bobis'], [1230, 'cacau-chou'],
+    [-690, 'cea'],
   ];
   for (const [x, brand] of boards) board(b, x, edge - 8 - run / 2, run, GALLERY_FLOOR, WALL, brand);
 }

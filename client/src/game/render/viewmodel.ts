@@ -72,6 +72,8 @@ export function flashTexture(): THREE.CanvasTexture {
 }
 
 const SPRINT_FIRE_RECOVERY_SECONDS = 0.15;
+/** Sideways push of the held gun at a full lean (view units), on top of the eye moving: the weapon peeks out first. */
+const LEAN_GUN_UNITS = 2.6;
 
 export interface ViewPose {
   speed: number;
@@ -89,6 +91,8 @@ export interface ViewPose {
   /** Linear 0..1 blend of the aim down sights (see `stepBlend`); the gun's own easing is applied here. 0 for a weapon with no aim. */
   aim: number;
   hidden: boolean;
+  /** -1 (left) to 1 (right): the gun is pushed out to that side, past where the eye goes. */
+  lean?: number;
 }
 
 /** First-person weapon rendered in its own scene on top of the world. */
@@ -401,7 +405,7 @@ export class ViewModel {
       : null;
     const toEye = this.aimShift;
     this.holder.position.set(
-      bobX + this.swayX - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)) + toEye[0] * aim,
+      bobX + this.swayX + (p.lean ?? 0) * LEAN_GUN_UNITS * (1 - aim) - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)) + toEye[0] * aim,
       bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone * (1 - aim) - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0) + toEye[1] * aim,
       toEye[2] * aim,
     );

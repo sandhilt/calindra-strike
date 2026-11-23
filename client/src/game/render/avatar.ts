@@ -84,6 +84,9 @@ export interface AvatarPose {
   aiming?: boolean;
 }
 
+/** At a full lean the torso only tilts a little while the arms and the gun reach out, so cover hides the body before the weapon. */
+const LEAN_BODY_TILT_RAD = 0.1;
+const LEAN_ARMS_UNITS = 12;
 /** Radians the held weapon lifts toward the eye at full aim. */
 const AIM_LIFT_RAD = 0.32;
 
@@ -261,7 +264,8 @@ export class Avatar {
     const hip = THREE.MathUtils.lerp(32 - 24 * c, 12, prone);
     this.upper.position.y = this.legL.position.y = this.legR.position.y = hip;
     this.upper.rotation.x = THREE.MathUtils.lerp(-0.35 * c - 0.28 * sprint + 0.85 * slide, -Math.PI / 2, prone);
-    this.upper.rotation.z = -0.25 * p.lean;
+    this.upper.rotation.z = -LEAN_BODY_TILT_RAD * p.lean;
+    this.mount.position.x = LEAN_ARMS_UNITS * p.lean;
     this.legL.scale.y = this.legR.scale.y = THREE.MathUtils.lerp(1 - 0.7 * c, 1, prone);
     this.tag.position.y = STANCES[p.stance].height + 18;
 

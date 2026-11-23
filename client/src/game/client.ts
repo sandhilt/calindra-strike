@@ -1624,6 +1624,7 @@ export class ClientGame {
         reloadShells: this.localReload.shells,
         deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
         aim: this.aimT,
+        lean: this.me.lean,
         hidden: !showView,
       });
     }

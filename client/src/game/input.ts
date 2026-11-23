@@ -2,6 +2,12 @@ import { BTN, DEG, MAX_PITCH, clamp, wrapAngle } from '@calindra-strike/shared';
 import { CROUCH_TAPS_IDLE, type CrouchTapState, isCrouchKey, pressCrouch } from './crouch-taps.ts';
 import { PRONE_CANCEL_BUTTONS, nextProne } from './prone-input.ts';
 
+/** Side buttons of the mouse (back and forward): `MouseEvent.button` 3 and 4, as bits of the held mask. */
+const MOUSE_BACK_BUTTON = 3;
+const MOUSE_FORWARD_BUTTON = 4;
+const MOUSE_BACK = 1 << MOUSE_BACK_BUTTON;
+const MOUSE_FORWARD = 1 << MOUSE_FORWARD_BUTTON;
+
 /** Keyboard + mouse state. Uses `code` so WASD works on any keyboard layout. */
 export class Input {
   private keys = new Set<string>();
@@ -68,6 +74,7 @@ export class Input {
     });
     on('mousedown', (e) => {
       if (!(this.locked || this.debug) || !this.enabled) return;
+      if (e.button === MOUSE_BACK_BUTTON || e.button === MOUSE_FORWARD_BUTTON) e.preventDefault();
       this.mouse |= 1 << e.button;
     });
     on('mouseup', (e) => {
@@ -143,8 +150,8 @@ export class Input {
     if (this.keys.has('ControlLeft') || this.keys.has('KeyC') || this.keys.has('ControlRight')) b |= BTN.DUCK;
     if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) b |= BTN.SPRINT;
     if (this.keys.has('AltLeft') || this.keys.has('AltRight')) b |= BTN.WALK;
-    if (this.keys.has('ArrowLeft')) b |= BTN.LEAN_LEFT;
-    if (this.keys.has('ArrowRight')) b |= BTN.LEAN_RIGHT;
+    if (this.keys.has('ArrowLeft') || this.keys.has('KeyF') || this.mouse & MOUSE_BACK) b |= BTN.LEAN_LEFT;
+    if (this.keys.has('ArrowRight') || this.keys.has('KeyH') || this.mouse & MOUSE_FORWARD) b |= BTN.LEAN_RIGHT;
     return b;
   }
 

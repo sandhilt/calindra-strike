@@ -184,7 +184,7 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
 
   const place = (mesh: THREE.InstancedMesh, index: number, e: PropOf<'escalator'>, yaw: number, along: number, y: number, sx: number, sy: number, sz: number): void => {
     quat.setFromAxisAngle(AXIS_Y, yaw);
-    position.set(e.x + e.dirX * along, y, e.z + e.dirZ * along);
+    position.set(e.x + e.dirX * along, e.y + y, e.z + e.dirZ * along);
     matrix.compose(position, quat, scale.set(sx, sy, sz));
     mesh.setMatrixAt(index, matrix);
   };

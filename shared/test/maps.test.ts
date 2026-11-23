@@ -132,13 +132,17 @@ describe('the shopping map props', () => {
     for (const kind of ['ceilingFan', 'mannequin', 'clothesRack', 'escalator', 'fountain', 'vent'] as const) assert.ok(kinds.has(kind), kind);
   });
 
-  it('has one ascending and one descending escalator in each half', () => {
+  it('has one ascending and one descending escalator between each pair of floors in each half', () => {
     const escalators = shopping.props.filter((p) => p.kind === 'escalator');
-    assert.deepEqual(escalators.map(({ x, z, travel }) => ({ x, z, travel })), [
-      { x: 528, z: -352, travel: 'up' },
-      { x: -528, z: -352, travel: 'down' },
-      { x: -528, z: 352, travel: 'up' },
-      { x: 528, z: 352, travel: 'down' },
+    assert.deepEqual(escalators.map(({ x, y, z, travel }) => ({ x, y, z, travel })), [
+      { x: 1312, y: 192, z: -756, travel: 'up' },
+      { x: -1312, y: 192, z: -756, travel: 'down' },
+      { x: 528, y: 0, z: -352, travel: 'up' },
+      { x: -528, y: 0, z: -352, travel: 'down' },
+      { x: -1312, y: 192, z: 756, travel: 'up' },
+      { x: 1312, y: 192, z: 756, travel: 'down' },
+      { x: -528, y: 0, z: 352, travel: 'up' },
+      { x: 528, y: 0, z: 352, travel: 'down' },
     ]);
   });
 

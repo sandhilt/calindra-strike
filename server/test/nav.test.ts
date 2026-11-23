@@ -74,6 +74,29 @@ describe('NavGrid', () => {
     }
   });
 
+  it('climbs from the food court to the Mirante and back by the stair bays, one escalator step at a time', () => {
+    for (const side of [-1, 1]) {
+      const up = route(navS, [0, 192, side * 880], [0, 384, side * 880]);
+      assert.notEqual(up, null);
+      assert.equal(up!.at(-1)!.y >= 384, true);
+      for (let i = 1; i < up!.length; i++) assert.ok(up![i].y - up![i - 1].y <= 40, 'no edge rises more than a jump');
+      assert.ok(up!.some((n) => n.y > 192 && n.y < 384), 'passes the bay escalator steps');
+      const down = route(navS, [0, 384, side * 880], [0, 192, side * 800]);
+      assert.notEqual(down, null);
+      assert.equal(down!.at(-1)!.y, 192);
+    }
+  });
+
+  it('reaches the Mirante from the base of each team without leaving the walkable floors', () => {
+    for (const base of shopping.flagBases) {
+      for (const side of [-1, 1]) {
+        const p = route(navS, [base.x, 0, base.z], [0, 384, side * 880]);
+        assert.notEqual(p, null);
+        assert.equal(p!.some((n) => n.y >= 384), true);
+      }
+    }
+  });
+
   it('walks into a mall store through its door', () => {
     const p = route(navS, [0, 0, -450], [-352, 0, -1000]);
     assert.notEqual(p, null);

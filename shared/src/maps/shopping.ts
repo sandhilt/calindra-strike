@@ -3,20 +3,11 @@ import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
+import { DECK, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
+import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
-const X = 1408;
-const Z = 1152;
-const WALL = 464;
-/** Top of the upper floor (food court). */
-const DECK = 192;
-const SLAB = 16;
-/** Edge of the upper floor, looking over the atrium. */
-const GALLERY_Z = -672;
-const FACADE_Z = -880;
-const ROOF = 448;
-const DROP_HEIGHT = 1000;
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
 const ROOF_CLIP_MARGIN = 256;
 const STORE_XS = [-1056, -352, 352, 1056] as const;
@@ -25,8 +16,6 @@ const ESCALATORS = [
   { x1: -576, x2: -480, travel: 'down', name: 'Escada rolante que desce' },
 ] satisfies readonly { x1: number; x2: number; travel: EscalatorTravel; name: string }[];
 const ESCALATOR_FOOT_Z = -352;
-/** Glass balustrades stand above a jump, so nobody (bots' nav included) hops off the upper floor or an escalator. */
-const RAIL = 64;
 /** Escalator sides rise higher still: a step two cells up must not reach the top of a lower panel with a jump. */
 const ESCALATOR_SIDE = 80;
 
@@ -125,8 +114,8 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     b.restaurant(cx, DECK, -990);
   });
   const tables = [
-    ...[-1200, -880, -560, -200, 200, 560, 880, 1200].map((x) => [x, -940] as const),
-    ...[-1200, -880, -200, 200, 880, 1200].map((x) => [x, -800] as const),
+    ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -940] as const),
+    ...[-1150, -880, -200, 200, 880, 1150].map((x) => [x, -800] as const),
   ];
   tables.forEach(([tx, tz], i) => {
     b.block(tx, tz, 64, 64, 30, 'wood', DECK);
@@ -134,16 +123,17 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     b.deco(tx - 4, DECK + 30.4, tz - 4, tx + 4, DECK + 40, tz + 4, 'plant');
     for (const side of [-1, 1]) b.block(tx + side * 52, tz, 22, 22, 18, 'desk', DECK, { tint: CHAIR_TINTS[i % CHAIR_TINTS.length] });
   });
-  for (const x of [-1200, -880, -560, -200, 200, 560, 880, 1200]) b.prop({ kind: 'ceilingFan', x, y: ROOF - 48, z: -870, radius: 44 });
+  for (const x of [-1150, -880, -560, -200, 200, 560, 880, 1150]) b.prop({ kind: 'ceilingFan', x, y: FOOD_CEILING - 44, z: -870, radius: 44 });
   for (const x of [-704, 0, 704]) booth(b, x, 0xb8452f);
   const duct = new Room(b, 0, DECK, -Z);
-  duct.box(0, 16, 2 * 1380, 32, 36, 212, 'white', 0xc9ced6);
-  for (const x of [-1312, -704, 0, 704, 1312]) duct.vent(x, 230, 32, 'front');
+  duct.box(0, 16, 2 * 1380, 32, 36, 126, 'white', 0xc9ced6);
+  for (const x of [-1312, -704, 0, 704, 1312]) duct.vent(x, 144, 32, 'front');
 }
 
 /**
- * SHOPPING SUL RIO: a two floor mall around a fountain under a glass roof. Stores on the ground floor,
- * the food court upstairs, four escalators between them. North half authored once and mirrored 180 degrees.
+ * SHOPPING SUL RIO: a three floor mall around a fountain under a glass roof. Stores on the ground floor,
+ * the food court upstairs, the Mirante gallery above it, escalators and a glass lift between them.
+ * North half authored once and mirrored 180 degrees.
  */
 export function buildShopping(): MapDef {
   const b = new MapBuilder();
@@ -167,20 +157,21 @@ export function buildShopping(): MapDef {
     b.prop({ kind: 'vent', x: -X + 30, y: 360, z: -420, yaw: -Math.PI / 2, width: 44, height: 30 });
     b.prop({ kind: 'vent', x: -X + 30, y: 360, z: -220, yaw: -Math.PI / 2, width: 44, height: 30 });
 
-    // upper floor slab, its railing and the roof over it
+    // food court floor slab, its railing and the roof over the top floor
     b.add(-X, DECK - SLAB, -Z, X, DECK, GALLERY_Z, 'tile');
     b.deco(-X, DECK - SLAB, GALLERY_Z, X, DECK - SLAB + 4, GALLERY_Z + 3);
-    for (const [a, c] of [[-X, -576], [-480, 480], [576, X]] as const) {
+    for (const [a, c] of [[-X, -576], [-480, -LIFT_GAP_HALF], [LIFT_GAP_HALF, 480], [576, X]] as const) {
       b.add(a, DECK, GALLERY_Z - 4, c, DECK + RAIL, GALLERY_Z, 'glass', { shoot: true });
       b.deco(a, DECK + RAIL, GALLERY_Z - 5, c, DECK + RAIL + 4, GALLERY_Z + 1, 'charcoal');
     }
     b.add(-X, ROOF, -Z, X, ROOF + SLAB, GALLERY_Z, 'white');
     // the roof top is outside the mall and nobody can walk there from the floor, so a glider hits the side of this column instead of landing
     b.add(-X, ROOF + SLAB, -Z, X, DROP_HEIGHT + ROOF_CLIP_MARGIN, GALLERY_Z, 'clip', { visible: false, shoot: true });
-    for (const px of [-1240, -760, -200, 200, 760, 1240]) {
+    for (const px of [-760, -200, 200, 760]) {
       b.block(px, -696, 40, 40, DECK - SLAB, 'white');
-      b.block(px, -696, 40, 40, ROOF - DECK, 'white', DECK);
+      b.block(px, -696, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
+    topFloor(b);
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through
     b.deco(-X, ROOF + 8, GALLERY_Z, X, ROOF + 12, 0, 'glass');

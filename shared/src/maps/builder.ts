@@ -114,9 +114,9 @@ export class MapBuilder {
    * A solid staircase that is drawn as a moving escalator. The step boxes stay for collision and navigation
    * but are not drawn: the client animates its own steps over them.
    */
-  escalator(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, travel: EscalatorTravel, mat: Mat = 'metal'): void {
+  escalator(x1: number, x2: number, z1: number, z2: number, dir: '+x' | '-x' | '+z' | '-z', height: number, travel: EscalatorTravel, mat: Mat = 'metal', y0 = 0): void {
     const first = this.boxes.length;
-    this.stairs(x1, x2, z1, z2, dir, height, mat);
+    this.stairs(x1, x2, z1, z2, dir, height, mat, y0);
     for (const box of this.boxes.slice(first)) box.visible = false;
     const alongX = dir === '+x' || dir === '-x';
     const sign = dir === '+x' || dir === '+z' ? 1 : -1;
@@ -126,6 +126,7 @@ export class MapBuilder {
     this.prop({
       kind: 'escalator',
       travel,
+      y: y0,
       x: foot.x,
       z: foot.z,
       dirX: alongX ? sign : 0,

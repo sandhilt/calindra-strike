@@ -65,8 +65,8 @@ export type MapProp =
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
   | { kind: 'clothesRack'; x: number; y: number; z: number; yaw: number; length: number; palette: readonly number[] }
-  /** A moving staircase over the foot-to-top `stairs` boxes: foot centre and the unit direction that goes uphill. */
-  | { kind: 'escalator'; travel: EscalatorTravel; x: number; z: number; dirX: number; dirZ: number; width: number; length: number; height: number }
+  /** A moving staircase over the foot-to-top `stairs` boxes: foot centre (at height `y`) and the unit direction that goes uphill. */
+  | { kind: 'escalator'; travel: EscalatorTravel; y: number; x: number; z: number; dirX: number; dirZ: number; width: number; length: number; height: number }
   /** Water jet and falling drops standing on a basin whose surface is at `y`. */
   | { kind: 'fountain'; x: number; y: number; z: number; radius: number }
   /** A wall grille with a fan behind it, a hum nearby and a faint wisp of vapour. It faces local -z. */

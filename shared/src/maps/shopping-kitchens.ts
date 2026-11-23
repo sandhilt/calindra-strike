@@ -1,5 +1,6 @@
 import type { FoodBrand } from './brands.ts';
 import { Room } from './room.ts';
+import { DECK, FOOD_CEILING } from './shopping-levels.ts';
 
 /** Stainless steel, scrubbed tile and dark cooking surfaces; tints on the mats the map already has. */
 const STEEL = 0xaab1ba;
@@ -11,13 +12,13 @@ const IRON = 0x75736f;
 /** Depth of every kitchen behind its counter, from the back wall to the serving window. */
 export const KITCHEN_DEPTH = 96;
 export const KITCHEN_WIDTH = 320;
-/** Height of the kitchen box above the deck; the roof is higher and the hood duct climbs to it. */
-export const KITCHEN_HEIGHT = 192;
+/** Height of the kitchen box above the deck: its lid sits against the floor slab of the top floor. */
+export const KITCHEN_HEIGHT = 176;
 /** The cooks stand on a platform this high, so equipment shows over the 40 unit counter. Rooms of the kitchen start on top of it. */
 export const KITCHEN_FLOOR = 28;
 const KITCHEN_TOP = KITCHEN_HEIGHT - KITCHEN_FLOOR;
-/** Height of the roof above the kitchen platform, where the hood duct ends. */
-const ROOF_ABOVE_FLOOR = 448 - 192 - KITCHEN_FLOOR;
+/** Height of the food court ceiling above the kitchen platform, where the hood duct ends. */
+const ROOF_ABOVE_FLOOR = FOOD_CEILING - DECK - KITCHEN_FLOOR;
 /** The front fascia hangs from the lid down to here (relative to the platform). */
 const FASCIA_BOTTOM = 122;
 

@@ -95,7 +95,7 @@ export function addVentFrame(parts: Parts, v: Of<'vent'>): void {
  */
 export function addEscalatorBody(parts: Parts, e: Of<'escalator'>, rise: number): void {
   const yaw = Math.atan2(-e.dirZ, e.dirX);
-  parts.at(e.x, 0, e.z, yaw);
+  parts.at(e.x, e.y, e.z, yaw);
   parts.prism([[0, 0], [e.length, 0], [e.length, e.height - 2]], e.width, 0x2b2e33, { x: 0, y: 0, z: 0 });
   const slope = e.height / e.length;
   const flatFrom = (e.height - rise) / slope;

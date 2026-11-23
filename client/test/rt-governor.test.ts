@@ -18,9 +18,9 @@ const WARMUP_AND_WINDOW = RT_GOVERNOR.warmupSeconds + RT_GOVERNOR.windowSeconds 
 
 test('slow frames step the level down one notch, only after the warm-up and a full window', () => {
   const governor = new RtGovernor();
-  assert.deepEqual(run(governor, 33, RT_GOVERNOR.warmupSeconds, 'medium'), []);
-  assert.deepEqual(run(governor, 33, RT_GOVERNOR.windowSeconds - 0.5, 'medium'), []);
-  assert.deepEqual(run(governor, 33, 1, 'medium'), ['light']);
+  assert.deepEqual(run(governor, 40, RT_GOVERNOR.warmupSeconds, 'medium'), []);
+  assert.deepEqual(run(governor, 40, RT_GOVERNOR.windowSeconds - 0.5, 'medium'), []);
+  assert.deepEqual(run(governor, 40, 1, 'medium'), ['light']);
 });
 
 test('a smooth match is left alone', () => {
@@ -30,9 +30,9 @@ test('a smooth match is left alone', () => {
 
 test('it steps after the warm-up that follows a step, one notch at a time, and stops at light', () => {
   const governor = new RtGovernor();
-  assert.deepEqual(run(governor, 33, WARMUP_AND_WINDOW, 'high'), ['medium']);
-  assert.deepEqual(run(governor, 33, WARMUP_AND_WINDOW, 'medium'), ['light']);
-  assert.deepEqual(run(governor, 33, 120, 'light'), []);
+  assert.deepEqual(run(governor, 40, WARMUP_AND_WINDOW, 'high'), ['medium']);
+  assert.deepEqual(run(governor, 40, WARMUP_AND_WINDOW, 'medium'), ['light']);
+  assert.deepEqual(run(governor, 40, 120, 'light'), []);
 });
 
 test('off and light never ask for anything, however slow', () => {
@@ -52,6 +52,21 @@ test('one slow spike in a smooth stretch does not move the median', () => {
   run(governor, 16, RT_GOVERNOR.warmupSeconds, 'medium');
   assert.equal(governor.sample(0.5, 'medium'), null);
   assert.deepEqual(run(governor, 16, RT_GOVERNOR.windowSeconds + 1, 'medium'), []);
+});
+
+test('a few spikes down to 24 fps are accepted, many are not', () => {
+  const frames = (spikeEvery: number): RtLevel[] => {
+    const governor = new RtGovernor();
+    run(governor, 16, RT_GOVERNOR.warmupSeconds, 'medium');
+    const asked: RtLevel[] = [];
+    for (let i = 0; i < 400; i++) {
+      const level = governor.sample((i % spikeEvery === 0 ? 45 : 16) / 1000, 'medium');
+      if (level) asked.push(level);
+    }
+    return asked;
+  };
+  assert.deepEqual(frames(40), [], 'one frame in forty is a spike');
+  assert.deepEqual(frames(8), ['light'], 'one in eight is not a few');
 });
 
 test('median averages the middle pair of an even count', () => {

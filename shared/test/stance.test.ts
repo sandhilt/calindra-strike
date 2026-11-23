@@ -172,6 +172,20 @@ describe('sprint and stamina', () => {
     assert.equal(s.zoom, 0);
   });
 
+  it('ends on the command that runs off a ledge, with the sprint-out delay', () => {
+    const w = testMap((b) => b.add(-300, -40, -200, 300, 40, 600, 'ground'));
+    const s = grounded(w, 0, 40.1, 300);
+    run(w, s, 40, RUN);
+    s.z = -170;
+    run(w, s, 1, RUN);
+    assert.equal(s.sprinting, true);
+    let left = 0;
+    while (s.onGround && left++ < 60) run(w, s, 1, RUN);
+    assert.equal(s.onGround, false);
+    assert.equal(s.sprinting, false);
+    assert.ok(s.nextFire >= s.tick + SPRINT_OUT_TICKS);
+  });
+
   it('keeps its speed through a jump', () => {
     const w = testMap(() => {});
     const s = grounded(w);

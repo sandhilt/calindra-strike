@@ -448,12 +448,17 @@ function canSprint(s: PlayerState, buttons: number): boolean {
   return wants && !blocked && s.onGround && s.stance === STANCE.STAND && s.slide === 0 && !s.winded && s.stamina > 0;
 }
 
+function endSprint(s: PlayerState): void {
+  s.sprinting = false;
+  s.nextFire = Math.max(s.nextFire, s.tick + SPRINT_OUT_TICKS);
+}
+
 function stepSprint(s: PlayerState, sprinting: boolean): void {
   if (sprinting && !s.sprinting) {
     s.zoom = 0;
     s.resumeZoom = 0;
   }
-  if (!sprinting && s.sprinting) s.nextFire = Math.max(s.nextFire, s.tick + SPRINT_OUT_TICKS);
+  if (!sprinting && s.sprinting) endSprint(s);
   s.sprinting = sprinting;
   const delta = sprinting ? -STAMINA_DRAIN_PER_TICK : STAMINA_REGEN_PER_TICK;
   s.stamina = clamp(s.stamina + delta, 0, STAMINA_MAX);
@@ -577,6 +582,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     }
   }
 
+  if (s.sprinting && !s.onGround) endSprint(s); // a run off a ledge ends the sprint on this command, not the next
   endSlideIfSpent(s);
   updateLean(w, s, buttons);
 }

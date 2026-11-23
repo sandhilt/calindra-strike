@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BTN, CollisionWorld, LIFT_DWELL_RADIUS_UNITS, LIFT_DWELL_SPEED_UNITS, LIFT_SPEED_UNITS, MapBuilder, WEAPON,
+  BTN, CollisionWorld, LIFT_DWELL_RADIUS_UNITS, LIFT_DWELL_SPEED_UNITS, LIFT_SPEED_UNITS, MapBuilder, STANCE, WEAPON,
   applyCmd, createPlayerState, getMaps, liftAt, liftRide, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
@@ -90,6 +90,27 @@ describe('riding a lift', () => {
       step(w, b, i % 2 ? BTN.JUMP : 0);
     }
     assert.equal(b.y, a.y);
+  });
+
+  it('updates sprint, stamina and stance while the cab replaces jumping and gravity', () => {
+    const w = shaftWorld();
+    const s = rider(w, 0, 192, 150);
+    const startY = s.y;
+    const startStamina = s.stamina;
+    step(w, s, BTN.FWD | BTN.SPRINT | BTN.JUMP);
+    assert.ok(s.y > startY);
+    assert.equal(s.onGround, true);
+    assert.equal(s.vy, 0);
+    assert.equal(s.sprinting, true);
+    assert.ok(s.stamina < startStamina);
+
+    const beforeDescent = s.y;
+    const beforeRecovery = s.stamina;
+    step(w, s, BTN.DUCK);
+    assert.ok(s.y < beforeDescent);
+    assert.equal(s.stance, STANCE.CROUCH);
+    assert.equal(s.sprinting, false);
+    assert.ok(s.stamina > beforeRecovery);
   });
 
   it('crawls through an intermediate stop for long enough to walk out of its doorway', () => {

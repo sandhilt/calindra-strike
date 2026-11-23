@@ -1,3 +1,4 @@
+import { STANCE } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { ColleagueView } from '../lunch.ts';
 import { Avatar, COLLEAGUE_LOOK } from './avatar.ts';
@@ -39,7 +40,7 @@ export class ColleaguesView {
       else root.position.lerp(target, Math.min(1, dt * FOLLOW_RATE));
       root.rotation.y = c.yaw;
       const speed = dt > 0 ? before.distanceTo(root.position) / dt : 0;
-      avatar.update(dt, { speed, ducked: c.kind === 'seated', dropping: false, onGround: true, pitch: 0, protect: false, reloading: false });
+      avatar.update(dt, { speed, stance: c.kind === 'seated' ? STANCE.CROUCH : STANCE.STAND, sprinting: false, sliding: false, lean: 0, dropping: false, onGround: true, pitch: 0, protect: false, reloading: false });
     });
   }
 

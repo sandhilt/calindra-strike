@@ -10,7 +10,7 @@ function fixture() {
   Object.assign(self, { x: -300, y: 0, z: 0, health: 100, dropping: false });
   const enemy: Peer = {
     id: 2, name: 'enemy', team: 1, enemy: true, alive: true,
-    x: 300, y: 0, z: 0, yaw: 0, pitch: 0, flags: RF_ALIVE, weapon: 2,
+    x: 300, y: 0, z: 0, yaw: 0, pitch: 0, flags: RF_ALIVE, weapon: 2, lean: 0,
   };
   return { self, enemy };
 }

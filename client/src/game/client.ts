@@ -1,6 +1,7 @@
 import {
   BTN,
   IDLE_WARNING_LEAD_MS,
+  isActiveCommand,
   type Readiness,
   isTeamMode,
   PLAYER_RADIUS,
@@ -9,7 +10,7 @@ import {
   CMDS_PER_PACKET_MAX,
   CollisionWorld,
   DEG,
-  DUCK_EYE,
+  LEAN_OFFSET_UNITS,
   type GameEvent,
   type GameMode,
   INTERP_DELAY_MS,
@@ -27,14 +28,17 @@ import {
   RESPAWN_TICKS,
   RF_ALIVE,
   RF_DROP,
-  RF_DUCK,
   RF_GROUND,
   RF_PROTECT,
   RF_RELOAD,
+  RF_SLIDE,
+  RF_SPRINT,
   RF_ZOOM,
   type ResultRow,
   type RosterEntry,
   STAND_EYE,
+  STAMINA_MAX,
+  STANCES,
   type ServerMsg,
   type ShotInfo,
   type VoteInfo,
@@ -55,10 +59,12 @@ import {
   createPlayerState,
   encodeCmd,
   getMap,
+  waterSurfaceAt,
   lerpAngle,
   rayHitbox,
   recoilOffset,
   shellsToLoad,
+  stanceFromFlags,
   unpackState,
   weaponDef,
 } from '@calindra-strike/shared';
@@ -85,11 +91,14 @@ import type { Rider } from './render/prop-motion.ts';
 import { SuppliesView } from './render/supply.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
+import { Wader } from './wading.ts';
 import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
+import { RtGovernor } from './render/rt-governor.ts';
+import { RT, capRtLevel, rtLabel, type RtLevel } from './render/rt-levels.ts';
 import { lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
@@ -99,6 +108,7 @@ import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePos
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
+import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
@@ -118,6 +128,7 @@ interface Snap {
   pitch: number;
   flags: number;
   w: number;
+  lean: number;
 }
 
 interface Remote {
@@ -130,7 +141,9 @@ interface Remote {
   step: number;
   ground: boolean;
   dropping: boolean;
+  sliding: boolean;
   reload: ReloadPlayback;
+  wader: Wader;
 }
 
 export interface Welcome {
@@ -265,8 +278,11 @@ export class ClientGame {
   private seq = 0;
   private correction = new THREE.Vector3();
   private eye = STAND_EYE;
+  private spectatorEye = STAND_EYE;
+  private eyeTargetId = -1;
   private punch = 0;
   private stepAcc = 0;
+  private readonly localWader = new Wader();
   private readonly localReload = new ReloadPlayback();
 
   private readonly remotes = new Map<number, Remote>();
@@ -313,6 +329,10 @@ export class ClientGame {
   /** The graphics card can run the light ray-marched lighting; cleared for good if it ever throws. */
   private lightRtAvailable = false;
   private lightRt: LightRt | null = null;
+  private lightRtLevel: RtLevel = 'off';
+  /** Lowered by the frame-time governor and kept for the rest of the match. */
+  private rtCeiling: RtLevel = 'high';
+  private readonly rtGovernor = new RtGovernor();
   private menuOpen = false;
   private elapsed = 0;
 
@@ -394,6 +414,7 @@ export class ClientGame {
     if (this.match.phase === 'podium') this.enterPodium(this.match);
     this.lastFrame = performance.now();
     performanceHint.restart();
+    this.rtGovernor.restart();
     this.raf = requestAnimationFrame(this.frame);
   }
 
@@ -459,7 +480,7 @@ export class ClientGame {
       this.applyQuality();
       this.onResize();
     }
-    this.applyLightRt(QUALITY[s.quality].lightRt && s.lightRt);
+    this.applyLightRt(this.wantedRtLevel());
     this.input.sensitivity = s.sensitivity;
     this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
@@ -474,7 +495,7 @@ export class ClientGame {
     const profile = QUALITY[quality];
     this.appliedQuality = quality;
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
-    this.applyLightRt(profile.lightRt && this.settings.lightRt);
+    this.applyLightRt(this.wantedRtLevel());
     this.effects.setQuality(quality);
     this.view.setQuality(quality);
     if (this.world) {
@@ -484,16 +505,28 @@ export class ClientGame {
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }
 
-  /** Turns the ray-marched lighting on for a tier that has it and a card that can run it, and off otherwise. */
-  private applyLightRt(wanted: boolean): void {
-    if (!wanted || !this.lightRtAvailable) {
+  /** The level the player chose, on a tier that has the pass. */
+  private wantedRtLevel(): RtLevel {
+    return QUALITY[this.settings.quality].lightRt ? capRtLevel(this.settings.lightRt, this.rtCeiling) : 'off';
+  }
+
+  /** Builds the ray-marched lighting at a level for a card that can run it, and tears it down for `off`. A level change rebuilds it. */
+  private applyLightRt(level: RtLevel): void {
+    const profile = this.lightRtAvailable ? RT[level] : null;
+    if (!profile) {
       this.lightRt?.dispose();
       this.lightRt = null;
+      this.lightRtLevel = 'off';
       return;
     }
-    if (this.lightRt) return;
+    if (this.lightRt && this.lightRtLevel === level) return;
+    this.lightRt?.dispose();
+    this.lightRt = null;
+    this.lightRtLevel = 'off';
+    this.rtGovernor.restart();
     try {
-      this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1);
+      this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1, profile);
+      this.lightRtLevel = level;
     } catch {
       this.lightRtAvailable = false;
     }
@@ -530,7 +563,7 @@ export class ClientGame {
         return;
       } catch {
         this.lightRtAvailable = false;
-        this.applyLightRt(false);
+        this.applyLightRt('off');
       }
     }
     this.renderer.render(this.scene, this.camera);
@@ -730,9 +763,11 @@ export class ClientGame {
       this.pending = this.pending.filter((c) => c.seq > m.ack);
       if (!this.alive) {
         this.alive = true;
+        this.input.clearProne();
         copyState(this.me, this.serverState);
         for (const c of this.pending) this.predict(this.me, c);
         this.prev.set(this.me.x, this.me.y, this.me.z);
+        this.eye = STANCES[this.me.stance].eye;
         this.correction.set(0, 0, 0);
         // Skydivers face the centre of the arena below.
         this.input.yaw = Math.atan2(this.me.x, this.me.z);
@@ -759,21 +794,22 @@ export class ClientGame {
       }
     } else if (this.alive) {
       this.alive = false;
+      this.input.clearProne();
     }
 
     const seen = new Set<number>();
     for (const p of m.ps) {
-      const [id, x, y, z, yaw, pitch, flags, w] = p;
+      const [id, x, y, z, yaw, pitch, flags, w, lean = 0] = p;
       if (id === this.myId) continue;
       seen.add(id);
       let r = this.remotes.get(id);
       if (!r) {
         const n = this.nameOf(id);
-        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false, reload: new ReloadPlayback() };
+        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false, sliding: false, reload: new ReloadPlayback(), wader: new Wader() };
         this.scene.add(r.avatar.root);
         this.remotes.set(id, r);
       }
-      r.buf.push({ t: m.time, x, y, z, yaw, pitch, flags, w });
+      r.buf.push({ t: m.time, x, y, z, yaw, pitch, flags, w, lean });
       if (r.buf.length > 40) r.buf.shift();
     }
     for (const r of this.remotes.values()) {
@@ -857,6 +893,7 @@ export class ClientGame {
         }
         if (e.to === this.myId) {
           this.alive = false;
+          this.input.clearProne();
           this.deathAt = performance.now();
           this.deathPos.set(this.me.x, this.me.y, this.me.z);
           this.killerId = e.by;
@@ -1138,7 +1175,8 @@ export class ClientGame {
   }
 
   private onSpectatorKey(code: string, down: boolean, e: KeyboardEvent): boolean {
-    if (code === 'Tab') {
+    // With the menu open Tab keeps its job of moving focus through the menu.
+    if (code === 'Tab' && !this.menuOpen) {
       e.preventDefault();
       this.scoreboardOpen = down;
       return true;
@@ -1229,15 +1267,16 @@ export class ClientGame {
     this.tickCount++;
     const renderTime = Math.max(0, this.serverNow() - INTERP_DELAY_MS);
     const canPlay = this.alive && this.match.phase !== 'podium';
+    if (!canPlay) this.input.clearProne();
     const buttons = this.input.buttons();
     if (canPlay && buttons & BTN.USE && !(this.lastButtons & BTN.USE)) this.explainUse();
-    this.lastButtons = buttons;
     const req = this.resolveWeaponRequest(this.input.takeWeaponRequest());
     const cmd: Cmd = { seq: ++this.seq, buttons, yaw: this.input.yaw, pitch: this.input.pitch, weapon: req, interp: Math.round(renderTime) };
     this.warnIdle(cmd);
+    this.lastButtons = buttons;
     if (canPlay) {
       const s = this.me;
-      const before = { ground: s.onGround, drop: s.dropping, reload: s.reload, weapon: s.weapon, nextFire: s.nextFire, vy: s.vy, zoom: s.zoom };
+      const before = { ground: s.onGround, drop: s.dropping, reload: s.reload, weapon: s.weapon, nextFire: s.nextFire, vy: s.vy, zoom: s.zoom, slide: s.slide, sprinting: s.sprinting };
       this.prev.set(s.x, s.y, s.z);
       const shot = this.predict(s, cmd);
       this.pending.push(cmd);
@@ -1251,7 +1290,7 @@ export class ClientGame {
 
   private warnIdle(cmd: Cmd): void {
     const now = performance.now();
-    const active = cmd.buttons !== 0 || cmd.weapon !== 0 || cmd.yaw !== this.lastCmdYaw || cmd.pitch !== this.lastCmdPitch;
+    const active = isActiveCommand(cmd, { buttons: this.lastButtons, yaw: this.lastCmdYaw, pitch: this.lastCmdPitch });
     this.lastCmdYaw = cmd.yaw;
     this.lastCmdPitch = cmd.pitch;
     const phase = this.match.phase;
@@ -1277,27 +1316,37 @@ export class ClientGame {
     }
   }
 
-  private localSounds(before: { ground: boolean; drop: boolean; reload: number; weapon: WeaponId; nextFire: number; vy: number; zoom: number }, cmd: Cmd, shot: ShotInfo | null): void {
+  private localSounds(before: { ground: boolean; drop: boolean; reload: number; weapon: WeaponId; nextFire: number; vy: number; zoom: number; slide: number; sprinting: boolean }, cmd: Cmd, shot: ShotInfo | null): void {
     const s = this.me;
     if (before.zoom !== s.zoom && s.zoom > 0) this.sfx.zoom();
     if (before.ground && !s.onGround && s.vy > 0) this.sfx.jump();
-    if (!before.ground && s.onGround && !before.drop) this.sfx.land(before.vy < -480);
-    if (before.drop && !s.dropping) {
-      this.sfx.land(true);
-      this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
-    }
+    const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
+    const skydiveEnded = before.drop && !s.dropping;
+    const landed = (!before.ground && s.onGround && !before.drop) || skydiveEnded;
+    const heavy = skydiveEnded || before.vy < -480;
+    const wade = this.localWader.update(surface !== null, s.onGround, landed);
+    if (wade === 'splash') {
+      this.sfx.splash(heavy);
+      if (surface !== null) this.effects.water.ripple(s.x, surface, s.z, 1);
+    } else if (wade === 'thud') this.sfx.land(heavy);
+    if (skydiveEnded) this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
     if (before.weapon !== s.weapon) {
       this.view.setWeapon(s.weapon);
       this.sfx.deploy();
     }
     this.localReloadSounds(before.weapon);
-    if (!shot && cmd.buttons & BTN.ATTACK && s.nextFire !== before.nextFire && s.reload === 0) this.sfx.dryFire();
+    if (!shot && !before.sprinting && cmd.buttons & BTN.ATTACK && s.nextFire !== before.nextFire && s.reload === 0) this.sfx.dryFire();
     const speed = Math.hypot(s.vx, s.vz);
-    if (s.onGround && speed > 150) {
+    if (s.slide > 0 && before.slide === 0) this.sfx.slide();
+    if (s.onGround && s.slide === 0 && speed > 150) {
       this.stepAcc += speed / TICK_RATE;
       if (this.stepAcc > 76) {
         this.stepAcc = 0;
-        this.sfx.footstep(null, 0.55);
+        const stepLoud = s.sprinting ? 0.68 : 0.55;
+        if (surface !== null) {
+          this.sfx.wetStep(null, stepLoud);
+          this.effects.water.ripple(s.x, surface, s.z, 0.5);
+        } else this.sfx.footstep(null, stepLoud);
       }
     }
   }
@@ -1378,7 +1427,7 @@ export class ClientGame {
         if (!r.visible || this.isTeammate(r.id)) continue; // no friendly fire: rounds pass through
         const s = this.sample(r, renderT);
         if (!s || !(s.flags & RF_ALIVE) || s.flags & (RF_DROP | RF_PROTECT)) continue;
-        const h = rayHitbox(shot.ox, shot.oy, shot.oz, dx, dy, dz, s.x, s.y, s.z, (s.flags & RF_DUCK) !== 0, dist);
+        const h = rayHitbox(shot.ox, shot.oy, shot.oz, dx, dy, dz, s.x, s.y, s.z, stanceFromFlags(s.flags), s.lean, s.yaw, dist);
         if (h) {
           dist = h.t;
           hitPlayer = true;
@@ -1454,6 +1503,7 @@ export class ClientGame {
       pitch: a.pitch + (c.pitch - a.pitch) * k,
       flags: k < 0.5 ? a.flags : c.flags,
       w: k < 0.5 ? a.w : c.w,
+      lean: a.lean + (c.lean - a.lean) * k,
     };
   }
 
@@ -1500,6 +1550,12 @@ export class ClientGame {
     }
 
     if (performanceHint.sample(frameSeconds, this.settings.quality)) this.hud.info(FPS_HINT_TEXT);
+    const cheaper = this.rtGovernor.sample(frameSeconds, this.lightRtLevel);
+    if (cheaper) {
+      this.rtCeiling = cheaper;
+      this.applyLightRt(this.wantedRtLevel());
+      this.hud.info(`quadros lentos: ray tracing baixou para ${rtLabel(cheaper)}`);
+    }
 
     const [ldx, ldy] = this.input.takeLook();
     this.updateCamera(dt);
@@ -1528,6 +1584,10 @@ export class ClientGame {
       this.view.update({
         dt,
         speed: Math.hypot(this.me.vx, this.me.vz),
+        stance: this.me.stance,
+        sprinting: this.me.sprinting,
+        sliding: this.me.slide > 0,
+        firing: (this.lastButtons & (BTN.ATTACK | BTN.ATTACK2)) !== 0,
         onGround: this.me.onGround,
         lookDX: ldx,
         lookDY: ldy,
@@ -1592,27 +1652,43 @@ export class ClientGame {
     this.followedId = stepTarget(this.watchTargets().map(r => r.id), this.followedId, dir);
   }
 
-  private followedPlayer(): FollowedPlayer | null {
-    const sample = this.followedSample();
-    return sample && { x: sample.x, y: sample.y, z: sample.z, yaw: sample.yaw, pitch: sample.pitch, ducked: (sample.flags & RF_DUCK) !== 0 };
-  }
-
   /** Places the spectator camera for the current mode and remembers where it stands. */
-  private updateSpectatorCamera(dt: number): void {
+  private updateSpectatorCamera(dt: number): boolean {
     const targets = this.watchTargets();
     if (!targets.some(r => r.id === this.followedId)) this.followedId = targets[0]?.id ?? -1;
+    let roll = 0;
+    let sprinting = false;
     if (this.cameraMode === 'free') {
+      this.eyeTargetId = -1;
       const keys = this.menuOpen ? NO_FREE_KEYS : freeKeysFrom(this.heldKeys);
       const limits = { bounds: this.map.bounds, maxY: this.map.dropHeight };
       this.spectatorPose = stepFreeCam({ ...this.spectatorPose, yaw: this.input.yaw, pitch: this.input.pitch }, keys, dt, limits);
     } else {
-      const followed = this.followedPlayer();
+      const sample = this.followedSample();
+      const followed: FollowedPlayer | null = sample && {
+        ...sample,
+        stance: stanceFromFlags(sample.flags),
+        onGround: (sample.flags & RF_GROUND) !== 0,
+        sliding: (sample.flags & RF_SLIDE) !== 0,
+      };
       const view = this.cameraMode === 'orbit' ? { yaw: this.input.yaw, pitch: this.input.pitch } : followed;
-      if (followed) this.spectatorPose = this.cameraMode === 'first' ? eyePose(followed) : chasePose(followed, this.collision, view ?? undefined);
+      if (sample && followed && this.cameraMode === 'first') {
+        const eye = movementEye(followed.stance, followed.onGround, Number(followed.sliding));
+        if (this.eyeTargetId !== this.followedId) this.spectatorEye = eye;
+        this.eyeTargetId = this.followedId;
+        this.spectatorEye += (eye - this.spectatorEye) * Math.min(1, dt * 18);
+        this.spectatorPose = eyePose(followed, this.spectatorEye);
+        roll = -followed.lean * LEAN_ROLL_RAD;
+        sprinting = (sample.flags & RF_SPRINT) !== 0;
+      } else {
+        this.eyeTargetId = -1;
+        if (followed) this.spectatorPose = chasePose(followed, this.collision, view ?? undefined);
+      }
     }
     const { x, y, z, yaw, pitch } = this.spectatorPose;
     this.camera.position.set(x, y, z);
-    this.camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    this.camera.rotation.set(pitch, yaw, roll, 'YXZ');
+    return sprinting;
   }
 
   private updateCamera(dt: number): void {
@@ -1628,24 +1704,26 @@ export class ClientGame {
     const zoomed = this.alive && s.zoom > 0 && def.zoomFov.length > 0;
     if (zoomed) vfov = csToVertical(def.zoomFov[s.zoom - 1]);
     if (this.alive && s.dropping) vfov = baseV + 8;
+    if (!zoomed && this.alive && s.sprinting) vfov += SPRINT_FOV_KICK_DEG;
+    if (this.spectator) vfov = baseV + (this.updateSpectatorCamera(dt) ? SPRINT_FOV_KICK_DEG : 0);
     if (this.camera.fov !== vfov) {
       this.camera.fov = easeFov(this.camera.fov, vfov, dt);
       this.camera.updateProjectionMatrix();
     }
     this.input.zoomSensScale = zoomed ? (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO : 1;
 
-    if (this.spectator) {
-      this.updateSpectatorCamera(dt);
-    } else if (this.alive) {
+    if (this.spectator) return;
+    if (this.alive) {
       const alpha = clamp(this.accum / TICK_MS, 0, 1);
       const x = this.prev.x + (s.x - this.prev.x) * alpha + this.correction.x;
       const y = this.prev.y + (s.y - this.prev.y) * alpha + this.correction.y;
       const z = this.prev.z + (s.z - this.prev.z) * alpha + this.correction.z;
-      const eyeTarget = s.ducked ? DUCK_EYE + (s.onGround ? 0 : 18) : STAND_EYE;
+      const eyeTarget = movementEye(s.stance, s.onGround, Number(s.slide > 0));
       this.eye += (eyeTarget - this.eye) * Math.min(1, dt * 18);
-      this.camera.position.set(x, y + this.eye, z);
+      const lean = s.lean * LEAN_OFFSET_UNITS;
+      this.camera.position.set(x + Math.cos(s.yaw) * lean, y + this.eye, z - Math.sin(s.yaw) * lean);
       const [rp, ry] = recoilOffset(def, s.recoil);
-      this.camera.rotation.set(this.input.pitch + rp + this.punch * 0.012, this.input.yaw + ry, 0, 'YXZ');
+      this.camera.rotation.set(this.input.pitch + rp + this.punch * 0.012, this.input.yaw + ry, -s.lean * LEAN_ROLL_RAD, 'YXZ');
     } else {
       // death cam: rise above the body and look at the killer
       const t = (performance.now() - this.deathAt) / 1000;
@@ -1678,6 +1756,7 @@ export class ClientGame {
       if (!visible || !s) {
         r.avatar.root.visible = false;
         r.visible = false;
+        r.wader.reset();
         r.reload.end();
         continue;
       }
@@ -1693,21 +1772,39 @@ export class ClientGame {
       r.last.set(s.x, s.y, s.z);
       const ground = (s.flags & RF_GROUND) !== 0;
       const dropping = (s.flags & RF_DROP) !== 0;
-      if (wasVisible && ground && r.speed > 150) {
+      const sprinting = (s.flags & RF_SPRINT) !== 0;
+      const sliding = (s.flags & RF_SLIDE) !== 0;
+      if (wasVisible && sliding && !r.sliding) this.sfx.slide(pos);
+      r.sliding = sliding;
+      const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
+      const landed = wasVisible && ground && !r.ground;
+      const wade = r.wader.update(surface !== null, ground, landed);
+      if (wasVisible && ground && !sliding && r.speed > 150) {
         r.step += moved;
         if (r.step > 76) {
           r.step = 0;
-          this.sfx.footstep({ x: s.x, y: s.y, z: s.z });
+          const stepLoud = sprinting ? 1.22 : 1;
+          if (surface !== null) {
+            this.sfx.wetStep(pos, stepLoud);
+            this.effects.water.ripple(s.x, surface, s.z, 0.5);
+          } else this.sfx.footstep(pos, stepLoud);
         }
       }
-      if (wasVisible && ground && !r.ground) this.sfx.land(r.dropping, { x: s.x, y: s.y, z: s.z });
+      if (wasVisible && wade === 'splash' && surface !== null) {
+        this.sfx.splash(r.dropping, pos);
+        this.effects.water.ripple(s.x, surface, s.z, 1);
+      } else if (wasVisible && wade === 'thud') this.sfx.land(r.dropping, pos);
       r.ground = ground;
       r.dropping = dropping;
       r.avatar.setWeapon(s.w as WeaponId);
       this.remoteReloadSounds(r, s);
+      const stance = stanceFromFlags(s.flags);
       r.avatar.update(dt, {
         speed: r.speed,
-        ducked: (s.flags & RF_DUCK) !== 0,
+        stance,
+        sprinting,
+        sliding,
+        lean: s.lean,
         dropping,
         onGround: ground,
         pitch: s.pitch,
@@ -1715,7 +1812,7 @@ export class ClientGame {
         reloading: (s.flags & RF_RELOAD) !== 0,
       });
       // name tags only up close or when aimed at (no wallhack-style radar)
-      const to = v3.set(s.x - this.camera.position.x, s.y + 60 - this.camera.position.y, s.z - this.camera.position.z);
+      const to = v3.set(s.x - this.camera.position.x, s.y + STANCES[stance].aimHead - this.camera.position.y, s.z - this.camera.position.z);
       const dist = to.length();
       const aim = to.divideScalar(dist || 1).dot(camFwd);
       r.avatar.showTag(this.isTeammate(r.id) || dist < 380 || aim > 0.9985 || dropping);
@@ -1764,6 +1861,9 @@ export class ClientGame {
     hud.showScoreboard(this.scoreboardOpen, rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now) : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
+    const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
+    hud.setStamina(s.stamina / STAMINA_MAX, showStamina, showStamina && s.winded);
+    hud.setStance(s.stance, this.alive);
 
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
@@ -1920,6 +2020,7 @@ export class ClientGame {
     this.world?.dispose();
     this.ventHum?.dispose();
     this.lightRt?.dispose();
+    this.effects.water.setEnabled(false);
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();

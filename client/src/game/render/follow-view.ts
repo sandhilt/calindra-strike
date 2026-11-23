@@ -1,4 +1,4 @@
-import { RF_DROP, RF_ZOOM, TICK_MS, type WeaponId, weaponDef } from '@calindra-strike/shared';
+import { RF_DROP, RF_SLIDE, RF_SPRINT, RF_ZOOM, stanceFromFlags, TICK_MS, type WeaponId, weaponDef } from '@calindra-strike/shared';
 import type { ViewPose } from './viewmodel.ts';
 
 /** What a snapshot says about the followed player's hands. */
@@ -40,6 +40,10 @@ export class FollowedViewTracker {
       weapon: f.weapon,
       dt,
       speed: f.speed,
+      stance: stanceFromFlags(f.flags),
+      sprinting: (f.flags & RF_SPRINT) !== 0,
+      sliding: (f.flags & RF_SLIDE) !== 0,
+      firing: false,
       onGround: f.onGround,
       lookDX: 0,
       lookDY: 0,

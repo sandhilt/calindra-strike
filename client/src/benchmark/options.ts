@@ -1,6 +1,25 @@
-import { QUALITY_TIERS, type Quality } from '../game/render/quality.ts';
+import { QUALITY, QUALITY_TIERS, type Quality, type QualityProfile } from '../game/render/quality.ts';
+import { DEFAULT_RT_LEVEL, type RtLevel } from '../game/render/rt-levels.ts';
 
-export type BenchmarkTier = Quality | 'high-no-rt';
+/** The high tier with its light ray pass pinned to one level, so the harness can price each level. Left out of recommendations. */
+export const RT_VARIANTS = {
+  'high-no-rt': 'off',
+  'high-rt-light': 'light',
+  'high-rt-medium': 'medium',
+  'high-rt-high': 'high',
+} as const satisfies Record<string, RtLevel>;
+
+export type RtVariant = keyof typeof RT_VARIANTS;
+export type BenchmarkTier = Quality | RtVariant;
+
+export const isRtVariant = (tier: BenchmarkTier): tier is RtVariant => tier in RT_VARIANTS;
+
+/** What a benchmark tier runs: a quality profile and the ray pass level. Plain tiers use the level a player gets by default. */
+export function benchmarkSetup(tier: BenchmarkTier): { profile: QualityProfile; rtLevel: RtLevel } {
+  if (isRtVariant(tier)) return { profile: QUALITY.high, rtLevel: RT_VARIANTS[tier] };
+  const profile = QUALITY[tier];
+  return { profile, rtLevel: profile.lightRt ? DEFAULT_RT_LEVEL : 'off' };
+}
 
 export interface BenchmarkOptions {
   tiers: readonly BenchmarkTier[];
@@ -38,7 +57,7 @@ function localReport(value: string | null): string | null {
 
 export function parseBenchmarkParams(search: string, mapIds: readonly string[]) {
   const params = new URLSearchParams(search);
-  const allowedTiers: readonly BenchmarkTier[] = [...QUALITY_TIERS, 'high-no-rt'];
+  const allowedTiers: readonly BenchmarkTier[] = [...QUALITY_TIERS, ...(Object.keys(RT_VARIANTS) as RtVariant[])];
   const options: BenchmarkOptions = {
     tiers: select(params.get('tiers'), allowedTiers, QUALITY_TIERS),
     maps: select(params.get('maps'), mapIds),

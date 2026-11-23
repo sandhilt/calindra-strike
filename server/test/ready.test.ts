@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
-import { TICK_MS, WEAPON, type KickReason, type ServerMsg } from '@calindra-strike/shared';
+import { BTN, TICK_MS, WEAPON, type KickReason, type ServerMsg } from '@calindra-strike/shared';
 import { Game, type GameOptions, type ServerPlayer } from '../src/game.ts';
 
 const READY_TIMEOUT_MS = 20_000;
@@ -189,6 +189,23 @@ it('kicks a player in play who sends no input for the idle timeout, but not over
   game.ready(busy);
   assert.equal(game.phase, 'live');
   assert.equal(game.players.has(busy.id), true, 'the podium time does not carry into the next match');
+});
+
+it('kicks a player who only holds the prone latch, but not one who keeps pressing it', () => {
+  const { game, kicks, join, runFor } = setup({ idleKickMs: IDLE_TIMEOUT_MS, matchMs: 120_000 });
+  const busy = join('Busy').p;
+  const latched = join('Latched').p;
+  const toggler = join('Toggler').p;
+  for (const p of [busy, latched, toggler]) game.ready(p);
+  const send = (p: ServerPlayer, buttons: number, yaw = 0) => game.input(p, [{ seq: p.lastSeq + 1, buttons, yaw, pitch: 0, weapon: 0, interp: 0 }]);
+  send(latched, BTN.PRONE);
+  for (let s = 1; s <= 35; s++) {
+    send(busy, 0, s / 10);
+    send(latched, BTN.PRONE);
+    send(toggler, s % 2 ? 0 : BTN.PRONE);
+    runFor(1_000);
+  }
+  assert.deepEqual(kicks, [[latched.id, 'idle']]);
 });
 
 it('lets players straight in when no ready timeout is configured', () => {

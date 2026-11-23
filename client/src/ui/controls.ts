@@ -1,4 +1,5 @@
-import { h } from './dom.ts';
+import { CONTROLS, CONTROL_SECTIONS } from './controls-list.ts';
+import { ICONS, type IconName, h, svg } from './dom.ts';
 
 /** One settings row: label, control (with an optional hint under it) and an optional value on the right. */
 export function row(label: string, control: HTMLElement, value?: HTMLElement, hint?: string): HTMLElement {
@@ -11,6 +12,32 @@ export function row(label: string, control: HTMLElement, value?: HTMLElement, hi
 
 export function group(title: string, ...rows: HTMLElement[]): HTMLElement {
   return h('section', { class: 'menu-group' }, [h('h3', { text: title }), ...rows]);
+}
+
+/** Puts an icon in front of a settings row's label. */
+export function withIcon(icon: IconName, settingsRow: HTMLElement): HTMLElement {
+  settingsRow.querySelector('.row-label')?.prepend(svg(ICONS[icon]));
+  return settingsRow;
+}
+
+/** The key list of the lobby and the pause menu: one heading per section, each key with its icon. */
+export function controlsList(): HTMLElement {
+  return h(
+    'div',
+    { class: 'controls' },
+    CONTROL_SECTIONS.map((section) =>
+      h('section', { class: 'controls-section' }, [
+        h('h4', {}, [svg(ICONS[section.icon]), section.id]),
+        h(
+          'div',
+          { class: 'controls-grid' },
+          CONTROLS.filter((r) => r.section === section.id).map((r) =>
+            h('div', { class: 'control' }, [svg(ICONS[r.icon]), h('span', { class: 'kbd', text: r.keys }), h('span', { class: 'control-label', text: r.label })]),
+          ),
+        ),
+      ]),
+    ),
+  );
 }
 
 export function rangeRow(label: string, range: { min: number; max: number; step: number }, get: () => number, set: (v: number) => void, fmt: (v: number) => string, changed: () => void): HTMLElement {

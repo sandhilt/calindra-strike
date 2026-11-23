@@ -1,16 +1,15 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { PLAYER_COLORS, WEAPONS, reloadCursor, weaponDef, type WeaponId } from '@calindra-strike/shared';
+import { PLAYER_COLORS, STANCE, WEAPONS, reloadCursor, weaponDef, type WeaponId } from '@calindra-strike/shared';
 import { QUALITY, QUALITY_OPTIONS, type Quality } from '../game/render/quality.ts';
 import { ViewModel } from '../game/render/viewmodel.ts';
 import { type GunPlacement, formatPlacement } from '../game/render/weapon-placement.ts';
 import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
-import { autoFireShots, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
+import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
 
 const DEFAULT_FOV = 58;
-const WALK_SPEED = 250;
 const BACKGROUND = 0x8a7a5e;
 const MAX_FRAME_S = 0.05;
 const SCRUB_STEPS = 1000;
@@ -56,6 +55,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   const carry = { ticks: 0 };
   let holdFire = false;
   let walking = false;
+  let running = false;
   let leftHanded = settings.leftHanded;
   let shells = 0;
   let placement = copyOf(view.placement());
@@ -88,6 +88,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
         view.camera.updateProjectionMatrix();
       }, (v) => `${v}°`, nothing),
       checkRow('andando', 'balanço de caminhada', () => walking, (v) => (walking = v), nothing),
+      checkRow('correndo', 'pose de corrida', () => running, (v) => (running = v), nothing),
       checkRow('canhoto', 'arma no lado esquerdo', () => leftHanded, (v) => view.setLeftHanded((leftHanded = v)), nothing),
     );
 
@@ -184,7 +185,21 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     const total = reloadTotal(def, shells);
     stepReload(reload, dt, total);
     if (holdFire && def.fireTicks > 0) for (let i = autoFireShots(carry, dt, def.fireTicks); i > 0; i--) view.fire(false);
-    view.update({ speed: walking ? WALK_SPEED : 0, onGround: true, dt, lookDX: 0, lookDY: 0, reloadElapsed: reload.elapsed, reloadShells: shells, deployFrac: -1, hidden: false });
+    view.update({
+      speed: previewMovementSpeed(walking, running),
+      stance: STANCE.STAND,
+      sprinting: running,
+      sliding: false,
+      firing: holdFire,
+      onGround: true,
+      dt,
+      lookDX: 0,
+      lookDY: 0,
+      reloadElapsed: reload.elapsed,
+      reloadShells: shells,
+      deployFrac: -1,
+      hidden: false,
+    });
     if (reload.playing && total > 0) scrub.value = String(Math.round((reload.elapsed / total) * SCRUB_STEPS));
     const cursor = def.reloadTiming && reload.elapsed >= 0 ? reloadCursor(def.reloadTiming, reload.elapsed, shells) : null;
     phase.textContent = cursor ? `${cursor.phase} ${Math.round(cursor.t * 100)}%` : '';

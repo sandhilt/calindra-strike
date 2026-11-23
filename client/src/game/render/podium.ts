@@ -1,4 +1,4 @@
-import { type ResultRow, WEAPON } from '@calindra-strike/shared';
+import { type ResultRow, STANCE, WEAPON } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { Avatar } from './avatar.ts';
 import { canvasTexture, drawEitri, drawLogo } from './textures.ts';
@@ -193,7 +193,10 @@ export class PodiumScene {
       a.root.rotation.y = Math.PI + Math.sin(t * 0.9 + i) * 0.35;
       a.update(dt, {
         speed: 0,
-        ducked: false,
+        stance: STANCE.STAND,
+        sprinting: false,
+        sliding: false,
+        lean: 0,
         dropping: false,
         onGround: true,
         pitch: i === 0 ? 1.1 + Math.sin(t * 6.4) * 0.2 : 0.25 + Math.sin(t * 2 + i) * 0.08,

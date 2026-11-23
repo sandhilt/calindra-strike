@@ -1,5 +1,5 @@
-import { eyeHeight, type CollisionWorld, type PlayerState } from '../../shared/src/index.ts';
-import { hasLineOfSight, VIEW_RANGE, HEAR_RANGE } from '../../server/src/bot.ts';
+import { eyeHeight, stanceFromFlags, type CollisionWorld, type PlayerState } from '../../shared/src/index.ts';
+import { hasLineOfSight, sightHeights, VIEW_RANGE, HEAR_RANGE } from '../../server/src/bot.ts';
 import type { Peer } from './view.ts';
 
 const MEMORY_MS = 10000;
@@ -34,7 +34,7 @@ export function perceive(
     if (!omniscient && (!self || self.health <= 0 || self.dropping || !peer.alive)) continue;
     const distance = self ? Math.hypot(peer.x - self.x, peer.z - self.z) : Infinity;
     const sight = self && distance <= VIEW_RANGE
-      && hasLineOfSight(world, self.x, self.y + eyeHeight(self), self.z, peer);
+      && hasLineOfSight(world, self.x, self.y + eyeHeight(self), self.z, peer, sightHeights(stanceFromFlags(peer.flags)));
     if (!omniscient && !sight && distance > HEAR_RANGE) continue;
     peers.push({ ...peer, via: omniscient || sight ? 'sight' : 'sound' });
     if (peer.alive) {

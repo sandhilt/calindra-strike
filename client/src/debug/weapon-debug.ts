@@ -1,5 +1,5 @@
 import type { WeaponDef } from '@calindra-strike/shared';
-import { reloadTotalTicks } from '@calindra-strike/shared';
+import { SPRINT_SPEED_MULT, reloadTotalTicks } from '@calindra-strike/shared';
 
 /** The reload of the weapon on show: ticks since it began (-1 when none), and how it plays. */
 export interface ReloadScrub {
@@ -43,4 +43,11 @@ export function autoFireShots(carry: { ticks: number }, dtSeconds: number, fireT
   const shots = Math.floor(carry.ticks / fireTicks);
   carry.ticks -= shots * fireTicks;
   return shots;
+}
+
+const PREVIEW_WALK_SPEED = 250;
+
+export function previewMovementSpeed(walking: boolean, running: boolean): number {
+  if (running) return PREVIEW_WALK_SPEED * SPRINT_SPEED_MULT;
+  return walking ? PREVIEW_WALK_SPEED : 0;
 }

@@ -1,12 +1,14 @@
 import { browserEngine } from '../game/speech.ts';
-import { checkRow, choiceRow, group, rangeRow } from './controls.ts';
+import { checkRow, choiceRow, controlsList, rangeRow, withIcon } from './controls.ts';
+import { FIRST_MENU_TAB, MENU_TAB_IDS, type MenuTabId, menuTabForKey } from './menu-tabs.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
+import { RT_OPTIONS } from '../game/render/rt-levels.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { isReadyKey, weaponMenuKey } from '../game/weapon-menu.ts';
-import { ICONS, gameLogo, h, svg } from './dom.ts';
+import { ICONS, type IconName, gameLogo, h, svg } from './dom.ts';
 
 const WEAPON_INFO: Record<number, { icon: string; blurb: string }> = {
   [WEAPON.RIFLE]: { icon: ICONS.rifle, blurb: '1 tiro na cabeça. Spray que sobe.' },
@@ -25,6 +27,121 @@ export interface OverlayHooks {
   vote(option: number): void;
   settingsChanged(s: Settings): void;
 }
+
+type OptionList<T> = readonly { v: T; label: string; style?: string }[];
+
+/** The row builders a tab page uses, already wired to save and announce a change. */
+interface MenuRows {
+  slider(icon: IconName, label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string): HTMLElement;
+  seg<T>(icon: IconName, label: string, options: OptionList<T>, get: () => T, set: (v: T) => void, hint?: string): HTMLElement;
+  toggle(icon: IconName, label: string, text: string, get: () => boolean, set: (v: boolean) => void, available?: boolean): HTMLElement;
+  readonly canSpeak: boolean;
+  benchmark(): void;
+}
+
+interface MenuTab {
+  readonly label: string;
+  readonly icon: IconName;
+  readonly build: (s: Settings, rows: MenuRows) => HTMLElement;
+}
+
+/** The pause menu's pages: a page is one row here. Tab order comes from `MENU_TAB_IDS`. */
+const MENU_TABS: Record<MenuTabId, MenuTab> = {
+  game: {
+    label: 'jogo',
+    icon: 'game',
+    build: (s, r) =>
+      h('div', { class: 'menu-rows' }, [
+        h('div', { class: 'primary-settings' }, [
+          r.seg(
+            'gun',
+            'arma principal',
+            PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
+            () => s.primary,
+            (v) => (s.primary = v),
+            'vale a partir do próximo salto',
+          ),
+          r.seg(
+            'swap',
+            'lado da arma',
+            [
+              { v: false, label: 'direita' },
+              { v: true, label: 'esquerda' },
+            ],
+            () => s.leftHanded,
+            (v) => (s.leftHanded = v),
+          ),
+        ]),
+        r.slider('eye', 'campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
+        r.slider('mouse', 'sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
+      ]),
+  },
+  audio: {
+    label: 'áudio',
+    icon: 'audio',
+    build: (s, r) =>
+      h('div', { class: 'menu-rows' }, [
+        r.slider('audio', 'volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
+        r.seg('music', 'pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
+        r.toggle('mic', 'anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), r.canSpeak),
+        r.toggle('radio', 'voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), r.canSpeak),
+      ]),
+  },
+  video: {
+    label: 'vídeo',
+    icon: 'video',
+    build: (s, r) =>
+      h('div', { class: 'menu-rows' }, [
+        r.seg('video', 'gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
+        r.seg('sun', 'ray tracing', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'luz e sombra de contato, só no gráfico alta; mais alto pesa mais na placa de vídeo'),
+        r.seg(
+          'activity',
+          'estatísticas',
+          [
+            { v: false, label: 'ocultas' },
+            { v: true, label: 'fps + ping' },
+          ],
+          () => s.showNet,
+          (v) => (s.showNet = v),
+        ),
+        h('button', { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => r.benchmark() }, [svg(ICONS.gauge), 'testar desempenho']),
+      ]),
+  },
+  aim: {
+    label: 'mira',
+    icon: 'target',
+    build: (s, r) =>
+      h('div', { class: 'menu-rows' }, [
+        r.slider('expand', 'tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
+        r.slider('crosshair', 'abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
+        r.seg(
+          'palette',
+          'cor',
+          CROSSHAIR_COLORS.map((c) => ({ v: c, label: '●', style: `color:${c}` })),
+          () => s.crosshairColor,
+          (v) => (s.crosshairColor = v),
+        ),
+        r.seg(
+          'sliders',
+          'comportamento',
+          [
+            { v: true, label: 'dinâmica' },
+            { v: false, label: 'fixa' },
+          ],
+          () => s.dynamicCrosshair,
+          (v) => (s.dynamicCrosshair = v),
+        ),
+      ]),
+  },
+  controls: {
+    label: 'controles',
+    icon: 'controls',
+    build: () => controlsList(),
+  },
+};
+
+/** The tab the menu was last left on, kept for the page session so reopening the menu returns to it. */
+let lastMenuTab: MenuTabId = FIRST_MENU_TAB;
 
 /** Click-to-play, pause/settings menu, podium results and disconnect overlays. */
 export class Overlays {
@@ -53,6 +170,9 @@ export class Overlays {
   private readonly podiumLabel = h('div', { class: 'label', text: 'fim de partida' });
   private readonly podiumTitle = h('h2', { text: 'pódio' });
   private readonly podiumScore = h('div', { class: 'podium-score hidden' });
+  private readonly menuTabs = new Map<MenuTabId, HTMLButtonElement>();
+  private readonly menuBody = h('div', { class: 'menu-body' });
+  private readonly menuPanels = new Map<MenuTabId, HTMLElement>();
   private readonly teamRow = h('div', { class: 'team-switch hidden' });
   private readonly menuTitle = h('h2', { text: 'pausado' });
   private nextMap = '';
@@ -112,91 +232,41 @@ export class Overlays {
       saveSettings(s);
       this.hooks.settingsChanged(s);
     };
-    const slider = (label: string, min: number, max: number, step: number, get: () => number, set: (v: number) => void, fmt: (v: number) => string) =>
-      rangeRow(label, { min, max, step }, get, set, fmt, changed);
-    const seg = <T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, hint?: string) =>
-      choiceRow(label, options, get, set, changed, hint);
-    const toggle = (label: string, text: string, get: () => boolean, set: (v: boolean) => void, available = true) =>
-      checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada');
-    const canSpeak = browserEngine() !== null;
+    const rows: MenuRows = {
+      slider: (icon, label, min, max, step, get, set, fmt) => withIcon(icon, rangeRow(label, { min, max, step }, get, set, fmt, changed)),
+      seg: (icon, label, options, get, set, hint) => withIcon(icon, choiceRow(label, options, get, set, changed, hint)),
+      toggle: (icon, label, text, get, set, available = true) =>
+        withIcon(icon, checkRow(label, text, get, set, changed, available ? undefined : 'este navegador não tem voz sintetizada')),
+      canSpeak: browserEngine() !== null,
+      benchmark: () => this.hooks.benchmark(),
+    };
+
+    for (const id of MENU_TAB_IDS) {
+      const { label, icon, build } = MENU_TABS[id];
+      const tab = h('button', { class: 'menu-tab', type: 'button', role: 'tab', id: `menu-tab-${id}`, 'aria-controls': `menu-panel-${id}`, onclick: () => this.selectMenuTab(id) }, [svg(ICONS[icon]), label]);
+      this.menuTabs.set(id, tab);
+      const page = build(s, rows);
+      // A page with nothing to focus (the key list) is itself a stop, so the keyboard can scroll it.
+      const readOnly = page.querySelector('button, input, a') === null;
+      this.menuPanels.set(id, h('div', { class: 'menu-panel', role: 'tabpanel', id: `menu-panel-${id}`, 'aria-labelledby': `menu-tab-${id}`, tabindex: readOnly ? 0 : undefined }, [page]));
+    }
+    const tabList = h('div', { class: 'menu-tabs', role: 'tablist', 'aria-label': 'Configurações' }, [...this.menuTabs.values()]);
+    tabList.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      const next = menuTabForKey(e.key, lastMenuTab);
+      if (next === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.selectMenuTab(next);
+      this.menuTabs.get(next)?.focus();
+    });
+    this.menuBody.append(...this.menuPanels.values());
+    this.selectMenuTab(lastMenuTab);
 
     return h('div', { class: 'menu glass' }, [
       h('header', { class: 'menu-head' }, [h('div', {}, [this.menuTitle, h('p', { class: 'sub', text: 'O jogo continua rolando para os outros: volte logo.' })]), this.teamRow]),
-      h('div', { class: 'menu-body' }, [
-        h('div', { class: 'menu-col' }, [
-          group(
-            'jogo',
-            h('div', { class: 'primary-settings' }, [
-              seg(
-                'arma principal',
-                PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
-                () => s.primary,
-                (v) => (s.primary = v),
-                'vale a partir do próximo salto',
-              ),
-              seg(
-                'lado da arma',
-                [
-                  { v: false, label: 'direita' },
-                  { v: true, label: 'esquerda' },
-                ],
-                () => s.leftHanded,
-                (v) => (s.leftHanded = v),
-              ),
-            ]),
-            slider('campo de visão', 75, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`),
-            slider('sensibilidade', 0.3, 8, 0.05, () => s.sensitivity, (v) => (s.sensitivity = v), (v) => v.toFixed(2)),
-          ),
-          group(
-            'áudio',
-            slider('volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
-            seg('pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
-            toggle('anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), canSpeak),
-            toggle('voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), canSpeak),
-          ),
-        ]),
-        h('div', { class: 'menu-col' }, [
-          group(
-            'vídeo',
-            seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
-            toggle('ray tracing', 'luz e sombra de contato (só no gráfico alta, pesa na placa de vídeo)', () => s.lightRt, (v) => (s.lightRt = v)),
-            h(
-              'button',
-              { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },
-              [svg(ICONS.gauge), 'testar desempenho'],
-            ),
-            seg(
-              'estatísticas',
-              [
-                { v: false, label: 'ocultas' },
-                { v: true, label: 'fps + ping' },
-              ],
-              () => s.showNet,
-              (v) => (s.showNet = v),
-            ),
-          ),
-          group(
-            'mira',
-            slider('tamanho', 2, 14, 1, () => s.crosshairSize, (v) => (s.crosshairSize = v), (v) => `${v}px`),
-            slider('abertura', 0, 10, 1, () => s.crosshairGap, (v) => (s.crosshairGap = v), (v) => `${v}px`),
-            seg(
-              'cor',
-              CROSSHAIR_COLORS.map((c) => ({ v: c, label: '●', style: `color:${c}` })),
-              () => s.crosshairColor,
-              (v) => (s.crosshairColor = v),
-            ),
-            seg(
-              'comportamento',
-              [
-                { v: true, label: 'dinâmica' },
-                { v: false, label: 'fixa' },
-              ],
-              () => s.dynamicCrosshair,
-              (v) => (s.dynamicCrosshair = v),
-            ),
-          ),
-        ]),
-      ]),
+      tabList,
+      this.menuBody,
       h('div', { class: 'actions' }, [
         h('button', { class: 'btn btn-primary', type: 'button', text: 'voltar ao jogo', onclick: () => this.hooks.resume() }),
         h('button', { class: 'btn join-action', type: 'button', text: 'entrar no jogo', title: 'Entra na partida como jogador (J)', onclick: () => this.hooks.join() }),
@@ -204,6 +274,21 @@ export class Overlays {
         h('button', { class: 'btn', type: 'button', text: 'sair da partida', onclick: () => this.hooks.leave() }),
       ]),
     ]);
+  }
+
+  /** One tab is selected at a time. The others stay built but hidden and out of the tab order, so their rows keep their state. */
+  private selectMenuTab(id: MenuTabId): void {
+    lastMenuTab = id;
+    this.menuBody.scrollTop = 0;
+    for (const [tabId, tab] of this.menuTabs) {
+      const selected = tabId === id;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      const panel = this.menuPanels.get(tabId);
+      if (!panel) continue;
+      panel.classList.toggle('active', selected);
+      panel.inert = !selected;
+    }
   }
 
   private pickPrimary(id: WeaponId): void {

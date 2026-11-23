@@ -6,6 +6,9 @@ import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
+import { STANCE, type Stance } from '@calindra-strike/shared';
+import { STANCE_VIEWS } from './stance-view.ts';
+import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
 export interface LeaderRow {
   name: string;
@@ -85,6 +88,19 @@ export class Hud {
   private readonly arV = h('div', { class: 'v', text: '0' });
   private readonly arBar = h('i', { style: 'width:0%' });
   private readonly armor = h('div', { class: 'vital armor glass' }, [svg(ICONS.shield), h('div', {}, [this.arV, h('div', { class: 'bar' }, [this.arBar])])]);
+  private readonly staminaFill = h('i');
+  private readonly staminaPct = h('b', { class: 'stamina-pct', text: '100%' });
+  private readonly staminaBar = h('div', { class: 'stamina level-ok', role: 'meter', 'aria-label': 'fôlego', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '100', 'aria-hidden': 'true' }, [
+    h('div', { class: 'stamina-head' }, [svg(ICONS.stamina), h('span', { class: 'stamina-name', text: 'fôlego' }), h('span', { class: 'stamina-winded', text: 'sem fôlego' }), this.staminaPct]),
+    h('div', { class: 'stamina-track' }, [this.staminaFill, h('u', { class: 'stamina-tick', style: `left:${STAMINA_RESUME_FRACTION * 100}%` })]),
+  ]);
+  private staminaPercent = 100;
+  private staminaVisible = false;
+  private staminaLevel: StaminaLevel = 'ok';
+  private readonly stanceIcon = h('span', { class: 'stance-icon', 'aria-hidden': 'true' });
+  private readonly stanceName = h('span', { class: 'stance-name' });
+  private readonly stanceChip = h('div', { class: 'vital stance glass', role: 'status' }, [this.stanceIcon, this.stanceName]);
+  private stance: Stance | null = null;
   private readonly wName = h('b', { text: '' });
   private readonly wTag = h('small', { text: '' });
   private readonly wBox = h('div', { class: 'wname' }, [this.wName, this.wTag]);
@@ -182,7 +198,8 @@ export class Hud {
       this.plantBar,
       this.bombActivity,
       this.defuseCanvas,
-      h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor]),
+      this.staminaBar,
+      h('div', { class: 'vitals' }, [this.teamBadge, this.hp, this.armor, this.stanceChip]),
       h('div', { class: 'ammo' }, [this.reloadBar, h('div', { class: 'main glass' }, [this.wBox, this.ammoCount]), this.slotsEl]),
       this.ch,
       this.hitm,
@@ -367,6 +384,41 @@ export class Hud {
     this.feed.append(el);
     while (this.feed.children.length > 6) this.feed.firstElementChild?.remove();
     setTimeout(() => el.remove(), 6500);
+  }
+
+  /**
+   * Standing, crouched or lying down: the icon follows the local player and is only redrawn when the stance changes.
+   * A dead player shows standing, the stance the next spawn starts in, instead of the pose they died in.
+   */
+  setStance(stance: Stance, alive = true): void {
+    const shown = alive ? stance : STANCE.STAND;
+    if (this.stance === shown) return;
+    this.stance = shown;
+    const view = STANCE_VIEWS[shown];
+    this.stanceIcon.replaceChildren(svg(ICONS[view.icon]));
+    this.stanceName.textContent = view.label;
+    this.stanceChip.setAttribute('aria-label', `postura: ${view.label}`);
+    this.stanceChip.classList.toggle('lowered', shown !== STANCE.STAND);
+  }
+
+  setStamina(fraction: number, visible: boolean, winded: boolean): void {
+    const percent = Math.round(fraction * 100);
+    if (this.staminaPercent !== percent) {
+      this.staminaPercent = percent;
+      this.staminaFill.style.transform = `scaleX(${percent / 100})`;
+      this.staminaPct.textContent = `${percent}%`;
+      this.staminaBar.setAttribute('aria-valuenow', String(percent));
+    }
+    if (this.staminaVisible !== visible) {
+      this.staminaVisible = visible;
+      this.staminaBar.classList.toggle('active', visible);
+      this.staminaBar.setAttribute('aria-hidden', String(!visible));
+    }
+    const level = staminaLevel(fraction, winded);
+    if (this.staminaLevel !== level) {
+      this.staminaBar.classList.replace(`level-${this.staminaLevel}`, `level-${level}`);
+      this.staminaLevel = level;
+    }
   }
 
   setVitals(hp: number, armor: number): void {

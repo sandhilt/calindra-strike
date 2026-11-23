@@ -1,4 +1,5 @@
-import { DUCK_EYE, STAND_EYE, clamp } from '@calindra-strike/shared';
+import { LEAN_OFFSET_UNITS, type Stance, clamp } from '@calindra-strike/shared';
+import { movementEye } from '../render/movement-pose.ts';
 
 /**
  * CS 1.6 spectator views, cycled with Space in this order: first person, locked chase (behind the player,
@@ -40,7 +41,10 @@ export interface FollowedPlayer {
   z: number;
   yaw: number;
   pitch: number;
-  ducked: boolean;
+  stance: Stance;
+  onGround: boolean;
+  sliding: boolean;
+  lean: number;
 }
 
 /** The part of CollisionWorld the chase camera needs: nearest blocking surface along a normalized ray. */
@@ -69,8 +73,9 @@ export function lookDir(yaw: number, pitch: number): [number, number, number] {
 }
 
 /** First person: the camera sits in the followed player's eyes. */
-export function eyePose(p: FollowedPlayer): Pose {
-  return { x: p.x, y: p.y + (p.ducked ? DUCK_EYE : STAND_EYE), z: p.z, yaw: p.yaw, pitch: p.pitch };
+export function eyePose(p: FollowedPlayer, eye = movementEye(p.stance, p.onGround, Number(p.sliding))): Pose {
+  const offset = p.lean * LEAN_OFFSET_UNITS;
+  return { x: p.x + Math.cos(p.yaw) * offset, y: p.y + eye, z: p.z - Math.sin(p.yaw) * offset, yaw: p.yaw, pitch: p.pitch };
 }
 
 /**

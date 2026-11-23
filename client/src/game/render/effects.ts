@@ -8,6 +8,7 @@ import { GunFx } from './gun-fx.ts';
 import { PROJECTILE_STYLES, TRACER, type ProjectilePattern, type ProjectileStyle } from './fx-tuning.ts';
 import { projectileRay } from './tracer-policy.ts';
 import { QUALITY, type Quality } from './quality.ts';
+import { WaterFx } from './water-fx.ts';
 
 interface Tracer {
   mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
@@ -85,6 +86,8 @@ export class Effects {
   private tracerCap: number = QUALITY.high.fx.tracers;
   /** Spent magazines, casings, barrel smoke and the tracer pattern. */
   readonly gun: GunFx;
+  /** Ripples where feet meet water. */
+  readonly water: WaterFx;
 
   constructor(private readonly scene: THREE.Scene) {
     const tgeo = new THREE.BoxGeometry(0.6, 0.6, 1);
@@ -96,6 +99,7 @@ export class Effects {
       }));
     }
     this.gun = new GunFx(scene);
+    this.water = new WaterFx(scene);
     for (let i = 0; i < QUALITY.high.fx.tracers; i++) {
       const mesh = new THREE.Mesh(tgeo, this.tracerMaterials.get(TRACER));
       mesh.visible = false;
@@ -186,6 +190,7 @@ export class Effects {
     this.tracerCap = QUALITY[quality].fx.tracers;
     this.sparkle = QUALITY[quality].fx.sparkle;
     this.gun.setQuality(quality);
+    this.water.setEnabled(QUALITY[quality].waterRipples);
   }
 
   projectile(muzzle: THREE.Vector3, end: THREE.Vector3, shotOrigin: THREE.Vector3, pattern: ProjectilePattern): void {
@@ -272,6 +277,7 @@ export class Effects {
 
   update(dt: number, groundAt: GroundAt): void {
     this.gun.update(dt, groundAt);
+    this.water.update(dt);
     for (const tr of this.tracers) {
       if (!tr.active) continue;
       tr.t += dt;
@@ -372,6 +378,7 @@ export class Effects {
 
   clear(): void {
     this.gun.clear();
+    this.water.clear();
     for (const tr of this.tracers) {
       tr.active = false;
       tr.mesh.visible = false;

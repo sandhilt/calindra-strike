@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WEAPON, weaponDef } from '@calindra-strike/shared';
+import { SPRINT_SPEED_MULT, WEAPON, weaponDef } from '@calindra-strike/shared';
 import { KONAMI_CODE, sequenceMatcher } from '../src/easter-egg.ts';
 import { formatPlacement, placementFor } from '../src/game/render/weapon-placement.ts';
-import { autoFireShots, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from '../src/debug/weapon-debug.ts';
+import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from '../src/debug/weapon-debug.ts';
 
 const feed = (match: (code: string) => boolean, codes: readonly string[]) => codes.map(match);
 
@@ -79,4 +79,12 @@ test('holding the trigger fires at the weapon cadence, without losing the fracti
   let total = 0;
   for (let frame = 0; frame < 10; frame++) total += autoFireShots(slowFrames, 0.1, lmg.fireTicks);
   assert.equal(total, 60 / lmg.fireTicks, 'the same at a few frames per second');
+});
+
+test('running in the viewer overrides walking and previews sprint speed', () => {
+  assert.equal(previewMovementSpeed(false, false), 0);
+  const walk = previewMovementSpeed(true, false);
+  assert.ok(walk > 0);
+  assert.equal(previewMovementSpeed(false, true), walk * SPRINT_SPEED_MULT);
+  assert.equal(previewMovementSpeed(true, true), previewMovementSpeed(false, true));
 });

@@ -2,6 +2,8 @@ import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, sanitizeName } fr
 import { SERVER_HTTP } from '../config.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
+import { FEEDBACK_LABEL, FEEDBACK_URL, GITHUB_URL } from '../feedback.ts';
+import { controlsList } from './controls.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
 
 interface Status {
@@ -177,7 +179,6 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     onPlay(settings, e.submitter === watch);
   });
 
-  const key = (k: string, label: string) => h('div', {}, [h('span', { class: 'kbd', text: k }), label]);
   const modeChipText = h('span', { text: 'TDM · todos contra todos' });
   const hero = h('section', { class: 'hero' }, [
     h('div', { class: 'top' }, [
@@ -196,21 +197,15 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
       ' com o time.',
     ]),
     h('div', { class: 'features' }, [
-      h('span', { class: 'chip' }, [h('i'), modeChipText]),
-      h('span', { class: 'chip' }, [h('i'), 'AWP no airdrop']),
-      h('span', { class: 'chip' }, [h('i'), 'Pódio dos 3 melhores']),
-      h('span', { class: 'chip' }, [h('i'), 'Bunny hop liberado']),
+      h('span', { class: 'chip' }, [svg(ICONS.users), modeChipText]),
+      h('span', { class: 'chip' }, [svg(ICONS.scope), 'AWP no airdrop']),
+      h('span', { class: 'chip' }, [svg(ICONS.podium), 'Pódio dos 3 melhores']),
+      h('span', { class: 'chip' }, [svg(ICONS.jump), 'Bunny hop liberado']),
     ]),
-    h('div', { class: 'controls' }, [
-      key('WASD', 'mover'),
-      key('Espaço', 'pular'),
-      key('Ctrl', 'agachar / mergulhar'),
-      key('Shift', 'andar em silêncio'),
-      key('1 2 3', 'armas · Q última'),
-      key('R', 'recarregar'),
-      key('E', 'plantar / desarmar o bug'),
-      key('Mouse 2', 'luneta da AWP'),
-      key('Tab', 'placar · Y chat'),
+    controlsList(),
+    h('div', { class: 'hero-links' }, [
+      h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
+      h('a', { class: 'github-link', href: GITHUB_URL, target: '_blank', rel: 'noopener noreferrer', title: 'Ver o código no GitHub', 'aria-label': 'Código do jogo no GitHub' }, [svg(ICONS.github)]),
     ]),
   ]);
 

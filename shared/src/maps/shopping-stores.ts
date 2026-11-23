@@ -173,21 +173,170 @@ function cacauChou(r: Room): void {
   r.box(0, 190, 5, 5, 6, 48, 'wood', 0x3b1d0e);
 }
 
-const GOODS = [0xe60014, 0xf2c200, 0x1f6fd1, 0x2f9e44, 0xffffff, 0xff7a1a, 0xd94fa3];
+/** The logo red; the sign in `client/src/game/render/store-signs.ts` draws the same one. */
+const AMERIKANAS_RED = 0xe60014;
+const AMERIKANAS_WHITE = 0xf8f6f2;
+const SWEETS = [0xe60014, 0xf2c200, 0x1f9bd1, 0x2f9e44, 0xff7ab0, 0xff7a1a, 0x7a3fb0, 0xffffff];
+const HOUSEHOLD = [0xe60014, 0xf2c200, 0x1f6fd1, 0x2f9e44, 0xffffff, 0xdcdcdc, 0x8d8d8d];
+const GONDOLA_HEIGHT = 90;
+const GONDOLA_GOODS_REACH = 4;
+
+/** Goods on shelf lips along one face of a gondola; `jars` swaps every other box for a lidded jar. */
+function gondolaFace(r: Room, x: number, faceZ: number, width: number, palette: readonly Hex[], rnd: () => number, jars: boolean): void {
+  const levels = 3;
+  const gap = (GONDOLA_HEIGHT - 8) / levels;
+  for (let l = 0; l < levels; l++) {
+    const y = 8 + l * gap;
+    r.box(x, faceZ, width - 2, 2 * GONDOLA_GOODS_REACH - 1, 1.6, y, 'white', AMERIKANAS_RED);
+    for (let i = 0; i < Math.floor((width - 6) / 9); i++) {
+      const gx = x - width / 2 + 7 + i * 9;
+      const color = palette[Math.floor(rnd() * palette.length)];
+      const h = 7 + Math.floor(rnd() * 3) * 3;
+      if (jars && (i + l) % 2 === 0) {
+        r.box(gx, faceZ, 6, 6, 11, y + 1.6, 'white', color);
+        r.box(gx, faceZ, 6.6, 6.6, 2, y + 12.6, 'white', AMERIKANAS_RED);
+      } else {
+        r.box(gx, faceZ, 7.6, 2 * GONDOLA_GOODS_REACH - 2, Math.min(h, gap - 4), y + 1.6, 'white', color);
+      }
+    }
+  }
+}
+
+/** A free-standing double-sided gondola: a white solid core, red ends and cap, goods stacked on both faces. */
+function gondola(r: Room, x: number, z: number, width: number, depth: number, palette: readonly Hex[], seed: number, jars: boolean): void {
+  const rnd = seeded(seed);
+  r.solid(x, z, width, depth - 2 * GONDOLA_GOODS_REACH, GONDOLA_HEIGHT, 0, 'white', AMERIKANAS_WHITE);
+  r.box(x, z, width, depth - 2 * GONDOLA_GOODS_REACH + 2, 1.4, GONDOLA_HEIGHT, 'white', AMERIKANAS_RED);
+  for (const side of [-1, 1]) {
+    r.box(x + side * (width / 2 + 1.5), z, 3, depth, GONDOLA_HEIGHT + 3, 0, 'white', AMERIKANAS_WHITE);
+    gondolaFace(r, x, z + side * (depth / 2 - GONDOLA_GOODS_REACH), width, palette, rnd, jars);
+  }
+}
+
+/** Open bins of loose sweets against a wall. */
+function sweetBin(r: Room, x: number, z: number, seed: number): void {
+  const rnd = seeded(seed);
+  r.solid(x, z, 24, 24, 22, 0, 'white', AMERIKANAS_WHITE);
+  r.box(x, z, 24.8, 24.8, 5, 12, 'white', AMERIKANAS_RED);
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      r.box(x - 7 + i * 7, z - 7 + j * 7, 6, 6, 3 + Math.floor(rnd() * 4), 22, 'white', SWEETS[Math.floor(rnd() * SWEETS.length)]);
+    }
+  }
+}
+
+/** A lollipop stand: a red base with rows of sticks topped by flat coloured heads. */
+function lollipopStand(r: Room, x: number, z: number): void {
+  r.solid(x, z, 26, 26, 14, 0, 'white', AMERIKANAS_RED);
+  r.box(x, z, 28, 28, 1.4, 14, 'white', AMERIKANAS_WHITE);
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 4; j++) {
+      const gx = x - 10 + i * 5;
+      const gz = z - 9 + j * 6;
+      r.box(gx, gz, 1.2, 1.2, 14, 15.4, 'white', AMERIKANAS_WHITE);
+      r.box(gx, gz, 4.4, 1.6, 4.4, 29.4, 'white', SWEETS[(i * 3 + j) % SWEETS.length]);
+    }
+  }
+}
+
+/** Impulse sweets on the counter: a stepped red rack of small boxes. */
+function checkoutCandy(r: Room, x: number, z: number): void {
+  const rnd = seeded(77);
+  for (let tier = 0; tier < 3; tier++) {
+    r.box(x, z - tier * 3, 34, 6, 2, 41.4 + tier * 7, 'white', AMERIKANAS_RED);
+    for (let i = 0; i < 6; i++) {
+      r.box(x - 14 + i * 5.6, z - tier * 3, 4.6, 4, 5, 43.4 + tier * 7, 'white', SWEETS[Math.floor(rnd() * SWEETS.length)]);
+    }
+  }
+}
+
+/** A white split air conditioner facing +z: body, louvre slit and a small display. */
+function airConditioner(r: Room, x: number, z: number, y: number): void {
+  const w = 54;
+  const d = 22;
+  r.box(x, z, w, d, 22, y, 'white', 0xfbfbfb);
+  r.box(x, z + d / 2, w - 6, 1, 2.4, y + 5, 'charcoal', 0x3a3d42);
+  r.box(x + w / 2 - 10, z + d / 2, 8, 0.8, 3, y + 14, 'screen');
+  r.box(x - w / 2 + 6, z + d / 2, 4, 0.8, 1.4, y + 15, 'white', AMERIKANAS_RED);
+}
+
+/** A white split air conditioner on a side wall, its front toward +x or -x. */
+function wallAirConditioner(r: Room, wallX: number, side: -1 | 1, z: number, y: number): void {
+  const depth = 18;
+  const cx = wallX - side * (depth / 2 + 0.5);
+  r.box(cx, z, depth, 70, 24, y, 'white', 0xfbfbfb);
+  r.box(cx - side * depth / 2, z, 1, 58, 2.4, y + 6, 'charcoal', 0x3a3d42);
+  r.box(cx - side * depth / 2, z + 26, 0.8, 8, 3, y + 15, 'screen');
+}
+
+/** A pedestal fan facing +z: base, pole, motor, a square cage and cross blades. */
+function pedestalFan(r: Room, x: number, z: number, bladeTint: Hex): void {
+  r.box(x, z, 22, 22, 3, 0, 'charcoal', 0x2b2b2b);
+  r.box(x, z, 3, 3, 52, 3, 'metal', STEEL);
+  r.box(x, z - 5, 9, 11, 9, 53, 'white', AMERIKANAS_WHITE);
+  const cageY = 48;
+  const size = 32;
+  r.box(x, z + 1, size, 1.5, 1.5, cageY, 'metal', STEEL);
+  r.box(x, z + 1, size, 1.5, 1.5, cageY + size - 1.5, 'metal', STEEL);
+  r.box(x - size / 2 + 0.75, z + 1, 1.5, 1.5, size, cageY, 'metal', STEEL);
+  r.box(x + size / 2 - 0.75, z + 1, 1.5, 1.5, size, cageY, 'metal', STEEL);
+  r.box(x, z + 3, 26, 0.8, 5, cageY + size / 2 - 2.5, 'white', bladeTint);
+  r.box(x, z + 3.1, 5, 0.8, 24, cageY + size / 2 - 12, 'white', bladeTint);
+  r.box(x, z + 3.6, 5, 2, 5, cageY + size / 2 - 2.5, 'charcoal', 0x2b2b2b);
+}
+
+/** Red squares of a checkered floor, laid on the white tile of the central aisle. */
+function checkeredAisle(r: Room): void {
+  const size = 32;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 5; j++) {
+      if ((i + j) % 2 === 0) r.box(-80 + i * size, 100 + j * size, size, size, 0.8, 0, 'tile', AMERIKANAS_RED);
+    }
+  }
+}
+
+/** A line of red and white pennants across the candy aisle. */
+function bunting(r: Room, z: number, fromX: number, toX: number, y: number): void {
+  r.box((fromX + toX) / 2, z, toX - fromX, 0.8, 0.8, y, 'white', AMERIKANAS_WHITE);
+  for (let i = 0, x = fromX + 8; x < toX - 4; i++, x += 14) {
+    r.box(x, z, 8, 0.6, 9, y - 9, 'white', i % 2 ? AMERIKANAS_WHITE : AMERIKANAS_RED);
+  }
+}
 
 function amerikanas(r: Room): void {
-  shell(r, { floor: 'tile', floorTint: 0xe8e6e0, wall: 0xf3f0ea, trim: 0xe60014 });
-  r.box(0, 3, 300, 2, 70, 100, 'white', 0xe60014);
-  wallShelves(r, 0, 8, 320, 14, 4, GOODS, 51);
-  counter(r, 0xe60014, 0xf5f5f5);
-  for (const side of [-1, 1]) {
-    for (const z of [100, 170]) {
-      wallShelves(r, side * 215, z, 190, 20, 3, GOODS, 52 + z + side, 0xf0e8d6);
-    }
-    r.box(side * 215, 135, 200, 70, 0.8, 0, 'white', 0xe60014);
-  }
-  r.solid(-300, 90, 16, 80, 70, 0, 'desk', 0xf0e8d6);
-  r.solid(300, 90, 16, 80, 70, 0, 'desk', 0xf0e8d6);
+  shell(r, { floor: 'tile', floorTint: 0xeceae4, wall: AMERIKANAS_WHITE, trim: AMERIKANAS_RED });
+  r.box(0, 3, 2 * STORE_HALF_WIDTH - 4, 2, 32, 118, 'white', AMERIKANAS_RED);
+  r.box(0, 4.4, 2 * STORE_HALF_WIDTH - 4, 0.4, 3, 130, 'white', AMERIKANAS_WHITE);
+  for (const x of [-230, -80, 80, 230]) r.box(x, 150, 76, 12, 1, CEILING - 1, 'white', AMERIKANAS_RED);
+  checkeredAisle(r);
+  r.fan(-215, 135, 160, 34);
+  r.fan(0, 205, 160, 36);
+
+  wallShelves(r, 0, 8, 320, 14, 4, HOUSEHOLD, 51, AMERIKANAS_WHITE);
+  counter(r, AMERIKANAS_RED, 0xf5f5f5);
+  r.box(0, 70.7, 141.4, 1.4, 39, 0, 'white', AMERIKANAS_RED);
+  checkoutCandy(r, 40, 62);
+  lollipopStand(r, -108, 62);
+
+  for (const z of [100, 235]) gondola(r, 215, z, 190, 20, SWEETS, 52 + z, true);
+  gondola(r, 215, 170, 190, 20, SWEETS, 53, true);
+  [122, 150, 198, 226, 254].forEach((z, i) => sweetBin(r, 329, z, 60 + i));
+  bunting(r, 135, 120, 310, 150);
+
+  r.solid(-215, 100, 190, 30, 24, 0, 'white', AMERIKANAS_WHITE);
+  r.box(-215, 100, 191, 31, 6, 0, 'white', AMERIKANAS_RED);
+  [-277, -215, -153].forEach((x, i) => {
+    airConditioner(r, x, 100, 24);
+    r.box(x, 115.8, 30, 0.6, 8, 10, 'white', AMERIKANAS_WHITE);
+    if (i === 1) r.box(x, 116.2, 12, 0.4, 4, 12, 'white', AMERIKANAS_RED);
+  });
+  [50, 130, 210].forEach((z) => wallAirConditioner(r, -(STORE_HALF_WIDTH - 2.5), -1, z, 96));
+  [-300, -255, -210, -165].forEach((x, i) => pedestalFan(r, x, 170, i % 2 ? 0xf2f2f2 : AMERIKANAS_RED));
+  gondola(r, -215, 235, 190, 20, HOUSEHOLD, 54, false);
+
+  r.rack(316, 48, 'left', 80, [AMERIKANAS_RED, 0xffffff, 0x222222, 0x1f6fd1]);
+  r.rack(160, 40, 'front', 70, [0xffffff, AMERIKANAS_RED, 0xf2c200]);
+  foldedTable(r, 250, 45, 60, 36, [AMERIKANAS_RED, 0xffffff, 0x1f6fd1], 55);
 }
 
 const BOOKS = [0x8b2e2e, 0x2e5d8b, 0x2f6b3a, 0xc9a227, 0x5a3b7a, 0xd8cdb0, 0x1f3d2b, 0xb5503a];

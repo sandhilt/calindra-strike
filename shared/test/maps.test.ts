@@ -120,7 +120,9 @@ describe('the shopping map props', () => {
   const world = new CollisionWorld(shopping);
 
   it('repeat the shared fixtures in point symmetric pairs, since the south half is the north one turned 180 degrees', () => {
-    const shared = shopping.props.filter((p) => p.kind === 'ceilingFan' || p.kind === 'escalator' || p.kind === 'vent');
+    // A store's own ceiling fans belong to its brand: the store facing it across the mall is another brand, so they have no twin.
+    const insideAStore = (z: number) => Math.abs(z) > 880;
+    const shared = shopping.props.filter((p) => (p.kind === 'ceilingFan' && !insideAStore(p.z)) || p.kind === 'escalator' || p.kind === 'vent');
     const key = (kind: string, x: number, z: number) => `${kind}@${Math.round(x)},${Math.round(z)}`;
     const seen = new Set(shared.map((p) => key(p.kind, p.x, p.z)));
     assert.ok(shared.length > 20);

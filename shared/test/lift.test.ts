@@ -148,6 +148,26 @@ describe('riding a lift', () => {
     assert.ok(s.y > lowered);
   });
 
+  it('is not grounded by the cab once the rider steps out of an open shaft between floors: gravity takes over', () => {
+    const b = new MapBuilder();
+    b.add(-2000, -32, -2000, 2000, 0, 2000, 'ground');
+    const open = new CollisionWorld({ ...getMaps()[0], boxes: b.boxes, lifts: [LIFT] });
+    const s = rider(open, 0, 0, 150);
+    for (let i = 0; i < 90; i++) step(open, s, 0);
+    assert.ok(s.y > 100 && s.y < 192, 'riding at ' + s.y);
+    // yaw -90 degrees faces +x
+    let leftAt = -1;
+    for (let i = 0; i < 60 && leftAt < 0; i++) {
+      step(open, s, BTN.FWD, -Math.PI / 2);
+      if (s.x >= LIFT.maxX) leftAt = i;
+    }
+    assert.ok(leftAt >= 0, 'walked out, at x=' + s.x);
+    assert.equal(s.onGround, false, 'nothing under the feet');
+    const y = s.y;
+    step(open, s, 0, -Math.PI / 2);
+    assert.ok(s.y < y, 'falls');
+  });
+
   it('is deterministic: the same inputs give the same heights every time', () => {
     const run = () => {
       const w = shaftWorld();

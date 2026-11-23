@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, STAND_HEIGHT, getMaps } from '@calindra-strike/shared';
+import { BTN, CollisionWorld, STAND_HEIGHT, WEAPON, applyCmd, cloneState, createPlayerState, getMaps, spawnState } from '@calindra-strike/shared';
 import { NavGrid } from '../src/nav.ts';
 
 const PLAYER_HALF_UNITS = 16;
@@ -37,6 +37,36 @@ for (const map of getMaps()) {
         .filter((n) => Math.abs(world.groundBelow(n.x, map.dropHeight, n.z, PLAYER_HALF_UNITS) - n.y) < 1)
         .map((n) => `${n.x},${n.y},${n.z}`);
       assert.deepEqual(stranded.slice(0, 8), [], `${stranded.length} landing spots with no way back to the floor`);
+    });
+  });
+}
+
+/** Nav surfaces stop at this height, so a landing above it is invisible to the test above. Same value as MAX_SURFACE in nav.ts. */
+const NAV_CEILING_UNITS = 600;
+
+for (const map of getMaps()) {
+  describe(`gliders on the highest solids of ${map.id}`, () => {
+    it('can always walk off a solid that stands above the nav grid, instead of being stranded up there', () => {
+      const world = new CollisionWorld(map);
+      const tall = map.boxes.filter((b) => b.solid && b.mat !== 'clip' && b.max.y >= NAV_CEILING_UNITS);
+      let checked = 0;
+      for (const box of tall) {
+        const x = (box.min.x + box.max.x) / 2;
+        const z = (box.min.z + box.max.z) / 2;
+        if (world.hullOverlaps(x, map.dropHeight, z, STAND_HEIGHT)) continue;
+        const glider = createPlayerState();
+        spawnState(glider, x, map.dropHeight, z, 0, WEAPON.RIFLE);
+        for (let i = 0; i < 60 * 20 && glider.dropping; i++) applyCmd(world, glider, { seq: i, buttons: 0, yaw: 0, pitch: 0, weapon: 0, interp: 0 }, 1);
+        if (glider.y < NAV_CEILING_UNITS) continue;
+        checked++;
+        const escapes = [0, 1, 2, 3].map((quarter) => {
+          const walker = cloneState(glider);
+          for (let i = 0; i < 60 * 6; i++) applyCmd(world, walker, { seq: i, buttons: BTN.FWD, yaw: (quarter * Math.PI) / 2, pitch: 0, weapon: 0, interp: 0 }, 1);
+          return walker.y < NAV_CEILING_UNITS - 20;
+        });
+        assert.ok(escapes.some(Boolean), `a glider landing on the ${box.mat} box at ${x},${z} (top ${box.max.y}) cannot get off it`);
+      }
+      if (map.id === 'shopping') assert.ok(checked >= 4, 'the shaft walls were checked: ' + checked);
     });
   });
 }

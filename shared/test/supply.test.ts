@@ -48,6 +48,15 @@ describe('supply stands', () => {
     assert.equal(needsSupply(s), false);
   });
 
+  it('end a reload in progress, since the magazine is full again', () => {
+    const s = player();
+    s.mag[WEAPON.RIFLE] = 0;
+    s.reload = 40;
+    resupply(s);
+    assert.equal(s.reload, 0);
+    assert.equal(s.mag[WEAPON.RIFLE], weaponDef(WEAPON.RIFLE).mag);
+  });
+
   it('reach the stand floor only: close enough sideways and within a step or a jump in height', () => {
     const stand = { x: 100, y: 384, z: -300 };
     assert.equal(inSupplyReach({ x: 100 + SUPPLY_RADIUS_UNITS - 1, y: 384, z: -300 }, stand), true);

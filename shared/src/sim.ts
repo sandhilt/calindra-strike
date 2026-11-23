@@ -368,6 +368,12 @@ function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift, buttons: number
   friction(s, dt);
   if (moving) accelerate(s, wx, wz, wishspeed, ACCELERATE, dt);
   walkMove(w, s, dt);
+  if (!liftAt(w.map.lifts, s.x, s.y, s.z)) {
+    // stepped out of the shaft this tick: from here on the floor is whatever is under the feet
+    s.vy = 0;
+    s.onGround = checkGround(w, s);
+    return;
+  }
   const rise = liftRide(lift, s.y, (buttons & BTN.DUCK) !== 0, dt) - s.y;
   s.y += w.clipAxis(s.x, s.y, s.z, hullHeight(s), 1, rise);
   s.vy = 0;

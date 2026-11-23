@@ -35,8 +35,9 @@ export function inSupplyReach(s: { x: number; y: number; z: number }, p: SupplyP
   return Math.hypot(s.x - p.x, s.z - p.z) < SUPPLY_RADIUS_UNITS && Math.abs(s.y - p.y) <= SUPPLY_FLOOR_TOLERANCE_UNITS;
 }
 
-/** Full health and armour, and full magazines and reserves for the primary and the pistol. */
+/** Full health and armour, and full magazines and reserves for the primary and the pistol; a reload in progress ends, the magazine being full. */
 export function resupply(s: PlayerState): void {
+  s.reload = 0;
   s.health = MAX_HEALTH;
   s.armor = MAX_ARMOR;
   for (const id of stocked(s)) {

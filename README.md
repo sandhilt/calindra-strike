@@ -165,7 +165,7 @@ The game validates client messages, limits traffic and commands, sanitizes names
 
 See also [Movimento experimental](#movimento-experimental) for sprint, slide, lean and prone.
 
-`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→` lean · `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** section of the Esc menu, whose headings and settings also carry icons.
+`WASD` move · `Space` jump · `Ctrl`/`C` crouch (dive while skydiving) · `Shift` sprint · `Shift` then `Ctrl` slide · `←` `→` lean · `Ctrl` `Ctrl` (two quick taps) or `↓` prone · `Alt` walk silently · `1 2 3` / wheel / `Q` weapons · `R` reload · `E` hold to plant or defuse the bug · closing the tab or window mid-match asks first, because Ctrl+W is crouch plus forward · `G` spray (10 per spawn, 2 s apart) · `Mouse 2` scope · `Tab` scoreboard · `Y` chat · `Z` `X` `V` `B` radio menus (comandos, grupo, respostas, Calindra), then `1`-`9` to pick a line, `0` or the same key to close · `Esc` menu. The same list, grouped as movimento, combate and interface with an icon on each line, is in the lobby and in the **controles** section of the Esc menu, whose headings and settings also carry icons.
 
 ### Movimento experimental
 
@@ -175,7 +175,7 @@ New and still being tested: tell us how it feels with the link in the lobby and 
 - **Fôlego**: a bar at the bottom centre of the HUD, with a bolt icon and the percentage. It shows while you sprint, slide, refill or are winded, and fades when full. Green when healthy, amber below 40%, red and pulsing with "sem fôlego" (and a faint red edge) when winded. The white mark on the bar is where sprint comes back (25%). About 5 s of sprint, 6 s to refill.
 - **Slide**: press `Shift` then `Ctrl` while moving fast.
 - **Lean**: `←` left, `→` right. The eye and the head hitbox move with it, and a wall stops it.
-- **Prone**: `↓` toggles. Slow, small target, 0.3 s lock between changes, no jump.
+- **Prone**: tap `Ctrl` (or `C`) twice within 0.3 s to lie down, like in war games; one more tap gets up. `↓` still toggles directly. A `Ctrl` press while `Shift` is held is the slide, never prone. Slow, small target, 0.3 s lock between changes, no jump.
 - **Silent walk** moved to `Alt`.
 - Bots do not use these moves. MCP agents only read them in `get_state.you`.
 

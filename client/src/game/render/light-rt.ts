@@ -54,6 +54,40 @@ class SolidOcclusionPass extends GTAOPass {
   }
 }
 
+/**
+ * The final pass of the chain: tone mapping and colour space like `OutputPass`, with the occlusion laid over the
+ * scene in the same fetch. `GTAOPass` would otherwise copy the whole scene into the write buffer and blend the
+ * occlusion onto it, two more full-resolution passes over a multisampled half-float target before the output pass
+ * reads it again.
+ */
+const DIFFUSE_UNIFORM = 'uniform sampler2D tDiffuse;';
+const DIFFUSE_FETCH = 'gl_FragColor = texture2D( tDiffuse, vUv );';
+
+/** The output shader with the occlusion texture multiplied into the linear colour before tone mapping; throws when three's shader no longer has the lines it hooks into. */
+export function withOcclusion(fragmentShader: string): string {
+  if (!fragmentShader.includes(DIFFUSE_UNIFORM) || !fragmentShader.includes(DIFFUSE_FETCH)) throw new Error('OutputShader changed: the occlusion hook does not fit');
+  return fragmentShader
+    .replace(DIFFUSE_UNIFORM, `${DIFFUSE_UNIFORM}\n\t\tuniform sampler2D tOcclusion;\n\t\tuniform float occlusionStrength;`)
+    .replace(DIFFUSE_FETCH, `${DIFFUSE_FETCH}\n\t\t\tgl_FragColor.rgb *= mix( 1.0, texture2D( tOcclusion, vUv ).r, occlusionStrength );`);
+}
+
+class OcclusionOutputPass extends OutputPass {
+  private readonly occlusion: GTAOPass;
+
+  constructor(occlusion: GTAOPass, strength: number) {
+    super();
+    this.occlusion = occlusion;
+    this.uniforms.tOcclusion = { value: null };
+    this.uniforms.occlusionStrength = { value: strength };
+    this.material.fragmentShader = withOcclusion(this.material.fragmentShader);
+  }
+
+  override render(...args: Parameters<OutputPass['render']>): void {
+    this.uniforms.tOcclusion.value = this.occlusion.pdRenderTarget.texture;
+    super.render(...args);
+  }
+}
+
 export function readGpuFacts(renderer: THREE.WebGLRenderer): GpuFacts {
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
@@ -83,7 +117,7 @@ function sceneTarget(renderer: THREE.WebGLRenderer, width: number, height: numbe
 export class LightRt {
   private readonly composer: EffectComposer;
   private readonly occlusion: SolidOcclusionPass;
-  private readonly output = new OutputPass();
+  private readonly output: OcclusionOutputPass;
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, profile: RtProfile) {
     this.composer = new EffectComposer(renderer, profile.sceneDepth ? sceneTarget(renderer, width, height) : undefined);
@@ -92,7 +126,9 @@ export class LightRt {
     this.occlusion = new SolidOcclusionPass(scene, camera, width, height, profile.resolution, this.composer.renderTarget1.depthTexture);
     this.occlusion.updateGtaoMaterial({ radius: profile.radiusUnits, samples: profile.rays });
     this.occlusion.updatePdMaterial({ samples: profile.denoiseSamples });
-    this.occlusion.blendIntensity = profile.strength;
+    this.occlusion.output = GTAOPass.OUTPUT.Off;
+    this.occlusion.needsSwap = false;
+    this.output = new OcclusionOutputPass(this.occlusion, profile.strength);
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(this.occlusion);
     this.composer.addPass(this.output);

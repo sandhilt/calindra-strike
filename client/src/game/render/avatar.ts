@@ -213,6 +213,7 @@ export class Avatar {
     this.swing.stop();
     this.weapon = buildWeapon(id);
     this.weaponId = id;
+    this.aimT = 0;
     const g = this.weapon.group;
     this.supportArm.rotation.x = id === WEAPON.HAMMER ? -0.9 : 0;
     this.supportArm.position.x = id === WEAPON.HAMMER ? -4 : 0;

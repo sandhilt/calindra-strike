@@ -46,10 +46,10 @@ export function gunHidden(def: WeaponDef, s: AimState, dropping: boolean): boole
 }
 
 /** Ground truth for the crosshair: drawn for everything but a scope overlay, the AWP and the parachute; smaller with iron sights. */
-export function crosshairFor(def: WeaponDef, s: AimState, dropping: boolean, isSniper: boolean): { visible: boolean; scale: number } {
-  if (dropping || isSniper || scopeOverlay(def, s) !== 'none') return { visible: false, scale: 1 };
-  const shrink = def.ads?.kind === 'sights' && s.aiming ? 1 - (1 - ADS_CROSSHAIR_SCALE) * s.blend : 1;
-  return { visible: true, scale: shrink };
+export function crosshairFor(def: WeaponDef, s: AimState, dropping: boolean, isSniper: boolean, out = { visible: false, scale: 1 }): { visible: boolean; scale: number } {
+  out.visible = !dropping && !isSniper && scopeOverlay(def, s) === 'none';
+  out.scale = out.visible && def.ads?.kind === 'sights' && s.aiming ? 1 - (1 - ADS_CROSSHAIR_SCALE) * s.blend : 1;
+  return out;
 }
 
 /** The horizontal field of view (CS, at 4:3) held while aiming, or 0 when the weapon is not aimed. It never widens the view. */

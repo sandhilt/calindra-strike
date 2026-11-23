@@ -1,6 +1,7 @@
 import type { WeaponDef } from '@calindra-strike/shared';
 import { SPRINT_SPEED_MULT, reloadTotalTicks } from '@calindra-strike/shared';
-import { type ScopeOverlay, scopeOverlay } from '../game/render/ads-view.ts';
+import { stepBlend } from '../game/render/movement-pose.ts';
+import { ADS_BLEND_SECONDS, type AimState, type ScopeOverlay, scopeOverlay } from '../game/render/ads-view.ts';
 
 /** The reload of the weapon on show: ticks since it began (-1 when none), and how it plays. */
 export interface ReloadScrub {
@@ -46,10 +47,10 @@ export function autoFireShots(carry: { ticks: number }, dtSeconds: number, fireT
   return shots;
 }
 
-/** What the viewer shows for the weapon on show while "mirando" is on: whether the weapon aims, and the overlay at the given blend. */
-export function previewAim(def: WeaponDef, aiming: boolean, blend: number): { aiming: boolean; overlay: ScopeOverlay } {
-  const on = aiming && def.ads !== undefined;
-  return { aiming: on, overlay: scopeOverlay(def, { zoom: 0, aiming: on, blend }) };
+export function previewAim(def: WeaponDef, aiming: boolean, dt: number, state: AimState): ScopeOverlay {
+  state.aiming = aiming && def.ads !== undefined;
+  state.blend = stepBlend(state.blend, state.aiming, dt, ADS_BLEND_SECONDS);
+  return scopeOverlay(def, state);
 }
 
 const PREVIEW_WALK_SPEED = 250;

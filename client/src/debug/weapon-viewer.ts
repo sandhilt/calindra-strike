@@ -7,8 +7,6 @@ import { type GunPlacement, formatPlacement } from '../game/render/weapon-placem
 import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
-import { stepBlend } from '../game/render/movement-pose.ts';
-import { ADS_BLEND_SECONDS } from '../game/render/ads-view.ts';
 import { autoFireShots, previewAim, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
 
 const DEFAULT_FOV = 58;
@@ -59,12 +57,13 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   let walking = false;
   let running = false;
   let aiming = false;
-  let aimT = 0;
+  const aim = { zoom: 0, aiming: false, blend: 0 };
   let leftHanded = settings.leftHanded;
   let shells = 0;
   let placement = copyOf(view.placement());
 
   const select = (id: WeaponId) => {
+    if (weapon !== id) aim.blend = 0;
     weapon = id;
     view.setWeapon(id);
     placement = copyOf(view.placement());
@@ -191,9 +190,9 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     const total = reloadTotal(def, shells);
     stepReload(reload, dt, total);
     if (holdFire && def.fireTicks > 0) for (let i = autoFireShots(carry, dt, def.fireTicks); i > 0; i--) view.fire(false);
-    aimT = stepBlend(aimT, previewAim(def, aiming && !running, aimT).aiming, dt, ADS_BLEND_SECONDS);
-    const aim = previewAim(def, aiming && !running, aimT);
-    scopeHost.className = `scope${aim.overlay === 'none' ? '' : ' on'}${aim.overlay === 'optic' ? ' optic' : ''}`;
+    const overlay = previewAim(def, aiming && !running, dt, aim);
+    if (overlay !== 'none') scopeHost.classList.toggle('optic', overlay === 'optic');
+    scopeHost.classList.toggle('on', overlay !== 'none');
     view.update({
       speed: previewMovementSpeed(walking, running),
       stance: STANCE.STAND,
@@ -207,8 +206,8 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
       reloadElapsed: reload.elapsed,
       reloadShells: shells,
       deployFrac: -1,
-      aim: aimT,
-      hidden: aim.overlay !== 'none',
+      aim: aim.blend,
+      hidden: overlay !== 'none',
     });
     if (reload.playing && total > 0) scrub.value = String(Math.round((reload.elapsed / total) * SCRUB_STEPS));
     const cursor = def.reloadTiming && reload.elapsed >= 0 ? reloadCursor(def.reloadTiming, reload.elapsed, shells) : null;

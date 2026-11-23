@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WEAPON, weaponDef } from '@calindra-strike/shared';
+import { WEAPON, type WeaponId, weaponDef } from '@calindra-strike/shared';
 import {
   ADS_BOB_KEEP,
   ADS_CROSSHAIR_SCALE,
@@ -100,16 +100,21 @@ test('the gun moves to the centre line whichever hand it is held in, and an opti
 });
 
 test('the weapon viewer previews the pose only for weapons that aim', () => {
-  assert.deepEqual(previewAim(weaponDef(WEAPON.RIFLE), true, 1), { aiming: true, overlay: 'optic' });
-  assert.deepEqual(previewAim(weaponDef(WEAPON.RIFLE), true, 0.5), { aiming: true, overlay: 'none' });
-  assert.deepEqual(previewAim(weaponDef(WEAPON.PISTOL), true, 1), { aiming: true, overlay: 'none' });
-  assert.deepEqual(previewAim(weaponDef(WEAPON.SNIPER), true, 1), { aiming: false, overlay: 'none' });
-  assert.deepEqual(previewAim(weaponDef(WEAPON.RIFLE), false, 1), { aiming: false, overlay: 'none' });
+  const state = { ...hip };
+  const rifle = weaponDef(WEAPON.RIFLE);
+  assert.equal(previewAim(rifle, true, 0.065, state), 'none');
+  assert.equal(state.blend, 0.5);
+  assert.equal(previewAim(rifle, true, 0.065, state), 'optic');
+  assert.equal(previewAim(rifle, false, 0, state), 'none');
+  assert.equal(previewAim(weaponDef(WEAPON.PISTOL), true, 0.13, state), 'none');
+  assert.equal(state.blend, 1);
+  assert.equal(previewAim(weaponDef(WEAPON.SNIPER), true, 0.13, state), 'none');
+  assert.equal(state.blend, 0);
 });
 
 test('a spectator sees the gun hidden only behind an AWP scope or an aimed optic', () => {
-  const frame = (weapon: number, flags: number, aimBlend: number) => ({ weapon: weapon as 0, flags: flags | RF_ALIVE, speed: 0, onGround: true, reloadElapsed: -1, reloadShells: 0, aimBlend });
-  const hidden = (weapon: number, flags: number, blend: number) => new FollowedViewTracker().pose(1, frame(weapon, flags, blend), 0, 0.016).hidden;
+  const frame = (weapon: WeaponId, flags: number, aimBlend: number) => ({ weapon, flags: flags | RF_ALIVE, speed: 0, onGround: true, reloadElapsed: -1, reloadShells: 0, aim: { zoom: Number((flags & RF_ZOOM) !== 0), aiming: (flags & RF_AIM) !== 0, blend: aimBlend } });
+  const hidden = (weapon: WeaponId, flags: number, blend: number) => new FollowedViewTracker().pose(1, frame(weapon, flags, blend), 0, 0.016).hidden;
   assert.equal(hidden(WEAPON.SNIPER, RF_ZOOM, 0), true);
   assert.equal(hidden(WEAPON.RIFLE, RF_AIM, 1), true);
   assert.equal(hidden(WEAPON.RIFLE, RF_AIM, 0.3), false);

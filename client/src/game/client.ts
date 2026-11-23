@@ -1895,7 +1895,7 @@ export class ClientGame {
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
-      const open = this.cameraMode === 'first' && !!target && !gunHidden(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0) && target.w !== WEAPON.SNIPER;
+      const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0, target.w === WEAPON.SNIPER).visible;
       hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
       hud.setDrop(null);
       hud.setScope('none');

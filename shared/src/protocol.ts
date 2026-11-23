@@ -4,7 +4,7 @@ import type { LunchEvent } from './lunch.ts';
 import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
 import { radioLine } from './radio.ts';
 import type { Cmd, PlayerState } from './sim.ts';
-import { STANCE } from './stance.ts';
+import { STANCE, type Stance } from './stance.ts';
 import { PRIMARY_CHOICES, WEAPON_COUNT, type WeaponId } from './weapons.ts';
 
 export const MAX_MESSAGE_BYTES = 4096;
@@ -209,6 +209,8 @@ export type ServerMsg =
   // state: 0 home, 1 carried, 2 planting, 3 dropped, 4 planted. actorId is the carrier (carried, planting) or the defuser (planted), -1 if none.
   // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.
   // lu (hora de almoçar only, [] otherwise): [attackers, roundEndsAtMs]; lc: one colleagueRow per colleague.
+  // ps rows: [id, x, y, z, yaw, pitch, flags (RF_*), weapon, lean]. lean (-1 left .. 1 right, 0.01 steps) is absent on older rows, read it with leanOfRow.
+  // The stance is in the flags: RF_PRONE, else RF_DUCK (crouch), else standing; read it with stanceFromFlags. RF_SPRINT and RF_SLIDE mark the run and the slide.
   | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
@@ -338,3 +340,17 @@ export const RF_PROTECT = 8;
 export const RF_GROUND = 16;
 export const RF_RELOAD = 32;
 export const RF_ZOOM = 64;
+export const RF_PRONE = 128;
+export const RF_SPRINT = 256;
+export const RF_SLIDE = 512;
+
+export function stanceFromFlags(flags: number): Stance {
+  if (flags & RF_PRONE) return STANCE.PRONE;
+  return flags & RF_DUCK ? STANCE.CROUCH : STANCE.STAND;
+}
+
+const ROW_LEAN = 8;
+export const LEAN_ROW_PRECISION = 100;
+
+/** The lean of a remote player row; rows without the field lean nowhere. */
+export const leanOfRow = (row: readonly number[]): number => row[ROW_LEAN] ?? 0;

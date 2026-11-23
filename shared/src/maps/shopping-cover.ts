@@ -128,6 +128,8 @@ function foodCourt(b: MapBuilder): void {
   for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28, DECK);
 }
 
+/** Every escalator climbs one floor, so its top corners stand on the next level. */
+const ESCALATOR_RISE = 192;
 const BIN_SIDE = 28;
 const BIN_HEIGHT = 46;
 /** Escalator glass sides are 6 units thick; a bin set flush against one leaves no pocket a walker could wedge into. */
@@ -142,10 +144,11 @@ function trashBin(b: MapBuilder, x: number, z: number, y0 = 0): void {
 
 /** Bins in the four corners of every escalator, against its glass sides, where bots used to wedge in the gap. */
 function escalatorBins(b: MapBuilder, x1: number, x2: number, footZ: number, topZ: number, y0 = 0): void {
+  const topY = y0 + ESCALATOR_RISE;
   const half = BIN_SIDE / 2;
   for (const x of [x1 - BIN_BESIDE_GLASS, x2 + BIN_BESIDE_GLASS]) {
     trashBin(b, x, footZ + half, y0);
-    trashBin(b, x, topZ - half, y0);
+    trashBin(b, x, topZ - half, topY);
   }
 }
 

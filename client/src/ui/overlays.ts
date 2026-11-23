@@ -28,7 +28,7 @@ export interface OverlayHooks {
   settingsChanged(s: Settings): void;
 }
 
-type OptionList<T> = readonly { v: T; label: string; style?: string }[];
+type OptionList<T> = readonly { v: T; label: string; style?: string; icon?: string }[];
 
 /** The row builders a tab page uses, already wired to save and announce a change. */
 interface MenuRows {
@@ -56,7 +56,7 @@ const MENU_TABS: Record<MenuTabId, MenuTab> = {
           r.seg(
             'gun',
             'arma principal',
-            PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name })),
+            PRIMARY_CHOICES.map((id: WeaponId) => ({ v: id, label: weaponDef(id).name, icon: WEAPON_INFO[id].icon })),
             () => s.primary,
             (v) => (s.primary = v),
             'vale a partir do próximo salto',

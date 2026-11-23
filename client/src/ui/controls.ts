@@ -51,7 +51,7 @@ export function rangeRow(label: string, range: { min: number; max: number; step:
   return row(label, input, out);
 }
 
-export function choiceRow<T>(label: string, options: readonly { v: T; label: string; style?: string }[], get: () => T, set: (v: T) => void, changed: () => void, hint?: string): HTMLElement {
+export function choiceRow<T>(label: string, options: readonly { v: T; label: string; style?: string; icon?: string }[], get: () => T, set: (v: T) => void, changed: () => void, hint?: string): HTMLElement {
   const wrap = h('div', { class: 'seg' });
   const draw = () =>
     wrap.replaceChildren(
@@ -60,13 +60,12 @@ export function choiceRow<T>(label: string, options: readonly { v: T; label: str
           type: 'button',
           style: o.style,
           'aria-pressed': String(get() === o.v),
-          text: o.label,
           onclick: () => {
             set(o.v);
             changed();
             draw();
           },
-        }),
+        }, [...(o.icon ? [svg(o.icon)] : []), o.label]),
       ),
     );
   draw();

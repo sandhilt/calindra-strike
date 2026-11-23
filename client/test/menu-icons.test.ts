@@ -45,3 +45,7 @@ test('icons are 24 grid or weapon silhouettes, all non-empty svg', () => {
     assert.ok(markup.endsWith('</svg>'), name);
   }
 });
+
+test('the headshot and weapon icons the feed and the pause menu draw are registered', () => {
+  for (const name of ['headshot', 'rifle', 'smg', 'shotgun'] as const) assert.match(ICONS[name], /^<svg /, name);
+});

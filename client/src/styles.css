@@ -775,8 +775,12 @@ input:focus-visible {
 
 .kf .hs {
   color: var(--lime);
-  font-family: var(--mono);
-  font-size: 11px;
+  display: inline-flex;
+}
+
+.kf .hs svg {
+  width: 16px;
+  height: 16px;
 }
 
 .kf.info {
@@ -1883,6 +1887,13 @@ input:focus-visible {
   border: 1px solid var(--line-2);
   background: var(--bg-3);
   font-size: 13px;
+}
+
+.seg button svg {
+  width: 28px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
 }
 
 .seg button[aria-pressed='true'] {

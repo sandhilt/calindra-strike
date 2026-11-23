@@ -357,7 +357,7 @@ export class Hud {
       icon
         ? h('img', { class: 'w-icon', src: icon.src, alt: weapon, title: weapon, width: icon.width, height: icon.height, draggable: 'false' })
         : h('span', { class: 'w', text: weapon }),
-      hs ? h('span', { class: 'hs', title: 'headshot', text: 'HS' }) : null,
+      hs ? h('span', { class: 'hs', title: 'headshot', 'aria-label': 'headshot' }, [svg(ICONS.headshot)]) : null,
       h('span', { style: `color:${vc}`, text: victim }),
     ]);
     this.pushFeed(el);

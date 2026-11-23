@@ -13,6 +13,7 @@ import type { EscalatorTravel } from './types.ts';
 /** Doorway in the front rail for the lift: the shaft walls stand just outside it. */
 export const LIFT_GAP_HALF = 62;
 const HEDGE = 66;
+const LOW_HEDGE = 22;
 const BOARD = 140;
 const PAINT = 0xe9edf2;
 
@@ -48,9 +49,9 @@ function glassRail(b: MapBuilder, x1: number, z1: number, x2: number, z2: number
   b.deco(x1 - 1, DECK3 + RAIL, z1 - 1, x2 + 1, DECK3 + RAIL + 4, z2 + 1, 'charcoal');
 }
 
-function planter(b: MapBuilder, x: number, z: number, w: number, d: number): void {
+function planter(b: MapBuilder, x: number, z: number, w: number, d: number, hedge = HEDGE): void {
   b.block(x, z, w, d, 26, 'tile', DECK3, { tint: 0xd8d2c4 });
-  b.block(x, z, w - 8, d - 8, HEDGE, 'plant', DECK3 + 26);
+  b.block(x, z, w - 8, d - 8, hedge, 'plant', DECK3 + 26);
 }
 
 function board(b: MapBuilder, x: number, z: number, length: number, brand: StoreBrand): void {
@@ -65,12 +66,11 @@ function sofa(b: MapBuilder, x: number, z: number, back: -1 | 1): void {
   for (const side of [-1, 1]) b.block(x + side * 70, z, 10, 54, 40, 'sofa', DECK3 + 24);
 }
 
-/** The stand, a low round dais with hedges that stop a bullet but not a hand, so the supply can be taken in the open. */
+/** The stand, a low dais with waist-high planters beside it that a crouching player hides behind: strong to take, but in the open. */
 function supplyStand(b: MapBuilder): void {
   const { x, z } = SUPPLY_STAND;
   b.block(x, z, 104, 104, 10, 'tile', DECK3, { tint: 0x2b2f36 });
-  b.deco(x - 44, DECK3 + 10, z - 44, x + 44, DECK3 + 11, z + 44, 'lime');
-  for (const [dx, dz] of [[-96, -40], [96, -40], [-96, 40], [96, 40]] as const) planter(b, x + dx, z + dz, 40, 80);
+  for (const [dx, dz] of [[-96, -40], [96, -40], [-96, 40], [96, 40]] as const) planter(b, x + dx, z + dz, 40, 80, LOW_HEDGE);
   b.supply(x, DECK3, z);
   b.light(x, DECK3 + 120, z, '#b6ff4a');
   b.landmark('Suprimentos do Mirante', x, z);
@@ -87,6 +87,12 @@ function lounge(b: MapBuilder): void {
     sofa(b, x + 220, -1090, -1);
     b.block(x + 110, -1030, 60, 60, 26, 'wood', DECK3, { tint: 0xb98a58 });
   }
+  b.deco(-TOP_X, DECK3, -Z, TOP_X, DECK3 + 96, -Z + 2, 'white', 0xbfd8d0);
+  b.deco(-TOP_X, DECK3 + 96, -Z, TOP_X, DECK3 + 100, -Z + 3, 'charcoal');
+  for (const [x, brand] of [[-1000, 'zarra'], [-560, 'riachuela'], [560, 'travessura'], [1000, 'hew']] as const) {
+    b.deco(x - 90, DECK3 + 120, -Z, x + 90, DECK3 + 200, -Z + 2, brandMat(brand));
+  }
+  for (const x of [-1000, -500, 0, 500, 1000]) b.deco(x - 120, ROOF - 3, -Z + 40, x + 120, ROOF, -700, 'white', 0xfff6df);
   b.deco(-X + 2, DECK3 + 90, -1000, -X + 4, DECK3 + 250, -820, 'logo');
   b.deco(X - 4, DECK3 + 90, -1000, X - 2, DECK3 + 250, -820, 'eitri');
 }

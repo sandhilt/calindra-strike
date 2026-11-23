@@ -918,7 +918,7 @@ input:focus-visible {
   color: var(--muted);
 }
 
-.vital.stance .stance-icon { display: grid; }
+.vital.stance .stance-icon { display: grid; transform-origin: 50% 85%; transition: transform 0.12s ease-out; }
 .vital.stance svg { width: 30px; height: 30px; color: currentColor; }
 .vital.stance .stance-name { font: 700 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
 .vital.stance.lowered { color: var(--lime); }

@@ -8,7 +8,7 @@ import type { ScopeOverlay } from '../game/render/ads-view.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STANCE, type Stance } from '@calindra-strike/shared';
-import { STANCE_VIEWS } from './stance-view.ts';
+import { STANCE_VIEWS, leanTilt } from './stance-view.ts';
 import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
 export interface LeaderRow {
@@ -102,6 +102,7 @@ export class Hud {
   private readonly stanceName = h('span', { class: 'stance-name' });
   private readonly stanceChip = h('div', { class: 'vital stance glass', role: 'status' }, [this.stanceIcon, this.stanceName]);
   private stance: Stance | null = null;
+  private stanceTilt = 0;
   private readonly wName = h('b', { text: '' });
   private readonly wTag = h('small', { text: '' });
   private readonly wBox = h('div', { class: 'wname' }, [this.wName, this.wTag]);
@@ -391,15 +392,20 @@ export class Hud {
    * Standing, crouched or lying down: the icon follows the local player and is only redrawn when the stance changes.
    * A dead player shows standing, the stance the next spawn starts in, instead of the pose they died in.
    */
-  setStance(stance: Stance, alive = true): void {
+  setStance(stance: Stance, alive = true, lean = 0): void {
     const shown = alive ? stance : STANCE.STAND;
-    if (this.stance === shown) return;
-    this.stance = shown;
+    const { degrees, arrow } = leanTilt(alive ? lean : 0);
+    if (this.stance === shown && this.stanceTilt === degrees) return;
     const view = STANCE_VIEWS[shown];
-    this.stanceIcon.replaceChildren(svg(ICONS[view.icon]));
-    this.stanceName.textContent = view.label;
-    this.stanceChip.setAttribute('aria-label', `postura: ${view.label}`);
-    this.stanceChip.classList.toggle('lowered', shown !== STANCE.STAND);
+    if (this.stance !== shown) {
+      this.stance = shown;
+      this.stanceIcon.replaceChildren(svg(ICONS[view.icon]));
+      this.stanceChip.classList.toggle('lowered', shown !== STANCE.STAND);
+    }
+    this.stanceTilt = degrees;
+    this.stanceIcon.style.transform = degrees === 0 ? '' : `rotate(${degrees}deg)`;
+    this.stanceName.textContent = arrow === '' ? view.label : `${view.label} ${arrow}`;
+    this.stanceChip.setAttribute('aria-label', `postura: ${view.label}${arrow === '' ? '' : arrow === '‹' ? ', inclinado à esquerda' : ', inclinado à direita'}`);
   }
 
   setStamina(fraction: number, visible: boolean, winded: boolean): void {

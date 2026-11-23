@@ -327,6 +327,7 @@ input:focus-visible {
 .controls {
   display: grid;
   gap: 14px;
+  margin-bottom: 14px;
   max-width: 680px;
   font-size: 13px;
   color: var(--muted);
@@ -813,6 +814,7 @@ input:focus-visible {
 
 .stamina-winded {
   display: none;
+  flex: 1;
   font-weight: 700;
   animation: stamina-pulse 0.55s ease-in-out infinite alternate;
 }
@@ -1642,7 +1644,7 @@ input:focus-visible {
   border-top: 1px solid var(--line);
 }
 
-.menu-wide .controls { max-width: none; padding-bottom: 8px; }
+.menu-wide .controls { max-width: none; margin-top: 10px; padding-bottom: 8px; }
 .menu-wide .controls-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 
 .menu .hint {

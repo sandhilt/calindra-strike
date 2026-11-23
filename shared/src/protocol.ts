@@ -1,7 +1,7 @@
 import type { FlagEvent } from './ctf.ts';
 import type { BombEvent } from './defuse.ts';
 import type { LunchEvent } from './lunch.ts';
-import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS } from './constants.ts';
+import { BTN_MASK, CHAT_MAX_LEN, CMDS_PER_PACKET_MAX, NAME_MAX_LEN, PLAYER_COLORS, RESPAWN_OBJECTIVE_TICKS, RESPAWN_TICKS } from './constants.ts';
 import { radioLine } from './radio.ts';
 import type { Cmd, PlayerState } from './sim.ts';
 import { STANCE, type Stance } from './stance.ts';
@@ -135,11 +135,11 @@ export const MODE_LABEL: Record<GameMode, string> = {
 };
 
 export const MODE_RULES = {
-  ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false },
-  tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true },
-  ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false },
-  defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false },
-  almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false },
+  ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false, respawnTicks: RESPAWN_TICKS },
+  tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true, respawnTicks: RESPAWN_TICKS },
+  ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
+  defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
+  almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
 } as const;
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
 

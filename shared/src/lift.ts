@@ -18,6 +18,8 @@ export interface Lift {
   stops: readonly number[];
 }
 
+/** Ticks a rider stands still in the cab before it starts to rise, re-armed whenever they leave or crouch down (1.5 s, a tuning value). */
+export const LIFT_BOARD_DELAY_TICKS = 90;
 export const LIFT_SPEED_UNITS = 150;
 /** Speed near a stop, so the doorway stays level with the floor for a second and a half. */
 export const LIFT_DWELL_SPEED_UNITS = 28;

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BTN, CollisionWorld, LIFT_DWELL_RADIUS_UNITS, LIFT_DWELL_SPEED_UNITS, LIFT_SPEED_UNITS, MapBuilder, STANCE, WEAPON,
+  BTN, CollisionWorld, LIFT_BOARD_DELAY_TICKS, LIFT_DWELL_RADIUS_UNITS, LIFT_DWELL_SPEED_UNITS, LIFT_SPEED_UNITS, MapBuilder, STANCE, WEAPON,
   applyCmd, createPlayerState, getMaps, liftAt, liftRide, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
@@ -95,6 +95,7 @@ describe('riding a lift', () => {
   it('updates sprint, stamina and stance while the cab replaces jumping and gravity', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 192, 150);
+    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS; i++) step(w, s, 0);
     const startY = s.y;
     const startStamina = s.stamina;
     step(w, s, BTN.FWD | BTN.SPRINT | BTN.JUMP);
@@ -165,7 +166,7 @@ describe('riding a lift', () => {
     for (let i = 0; i < 40; i++) step(w, s, BTN.DUCK);
     const lowered = s.y;
     assert.ok(lowered < 384);
-    for (let i = 0; i < 20; i++) step(w, s, 0);
+    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS + 20; i++) step(w, s, 0);
     assert.ok(s.y > lowered);
   });
 
@@ -174,7 +175,7 @@ describe('riding a lift', () => {
     b.add(-2000, -32, -2000, 2000, 0, 2000, 'ground');
     const open = new CollisionWorld({ ...getMaps()[0], boxes: b.boxes, lifts: [LIFT] });
     const s = rider(open, 0, 0, 150);
-    for (let i = 0; i < 90; i++) step(open, s, 0);
+    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS + 90; i++) step(open, s, 0);
     assert.ok(s.y > 100 && s.y < 192, 'riding at ' + s.y);
     // yaw -90 degrees faces +x
     let leftAt = -1;
@@ -187,6 +188,30 @@ describe('riding a lift', () => {
     const y = s.y;
     step(open, s, 0, -Math.PI / 2);
     assert.ok(s.y < y, 'falls');
+  });
+
+  it('waits after boarding before it rises, and again after the rider crouches down', () => {
+    const w = shaftWorld();
+    const s = rider(w, 0, 192, 150);
+    const doorway = s.y;
+    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS - 6; i++) step(w, s, 0);
+    assert.equal(s.y, doorway, 'still at the doorway');
+    for (let i = 0; i < 4; i++) step(w, s, 0);
+    assert.ok(s.y > doorway, 'rises once the wait is over');
+    for (let i = 0; i < 30; i++) step(w, s, BTN.DUCK);
+    const lowered = s.y;
+    for (let i = 0; i < LIFT_BOARD_DELAY_TICKS - 1; i++) step(w, s, 0);
+    assert.equal(s.y, lowered, 'stays put while the rider gets ready to walk out');
+    for (let i = 0; i < 4; i++) step(w, s, 0);
+    assert.ok(s.y > lowered);
+  });
+
+  it('goes down at once, without the boarding wait', () => {
+    const w = shaftWorld();
+    const s = rider(w, 0, 192, 150);
+    const doorway = s.y;
+    step(w, s, BTN.DUCK);
+    assert.ok(s.y < doorway);
   });
 
   it('is deterministic: the same inputs give the same heights every time', () => {

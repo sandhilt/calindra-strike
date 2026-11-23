@@ -106,6 +106,10 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `BOT_FILL` | `0` | Optional server bot population target |
 | `BOT_SKILL` | `50` | Bot skill, 0–100: reaction time, first-shot aim error and turn speed. The dev bots (`node --run bots`, which reads `.env`) use it too |
 | `JOIN_CODE` | empty | Optional access code |
+| `AIRDROP_FIRST_SECONDS` | `25` | Seconds into a match before the first AWP airdrop (1-600) |
+| `MAX_PER_IP` | `32` | Connections allowed from one IP at once (1-128) |
+| `TRUST_PROXY` | `0` | `1` reads the client IP from `X-Forwarded-For`; set it only behind a trusted reverse proxy (the Compose template does) |
+| `HOST` / `PORT` | `127.0.0.1` / `7350` | Listen address and port for `node --run start:server`; the Docker image uses `0.0.0.0` / `7350` |
 
 ## Play with an AI agent (MCP)
 

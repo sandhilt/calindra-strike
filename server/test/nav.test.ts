@@ -67,6 +67,7 @@ describe('NavGrid', () => {
 
   it('comes back down from each food court counter by an escalator, never through the floor', () => {
     for (const r of shopping.restaurants) {
+      assert.equal(navS.nearest(r.x, r.y, r.z)?.y, r.y, "the counter has a walkable node on the food court");
       for (const base of shopping.flagBases) {
         const p = route(navS, [r.x, r.y, r.z], [base.x, 0, base.z]);
         assert.notEqual(p, null);
@@ -132,7 +133,7 @@ describe('NavGrid', () => {
     assert.ok(landmark);
     const north = landmark.z < 0;
     // The aisle runs along room x 232 at depth 216 on the bot grid; the south half is the north one turned 180 degrees.
-    const aisle: [number, number, number] = north ? [landmark.x + 232, 0, -1152 + 216] : [landmark.x - 232, 0, 1152 - 216];
+    const aisle: [number, number, number] = north ? [landmark.x + 232, 0, shopping.bounds.minZ + 216] : [landmark.x - 232, 0, shopping.bounds.maxZ - 216];
     const p = route(navS, [0, 0, north ? -450 : 450], aisle);
     assert.notEqual(p, null);
     const end = p!.at(-1)!;
@@ -141,7 +142,7 @@ describe('NavGrid', () => {
   });
 
   it('walks into a mall store through its door', () => {
-    const p = route(navS, [0, 0, -450], [-352, 0, -1000]);
+    const p = route(navS, [0, 0, -450], [-384, 0, shopping.bounds.minZ + 152]);
     assert.notEqual(p, null);
     assert.equal(p!.every((n) => n.y < 1), true);
   });

@@ -138,12 +138,12 @@ describe('the shopping map props', () => {
   it('has one ascending and one descending escalator between each pair of floors in each half', () => {
     const escalators = shopping.props.filter((p) => p.kind === 'escalator');
     assert.deepEqual(escalators.map(({ x, y, z, travel }) => ({ x, y, z, travel })), [
-      { x: 1312, y: 192, z: -756, travel: 'up' },
-      { x: -1312, y: 192, z: -756, travel: 'down' },
+      { x: 1440, y: 192, z: -948, travel: 'up' },
+      { x: -1440, y: 192, z: -948, travel: 'down' },
       { x: 528, y: 0, z: -352, travel: 'up' },
       { x: -528, y: 0, z: -352, travel: 'down' },
-      { x: -1312, y: 192, z: 756, travel: 'up' },
-      { x: 1312, y: 192, z: 756, travel: 'down' },
+      { x: -1440, y: 192, z: 948, travel: 'up' },
+      { x: 1440, y: 192, z: 948, travel: 'down' },
       { x: -528, y: 0, z: 352, travel: 'up' },
       { x: 528, y: 0, z: 352, travel: 'down' },
     ]);

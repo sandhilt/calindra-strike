@@ -1,7 +1,7 @@
 import { brandMat, STORE_BRANDS, type ShopBrand, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
-import { DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
+import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
 import { Room } from './room.ts';
 import { dressStore, storeAccent, STORE_HALF_WIDTH } from './shopping-stores.ts';
 import type { EscalatorTravel } from './types.ts';
@@ -14,7 +14,7 @@ import type { EscalatorTravel } from './types.ts';
 
 /** Doorway in the front rail for the lift: the shaft walls stand just outside it. */
 export const LIFT_GAP_HALF = 62;
-/** /** Landing under the cab's floor at each upper stop (the cab's floor tops out half a unit above the stop, so the two never share a surface). */
+/** Landing under the cab's floor at each upper stop (the cab's floor tops out half a unit above the stop, so the two never share a surface). */
 const LANDING_THICKNESS = 4;
 const HOPPABLE_HEDGE = 10;
 const LOW_HEDGE = 22;
@@ -24,12 +24,6 @@ const PAINT = 0xe9edf2;
 /** Where the supply stand is, on the middle of the north half of the top floor. */
 export const SUPPLY_STAND = { x: 0, z: -880 } as const;
 
-const BAY_ESCALATORS = [
-  { x1: 1264, x2: 1360, travel: 'up', name: 'Escada rolante para o Mirante' },
-  { x1: -1360, x2: -1264, travel: 'down', name: 'Escada rolante do Mirante' },
-] satisfies readonly { x1: number; x2: number; travel: EscalatorTravel; name: string }[];
-const BAY_FOOT_Z = -756;
-const BAY_TOP_Z = -1076;
 const ESCALATOR_SIDE = 80;
 
 /** Escalator climbing toward -z from the deck to the top floor, with glass sides and a dark handrail. */
@@ -81,15 +75,22 @@ function supplyStand(b: MapBuilder): void {
 }
 
 function lounge(b: MapBuilder): void {
-  b.block(0, -1090, 520, 40, 44, 'desk', DECK3, { tint: 0xe2d6bf });
-  b.deco(-264, DECK3 + 44, -1112, 264, DECK3 + 48, -1068, 'white', 0x3a2a1c);
-  b.deco(-240, DECK3 + 110, -1150, 240, DECK3 + 190, -1148, brandMat('cacau-chou'));
-  b.landmark('Café do Mirante', 0, -1090);
-  b.interior(0, DECK3, -1030);
-  const x = 840;
-  sofa(b, x, -1090, -1);
-  sofa(b, x + 220, -1090, -1);
-  b.block(x + 110, -1030, 60, 60, 26, 'wood', DECK3, { tint: 0xb98a58 });
+  b.block(0, -Z + 62, 520, 40, 44, 'desk', DECK3, { tint: 0xe2d6bf });
+  b.deco(-264, DECK3 + 44, -Z + 40, 264, DECK3 + 48, -Z + 84, 'white', 0x3a2a1c);
+  b.deco(-240, DECK3 + 110, -Z + 2, 240, DECK3 + 190, -Z + 4, brandMat('cacau-chou'));
+  b.landmark('Café do Mirante', 0, -Z + 62);
+  b.interior(0, DECK3, -Z + 122);
+  const x = 912;
+  sofa(b, x, -Z + 62, -1);
+  sofa(b, x + 220, -Z + 62, -1);
+  b.block(x + 110, -Z + 122, 60, 60, 26, 'wood', DECK3, { tint: 0xb98a58 });
+  for (const [x, z, brand] of [[-1120, -1184, 'zarra'], [-320, -1248, 'cea'], [320, -1344, 'hew'], [1120, -1216, 'rener']] as const) {
+    board(b, x, z, 168, brand);
+  }
+  sofa(b, 510, -1140, 1);
+  sofa(b, 880, -1210, -1);
+  b.block(696, -1160, 100, 60, 26, 'wood', DECK3);
+  b.interior(696, DECK3, -1090);
   b.deco(-TOP_X, DECK3, -Z, TOP_X, DECK3 + 96, -Z + 2, 'white', 0xbfd8d0);
   b.deco(-TOP_X, DECK3 + 96, -Z, TOP_X, DECK3 + 100, -Z + 3, 'charcoal');
   for (const [x, brand] of [[-1000, 'zarra'], [560, 'travessura'], [1000, 'hew']] as const) {
@@ -129,7 +130,7 @@ function bay(b: MapBuilder, x1: number, x2: number, travel: EscalatorTravel, sig
   const inner = sign * TOP_X;
   const wall = sign * X;
   b.add(Math.min(inner, wall), DECK, -Z, Math.max(inner, wall), DECK3, BAY_TOP_Z, 'tile', { tint: 0xd8d2c4 });
-  b.landmark(sign > 0 ? 'Escada rolante para o Mirante' : 'Escada rolante do Mirante', (x1 + x2) / 2, -860);
+  b.landmark(sign > 0 ? 'Escada rolante para o Mirante' : 'Escada rolante do Mirante', (x1 + x2) / 2, BAY_FOOT_Z - 104);
   const [lo, hi] = sign > 0 ? [inner - 4, inner] : [inner, inner + 4];
   glassRail(b, lo, GALLERY_Z, hi, BAY_TOP_Z);
   for (const [a, c] of sign > 0 ? [[TOP_X, x1 - 6], [x2 + 6, X]] as const : [[-X, x1 - 6], [x2 + 6, -TOP_X]] as const) {
@@ -181,14 +182,14 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
     const wallX = cx + side * edge;
     b.wallZ(-Z, FACADE_Z, wallX, 16, PHARMACY_HEIGHT, 'white', [], DECK3);
     b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, PHARMACY_HEIGHT, 'white', DECK3);
-    b.block(cx + side * 150, -1010, 120, 24, 56, 'white', DECK3, { tint: storeAccent(brand) });
+    b.block(cx + side * 150, -Z + 142, 120, 24, 56, 'white', DECK3, { tint: storeAccent(brand) });
   }
   b.deco(cx - 60, DECK3 + 114, -Z + 4, cx + 60, DECK3 + 174, -Z + 6, brandMat(brand));
-  b.block(cx, -1100, 140, 36, 40, 'desk', DECK3);
+  b.block(cx, -Z + 52, 140, 36, 40, 'desk', DECK3);
   dressStore(new Room(b, cx, DECK3, -Z), brand);
   for (const lampZ of [60, 190]) b.light(cx, DECK3 + PHARMACY_LAMP_Y, -Z + lampZ, '#ffe9bd');
-  b.interior(cx, DECK3, -1010);
-  b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -1000);
+  b.interior(cx, DECK3, -Z + 142);
+  b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }
 
 export function topFloor(b: MapBuilder, pharmacy: ShopBrand): void {
@@ -198,6 +199,9 @@ export function topFloor(b: MapBuilder, pharmacy: ShopBrand): void {
   glassRail(b, -TOP_X, GALLERY_Z - 4, -LIFT_GAP_HALF, GALLERY_Z);
   glassRail(b, LIFT_GAP_HALF, GALLERY_Z - 4, TOP_X, GALLERY_Z);
   for (const { x1, x2, travel } of BAY_ESCALATORS) bay(b, x1, x2, travel, x1 > 0 ? 1 : -1);
+  for (const [x, z] of [[-1104, -706], [-480, -722], [304, -706], [912, -722], [-352, -1120], [720, -1280]] as const) {
+    b.block(x, z, 200, 20, BOARD, 'white', DECK3, { tint: PAINT });
+  }
   supplyStand(b);
   lounge(b);
   pharmacyShop(b, pharmacy);

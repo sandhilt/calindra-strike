@@ -1835,7 +1835,7 @@ export class ClientGame {
     this.updateBombHud(hud, now);
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
     hud.setStamina(s.stamina / STAMINA_MAX, showStamina, showStamina && s.winded);
-    hud.setStance(s.stance);
+    hud.setStance(s.stance, this.alive);
 
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn

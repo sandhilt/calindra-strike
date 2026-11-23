@@ -911,6 +911,12 @@ input:focus-visible {
 .vital.stance.lowered { color: var(--lime); }
 .vital.stance .stance-icon svg { animation: stance-pop 0.18s ease-out; }
 
+/* A narrow window keeps the icon and drops its name, so the chip never reaches the ammo readout. */
+@media (max-width: 720px) {
+  .vital.stance { min-width: 0; padding: 8px; }
+  .vital.stance .stance-name { display: none; }
+}
+
 @keyframes stance-pop {
   from { transform: scale(0.8); opacity: 0.4; }
   to { transform: scale(1); opacity: 1; }

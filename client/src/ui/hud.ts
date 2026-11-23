@@ -386,15 +386,19 @@ export class Hud {
     setTimeout(() => el.remove(), 6500);
   }
 
-  /** Standing, crouched or lying down: the icon follows the local player and is only redrawn when the stance changes. */
-  setStance(stance: Stance): void {
-    if (this.stance === stance) return;
-    this.stance = stance;
-    const view = STANCE_VIEWS[stance];
+  /**
+   * Standing, crouched or lying down: the icon follows the local player and is only redrawn when the stance changes.
+   * A dead player shows standing, the stance the next spawn starts in, instead of the pose they died in.
+   */
+  setStance(stance: Stance, alive = true): void {
+    const shown = alive ? stance : STANCE.STAND;
+    if (this.stance === shown) return;
+    this.stance = shown;
+    const view = STANCE_VIEWS[shown];
     this.stanceIcon.replaceChildren(svg(ICONS[view.icon]));
     this.stanceName.textContent = view.label;
     this.stanceChip.setAttribute('aria-label', `postura: ${view.label}`);
-    this.stanceChip.classList.toggle('lowered', stance !== STANCE.STAND);
+    this.stanceChip.classList.toggle('lowered', shown !== STANCE.STAND);
   }
 
   setStamina(fraction: number, visible: boolean, winded: boolean): void {

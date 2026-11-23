@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CollisionWorld, STAND_HEIGHT, getMaps, describeBox, MapBuilder } from '../src/index.ts';
+import { CollisionWorld, STAND_HEIGHT, getMaps, describeBox, MapBuilder, STORE_BRANDS } from '../src/index.ts';
 
 for (const map of getMaps()) {
   describe(`map ${map.id}`, () => {
@@ -154,6 +154,12 @@ describe('the shopping map props', () => {
       assert.ok(p.x > shopping.bounds.minX && p.x < shopping.bounds.maxX, `${p.kind} x`);
       assert.ok(p.z > shopping.bounds.minZ && p.z < shopping.bounds.maxZ, `${p.kind} z`);
     }
+  });
+
+  it('names every restaurant after its food brand, so the round banner can draw the logo', () => {
+    assert.ok(shopping.restaurants.length > 0);
+    for (const r of shopping.restaurants) assert.equal(r.name, STORE_BRANDS[r.brand].name);
+    assert.equal(new Set(shopping.restaurants.map((r) => r.brand)).size, shopping.restaurants.length, 'one counter per brand');
   });
 
   it('keeps nobody out of reach of a kitchen window but inside the kitchen', () => {

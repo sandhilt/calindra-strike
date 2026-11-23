@@ -1,7 +1,7 @@
 import type { Lift } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
 import type { Vec3 } from '../math.ts';
-import type { BrandMat } from './brands.ts';
+import type { BrandMat, FoodBrand } from './brands.ts';
 
 export type BaseMat =
   | 'ground'
@@ -125,7 +125,7 @@ export interface MapDef {
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];
   /** Food court counters where Hora de almoçar seats colleagues; empty on maps that cannot play it. */
-  restaurants: { x: number; y: number; z: number; name: string }[];
+  restaurants: { x: number; y: number; z: number; name: string; brand: FoodBrand }[];
   /** Named floors, lowest first; empty on maps with a single level. Agents read the floor they stand on from it. */
   floors: readonly { y: number; name: string }[];
   /** Glass lifts of the map; empty where there are none. */

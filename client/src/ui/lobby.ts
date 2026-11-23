@@ -2,7 +2,7 @@ import { type GameMode, MODE_LABEL, isTeamMode, PLAYER_COLORS, sanitizeName } fr
 import { SERVER_HTTP } from '../config.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
-import { FEEDBACK_LABEL, FEEDBACK_URL } from '../feedback.ts';
+import { FEEDBACK_LABEL, FEEDBACK_URL, GITHUB_URL } from '../feedback.ts';
 import { controlsList } from './controls.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
 
@@ -203,7 +203,10 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
       h('span', { class: 'chip' }, [svg(ICONS.jump), 'Bunny hop liberado']),
     ]),
     controlsList(),
-    h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
+    h('div', { class: 'hero-links' }, [
+      h('a', { class: 'feedback-link', href: FEEDBACK_URL, target: '_blank', rel: 'noopener noreferrer', text: FEEDBACK_LABEL }),
+      h('a', { class: 'github-link', href: GITHUB_URL, target: '_blank', rel: 'noopener noreferrer', title: 'Ver o código no GitHub', 'aria-label': 'Código do jogo no GitHub' }, [svg(ICONS.github)]),
+    ]),
   ]);
 
   const lobby = h('div', { class: 'lobby' }, [tiles, h('div', { class: 'lobby-inner' }, [hero, form])]);

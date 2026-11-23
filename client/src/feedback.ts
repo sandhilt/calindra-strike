@@ -1,5 +1,8 @@
+/** The game's repository, which the lobby links to. */
+export const GITHUB_URL = 'https://github.com/sandhilt/calindra-strike';
+
 /** Where players send feedback on the experimental movement: a prefilled GitHub "new issue" page. */
-const ISSUES_NEW_URL = 'https://github.com/sandhilt/calindra-strike/issues/new';
+const ISSUES_NEW_URL = `${GITHUB_URL}/issues/new`;
 
 const FEEDBACK_TITLE = 'Feedback: movimento experimental';
 

@@ -34,6 +34,7 @@ import {
   RF_SLIDE,
   RF_SPRINT,
   RF_ZOOM,
+  RF_AIM,
   type ResultRow,
   type RosterEntry,
   STAND_EYE,
@@ -49,6 +50,7 @@ import {
   TICK_MS,
   TICK_RATE,
   WEAPON,
+  type WeaponDef,
   type WeaponId,
   applyCmd,
   refillReserve,
@@ -108,8 +110,9 @@ import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePos
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
-import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye } from './render/movement-pose.ts';
+import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
+import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
 // Typing rhythm of the bug keyboard while planting or defusing, in ms between keystrokes.
@@ -281,6 +284,9 @@ export class ClientGame {
   private spectatorEye = STAND_EYE;
   private eyeTargetId = -1;
   private punch = 0;
+  /** Linear 0..1 blend of the aim down sights of the player on screen (me, or the followed player), shared by the gun, the overlay and the crosshair. */
+  private aimT = 0;
+  private readonly aimView: AimState = { zoom: 0, aiming: false, blend: 0 };
   private stepAcc = 0;
   private readonly localWader = new Wader();
   private readonly localReload = new ReloadPlayback();
@@ -921,7 +927,7 @@ export class ClientGame {
         const def = weaponDef(e.w);
         if (e.id === this.myId) {
           this.sfx.loot();
-          this.hud.announce(`${def.name.toLowerCase()} na mão`, def.zoomFov.length ? 'botão direito: mira 40° → 10° · fique parado pra acertar' : 'arma lendária + armadura completa');
+          this.hud.announce(`${def.name.toLowerCase()} na mão`, def.zoomFov.length ? 'botão direito: mira 40° → 10° · fique parado pra acertar' : def.ads ? 'botão direito: mirar · arma lendária + armadura completa' : 'arma lendária + armadura completa');
           this.view.setWeapon(e.w as WeaponId);
         } else {
           this.hud.info(`${this.nameOf(e.id).name} pegou ${def.name}`);
@@ -1375,8 +1381,22 @@ export class ClientGame {
 
   /** Gun effects are anchored to the viewmodel, so they are skipped while it is hidden (scoped in or parachuting). */
   private viewmodelVisible(): boolean {
-    const scoped = this.me.zoom > 0 && weaponDef(this.me.weapon).zoomFov.length > 0;
-    return !scoped && !this.me.dropping;
+    return !gunHidden(weaponDef(this.me.weapon), this.aimView, this.me.dropping);
+  }
+
+  /** Eases the aim blend toward what the player on screen is doing and mirrors it, with the scope level, into `aimView`. */
+  private stepAim(dt: number): void {
+    const followed = this.spectator && this.cameraMode === 'first' ? this.followedSample() : null;
+    const aiming = this.spectator ? !!followed && (followed.flags & RF_AIM) !== 0 : this.alive && this.me.aiming;
+    this.aimT = stepBlend(this.aimT, aiming, dt, ADS_BLEND_SECONDS);
+    this.aimView.zoom = this.alive && !this.spectator ? this.me.zoom : 0;
+    this.aimView.aiming = aiming;
+    this.aimView.blend = this.aimT;
+  }
+
+  /** Which scope overlay the player's own screen shows. */
+  private localOverlay(def: WeaponDef): ScopeOverlay {
+    return this.alive && !this.spectator ? scopeOverlay(def, this.aimView) : 'none';
   }
 
   private dropLocalMagazine(): void {
@@ -1578,8 +1598,9 @@ export class ClientGame {
     }
 
     const def = weaponDef(this.me.weapon);
-    const zoomed = this.alive && this.me.zoom > 0 && def.zoomFov.length > 0;
-    const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !zoomed && !this.me.dropping;
+    this.stepAim(dt);
+    const overlay = this.localOverlay(def);
+    const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
     if (!this.spectator) {
       this.view.update({
         dt,
@@ -1594,6 +1615,7 @@ export class ClientGame {
         reloadElapsed: this.me.reload > 0 ? this.localReload.elapsed(this.me.tick) : -1,
         reloadShells: this.localReload.shells,
         deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
+        aim: this.aimT,
         hidden: !showView,
       });
     }
@@ -1601,7 +1623,7 @@ export class ClientGame {
     this.drawScene();
     if (showView) this.view.render(this.renderer);
 
-    this.updateHud(zoomed);
+    this.updateHud(overlay);
     const f = v3.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
     this.sfx.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, f.x, f.y, f.z);
     this.ventHum?.update(dt, this.camera.position);
@@ -1625,6 +1647,7 @@ export class ClientGame {
         onGround: (sample.flags & RF_GROUND) !== 0,
         reloadElapsed: (sample.flags & RF_RELOAD) !== 0 ? remote.reload.elapsed(performance.now() / TICK_MS) : -1,
         reloadShells: remote.reload.shells,
+        aimBlend: this.aimT,
       },
       performance.now(),
       dt,
@@ -1702,15 +1725,18 @@ export class ClientGame {
     const baseV = csToVertical(this.settings.fov);
     let vfov = baseV;
     const zoomed = this.alive && s.zoom > 0 && def.zoomFov.length > 0;
+    const aimFov = this.alive && !zoomed ? aimFovFor(def, s.aiming, this.settings.fov) : 0;
     if (zoomed) vfov = csToVertical(def.zoomFov[s.zoom - 1]);
+    else if (aimFov > 0) vfov = csToVertical(aimFov);
     if (this.alive && s.dropping) vfov = baseV + 8;
-    if (!zoomed && this.alive && s.sprinting) vfov += SPRINT_FOV_KICK_DEG;
+    if (!zoomed && aimFov === 0 && this.alive && s.sprinting) vfov += SPRINT_FOV_KICK_DEG;
     if (this.spectator) vfov = baseV + (this.updateSpectatorCamera(dt) ? SPRINT_FOV_KICK_DEG : 0);
     if (this.camera.fov !== vfov) {
       this.camera.fov = easeFov(this.camera.fov, vfov, dt);
       this.camera.updateProjectionMatrix();
     }
-    this.input.zoomSensScale = zoomed ? (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO : 1;
+    if (zoomed) this.input.zoomSensScale = (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO;
+    else this.input.zoomSensScale = aimFov > 0 ? aimSensitivityScale(aimFov, this.settings.fov, ZOOM_SENSITIVITY_RATIO) : 1;
 
     if (this.spectator) return;
     if (this.alive) {
@@ -1810,6 +1836,7 @@ export class ClientGame {
         pitch: s.pitch,
         protect: (s.flags & RF_PROTECT) !== 0,
         reloading: (s.flags & RF_RELOAD) !== 0,
+        aiming: (s.flags & RF_AIM) !== 0,
       });
       // name tags only up close or when aimed at (no wallhack-style radar)
       const to = v3.set(s.x - this.camera.position.x, s.y + STANCES[stance].aimHead - this.camera.position.y, s.z - this.camera.position.z);
@@ -1830,7 +1857,7 @@ export class ClientGame {
     }
   }
 
-  private updateHud(zoomed: boolean): void {
+  private updateHud(overlay: ScopeOverlay): void {
     const hud = this.hud;
     hud.root.classList.toggle('spectating', !!this.spectator);
     const s = this.me;
@@ -1868,10 +1895,10 @@ export class ClientGame {
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
-      const open = this.cameraMode === 'first' && !!target && !(target.flags & (RF_ZOOM | RF_DROP)) && target.w !== WEAPON.SNIPER;
+      const open = this.cameraMode === 'first' && !!target && !gunHidden(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0) && target.w !== WEAPON.SNIPER;
       hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
       hud.setDrop(null);
-      hud.setScope(false);
+      hud.setScope('none');
       hud.setProtect(false);
       this.sfx.setWind(0);
       hud.setMarkers(this.markers());
@@ -1883,7 +1910,7 @@ export class ClientGame {
       if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);
-      hud.setScope(false);
+      hud.setScope('none');
       hud.setProtect(false);
       this.sfx.setWind(0);
       hud.setMarkers(this.markers());
@@ -1898,18 +1925,18 @@ export class ClientGame {
     ];
     hud.setWeapon(def.name, def.tag, s.mag[def.id], this.match.phase === 'warmup' ? '∞' : s.reserve[def.id], def.legendary, def.slot === 3, slots);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
-    hud.setScope(zoomed);
+    hud.setScope(overlay);
     hud.setProtect(s.protect > 0 || s.dropping);
 
     // dynamic crosshair: gap follows the real spread used by the simulation
-    const showCh = !zoomed && !s.dropping && !(def.id === WEAPON.SNIPER);
+    const crosshair = crosshairFor(def, this.aimView, s.dropping, def.id === WEAPON.SNIPER);
     let gap = this.settings.crosshairGap;
     if (this.settings.dynamicCrosshair && def.slot !== 3) {
       const spread = computeSpread(s, def);
       const pxPerRad = this.renderer.domElement.clientHeight / 2 / Math.tan((this.camera.fov * DEG) / 2);
       gap = Math.max(gap, Math.min(80, spread * pxPerRad * 0.9));
     }
-    hud.setCrosshair(gap, this.settings.crosshairSize, this.settings.crosshairColor, showCh);
+    hud.setCrosshair(gap * crosshair.scale, this.settings.crosshairSize * crosshair.scale, this.settings.crosshairColor, crosshair.visible);
 
     if (s.dropping) {
       const ground = this.collision.groundBelow(s.x, s.y, s.z, 16);

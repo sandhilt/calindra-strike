@@ -7,8 +7,8 @@ const POSE_BLEND_SECONDS = 0.15;
 const SLIDE_DIP_UNITS = 4;
 const AIR_CROUCH_TUCK_UNITS = 18;
 
-export function stepBlend(current: number, active: boolean, dt: number): number {
-  const step = dt / POSE_BLEND_SECONDS;
+export function stepBlend(current: number, active: boolean, dt: number, seconds = POSE_BLEND_SECONDS): number {
+  const step = dt / seconds;
   return active ? Math.min(1, current + step) : Math.max(0, current - step);
 }
 

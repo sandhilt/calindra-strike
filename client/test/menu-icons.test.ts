@@ -33,7 +33,7 @@ test('the controls table keeps the keys the lobby always listed', () => {
     ['1 2 3', 'armas · Q última'],
     ['R', 'recarregar'],
     ['E', 'plantar / desarmar o bug'],
-    ['Mouse 2', 'luneta da AWP'],
+    ['Mouse 2', 'mirar (segurar) · luneta da AWP'],
     ['Tab', 'placar · Y chat'],
   ];
   for (const [keys, label] of expected) assert.equal(byKeys.get(keys), label);

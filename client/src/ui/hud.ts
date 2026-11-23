@@ -4,6 +4,7 @@ import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
+import type { ScopeOverlay } from '../game/render/ads-view.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STANCE, type Stance } from '@calindra-strike/shared';
@@ -451,8 +452,9 @@ export class Hud {
     if (show) this.reloadI.style.width = `${Math.round(frac * 100)}%`;
   }
 
-  setCrosshair(gapPx: number, size: number, color: string, visible: boolean): void {
+  setCrosshair(gapPx: number, sizePx: number, color: string, visible: boolean): void {
     const g = Math.round(gapPx);
+    const size = Math.round(sizePx);
     this.set('ch', `${g}|${size}|${color}|${visible}`, () => {
       this.ch.style.display = visible ? '' : 'none';
       this.ch.style.setProperty('--ch-color', color);
@@ -496,8 +498,8 @@ export class Hud {
     this.protect.style.opacity = on ? '1' : '0';
   }
 
-  setScope(on: boolean): void {
-    this.scope.classList.toggle('on', on);
+  setScope(overlay: ScopeOverlay): void {
+    this.scope.classList.toggle('on', overlay !== 'none');
   }
 
   announce(text: string, sub?: string, white = false): void {

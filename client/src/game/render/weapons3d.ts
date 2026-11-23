@@ -13,9 +13,26 @@ const mats = {
   limeDim: new THREE.MeshStandardMaterial({ color: '#7fbf12', roughness: 0.5, metalness: 0.2 }),
   // Coated scope glass: a dark blue-green see-through lens with a faint lime coating glint.
   lens: new THREE.MeshPhysicalMaterial({ color: '#1d3a46', emissive: '#a5fa00', emissiveIntensity: 0.12, roughness: 0.02, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0, transparent: true, opacity: 0.7 }),
+  // Red dot optic: the dot is unlit so it stays bright in shade.
+  dot: new THREE.MeshBasicMaterial({ color: '#ff2a1a' }),
   hull: new THREE.MeshStandardMaterial({ color: '#b3261e', roughness: 0.55 }),
   brass: new THREE.MeshStandardMaterial({ color: '#c9a227', roughness: 0.3, metalness: 0.7 }),
 };
+
+/** Height of the red dot of the rifle's optic above the model origin (model units); `ads-view.ts` lifts the aimed gun to put it on the centre of the view. */
+export const RIFLE_DOT_HEIGHT_UNITS = 6.2;
+const RIFLE_DOT_Z = -2;
+
+/** A reflex optic on the rifle's rail: an open frame, the tinted glass at its front and the lit red dot at the rear, so the eye sees the dot clear of the tint. */
+function redDotSight(g: THREE.Group): void {
+  const y = RIFLE_DOT_HEIGHT_UNITS;
+  bx(g, 1.4, 0.5, 4.4, mats.gun, 0, 4.25, RIFLE_DOT_Z);
+  bx(g, 2.4, 0.5, 3.6, mats.gun2, 0, 4.75, RIFLE_DOT_Z);
+  for (const x of [-1.1, 1.1]) bx(g, 0.4, 2.4, 3.6, mats.gun2, x, y, RIFLE_DOT_Z);
+  bx(g, 2.4, 0.5, 3.6, mats.gun2, 0, y + 1.45, RIFLE_DOT_Z);
+  bx(g, 1.8, 2.4, 0.12, mats.lens, 0, y, RIFLE_DOT_Z - 1.4);
+  bx(g, 0.5, 0.5, 0.1, mats.dot, 0, y, RIFLE_DOT_Z + 1.2);
+}
 
 function curvedMagazineGeometry(): THREE.ExtrudeGeometry {
   const profile = new THREE.Shape();
@@ -322,7 +339,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       bx(g, 2.2, 5, 2.6, mats.poly, 0, -2.2, 0, -0.3);
       bx(g, 2.6, 4.4, 11, mats.poly, 0, 0.8, 9);
       bx(g, 2.7, 0.6, 9, mats.lime, 0, 2.3, 9);
-      bx(g, 1, 1.6, 3, mats.gun, 0, 4.7, -2);
+      redDotSight(g);
       const rifleHandle = part(g, 0, 0, 0);
       bx(rifleHandle, 1.3, 1.1, 3, mats.steel, 1.9, 2.6, -5);
       rig.magazine = rifleMag;

@@ -68,6 +68,7 @@ export interface PlayerState {
   stance: Stance;
   duckHeld: boolean; // DUCK was down last tick, so a slide starts on the press and not while held
   sprinting: boolean;
+  aiming: boolean; // aim down sights (ADS) on a weapon with `ads`; the AWP scope is `zoom`, not this
   stamina: number; // 0..STAMINA_MAX
   winded: boolean; // the meter emptied and has not refilled to STAMINA_RESUME yet
   slide: number; // ticks left, 0 = not sliding
@@ -130,6 +131,7 @@ export function createPlayerState(): PlayerState {
     stance: STANCE.STAND,
     duckHeld: false,
     sprinting: false,
+    aiming: false,
     stamina: STAMINA_MAX,
     winded: false,
     slide: 0,
@@ -205,6 +207,7 @@ export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw:
   s.stance = STANCE.STAND;
   s.duckHeld = false;
   s.sprinting = false;
+  s.aiming = false;
   s.stamina = STAMINA_MAX;
   s.winded = false;
   s.slide = 0;
@@ -239,6 +242,7 @@ export function giveWeapon(s: PlayerState, id: WeaponId): void {
   s.reload = 0;
   s.zoom = 0;
   s.resumeZoom = 0;
+  s.aiming = false;
 }
 
 // ---------------------------------------------------------------- movement
@@ -369,7 +373,8 @@ function wishDir(s: PlayerState, buttons: number): [number, number, boolean] {
 
 export function maxSpeedFor(s: PlayerState): number {
   const d = weaponDef(s.weapon);
-  return s.zoom > 0 ? d.scopedSpeed : d.speed;
+  if (s.zoom > 0) return d.scopedSpeed;
+  return s.aiming && d.ads ? d.ads.speed : d.speed;
 }
 
 function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number): void {
@@ -460,9 +465,15 @@ function updateStance(w: CollisionWorld, s: PlayerState, buttons: number): void 
   if (next === STANCE.PRONE) s.slide = 0;
 }
 
+/** The aim button is down on a weapon that has sights and nothing is in the way: no reload, no deploy, no drop. */
+function aimHeld(s: PlayerState, buttons: number): boolean {
+  return (buttons & BTN.ATTACK2) !== 0 && weaponDef(s.weapon).ads !== undefined && !s.dropping && s.deploy === 0 && s.reload === 0;
+}
+
 function canSprint(s: PlayerState, buttons: number): boolean {
   const wants = (buttons & BTN.SPRINT) !== 0 && (buttons & BTN.FWD) !== 0;
-  const blocked = (buttons & (BTN.BACK | BTN.WALK | BTN.ATTACK)) !== 0;
+  const aimsDownSights = (buttons & BTN.ATTACK2) !== 0 && weaponDef(s.weapon).ads !== undefined;
+  const blocked = (buttons & (BTN.BACK | BTN.WALK | BTN.ATTACK)) !== 0 || aimsDownSights;
   return wants && !blocked && s.onGround && s.stance === STANCE.STAND && s.slide === 0 && !s.winded && s.stamina > 0;
 }
 
@@ -524,6 +535,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   const duckPressed = duckDown && !s.duckHeld;
   s.duckHeld = duckDown;
   if (s.dropping) {
+    s.aiming = false;
     skydive(w, s, buttons, dt);
     return;
   }
@@ -534,6 +546,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   tryStartSlide(s, duckPressed);
   updateStance(w, s, buttons);
   const sprintWanted = canSprint(s, buttons);
+  s.aiming = aimHeld(s, buttons) && !sprintWanted;
 
   // --- jump (must re-press; CS 1.6 bunnyhop speed cap; none while prone) ---
   let jumped = false;
@@ -624,6 +637,7 @@ export function computeSpread(s: PlayerState, def: WeaponDef = weaponDef(s.weapo
   let spread = base + sp.move * moveFrac + (s.onGround ? 0 : sp.air) + Math.min(sp.perShot * s.recoil, sp.perShotMax);
   if (isLowered(s.stance) && s.onGround) spread *= sp.duckMult;
   if (s.stance === STANCE.PRONE && s.onGround) spread *= PRONE_SPREAD_MULT;
+  if (s.aiming && def.ads) spread *= def.ads.spreadMult;
   return spread;
 }
 
@@ -641,6 +655,7 @@ function startReload(s: PlayerState, def: WeaponDef): void {
   s.reload = timing.kind === 'shells' ? timing.startTicks + shellStepTicks(timing, shells) : def.reloadTicks;
   s.zoom = 0;
   s.resumeZoom = 0;
+  s.aiming = false;
 }
 
 function finishMagazineReload(s: PlayerState, def: WeaponDef): void {
@@ -699,6 +714,7 @@ function switchWeapon(s: PlayerState, req: number): void {
   s.reload = 0;
   s.zoom = 0;
   s.resumeZoom = 0;
+  s.aiming = false;
 }
 
 function fire(s: PlayerState, def: WeaponDef, seedBase: number, heavy: boolean): ShotInfo {
@@ -764,6 +780,7 @@ function weaponTick(s: PlayerState, buttons: number, seedBase: number): ShotInfo
   }
   if (buttons & BTN.RELOAD) startReload(s, def);
   interruptShellReload(s, def, attack);
+  s.aiming = aimHeld(s, buttons) && !s.sprinting;
 
   const ready = !s.dropping && !s.sprinting && s.deploy === 0 && s.reload === 0 && s.tick >= s.nextFire;
   if (def.slot === 3) {

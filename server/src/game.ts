@@ -34,6 +34,7 @@ import {
   RF_RELOAD,
   RF_SLIDE,
   RF_SPRINT,
+  RF_AIM,
   RF_ZOOM,
   LEAN_ROW_PRECISION,
   STANCE,
@@ -1657,7 +1658,8 @@ export class Game {
         (s.protect > 0 ? RF_PROTECT : 0) |
         (s.onGround ? RF_GROUND : 0) |
         (s.reload > 0 ? RF_RELOAD : 0) |
-        (s.zoom > 0 ? RF_ZOOM : 0);
+        (s.zoom > 0 ? RF_ZOOM : 0) |
+        (s.aiming ? RF_AIM : 0);
       ps.push([p.id, round(s.x, 10), round(s.y, 10), round(s.z, 10), round(s.yaw, 1000), round(s.pitch, 1000), flags, s.weapon, round(s.lean, LEAN_ROW_PRECISION)]);
     }
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);

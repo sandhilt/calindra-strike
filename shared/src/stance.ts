@@ -1,4 +1,5 @@
 import {
+  STOP_SPEED,
   DUCK_EYE,
   DUCK_HEIGHT,
   DUCK_SPEED_MULT,
@@ -23,6 +24,8 @@ export interface StanceDef {
   readonly height: number; // collision hull
   readonly eye: number;
   readonly speedMult: number; // on the ground, on top of the weapon speed
+  /** Ground friction keeps at least this much pull; a crawl needs a low one or friction would hold it still. */
+  readonly stopSpeed: number;
   readonly head: BodyBox;
   readonly body: BodyBox;
   readonly legs: BodyBox;
@@ -36,6 +39,7 @@ export const STANCES: Readonly<Record<Stance, StanceDef>> = {
     height: STAND_HEIGHT,
     eye: STAND_EYE,
     speedMult: 1,
+    stopSpeed: STOP_SPEED,
     head: { y0: 58, y1: 72, half: 7 },
     body: { y0: 32, y1: 58, half: 13 },
     legs: { y0: 0, y1: 32, half: 10 },
@@ -46,6 +50,7 @@ export const STANCES: Readonly<Record<Stance, StanceDef>> = {
     height: DUCK_HEIGHT,
     eye: DUCK_EYE,
     speedMult: DUCK_SPEED_MULT,
+    stopSpeed: STOP_SPEED,
     head: { y0: 23, y1: 37, half: 7 },
     body: { y0: 12, y1: 26, half: 13 },
     legs: { y0: 0, y1: 12, half: 11 },
@@ -56,6 +61,7 @@ export const STANCES: Readonly<Record<Stance, StanceDef>> = {
     height: PRONE_HEIGHT,
     eye: PRONE_EYE,
     speedMult: PRONE_SPEED_MULT,
+    stopSpeed: STOP_SPEED * PRONE_SPEED_MULT,
     head: { y0: 12, y1: 20, half: 7 },
     body: { y0: 4, y1: 14, half: 15 },
     legs: { y0: 0, y1: 8, half: 12 },

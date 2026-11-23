@@ -35,7 +35,6 @@ import {
   STAMINA_REGEN_PER_TICK,
   STAMINA_RESUME,
   STEP_SIZE,
-  STOP_SPEED,
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
@@ -265,14 +264,13 @@ function airAccelerate(s: PlayerState, wx: number, wz: number, wishspeed: number
 }
 
 function friction(s: PlayerState, dt: number, coefficient = FRICTION): void {
-  // The slow stances scale the stop speed too, or friction would out-pull the crawl's own acceleration and hold it still
   const speed = Math.hypot(s.vx, s.vz);
   if (speed < 0.1) {
     s.vx = 0;
     s.vz = 0;
     return;
   }
-  const stopSpeed = STOP_SPEED * STANCES[s.stance].speedMult;
+  const { stopSpeed } = STANCES[s.stance];
   const control = speed < stopSpeed ? stopSpeed : speed;
   const drop = control * coefficient * dt;
   const ns = Math.max(speed - drop, 0) / speed;

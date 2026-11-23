@@ -1,5 +1,5 @@
 import { scene } from './scene.ts';
-import { weaponSlots } from './actions.ts';
+import { NO_ACTIONS, weaponSlots, type ActionEcho } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
   createPlayerState,
@@ -221,7 +221,7 @@ function heardSounds(sounds: readonly ViewSound[], relative: Relative, listening
 export function renderView(
   v: WorldView,
   intent: Intent,
-  actions: { crouch: boolean; walk: boolean; zoom: number | null } = { crouch: false, walk: false, zoom: null },
+  actions: ActionEcho = NO_ACTIONS,
   world?: CollisionWorld,
 ): object {
   const s = v.self;
@@ -289,6 +289,7 @@ export function renderView(
       ducked: s ? isLowered(s.stance) : false,
       stance: STANCE_NAMES[s?.stance ?? STANCE.STAND],
       sprinting: s?.sprinting ?? false,
+      winded: s?.winded ?? false,
       sliding: (s?.slide ?? 0) > 0,
       stamina: s ? Math.round((s.stamina / STAMINA_MAX) * 100) / 100 : 0,
       lean: s ? Math.round(s.lean * 100) / 100 : 0,

@@ -1,7 +1,8 @@
-import { CHAT_MAX_LEN, LUNCH_USE_RADIUS_UNITS, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
+import { CHAT_MAX_LEN, LUNCH_USE_RADIUS_UNITS, PRONE_SWITCH_TICKS, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, SLIDE_TICKS, STAMINA_MAX, STAMINA_RESUME, TICK_MS, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
-import { WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
+import { LEAN_SIDES, WEAPON_SLOT_REQUEST, type LeanSide, type WeaponSlot } from './actions.ts';
+const isLeanSide = (side: unknown): side is LeanSide => LEAN_SIDES.some((s) => s === side);
 const isWeaponSlot = (slot: string): slot is WeaponSlot => Object.hasOwn(WEAPON_SLOT_REQUEST, slot);
 type Args = Record<string, unknown>;
 const number = (a: Args, k: string, min = -Infinity, max = Infinity, integer = false): number => {
@@ -69,7 +70,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read your own stance (you.stance stand, crouch or prone; you.ducked is true for both low stances), sprinting, sliding, stamina (0 to 1; at 0 you are winded until it refills) and lean (-1 left to 1 right; agents cannot use these moves yet, other players do), timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first), you.floor (the named floor you stand on, null on one-level maps), lifts (glass lifts nearest first: floors served, whether you are riding, seconds to the top, how to ride), supplies (supply stands nearest first: floor, ready or seconds until they refill, inReach, youNeedIt) and recent events/chat including flag, bomb, lunch and supply actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read your own stance (you.stance stand, crouch or prone; you.ducked is true for both low stances), sprinting, sliding, stamina (0 to 1; at 0 you are winded until it refills) winded (the meter emptied; no sprint until it refills) and lean (-1 left to 1 right; you set them with the sprint, slide, lean and prone tools, you.actions echoes what you asked for), timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first), you.floor (the named floor you stand on, null on one-level maps), lifts (glass lifts nearest first: floors served, whether you are riding, seconds to the top, how to ride), supplies (supply stands nearest first: floor, ready or seconds until they refill, inReach, youNeedIt) and recent events/chat including flag, bomb, lunch and supply actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -170,6 +171,37 @@ export const toolDefinitions: Definition[] = [
     properties: { on: { type: 'boolean' } },
     required: ['on'],
     run: (s, a) => s.walk(boolean(a, 'on')),
+  },
+  {
+    name: 'sprint',
+    description: `Sprint (on: true) or stop (on: false). Stays set, also while idle, until changed or you respawn, but it only runs while you move forward (move_to, hunt or attack) standing on the ground: speed rises 35 percent and stamina (get_state you.stamina, 0 to 1) drains from full in about 5 s. At 0 you are winded (you.winded) and cannot sprint until it refills to ${STAMINA_RESUME / STAMINA_MAX}, about 6 s from empty to full. Walk (the walk tool wins over sprint), crouch, prone, moving backward, a jump, firing, a slide or being winded end the sprint, ending it delays your next shot by about ${Math.round(9 * TICK_MS)} ms, and starting it drops the scope. get_state you.sprinting shows it running. Returns the latched actions and blockedBy, the latched ones that stop the sprint now.`,
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.sprint(boolean(a, 'on')),
+  },
+  {
+    name: 'slide',
+    description: `Slide once, to dive behind cover at speed: a push along your heading for up to ${Math.round(SLIDE_TICKS * TICK_MS)} ms, low and crouched, that costs ${SLIDE_STAMINA_COST / STAMINA_MAX} stamina. It only starts while you sprint on the ground at ${SLIDE_MIN_SPEED} units/s or more with enough stamina, so call sprint(true), run forward (hunt or move_to), wait until get_state you.sprinting is true, then slide. The tool presses crouch for one command, so a latched crouch (crouch on) hides the press: call crouch(false) first. Returns requested true when the last snapshot allows it, or requested false with the reason (not sprinting, too slow, low stamina, in the air, crouch latched); the request is dropped, not queued. Check get_state you.sliding afterwards. A jump, going prone or slowing under 120 units/s ends it. You cannot sprint or lean during a slide.`,
+    properties: {},
+    run: (s) => s.slide(),
+  },
+  {
+    name: 'lean',
+    description: 'Lean the head and gun left or right to peek around a corner, or off to straighten up. Stays set, also while idle, until changed or you respawn. The move eases in over a few ticks and shows in get_state you.lean (-1 left to 1 right). A lean shifts your eye and your head and body hitboxes by up to 18 units, and stops short of a wall beside you. The sim forces it to 0 while you sprint, slide, lie prone or are in the air, and it comes back by itself when that ends. Leaning does not change your aim or movement.',
+    properties: { side: { type: 'string', enum: [...LEAN_SIDES] } },
+    required: ['side'],
+    run: (s, a) => {
+      const side = string(a, 'side', Infinity);
+      if (!isLeanSide(side)) throw new Error('Invalid side');
+      return s.setLean(side);
+    },
+  },
+  {
+    name: 'prone',
+    description: `Lie down (on: true) or get up (on: false), for low cover and a hitbox about 20 units tall that is hard to hit and steadier to shoot from. Stays set, also while idle, until changed or you respawn. Only works on the ground. Lying down or getting up locks your stance for ${Math.round(PRONE_SWITCH_TICKS * TICK_MS)} ms, a prone player moves at 15 percent speed, cannot jump, sprint, slide or lean, and stands up only where there is headroom. get_state you.stance shows prone when it took. Prone beats crouch if both are on.`,
+    properties: { on: { type: 'boolean' } },
+    required: ['on'],
+    run: (s, a) => s.setProne(boolean(a, 'on')),
   },
   {
     name: 'reload',

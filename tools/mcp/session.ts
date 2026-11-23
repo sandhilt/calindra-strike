@@ -12,6 +12,8 @@ import {
   radioLine,
   KICK_CLOSE_CODE,
   type KickReason,
+  STAMINA_MAX,
+  STANCE,
   STAND_HEIGHT,
   TICK_MS,
   encodeCmd,
@@ -25,7 +27,7 @@ import {
   LUNCH_USE_RADIUS_UNITS,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
-import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
+import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type ActionEcho, type LeanSide, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { silent, type Log } from './log.ts';
 import { welcome, decodeSnapshot, renderView, bombProp, lunchColleagues, type ViewSound, type WorldView } from './view.ts';
@@ -458,8 +460,8 @@ export class GameSession {
     this.actions.requestFire(ms);
     return { firing: ms, weapon: weaponDef(self.weapon).name, mag: self.mag[self.weapon], aimed: this.actions.aim !== null };
   }
-  private actionState(): { crouch: boolean; walk: boolean; zoom: number | null } {
-    return { crouch: this.actions.crouch, walk: this.actions.walk, zoom: this.actions.zoom };
+  private actionState(): ActionEcho {
+    return this.actions.echo();
   }
   private livingSelf(): PlayerState {
     const s = this.requirePlaying().view.self;
@@ -519,7 +521,9 @@ export class GameSession {
     else this.using?.finish('interrupted', 'No waiting colleague left in reach');
   }
   jump(): object {
-    if (!this.livingSelf().onGround) throw new Error('Not on the ground');
+    const self = this.livingSelf();
+    if (!self.onGround) throw new Error('Not on the ground');
+    if (self.stance === STANCE.PRONE) throw new Error('Cannot jump while prone; call prone(false) first');
     this.actions.requestJump();
     return this.actionState();
   }
@@ -531,6 +535,31 @@ export class GameSession {
   walk(on: boolean): object {
     this.livingSelf();
     this.actions.walk = on;
+    return this.actionState();
+  }
+  sprint(on: boolean): object {
+    this.livingSelf();
+    this.actions.sprint = on;
+    return { ...this.actionState(), blockedBy: this.actions.sprintBlockers() };
+  }
+  /** Asks for a slide when the last snapshot says it would start, and says why not otherwise. */
+  slide(): object {
+    const self = this.livingSelf();
+    const reason = this.actions.slideBlocker(self);
+    const speed = Math.round(Math.hypot(self.vx, self.vz));
+    const stamina = Math.round((self.stamina / STAMINA_MAX) * 100) / 100;
+    if (reason !== null) return { requested: false, reason, sprinting: self.sprinting, speed, stamina };
+    this.actions.requestSlide();
+    return { requested: true, sprinting: self.sprinting, speed, stamina };
+  }
+  setLean(side: LeanSide): object {
+    this.livingSelf();
+    this.actions.lean = side;
+    return this.actionState();
+  }
+  setProne(on: boolean): object {
+    this.livingSelf();
+    this.actions.prone = on;
     return this.actionState();
   }
   reload(): object {

@@ -124,6 +124,7 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | `use` | Hold USE standing still: plant or defuse the bug, or as an attacker in hora de almoçar call the colleagues within 80 units. `hunt` already does both on its own |
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed (inside a lift shaft crouch goes down), or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
 | `walk` / `reload` / `switch_weapon` | Walk silently (`Alt`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
+| `sprint` / `slide` / `lean` / `prone` | Sprint until changed (`on`; it only runs while the pilot moves forward standing, drains stamina, and walk, crouch, prone or firing end it), slide once (needs a sprint at 240 units/s or more and 20% stamina; the result says `requested` and the reason when it cannot start), lean (`side`: `left`, `right` or `off`) or lie down until changed (`on`). A latched crouch hides the slide press, so release it first |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |
 | `radio` | A radio line to the team: `{ menu, line }` from the Z, X, V and B menus (`comandos`, `grupo`, `respostas`, `calindra`) |
 
@@ -142,7 +143,7 @@ Any other harness takes the same command in its MCP config: `command: node`, `ar
 
 `get_state` includes `sounds`, what the agent heard since its last read: `shot` (with weapon and who fired), `impact` (with the `material` and `surface` it landed on) and `hurt`. Each carries `distance`, `bearingDeg` (positive to the right), `intensity` (0 to 1, the same inverse-distance curve the browser audio uses, full inside the reference distance of 260 units for shots and 200 for impacts) and `loudness` (`loud` from 0.5, `medium` from 0.2, `faint` below). Sounds quieter than 0.08 are not reported, and at most 12 are returned, loudest first. The server never sends a player their own shots, so those are worked out from the magazine dropping and the impact is where the crosshair meets the map; hammer swings make no sound here.
 
-`get_state` `you` includes `stance` (`stand`, `crouch` or `prone`; `ducked` stays true for both low stances), `sprinting`, `sliding`, `stamina` (0 to 1) and `lean` (-1 left to 1 right). The agent has no action tool for sprint, slide, lean or prone yet.
+`get_state` `you` includes `stance` (`stand`, `crouch` or `prone`; `ducked` stays true for both low stances), `sprinting`, `sliding`, `stamina` (0 to 1) and `winded` (the meter emptied, no sprint until it is back to 25%) and `lean` (-1 left to 1 right). The `sprint`, `slide`, `lean` and `prone` tools set them, and `you.actions` echoes what the agent asked for (`sprint`, `lean` as `left`/`right`/`off`, `prone`, next to `crouch`, `walk` and `zoom`). The sim decides what takes effect: a lean is forced to 0 while sprinting, sliding, prone or in the air, a prone player cannot jump, sprint or slide, and `get_state` shows the result. A new input bit needs its MCP tool: `tools/test/mcp-actions-cover.test.ts` fails otherwise.
 
 On Shopping Sul Rio `get_state` also reports `you.floor` (`index`, `name` and `y` of the floor you stand on: térreo, praça de alimentação, Mirante; null on one level maps), `lifts` (each glass lift nearest first, with the `floors` it serves, `riding`, `secondsToTop` while riding, and how to ride) and `supplies` (each supply stand nearest first, with its `floor`, whether it is `ready`, `secondsLeft` until it refills, `inReach` and `youNeedIt`). A `supply` event says who restocked. `hunt` walks to a full stand when the pilot is hurt or low on ammunition. Walk-in lift rides need no tool of their own: `move_to` a point on another floor (with `y`) and the pilot rides, or step into the shaft and `crouch` to descend (switch it off again before handing back to `move_to`).
 
@@ -180,7 +181,7 @@ New and still being tested: tell us how it feels with the link in the lobby (nex
 - **Lean**: `←` left, `→` right. The eye and the head hitbox move with it, and a wall stops it.
 - **Prone**: `↓` toggles. Slow, small target, 0.3 s lock between changes, no jump.
 - **Silent walk** moved to `Alt`.
-- Bots do not use these moves. MCP agents only read them in `get_state.you`.
+- Bots do not use these moves. MCP agents press them with the `sprint`, `slide`, `lean` and `prone` tools and read the result in `get_state.you`.
 
 ### Graphics (modo desempenho)
 

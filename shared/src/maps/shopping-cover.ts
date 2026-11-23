@@ -121,7 +121,7 @@ function atrium(b: MapBuilder): void {
 
 function foodCourt(b: MapBuilder): void {
   const menus: readonly (readonly [number, StoreBrand])[] = [
-    [-1040, 'burguer-rei'], [-600, 'mania-picanha'], [600, 'mequi'], [1040, 'parrilha'],
+    [-600, 'mania-picanha'], [600, 'mequi'],
   ];
   for (const [x, brand] of menus) board(b, x, -795, 120, DECK, 140, brand, 0xd9c7a3);
   // nothing stands outside the lift doorway at x = 0

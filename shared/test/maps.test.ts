@@ -18,6 +18,12 @@ for (const map of getMaps()) {
       }
     });
 
+    it('sets the travel direction of every escalator', () => {
+      for (const prop of map.props) {
+        if (prop.kind === 'escalator') assert.ok(prop.travel === 'up' || prop.travel === 'down');
+      }
+    });
+
     it('has well formed boxes', () => {
       for (const b of map.boxes) {
         assert.ok(b.max.x > b.min.x, "b.max.x > b.min.x");
@@ -95,15 +101,15 @@ it('builder turns props with the half being replayed, and escalators hide their 
   b.mirrored(() => {
     b.prop({ kind: 'mannequin', x: 100, y: 0, z: -300, yaw: 0, outfit: OUTFIT });
     b.prop({ kind: 'vent', x: 10, y: 50, z: -20, yaw: Math.PI, width: 44, height: 30 });
-    b.escalator(480, 576, -672, -352, '-z', 192);
+    b.escalator(480, 576, -672, -352, '-z', 192, 'down');
   });
   assert.equal(b.props.length, 6);
   assert.partialDeepStrictEqual(b.props[0], { kind: 'mannequin', x: 100, z: -300, yaw: 0 });
   assert.partialDeepStrictEqual(b.props[3], { kind: 'mannequin', x: -100, z: 300, yaw: -Math.PI });
   assert.partialDeepStrictEqual(b.props[1], { kind: 'vent', x: 10, z: -20, yaw: Math.PI });
   assert.partialDeepStrictEqual(b.props[4], { kind: 'vent', x: -10, z: 20, yaw: 0 });
-  assert.partialDeepStrictEqual(b.props[2], { kind: 'escalator', x: 528, z: -352, dirX: 0, dirZ: -1, length: 320, width: 96, height: 192 });
-  assert.partialDeepStrictEqual(b.props[5], { kind: 'escalator', x: -528, z: 352, dirX: 0, dirZ: 1, length: 320 });
+  assert.partialDeepStrictEqual(b.props[2], { kind: 'escalator', travel: 'down', x: 528, z: -352, dirX: 0, dirZ: -1, length: 320, width: 96, height: 192 });
+  assert.partialDeepStrictEqual(b.props[5], { kind: 'escalator', travel: 'down', x: -528, z: 352, dirX: 0, dirZ: 1, length: 320 });
   assert.ok(b.boxes.length > 0);
   assert.ok(b.boxes.every((box) => box.solid && !box.visible && box.stair));
 });
@@ -124,7 +130,16 @@ describe('the shopping map props', () => {
   it('draws every kind the map is meant to show', () => {
     const kinds = new Set(shopping.props.map((p) => p.kind));
     for (const kind of ['ceilingFan', 'mannequin', 'clothesRack', 'escalator', 'fountain', 'vent'] as const) assert.ok(kinds.has(kind), kind);
-    assert.equal(shopping.props.filter((p) => p.kind === 'escalator').length, 4);
+  });
+
+  it('has one ascending and one descending escalator in each half', () => {
+    const escalators = shopping.props.filter((p) => p.kind === 'escalator');
+    assert.deepEqual(escalators.map(({ x, z, travel }) => ({ x, z, travel })), [
+      { x: 528, z: -352, travel: 'up' },
+      { x: -528, z: -352, travel: 'down' },
+      { x: -528, z: 352, travel: 'up' },
+      { x: 528, z: 352, travel: 'down' },
+    ]);
   });
 
   it('keeps the props inside the walls', () => {

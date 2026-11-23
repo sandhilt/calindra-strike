@@ -24,7 +24,6 @@ import {
   PLAYER_COLORS,
   PRIMARY_CHOICES,
   type PlayerState,
-  RESPAWN_TICKS,
   RF_ALIVE,
   RF_DROP,
   RF_DUCK,
@@ -1379,7 +1378,7 @@ export class Game {
     victim.deaths++;
     victim.deathStreak++;
     victim.streak = 0;
-    victim.respawnAt = this.tick + RESPAWN_TICKS;
+    victim.respawnAt = this.tick + MODE_RULES[this.mode].respawnTicks;
     victim.state.health = 0;
     victim.queue.length = 0;
     const teamkill = killer !== victim && this.sameTeam(killer, victim);

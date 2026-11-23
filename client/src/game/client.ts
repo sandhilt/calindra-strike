@@ -16,6 +16,7 @@ import {
   INTERP_DELAY_MS,
   liftClockTick,
   MODE_LABEL,
+  MODE_RULES,
   type MapDef,
   type MatchInfo,
   PLAYER_COLORS,
@@ -26,7 +27,6 @@ import {
   ZOOM_SENSITIVITY_RATIO,
   PROTOCOL_VERSION,
   type PlayerState,
-  RESPAWN_TICKS,
   RF_ALIVE,
   RF_DROP,
   RF_GROUND,
@@ -1942,7 +1942,7 @@ export class ClientGame {
     }
 
     if (!this.alive) {
-      const left = Math.max(0, RESPAWN_TICKS * TICK_MS - (performance.now() - this.deathAt));
+      const left = Math.max(0, MODE_RULES[this.match.mode].respawnTicks * TICK_MS - (performance.now() - this.deathAt));
       if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);

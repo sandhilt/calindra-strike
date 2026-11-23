@@ -402,7 +402,7 @@ export class ViewModel {
     const toEye = this.aimShift;
     this.holder.position.set(
       bobX + this.swayX - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)) + toEye[0] * aim,
-      bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0) + toEye[1] * aim,
+      bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone * (1 - aim) - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0) + toEye[1] * aim,
       toEye[2] * aim,
     );
     const seat = reload.seatKick * SEAT_KICK_UNITS;

@@ -1,6 +1,7 @@
 import { PLAYER_COLORS, PRIMARY_CHOICES, WEAPON, type WeaponId } from '@calindra-strike/shared';
 
 import { type Quality, parseQuality } from './game/render/quality.ts';
+import { DEFAULT_RT_LEVEL, type RtLevel, parseRtLevel } from './game/render/rt-levels.ts';
 import { DEFAULT_SOUND_PACK, isSoundPackId } from './game/sound-packs/index.ts';
 
 export interface Settings {
@@ -24,8 +25,8 @@ export interface Settings {
   showNet: boolean;
   /** The gun and its hands sit on the left of the view instead of the right. Only the first-person view changes. */
   leftHanded: boolean;
-  /** The screen-space light-ray pass (`lightRt`); it only ever runs on tiers whose profile has it (alta). */
-  lightRt: boolean;
+  /** Level of the screen-space light-ray pass; it only ever runs on tiers whose profile has `lightRt` (alta). Old saves held a boolean. */
+  lightRt: RtLevel;
 }
 
 const KEY = 'calindra-strike:settings:v1';
@@ -50,7 +51,7 @@ export const defaults = (): Settings => ({
   quality: 'high',
   showNet: false,
   leftHanded: false,
-  lightRt: true,
+  lightRt: DEFAULT_RT_LEVEL,
 });
 
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : d);
@@ -84,7 +85,7 @@ export function loadSettings(): Settings {
     quality: parseQuality(o.quality),
     showNet: o.showNet === true,
     leftHanded: o.leftHanded === true,
-    lightRt: typeof o.lightRt === 'boolean' ? o.lightRt : d.lightRt,
+    lightRt: parseRtLevel(o.lightRt),
   };
 }
 

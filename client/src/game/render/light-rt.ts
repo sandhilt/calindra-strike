@@ -4,25 +4,24 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { leavesOcclusion } from './occlusion-filter.ts';
+import type { RtProfile } from './rt-levels.ts';
 import { isSoftwareRenderer, type GpuFacts } from './rt-support.ts';
-
-/** Ray-march radius of the occlusion pass in world units, about half a player's height. */
-const OCCLUSION_RADIUS_UNITS = 40;
-/** Rays per pixel: few on purpose, the denoise pass smooths them. */
-const OCCLUSION_RAYS = 8;
-/** How much of the traced occlusion shows in the image (0..1). */
-const OCCLUSION_STRENGTH = 0.85;
-/** Edge smoothing the composer's targets keep, since the canvas's own antialiasing no longer applies. */
-const MSAA_SAMPLES = 4;
 
 /** The occlusion pass without the scene's glows, sky, glass and effects, which it would otherwise draw as solid walls. */
 class SolidOcclusionPass extends GTAOPass {
   private readonly world: THREE.Scene;
   private readonly hidden: THREE.Object3D[] = [];
+  private readonly resolution: number;
 
-  constructor(scene: THREE.Scene, camera: THREE.Camera, width: number, height: number) {
+  constructor(scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, resolution: number) {
     super(scene, camera, width, height);
     this.world = scene;
+    this.resolution = resolution;
+  }
+
+  /** The composer hands every pass the canvas size; the occlusion targets, and the scene redraw into them, take a share of it. */
+  override setSize(width: number, height: number): void {
+    super.setSize(Math.max(1, Math.round(width * this.resolution)), Math.max(1, Math.round(height * this.resolution)));
   }
 
   override render(...args: Parameters<GTAOPass['render']>): void {
@@ -64,13 +63,14 @@ export class LightRt {
   private readonly occlusion: SolidOcclusionPass;
   private readonly output = new OutputPass();
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number) {
+  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, profile: RtProfile) {
     this.composer = new EffectComposer(renderer);
-    this.composer.renderTarget1.samples = MSAA_SAMPLES;
-    this.composer.renderTarget2.samples = MSAA_SAMPLES;
-    this.occlusion = new SolidOcclusionPass(scene, camera, width, height);
-    this.occlusion.updateGtaoMaterial({ radius: OCCLUSION_RADIUS_UNITS, samples: OCCLUSION_RAYS });
-    this.occlusion.blendIntensity = OCCLUSION_STRENGTH;
+    this.composer.renderTarget1.samples = profile.msaa;
+    this.composer.renderTarget2.samples = profile.msaa;
+    this.occlusion = new SolidOcclusionPass(scene, camera, width, height, profile.resolution);
+    this.occlusion.updateGtaoMaterial({ radius: profile.radiusUnits, samples: profile.rays });
+    this.occlusion.updatePdMaterial({ samples: profile.denoiseSamples });
+    this.occlusion.blendIntensity = profile.strength;
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(this.occlusion);
     this.composer.addPass(this.output);

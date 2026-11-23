@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { CollisionWorld, getMaps, type MapDef } from '@calindra-strike/shared';
 import { LightRt, readGpuFacts } from '../game/render/light-rt.ts';
-import { QUALITY, renderPixelRatio, type Quality } from '../game/render/quality.ts';
+import { renderPixelRatio, type Quality } from '../game/render/quality.ts';
+import { RT } from '../game/render/rt-levels.ts';
 import { lightRtSupported } from '../game/render/rt-support.ts';
 import { buildWorld, followShadow, type WorldView } from '../game/render/world.ts';
-import { type BenchmarkOptions, type BenchmarkTier } from './options.ts';
+import { benchmarkSetup, isRtVariant, type BenchmarkOptions, type BenchmarkTier } from './options.ts';
 import { createGpuTimer, medianTiming } from './gpu-timer.ts';
 import { recommend, summarize } from './score.ts';
 import { buildTour, sampleTour, tourPoints } from './tours.ts';
@@ -79,7 +80,7 @@ async function measure(
   signal: AbortSignal,
   monitor?: (metrics: Monitor) => void,
 ) {
-  const profile = tier === 'high-no-rt' ? { ...QUALITY.high, lightRt: false } : QUALITY[tier];
+  const { profile, rtLevel } = benchmarkSetup(tier);
   const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance' });
   let world: WorldView | undefined;
   let rt: LightRt | undefined;
@@ -102,9 +103,10 @@ async function measure(
     const view = buildWorld(map, scene, profile);
     world = view;
     const facts = readGpuFacts(renderer);
-    if (profile.lightRt && lightRtSupported(facts)) {
+    const rtProfile = RT[rtLevel];
+    if (rtProfile && lightRtSupported(facts)) {
       try {
-        rt = new LightRt(renderer, scene, camera, width, height);
+        rt = new LightRt(renderer, scene, camera, width, height, rtProfile);
       } catch {
         // Match the game's direct-rendering fallback when the pass cannot be created.
       }
@@ -207,7 +209,7 @@ async function measure(
       facts,
       samples,
       row: {
-        tier, map: map.id, rt: rt !== undefined,
+        tier, map: map.id, rt: rt !== undefined, rtLevel: rt ? rtLevel : 'off',
         canvasPx: { width: renderer.domElement.width, height: renderer.domElement.height },
         ...summarizeTimings(samples),
         drawCalls: Math.round(calls / frames),
@@ -261,7 +263,7 @@ export async function runBenchmark(
   const perTier: Partial<Record<Quality, ReturnType<typeof summarizeTimings>>> = {};
   const tiers = [...samples].map(([tier, timings]) => {
     const summary = summarizeTimings(timings);
-    if (tier !== 'high-no-rt') perTier[tier] = summary;
+    if (!isRtVariant(tier)) perTier[tier] = summary;
     return { tier, ...summary };
   });
   const choice = recommend(perTier);

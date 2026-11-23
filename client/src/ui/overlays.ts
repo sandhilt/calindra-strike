@@ -1,6 +1,7 @@
 import { browserEngine } from '../game/speech.ts';
 import { checkRow, choiceRow, group, rangeRow } from './controls.ts';
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
+import { RT_OPTIONS } from '../game/render/rt-levels.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
 import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
@@ -160,7 +161,7 @@ export class Overlays {
           group(
             'vídeo',
             seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
-            toggle('ray tracing', 'luz e sombra de contato (só no gráfico alta, pesa na placa de vídeo)', () => s.lightRt, (v) => (s.lightRt = v)),
+            seg('ray tracing', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'luz e sombra de contato, só no gráfico alta; mais alto pesa mais na placa de vídeo'),
             h(
               'button',
               { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },

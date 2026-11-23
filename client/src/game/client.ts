@@ -95,6 +95,7 @@ import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
+import { RT, type RtLevel } from './render/rt-levels.ts';
 import { lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
@@ -322,6 +323,7 @@ export class ClientGame {
   /** The graphics card can run the light ray-marched lighting; cleared for good if it ever throws. */
   private lightRtAvailable = false;
   private lightRt: LightRt | null = null;
+  private lightRtLevel: RtLevel = 'off';
   private menuOpen = false;
   private elapsed = 0;
 
@@ -468,7 +470,7 @@ export class ClientGame {
       this.applyQuality();
       this.onResize();
     }
-    this.applyLightRt(QUALITY[s.quality].lightRt && s.lightRt);
+    this.applyLightRt(this.wantedRtLevel());
     this.input.sensitivity = s.sensitivity;
     this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
@@ -483,7 +485,7 @@ export class ClientGame {
     const profile = QUALITY[quality];
     this.appliedQuality = quality;
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
-    this.applyLightRt(profile.lightRt && this.settings.lightRt);
+    this.applyLightRt(this.wantedRtLevel());
     this.effects.setQuality(quality);
     this.view.setQuality(quality);
     if (this.world) {
@@ -493,16 +495,27 @@ export class ClientGame {
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }
 
-  /** Turns the ray-marched lighting on for a tier that has it and a card that can run it, and off otherwise. */
-  private applyLightRt(wanted: boolean): void {
-    if (!wanted || !this.lightRtAvailable) {
+  /** The level the player chose, on a tier that has the pass. */
+  private wantedRtLevel(): RtLevel {
+    return QUALITY[this.settings.quality].lightRt ? this.settings.lightRt : 'off';
+  }
+
+  /** Builds the ray-marched lighting at a level for a card that can run it, and tears it down for `off`. A level change rebuilds it. */
+  private applyLightRt(level: RtLevel): void {
+    const profile = this.lightRtAvailable ? RT[level] : null;
+    if (!profile) {
       this.lightRt?.dispose();
       this.lightRt = null;
+      this.lightRtLevel = 'off';
       return;
     }
-    if (this.lightRt) return;
+    if (this.lightRt && this.lightRtLevel === level) return;
+    this.lightRt?.dispose();
+    this.lightRt = null;
+    this.lightRtLevel = 'off';
     try {
-      this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1);
+      this.lightRt = new LightRt(this.renderer, this.scene, this.camera, this.container.clientWidth || 1, this.container.clientHeight || 1, profile);
+      this.lightRtLevel = level;
     } catch {
       this.lightRtAvailable = false;
     }
@@ -539,7 +552,7 @@ export class ClientGame {
         return;
       } catch {
         this.lightRtAvailable = false;
-        this.applyLightRt(false);
+        this.applyLightRt('off');
       }
     }
     this.renderer.render(this.scene, this.camera);

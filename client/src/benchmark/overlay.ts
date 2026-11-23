@@ -1,8 +1,16 @@
 import { getMaps } from '@calindra-strike/shared';
 import { QUALITY, type Quality } from '../game/render/quality.ts';
+import { rtLabel } from '../game/render/rt-levels.ts';
 import { h } from '../ui/dom.ts';
-import { parseBenchmarkParams } from './options.ts';
+import { benchmarkSetup, isRtVariant, parseBenchmarkParams, type BenchmarkTier } from './options.ts';
 import { runBenchmark } from './run.ts';
+
+/** Plain tiers by their menu name; a ray pass variant as `alta` plus its level, e.g. `alta · ray tracing leve`. */
+function tierLabel(tier: BenchmarkTier): string {
+  if (!isRtVariant(tier)) return QUALITY[tier].label;
+  const { profile, rtLevel } = benchmarkSetup(tier);
+  return `${profile.label} · ray tracing ${rtLabel(rtLevel)}`;
+}
 
 function perFrame(ms: number | null): string {
   return ms === null ? '—' : `${ms.toFixed(1)} ms/quadro`;
@@ -32,7 +40,7 @@ export function openBenchmark(onApply: (tier: Quality) => void): () => void {
   dialog.showModal();
 
   void runBenchmark(canvas, options, controller.signal, (row) => {
-    const label = row.tier === 'high-no-rt' ? row.tier : QUALITY[row.tier].label;
+    const label = tierLabel(row.tier);
     const fps = row.fps === null ? '—' : Math.round(row.fps);
     monitor.textContent = [
       `${label} · ${row.map} · ${row.current}/${row.total} (${row.elapsedPct}%)`,
@@ -50,7 +58,7 @@ export function openBenchmark(onApply: (tier: Quality) => void): () => void {
     const label = QUALITY[tier].label;
     const metrics = h('ul', { class: 'benchmark-metrics' }, tiers.map((row) =>
       h('li', {}, [
-        h('strong', { text: `${QUALITY[row.tier].label}: ` }),
+        h('strong', { text: `${tierLabel(row.tier)}: ` }),
         `${Math.round(row.fps)} fps · ${row.smoothPct}% dos quadros a 60 fps`,
         row.gpuMs === null ? null : ` · GPU ${row.gpuMs} ms`,
         ` · CPU ${row.cpuMs} ms`,

@@ -121,8 +121,9 @@ describe('the shopping map props', () => {
 
   it('repeat the shared fixtures in point symmetric pairs, since the south half is the north one turned 180 degrees', () => {
     // A store's own ceiling fans belong to its brand: the store facing it across the mall is another brand, so they have no twin.
-    const insideAStore = (z: number) => Math.abs(z) > 880;
-    const shared = shopping.props.filter((p) => (p.kind === 'ceilingFan' && !insideAStore(p.z)) || p.kind === 'escalator' || p.kind === 'vent');
+    // Store fans hang below the food court floor, the mall's own fans hang above the deck.
+    const insideAStore = (p: { y: number; z: number }) => Math.abs(p.z) > 880 && p.y < 192;
+    const shared = shopping.props.filter((p) => (p.kind === 'ceilingFan' && !insideAStore(p)) || p.kind === 'escalator' || p.kind === 'vent');
     const key = (kind: string, x: number, z: number) => `${kind}@${Math.round(x)},${Math.round(z)}`;
     const seen = new Set(shared.map((p) => key(p.kind, p.x, p.z)));
     assert.ok(shared.length > 20);

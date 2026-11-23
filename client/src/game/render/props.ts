@@ -179,6 +179,7 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
   const quat = new THREE.Quaternion();
   const matrix = new THREE.Matrix4();
   const yaws = items.map((e) => Math.atan2(-e.dirZ, e.dirX));
+  const meshes = [treads, nosings, risers];
   let seconds = 0;
 
   const place = (mesh: THREE.InstancedMesh, index: number, e: PropOf<'escalator'>, yaw: number, along: number, y: number, sx: number, sy: number, sz: number): void => {
@@ -189,13 +190,13 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
   };
 
   const pose = (): void => {
-    items.forEach((e, n) => {
-      const shape = { length: e.length, height: e.height };
-      const phase = escalatorPhase(seconds, shape);
+    for (let n = 0; n < items.length; n++) {
+      const e = items[n];
+      const phase = escalatorPhase(seconds, e, e.travel);
       const width = e.width - 1;
       for (let i = 0; i < per; i++) {
         const index = n * per + i;
-        fillStepSlot(slot, i - 1 + phase, shape);
+        fillStepSlot(slot, i - 1 + phase, e);
         const length = slot.treadTo - slot.treadFrom;
         if (slot.treadOn && length > 0.01) {
           const thick = Math.min(TREAD_THICKNESS_UNITS, slot.treadTop);
@@ -211,8 +212,8 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
           place(risers, index, e, yaws[n], 0, 0, 0, 0, 0);
         }
       }
-    });
-    for (const mesh of [treads, nosings, risers]) mesh.instanceMatrix.needsUpdate = true;
+    }
+    for (const mesh of meshes) mesh.instanceMatrix.needsUpdate = true;
   };
   pose();
   return {

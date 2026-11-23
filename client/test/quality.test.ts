@@ -52,7 +52,8 @@ test('the options list every tier once, in order, with the Portuguese labels', (
 test('high and low keep the full-resolution look they had before the third tier', () => {
   assert.equal(QUALITY.high.renderScale, 1);
   assert.equal(QUALITY.low.renderScale, 1);
-  assert.equal(renderPixelRatio(QUALITY.high, 3), 1.75);
+  assert.equal(renderPixelRatio(QUALITY.high, 3), 1.5);
+  assert.equal(renderPixelRatio(QUALITY.high, 1.25), 1.25);
   assert.equal(renderPixelRatio(QUALITY.low, 3), 1);
   assert.deepEqual(
     [QUALITY.high.antialias, QUALITY.high.shadows, QUALITY.high.shadowMapPx],

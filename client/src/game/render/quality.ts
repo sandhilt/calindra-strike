@@ -63,7 +63,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
   high: {
     label: 'alta',
     renderScale: 1,
-    maxPixelRatio: 1.75,
+    maxPixelRatio: 1.5,
     antialias: true,
     shadows: true,
     shadowMapPx: 2048,

@@ -186,7 +186,7 @@ export class Overlays {
   ) {
     PRIMARY_CHOICES.forEach((id, i) => {
       const { icon, blurb } = WEAPON_INFO[id];
-      const row = h('button', { class: 'cs-row', type: 'button', onclick: () => this.pickPrimary(id) }, [
+      const row = h('button', { class: 'cs-row cs-weapon', type: 'button', onclick: () => this.pickPrimary(id) }, [
         h('span', { class: 'cs-key', text: `${i + 1}.` }),
         h('span', { class: 'cs-name', text: weaponDef(id).name }),
         h('small', { text: blurb }),

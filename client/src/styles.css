@@ -2007,8 +2007,28 @@ input:focus-visible {
   color: var(--lime);
 }
 
-.cs-row[aria-pressed='true'] .cs-name::before {
-  content: '> ';
+/* The pick arrow sits on the weapon's side, right after its icon. */
+.cs-weapon {
+  grid-template-columns: 2ch 1fr 76px 2ch;
+}
+
+.cs-weapon::after {
+  grid-column: 4;
+  grid-row: 1 / span 2;
+  content: '';
+  justify-self: end;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-right-color: var(--lime);
+  border-left-width: 0;
+  opacity: 0;
+}
+
+.cs-weapon[aria-pressed='true']::after,
+.cs-weapon:hover::after,
+.cs-weapon:focus-visible::after {
+  opacity: 1;
 }
 
 .cs-row[aria-pressed='true'] small {

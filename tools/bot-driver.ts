@@ -1,10 +1,10 @@
 import {
-  BTN, CollisionWorld, DEG, TICK_MS, applyCmd, clamp, wrapAngle, PLAYER_RADIUS, RF_ALIVE, RF_DROP, RF_DUCK, WEAPON,
+  BTN, CollisionWorld, DEG, TICK_MS, applyCmd, clamp, wrapAngle, PLAYER_RADIUS, RF_ALIVE, RF_DROP, WEAPON, stanceFromFlags, type Stance,
   createPlayerState, eyeHeight, getMap, unpackState,
   type BombPoint, type Cmd, type ServerMsg,
 } from '../shared/src/index.ts';
 import {
-  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, readyToJump, restingSway, stepSway, waypointReached, type AimSkill,
+  REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, aimHeight, sightHeights, readyToJump, restingSway, stepSway, waypointReached, type AimSkill,
 } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
@@ -128,16 +128,16 @@ export class BotDriver {
     const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
 
-    let enemy: (BombPoint & { id: number; ducked: boolean }) | null = null;
+    let enemy: (BombPoint & { id: number; stance: Stance }) | null = null;
     let enemyDistance = this.aim.sightUnits;
     for (const player of dropping ? [] : players) {
       // A dead enemy stays in snapshots until respawn; treating the body as a threat kept bots from ever finishing the objective.
       if (player.team === team || player.team < 0 || player.dropping || !player.alive) continue;
       const distance = Math.hypot(player.x - x, player.y - y, player.z - z);
       if (distance >= enemyDistance) continue;
-      const heights = player.flags & RF_DUCK ? [24, 36] : [44, 64];
-      if (!hasLineOfSight(world, x, eyeY, z, player, heights)) continue;
-      enemy = { x: player.x, y: player.y, z: player.z, id: player.id, ducked: Boolean(player.flags & RF_DUCK) };
+      const stance = stanceFromFlags(player.flags);
+      if (!hasLineOfSight(world, x, eyeY, z, player, sightHeights(stance))) continue;
+      enemy = { x: player.x, y: player.y, z: player.z, id: player.id, stance };
       enemyDistance = distance;
     }
     const closeEnemy = enemyDistance < CLOSE_ENEMY_UNITS;
@@ -225,7 +225,7 @@ export class BotDriver {
    * Turns the view toward the enemy at the skill's speed, with an error that starts large and settles, like BotBrain.
    * True when the bot has reacted and its aim is close enough to shoot. Without an enemy the view follows the walk.
    */
-  private aimAt(enemy: (BombPoint & { id: number; ducked: boolean }) | null, self: BombPoint, eyeY: number, moveYaw: number, now: number): boolean {
+  private aimAt(enemy: (BombPoint & { id: number; stance: Stance }) | null, self: BombPoint, eyeY: number, moveYaw: number, now: number): boolean {
     const dt = this.lastTime < 0 ? 0 : clamp((now - this.lastTime) / 1000, 0, MAX_AIM_STEP_SECONDS);
     this.lastTime = now;
     if (!enemy) {
@@ -246,7 +246,7 @@ export class BotDriver {
     const settle = Math.max(0, 1 - this.aim.settlePerSecond * dt);
     this.errYaw *= settle;
     this.errPitch *= settle;
-    const aimY = enemy.y + (enemy.ducked ? (this.aimHead ? 30 : 20) : this.aimHead ? 64 : 44);
+    const aimY = enemy.y + aimHeight(enemy.stance, this.aimHead);
     const distance = Math.hypot(enemy.x - self.x, enemy.z - self.z);
     const wantYaw = bearing(self, enemy);
     const wantPitch = Math.atan2(aimY - eyeY, distance);

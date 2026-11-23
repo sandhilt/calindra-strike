@@ -28,9 +28,15 @@ import {
   RF_DROP,
   RF_DUCK,
   RF_GROUND,
+  RF_PRONE,
   RF_PROTECT,
   RF_RELOAD,
+  RF_SLIDE,
+  RF_SPRINT,
   RF_ZOOM,
+  LEAN_ROW_PRECISION,
+  STANCE,
+  type Stance,
   type ResultRow,
   type RosterEntry,
   SNAPSHOT_EVERY_TICKS,
@@ -174,7 +180,9 @@ interface HistoryEntry {
   x: number;
   y: number;
   z: number;
-  ducked: boolean;
+  yaw: number;
+  stance: Stance;
+  lean: number;
   hittable: boolean;
 }
 
@@ -1251,7 +1259,9 @@ export class Game {
           x: prev.x + (e.x - prev.x) * t,
           y: prev.y + (e.y - prev.y) * t,
           z: prev.z + (e.z - prev.z) * t,
-          ducked: t < 0.5 ? prev.ducked : e.ducked,
+          yaw: t < 0.5 ? prev.yaw : e.yaw,
+          stance: t < 0.5 ? prev.stance : e.stance,
+          lean: prev.lean + (e.lean - prev.lean) * t,
           hittable: prev.hittable && e.hittable,
         };
       }
@@ -1269,7 +1279,9 @@ export class Game {
         x: s.x,
         y: s.y,
         z: s.z,
-        ducked: s.ducked,
+        yaw: s.yaw,
+        stance: s.stance,
+        lean: s.lean,
         hittable: p.alive && !s.dropping && s.protect === 0,
       };
       if (p.history.length < HISTORY) p.history.push(e);
@@ -1284,13 +1296,14 @@ export class Game {
     const def = weaponDef(shot.weapon);
     const now = this.now();
     const t = clamp(interp, now - LAGCOMP_MAX_MS, now);
-    const targets: { q: ServerPlayer; x: number; y: number; z: number; ducked: boolean }[] = [];
+    const targets: { q: ServerPlayer; x: number; y: number; z: number; yaw: number; stance: Stance; lean: number }[] = [];
     for (const q of this.players.values()) {
       if (q === p || !q.alive || q.state.dropping || q.state.protect > 0) continue;
       if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
-      targets.push(h ? { q, x: h.x, y: h.y, z: h.z, ducked: h.ducked } : { q, x: q.state.x, y: q.state.y, z: q.state.z, ducked: q.state.ducked });
+      const { x, y, z, yaw, stance, lean } = h ?? q.state;
+      targets.push({ q, x, y, z, yaw, stance, lean });
     }
 
     const damageBy = new Map<ServerPlayer, { dmg: number; head: boolean; zone: number }>();
@@ -1304,7 +1317,7 @@ export class Game {
       const limit = wall ? wall.t : def.range;
       let best: { t: number; zone: number; q: ServerPlayer } | null = null;
       for (const tg of targets) {
-        const hit = rayHitbox(ox, oy, oz, dx, dy, dz, tg.x, tg.y, tg.z, tg.ducked, limit);
+        const hit = rayHitbox(ox, oy, oz, dx, dy, dz, tg.x, tg.y, tg.z, tg.stance, tg.lean, tg.yaw, limit);
         if (hit && (!best || hit.t < best.t)) best = { ...hit, q: tg.q };
       }
       const dist = best ? best.t : limit;
@@ -1603,14 +1616,17 @@ export class Game {
       if (!p.alive) continue;
       const s = p.state;
       const flags =
-        (s.ducked ? RF_DUCK : 0) |
+        (s.stance === STANCE.CROUCH ? RF_DUCK : 0) |
+        (s.stance === STANCE.PRONE ? RF_PRONE : 0) |
+        (s.sprinting ? RF_SPRINT : 0) |
+        (s.slide > 0 ? RF_SLIDE : 0) |
         (s.dropping ? RF_DROP : 0) |
         RF_ALIVE |
         (s.protect > 0 ? RF_PROTECT : 0) |
         (s.onGround ? RF_GROUND : 0) |
         (s.reload > 0 ? RF_RELOAD : 0) |
         (s.zoom > 0 ? RF_ZOOM : 0);
-      ps.push([p.id, round(s.x, 10), round(s.y, 10), round(s.z, 10), round(s.yaw, 1000), round(s.pitch, 1000), flags, s.weapon]);
+      ps.push([p.id, round(s.x, 10), round(s.y, 10), round(s.z, 10), round(s.yaw, 1000), round(s.pitch, 1000), flags, s.weapon, round(s.lean, LEAN_ROW_PRECISION)]);
     }
     const ad = this.airdrops.map((d) => [d.id, d.x, round(d.y, 10), d.z, d.w, d.landed ? 1 : 0]);
     const fl = this.flagSnapshot();

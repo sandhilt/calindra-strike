@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, STANCE, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -390,7 +390,7 @@ test('get_state reports ducked, onGround, zoom, maxZoom and the requested action
   await awp.call('zoom', { level: 2 });
   const you = JSON.parse(JSON.stringify(awp.session.getState())).you;
   assert.partialDeepStrictEqual(you, {
-    onGround: true, ducked: false, zoom: 0, maxZoom: 2,
+    onGround: true, ducked: false, stance: 'stand', sprinting: false, sliding: false, stamina: 1, lean: 0, zoom: 0, maxZoom: 2,
     actions: { crouch: true, walk: true, zoom: 2 },
     slots: {
       primary: weaponDef(WEAPON.RIFLE).name,
@@ -1010,7 +1010,7 @@ test('the agent hears its own shots from the magazine dropping, with the impact 
   assert.deepEqual(heard.map((s: { kind: string }) => s.kind).sort(), ['impact', 'shot']);
   assert.equal(heard.find((s: { kind: string }) => s.kind === 'shot').own, true);
   const aimed = dirFromAngles(0, -Math.PI / 2 + 0.01);
-  const expected = world.trace(spot.x, eyeHeight({ ducked: false }), spot.z, aimed.x, aimed.y, aimed.z, weaponDef(WEAPON.RIFLE).range)!;
+  const expected = world.trace(spot.x, eyeHeight({ stance: STANCE.STAND }), spot.z, aimed.x, aimed.y, aimed.z, weaponDef(WEAPON.RIFLE).range)!;
   assert.equal(heard.find((s: { kind: string }) => s.kind === 'impact').material, expected.mat);
   snap(29, 332);
   assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, [], 'no shot when the magazine did not drop');

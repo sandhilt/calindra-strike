@@ -148,17 +148,6 @@ export const AIR_AUDIBLE_UNITS = 420;
 export const CEILING_FAN_RAD_PER_S = 5.5;
 export const VENT_FAN_RAD_PER_S = 13;
 
-/** What the cab of a lift needs to know about someone in the world. */
-export interface Rider {
-  x: number;
-  y: number;
-  z: number;
-}
-
-/** A shaft draws at most this many cabs at once: riders at different heights each get their own, the rest ride unseen. */
-export const LIFT_CABS_PER_SHAFT = 3;
-/** Riders closer than this in height share a cab. */
-export const LIFT_CAB_MERGE_UNITS = 72;
 /** A cab's doors are fully open this close to a stop and fully shut this far from it. */
 export const LIFT_DOOR_OPEN_UNITS = 6;
 export const LIFT_DOOR_SHUT_UNITS = 30;
@@ -170,34 +159,6 @@ export interface LiftShape {
   width: number;
   depth: number;
   stops: readonly { y: number; side: 'front' | 'back' }[];
-}
-
-/** Heights of the people standing inside the shaft's footprint, between its first and last stop. */
-export function ridersIn(lift: LiftShape, riders: readonly Rider[]): number[] {
-  const cos = Math.cos(lift.yaw);
-  const sin = Math.sin(lift.yaw);
-  const bottom = lift.stops[0].y;
-  const top = lift.stops[lift.stops.length - 1].y;
-  const heights: number[] = [];
-  for (const r of riders) {
-    const dx = r.x - lift.x;
-    const dz = r.z - lift.z;
-    const local = { x: dx * cos - dz * sin, z: dx * sin + dz * cos };
-    if (Math.abs(local.x) < lift.width / 2 && Math.abs(local.z) < lift.depth / 2 && r.y >= bottom - 1 && r.y <= top + 8) heights.push(r.y);
-  }
-  return heights;
-}
-
-/** Where the cabs are: one per cluster of riders, or a single one parked at the bottom stop when nobody rides. */
-export function cabHeights(riders: readonly number[], rest: number, max = LIFT_CABS_PER_SHAFT): number[] {
-  if (riders.length === 0) return [rest];
-  const cabs: number[] = [];
-  for (const y of riders.toSorted((a, b) => a - b)) {
-    const last = cabs[cabs.length - 1];
-    if (last !== undefined && y - last < LIFT_CAB_MERGE_UNITS) continue;
-    if (cabs.length < max) cabs.push(y);
-  }
-  return cabs;
 }
 
 /** The stop a cab at height `y` is nearest to, with how far it is from it. */

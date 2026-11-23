@@ -1,12 +1,10 @@
+import { TICK_MS, TICK_RATE } from './constants.ts';
 /**
- * Glass lifts. A lift is a field, not a vehicle: a player whose centre is inside a shaft's footprint is carried
- * up at a constant speed, or down while holding crouch, so the result depends only on where the player is and
- * what they press. Client prediction and the server agree without sharing any state, and the cab drawn on the
- * client simply follows its riders.
- *
- * The cab slows to a crawl around every stop, long enough to walk out through the doorway of that floor (the
- * ground floor one too: a rider who stands up on arriving rises only a hand's breadth before they are out),
- * and holds at the first and last stop.
+ * Glass lifts: one cab per shaft that everybody shares. Where it is depends only on the server clock, so the
+ * server, every client's prediction and the drawn cab agree without any state to send. It goes up through every
+ * stop and back down, waits at each one long enough to walk out through that floor's doorway, and nobody
+ * presses anything. A player whose centre is in the footprint and whose feet are just behind the cab's floor
+ * in its direction of travel rides with it.
  */
 export interface Lift {
   /** Inner footprint of the shaft (world units): a player is carried while their centre is inside it. */
@@ -18,9 +16,13 @@ export interface Lift {
   stops: readonly number[];
 }
 
-/** Ticks the cab stands still at every stop, and after a rider boards (1.5 s, a tuning value). */
+/** Ticks the cab stands still at every stop (1.5 s, a tuning value). */
 export const LIFT_STOP_WAIT_TICKS = 90;
 export const LIFT_SPEED_UNITS = 150;
+/** A rider is carried while the cab is this far ahead of their feet in its direction of travel: about three ticks of travel. */
+export const LIFT_CARRY_UNITS = 8;
+/** The server accepts a command's own clock only this close to its tick; further off, a command rides on the server's clock. */
+export const LIFT_CLOCK_SLACK_TICKS = 12;
 /** Feet this far above the last stop are still carried, so a hop at the top does not drop the rider down the shaft. */
 export const LIFT_TOP_SLACK_UNITS = 8;
 /** Height of the doorway of a stop above its floor. */
@@ -36,41 +38,89 @@ export function liftAt(lifts: readonly Lift[], x: number, y: number, z: number):
   );
 }
 
-/** 1 rises, -1 descends. */
-export type LiftDir = 1 | -1;
-
-const AT_STOP_EPSILON = 1e-6;
-
-export interface LiftRide {
+/** The one cab of a shaft at a moment: its floor height and which way it moves (0 while it waits at a stop). */
+export interface LiftCab {
   y: number;
-  dir: LiftDir;
-  /** Ticks left before the cab moves again. */
-  wait: number;
+  moving: -1 | 0 | 1;
+}
+
+interface Leg {
+  from: number;
+  to: number;
+  travelTicks: number;
+}
+
+interface Schedule {
+  legs: readonly Leg[];
+  period: number;
+}
+
+const schedules = new WeakMap<Lift, Schedule>();
+
+/** The cab goes up through every stop and back down again, waiting at each one, and never stops anywhere else. */
+function scheduleOf(lift: Lift): Schedule {
+  const cached = schedules.get(lift);
+  if (cached) return cached;
+  const order = [...lift.stops.keys(), ...[...lift.stops.keys()].slice(1, -1).reverse()];
+  const legs = order.map((index, i): Leg => {
+    const from = lift.stops[index];
+    const to = lift.stops[order[(i + 1) % order.length]];
+    return { from, to, travelTicks: Math.ceil(Math.abs(to - from) / (LIFT_SPEED_UNITS / TICK_RATE)) };
+  });
+  const period = legs.reduce((sum, leg) => sum + LIFT_STOP_WAIT_TICKS + leg.travelTicks, 0);
+  const schedule = { legs, period };
+  schedules.set(lift, schedule);
+  return schedule;
+}
+
+/** Where the shaft's cab is at server tick `tick`: the same for everybody, from the clock alone. */
+export function liftCab(lift: Lift, tick: number): LiftCab {
+  const { legs, period } = scheduleOf(lift);
+  let t = ((tick % period) + period) % period;
+  for (const leg of legs) {
+    if (t < LIFT_STOP_WAIT_TICKS) return { y: leg.from, moving: 0 };
+    t -= LIFT_STOP_WAIT_TICKS;
+    if (t < leg.travelTicks) {
+      const heading = leg.to > leg.from ? 1 : -1;
+      const reached = (t + 1) / leg.travelTicks;
+      return { y: leg.from + (leg.to - leg.from) * reached, moving: heading };
+    }
+    t -= leg.travelTicks;
+  }
+  return { y: legs[0].from, moving: 0 };
+}
+
+/** Whether the cab carries a rider standing with feet at `y`: it moves, and its floor is just ahead of them. */
+export function carriedBy(cab: LiftCab, y: number): boolean {
+  const ahead = (cab.y - y) * cab.moving;
+  return cab.moving !== 0 && ahead >= 0 && ahead <= LIFT_CARRY_UNITS;
 }
 
 /**
- * One tick of an ordinary elevator: it holds for `wait` ticks, then travels in `dir` and stops, for a new wait, at
- * the next stop. At the first stop it can only go up and at the last only down, so a rider never presses anything.
+ * The tick a command runs the cab at: its own clock (the client's render time plus the interpolation delay it
+ * subtracted) when it is close to the server's, so prediction and server agree on the cab, else the server's.
  */
-export function liftStep(lift: Lift, y: number, dir: LiftDir, wait: number, dt: number): LiftRide {
-  const heading: LiftDir = y >= liftTop(lift) - AT_STOP_EPSILON ? -1 : y <= liftBottom(lift) + AT_STOP_EPSILON ? 1 : dir;
-  if (wait > 0) return { y, dir: heading, wait: wait - 1 };
-  const reach = y + heading * LIFT_SPEED_UNITS * dt;
-  const stop = heading > 0
-    ? lift.stops.find((s) => s > y + AT_STOP_EPSILON && s <= reach)
-    : lift.stops.findLast((s) => s < y - AT_STOP_EPSILON && s >= reach);
-  if (stop !== undefined) return { y: stop, dir: heading, wait: LIFT_STOP_WAIT_TICKS };
-  return { y: reach, dir: heading, wait: 0 };
+export function liftClockTick(interpMs: number, delayMs: number, serverTick: number): number {
+  const claimed = Math.round((interpMs + delayMs) / TICK_MS);
+  return Math.abs(claimed - serverTick) <= LIFT_CLOCK_SLACK_TICKS ? claimed : serverTick;
 }
 
-const MAX_RIDE_TICKS = 60 * 600;
-
-/** Seconds from boarding at height `from` (going up, unless it is the top) until the cab stands at `to`, counting every wait on the way. */
-export function liftRideSeconds(lift: Lift, from: number, to: number, wait = LIFT_STOP_WAIT_TICKS, dt = 1 / 60): number {
-  let ride: LiftRide = { y: from, dir: 1, wait };
-  for (let ticks = 0; ticks < MAX_RIDE_TICKS; ticks++) {
-    if (Math.abs(ride.y - to) <= 1) return ticks * dt;
-    ride = liftStep(lift, ride.y, ride.dir, ride.wait, dt);
+/**
+ * Average seconds from reaching the doorway at `from` to standing at `to`: the wait for the cab, then the ride in
+ * whichever direction it comes, counting every stop it waits at. For pathfinding and for agents.
+ */
+export function liftRideSeconds(lift: Lift, from: number, to: number): number {
+  if (Math.abs(from - to) <= 1) return 0;
+  const { period } = scheduleOf(lift);
+  const step = 6;
+  let total = 0;
+  let samples = 0;
+  for (let arrive = 0; arrive < period; arrive += step) {
+    let t = arrive;
+    while (Math.abs(liftCab(lift, t).y - from) > 1) t++;
+    while (Math.abs(liftCab(lift, t).y - to) > 1) t++;
+    total += (t - arrive) / TICK_RATE;
+    samples++;
   }
-  return Infinity;
+  return total / samples;
 }

@@ -27,6 +27,7 @@ function trip(from: readonly [number, number, number], to: readonly [number, num
   const brain = new BotBrain(0.5);
   brain.setDirective({ kind: 'goto', x: to[0], y: to[1], z: to[2] });
   for (env.tick = 1; env.tick <= seconds * TICK_RATE; env.tick++) {
+    collision.liftTick = env.tick;
     applyCmd(collision, state, brain.think(self, env), 1);
     if (brain.arrived) return { arrived: true, at: env.tick / TICK_RATE, state };
   }

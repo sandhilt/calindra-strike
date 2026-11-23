@@ -176,6 +176,7 @@ test('move_to a point on the top floor rides the glass lift, and move_to the gro
   pilot.setIntent(up, 0);
   let top = 0;
   for (let seq = 1; seq <= 60 * 40 && !pilot.arrived; seq++) {
+    world.liftTick = seq;
     applyCmd(world, s, pilot.nextCmd(view, up, nav, world, seq), 1);
     top = Math.max(top, s.y);
   }
@@ -184,6 +185,7 @@ test('move_to a point on the top floor rides the glass lift, and move_to the gro
   const down = { kind: 'moveTo', x: 0, z: -450, y: 0 } as const;
   pilot.setIntent(down, s.y);
   for (let seq = 3000; seq <= 3000 + 60 * 40 && !pilot.arrived; seq++) {
+    world.liftTick = seq;
     applyCmd(world, s, pilot.nextCmd(view, down, nav, world, seq), 1);
   }
   assert.ok(pilot.arrived, `Stopped at ${s.x},${s.y},${s.z}`);

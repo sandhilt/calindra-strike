@@ -4,10 +4,10 @@
  *
  * Runs the real `Game` in-process (clock = ticks, seeded random), so a run is fast and repeatable. For every bot in
  * play it tallies time per floor, time inside the ground floor stores, and "stuck" episodes: the bot stayed within
- * STUCK_RADIUS_UNITS of one spot for `--stuck` seconds without firing or holding USE.
+ * STUCK_RADIUS_UNITS of one spot for `--stuck` seconds without firing or holding USE (a bot in a lift shaft is waiting for the cab).
  */
 import { parseArgs } from 'node:util';
-import { type GameMode, TICK_RATE, WEAPON, getMap, getMaps, modeFitsMap, mulberry32 } from '../shared/src/index.ts';
+import { type GameMode, TICK_RATE, WEAPON, getMap, getMaps, liftAt, modeFitsMap, mulberry32 } from '../shared/src/index.ts';
 import { Game } from '../server/src/game.ts';
 
 const STUCK_RADIUS_UNITS = 64;
@@ -79,7 +79,8 @@ function run(map: string, mode: string, bots: number, seconds: number, seed: num
       const first = trail.samples[0];
       const near = trail.samples.every((q) => Math.hypot(q.x - first.x, q.z - first.z) < STUCK_RADIUS_UNITS && Math.abs(q.y - first.y) < 24);
       const guarding = [...game.map.flagBases, ...game.map.restaurants].some((spot) => Math.hypot(spot.x - s.x, spot.z - s.z) < GUARD_RADIUS_UNITS);
-      const busy = p.using || guarding || p.brain.browsing || s.tick - s.lastFire < stuckSeconds * TICK_RATE;
+      const waitingForCab = liftAt(game.map.lifts, s.x, s.y, s.z) !== undefined;
+      const busy = p.using || guarding || waitingForCab || p.brain.browsing || s.tick - s.lastFire < stuckSeconds * TICK_RATE;
       if (!near || busy) continue;
       trail.stuckAt = { x: s.x, y: s.y, z: s.z };
       tally.stuckEpisodes++;

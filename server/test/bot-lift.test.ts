@@ -34,6 +34,7 @@ function trip(from: [number, number, number], to: [number, number, number], seed
   let rode = 0;
   const shafts = new Set<unknown>();
   for (env.tick = 1; env.tick <= TICK_RATE * 60; env.tick++) {
+    collision.liftTick = env.tick;
     applyCmd(collision, self.state, brain.think(self, env), 1);
     const shaft = liftAt(shopping!.lifts, self.state.x, self.state.y, self.state.z);
     if (shaft) {
@@ -81,11 +82,15 @@ describe('bots and the glass lift', () => {
     const env: BotEnv = { world: collision, nav, random: seeded(3), players: [self], airdrops: [], tick: 0, now: 0, mode: 'tdm' };
     const brain = new BotBrain(0.5);
     brain.setDirective({ kind: 'goto', x: 0, y: 384, z: -800 });
-    for (env.tick = 1; env.tick <= TICK_RATE * 3; env.tick++) applyCmd(collision, self.state, brain.think(self, env), 1);
+    for (env.tick = 1; env.tick <= TICK_RATE * 3; env.tick++) {
+      collision.liftTick = env.tick;
+      applyCmd(collision, self.state, brain.think(self, env), 1);
+    }
     assert.ok(self.state.y > 40, 'is riding, at ' + self.state.y);
     brain.setDirective({ kind: 'goto', x: 0, y: 0, z: -420 });
     let arrived = -1;
     for (; env.tick <= TICK_RATE * 40 && arrived < 0; env.tick++) {
+      collision.liftTick = env.tick;
       applyCmd(collision, self.state, brain.think(self, env), 1);
       if (brain.arrived) arrived = env.tick;
     }

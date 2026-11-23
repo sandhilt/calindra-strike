@@ -76,6 +76,8 @@ import {
   type Colleague,
   type LunchRound,
   spawnState,
+  INTERP_DELAY_MS,
+  liftClockTick,
   bombSpawnScore,
   practiceRound,
   weaponDef,
@@ -1502,6 +1504,7 @@ export class Game {
         p.lastCmd = cmd;
         p.using = (cmd.buttons & BTN.USE) !== 0;
         if (p.alive && this.phase !== 'podium') {
+          this.world.liftTick = liftClockTick(cmd.interp, INTERP_DELAY_MS, this.tick);
           const shot = applyCmd(this.world, p.state, cmd, p.id);
           if (this.phase === 'warmup') refillReserve(p.state);
           if (shot) this.handleShot(p, shot, cmd.interp);

@@ -14,6 +14,7 @@ import {
   type GameEvent,
   type GameMode,
   INTERP_DELAY_MS,
+  liftClockTick,
   MODE_LABEL,
   type MapDef,
   type MatchInfo,
@@ -90,7 +91,6 @@ import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
 import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { AirdropView } from './render/airdrop.ts';
-import type { Rider } from './render/prop-motion.ts';
 import { SuppliesView } from './render/supply.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
@@ -515,7 +515,7 @@ export class ClientGame {
 
   /** Says how to ride once on entering a lift: it climbs by itself and only goes down while crouch is held. */
   private hintLift(hud: Hud, inside: boolean): void {
-    if (inside && !this.inLift) hud.info('elevador: espere, ele sobe e desce sozinho e para em cada andar');
+    if (inside && !this.inLift) hud.info('elevador: espere no vão, ele sobe e desce sozinho e para em cada andar');
     this.inLift = inside;
   }
 
@@ -1421,6 +1421,7 @@ export class ClientGame {
 
   /** One predicted command, with the same warmup ammo rule as the server so the reserve never mispredicts. */
   private predict(s: PlayerState, cmd: Cmd): ShotInfo | null {
+    this.collision.liftTick = liftClockTick(cmd.interp, INTERP_DELAY_MS, Math.round(this.serverNow() / TICK_MS));
     const shot = applyCmd(this.collision, s, cmd, this.myId);
     if (this.match.phase === 'warmup') refillReserve(s);
     return shot;
@@ -1599,7 +1600,7 @@ export class ClientGame {
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
-      this.world.update(dt, this.liftRiders());
+      this.world.update(dt, this.liftTick());
       this.updateDayLight(this.world);
       followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.world.sunDir);
       this.world.sky.position.copy(this.camera.position);
@@ -1773,13 +1774,9 @@ export class ClientGame {
     }
   }
 
-  /** Everyone who could be in a lift shaft: the cab is drawn under them. */
-  private liftRiders(): Rider[] {
-    const riders: Rider[] = [];
-    if (this.map.lifts.length === 0) return riders;
-    if (this.alive && !this.spectator) riders.push({ x: this.me.x, y: this.me.y, z: this.me.z });
-    for (const r of this.remotes.values()) if (r.visible) riders.push({ x: r.last.x, y: r.last.y, z: r.last.z });
-    return riders;
+  /** The server tick the lift cab is drawn at. */
+  private liftTick(): number {
+    return Math.round(this.serverNow() / TICK_MS);
   }
 
   private updateRemotes(dt: number): void {

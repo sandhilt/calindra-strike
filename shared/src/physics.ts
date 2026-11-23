@@ -35,6 +35,8 @@ export class CollisionWorld {
   private readonly mapBulletMats: readonly Mat[];
   private bulletMats: readonly Mat[];
   readonly map: MapDef;
+  /** The server tick the next command runs at, for the lift cab: set by whoever applies the command (see `liftClockTick`). */
+  liftTick = 0;
 
   constructor(map: MapDef) {
     this.map = map;

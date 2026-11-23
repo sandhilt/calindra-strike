@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CollisionWorld, getMaps, type MapDef } from '@calindra-strike/shared';
+import { CollisionWorld, getMaps, TICK_MS, type MapDef } from '@calindra-strike/shared';
 import { LightRt, readGpuFacts } from '../game/render/light-rt.ts';
 import { renderPixelRatio, type Quality } from '../game/render/quality.ts';
 import { RT } from '../game/render/rt-levels.ts';
@@ -124,7 +124,7 @@ async function measure(
       camera.rotation.set(TOUR_PITCH, yaw, 0, 'YXZ');
       followShadow(view.sun, x, z, sunDir);
       view.sky.position.copy(camera.position);
-      view.update(dtMs / 1000);
+      view.update(dtMs / 1000, Math.round(performance.now() / TICK_MS));
       renderer.info.reset();
       if (rt) {
         try {

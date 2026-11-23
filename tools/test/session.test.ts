@@ -1250,7 +1250,7 @@ test('get_state says when the player rides a lift and how long to the top', asyn
   const { session } = await playOnShopping({ x: 8, y: 100, z: -616 }, 100);
   const lift = JSON.parse(JSON.stringify(session.getState())).lifts[0];
   assert.equal(lift.riding, true);
-  assert.ok(lift.secondsToTop > 1 && lift.secondsToTop < 6, 'secondsToTop ' + lift.secondsToTop);
+  assert.ok(lift.secondsToTop > 1 && lift.secondsToTop < 15, 'secondsToTop ' + lift.secondsToTop);
 });
 
 test('move_to takes a floor height and sends the pilot to the top floor, and refuses a floor that is not there', async () => {

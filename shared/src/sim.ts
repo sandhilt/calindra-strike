@@ -38,7 +38,7 @@ import {
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
-import { LIFT_STOP_WAIT_TICKS, liftAt, liftStep, type Lift, type LiftDir } from './lift.ts';
+import { carriedBy, liftAt, liftCab, type LiftCab } from './lift.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
 import { STANCE, STANCES, isLowered, type BodyBox, type Stance } from './stance.ts';
@@ -74,8 +74,6 @@ export interface PlayerState {
   slide: number; // ticks left, 0 = not sliding
   lean: number; // -1 full left .. 1 full right
   stanceLock: number; // ticks left before prone may change
-  liftWait: number; // ticks the lift cab still holds before it moves
-  liftDir: LiftDir; // the way the cab goes next
   jumpHeld: boolean;
   dropping: boolean;
   attackHeld: boolean;
@@ -139,8 +137,6 @@ export function createPlayerState(): PlayerState {
     slide: 0,
     lean: 0,
     stanceLock: 0,
-    liftWait: LIFT_STOP_WAIT_TICKS,
-    liftDir: 1,
     jumpHeld: false,
     dropping: false,
     attackHeld: false,
@@ -217,8 +213,6 @@ export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw:
   s.slide = 0;
   s.lean = 0;
   s.stanceLock = 0;
-  s.liftWait = LIFT_STOP_WAIT_TICKS;
-  s.liftDir = 1;
   s.dropping = true;
   s.health = MAX_HEALTH;
   s.armor = 0;
@@ -413,23 +407,16 @@ function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number)
 }
 
 /**
- * The cab moves vertically after the rider has moved across its floor.
- * The rider is always grounded, so nothing in the shaft pulls them back down to the floor below.
+ * A rider the cab carries is set on its floor after walking across it, so nothing in the shaft pulls them down. They
+ * can walk out of the doorway at a stop, where the cab waits, and then the floor is whatever is under the feet.
  */
-function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift, dt: number): void {
+function rideLift(w: CollisionWorld, s: PlayerState, cab: LiftCab): void {
   if (!liftAt(w.map.lifts, s.x, s.y, s.z)) {
-    // stepped out of the shaft this tick: from here on the floor is whatever is under the feet
     s.vy = 0;
-    s.liftWait = LIFT_STOP_WAIT_TICKS;
-    s.liftDir = 1;
     s.onGround = checkGround(w, s);
     return;
   }
-  const ride = liftStep(lift, s.y, s.liftDir, s.liftWait, dt);
-  s.liftDir = ride.dir;
-  s.liftWait = ride.wait;
-  const rise = ride.y - s.y;
-  s.y += w.clipAxis(s.x, s.y, s.z, hullHeight(s), 1, rise);
+  s.y = cab.y;
   s.vy = 0;
   s.onGround = true;
 }
@@ -551,8 +538,10 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     return;
   }
 
-  const lift = liftAt(w.map.lifts, s.x, s.y, s.z);
-  if (lift) s.onGround = true;
+  const shaft = liftAt(w.map.lifts, s.x, s.y, s.z);
+  const cab = shaft ? liftCab(shaft, w.liftTick) : null;
+  const carried = cab !== null && carriedBy(cab, s.y);
+  if (carried) s.onGround = true;
 
   tryStartSlide(s, duckPressed);
   updateStance(w, s, buttons);
@@ -562,7 +551,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   // --- jump (must re-press; CS 1.6 bunnyhop speed cap; none while prone) ---
   let jumped = false;
   if (buttons & BTN.JUMP) {
-    if (!lift && s.onGround && !s.jumpHeld && s.stance !== STANCE.PRONE) {
+    if (!shaft && s.onGround && !s.jumpHeld && s.stance !== STANCE.PRONE) {
       const maxs = sprintWanted ? maxSpeedFor(s) * SPRINT_SPEED_MULT : maxSpeedFor(s);
       const spd = Math.hypot(s.vx, s.vz);
       const cap = BUNNYJUMP_MAX_FACTOR * maxs;
@@ -611,8 +600,8 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
 
   if (s.onGround) walkMove(w, s, dt);
   else airMove(w, s, dt);
-  if (lift) {
-    rideLift(w, s, lift, dt);
+  if (carried && cab) {
+    rideLift(w, s, cab);
   } else {
     verticalMove(w, s, dt);
 

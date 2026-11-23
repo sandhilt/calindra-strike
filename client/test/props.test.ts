@@ -4,10 +4,8 @@ import {
   ESCALATOR_SPEED_UNITS_PER_S,
   LIFT_DOOR_OPEN_UNITS,
   LIFT_DOOR_SHUT_UNITS,
-  cabHeights,
   doorOpening,
   nearestStop,
-  ridersIn,
   JET_DROP,
   CASCADE_DROP,
   WISPS_PER_VENT,
@@ -138,20 +136,6 @@ const LIFT_SHAPE = {
   x: 0, z: -616, yaw: 0, width: 112, depth: 112,
   stops: [{ y: 0, side: 'back' }, { y: 192, side: 'front' }, { y: 384, side: 'front' }],
 } as const;
-
-test('riders count only inside the footprint of a shaft, whichever way it is turned', () => {
-  const heights = ridersIn(LIFT_SHAPE, [{ x: 0, y: 10, z: -616 }, { x: 80, y: 10, z: -616 }, { x: 0, y: 500, z: -616 }, { x: 40, y: 200, z: -580 }]);
-  assert.deepEqual(heights, [10, 200]);
-  const turned = { ...LIFT_SHAPE, x: 0, z: 616, yaw: Math.PI };
-  assert.deepEqual(ridersIn(turned, [{ x: 40, y: 200, z: 580 }, { x: 40, y: 200, z: 700 }]), [200]);
-});
-
-test('an empty shaft rests one cab on the bottom stop and riders at different heights each get their own', () => {
-  assert.deepEqual(cabHeights([], 0), [0]);
-  assert.deepEqual(cabHeights([100, 130, 101], 0), [100]);
-  assert.deepEqual(cabHeights([300, 20, 140], 0), [20, 140, 300]);
-  assert.deepEqual(cabHeights([300, 20, 140, 220], 0), [20, 140, 220], 'at most one cab per pool slot');
-});
 
 test('the doors are open at a stop, shut between stops and ease in between', () => {
   assert.equal(doorOpening(0), 1);

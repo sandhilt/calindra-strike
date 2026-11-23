@@ -1,4 +1,4 @@
-import { LIFT_DOOR_HEIGHT_UNITS, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
+import { LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import {
   CASCADE_DROP,
@@ -7,7 +7,6 @@ import {
   VENT_FAN_RAD_PER_S,
   WISPS_PER_VENT,
   dropPose,
-  cabHeights,
   doorOpening,
   escalatorPhase,
   fanAngle,
@@ -15,14 +14,11 @@ import {
   lifeFraction,
   nearestStop,
   newStepSlot,
-  ridersIn,
   RISER_THICKNESS_UNITS,
   stepGeometry,
   TREAD_THICKNESS_UNITS,
   wispPose,
-  LIFT_CABS_PER_SHAFT,
   type DropPose,
-  type Rider,
   type StepSlot,
   type WispPose,
 } from './prop-motion.ts';
@@ -36,8 +32,8 @@ type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
 /** What a prop kind hands back to the world: something to put in the scene, and how it moves. */
 export interface PropGroup {
   readonly object: THREE.Object3D;
-  /** `riders` are the people in the world, for the props that follow them (lift cabs). */
-  update(dt: number, riders: readonly Rider[]): void;
+  /** `serverTick` is the server clock, for the props that run on it (the lift cab). */
+  update(dt: number, serverTick: number): void;
   /** Takes a graphics tier mid-match: starts or stops motion and builds or drops the optional parts. */
   setQuality(profile: QualityProfile): void;
 }
@@ -430,10 +426,9 @@ interface Cab {
 }
 
 /**
- * The cabs of every lift shaft. The field carries whoever stands in the footprint (see `lift.ts`), so a cab is
- * simply drawn under each cluster of riders, doors open at a stop and shut between them, and one rests on the
- * bottom stop when the shaft is empty. A lamp over each doorway shows whether a cab is standing there.
- * Cheap on every tier: a handful of meshes that only move when somebody rides.
+ * The one cab of every lift shaft, drawn where the server clock puts it (see `liftCab` in `lift.ts`), doors open
+ * while it waits at a stop and shut between them. A lamp over each doorway shows whether the cab is standing there.
+ * Cheap on every tier: a handful of meshes.
  */
 function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGroup {
   if (items.length === 0) return still();
@@ -475,7 +470,8 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
       place.add(box(14, 3, 3.2, lamp, 0, y, z));
       return lamp;
     });
-    const cabs: Cab[] = Array.from({ length: LIFT_CABS_PER_SHAFT }, () => {
+    const schedule: Lift = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, stops: lift.stops.map((stop) => stop.y) };
+    const cabs: Cab[] = Array.from({ length: 1 }, () => {
       const group = new THREE.Group();
       group.add(box(lift.width - 4, 3, lift.depth - 4, floorMat, 0, -1, 0));
       for (const [w, d, x, z] of [[lift.width - 4, 3, 0, -half.z + 2], [lift.width - 4, 3, 0, half.z - 2], [3, lift.depth - 4, -half.x + 2, 0], [3, lift.depth - 4, half.x - 2, 0]] as const) {
@@ -500,16 +496,14 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
       group.position.set(0, 0, 0);
       return { group, doors, lamps };
     });
-    return { lift, cabs, lintels };
+    return { lift, schedule, cabs, lintels };
   });
-  const pose = (riders: readonly Rider[]): void => {
-    for (const { lift, cabs, lintels } of shafts) {
-      const heights = cabHeights(ridersIn(lift, riders), lift.stops[0].y);
+  const pose = (serverTick: number): void => {
+    for (const { lift, schedule, cabs, lintels } of shafts) {
+      const { y } = liftCab(schedule, serverTick);
       const standing = new Set<number>();
-      cabs.forEach((cab, i) => {
-        const y = heights[i];
-        cab.group.visible = y !== undefined;
-        if (y === undefined) return;
+      cabs.forEach((cab) => {
+        cab.group.visible = true;
         cab.group.position.y = y;
         const near = nearestStop(lift.stops, y);
         const open = doorOpening(near.distance);
@@ -523,11 +517,11 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
       lintels.forEach((lamp, k) => lamp.color.setHex(standing.has(k) ? LIFT_LAMP_ON : LIFT_LAMP_WAIT));
     }
   };
-  pose([]);
+  pose(0);
   return {
     object: root,
-    update(_dt, riders) {
-      pose(riders);
+    update(_dt, serverTick) {
+      pose(serverTick);
     },
     setQuality() {},
   };
@@ -555,7 +549,7 @@ function buildKind<K extends PropKind>(kind: K, props: readonly MapProp[], ctx: 
 
 export interface PropsView {
   readonly group: THREE.Group;
-  update(dt: number, riders: readonly Rider[]): void;
+  update(dt: number, serverTick: number): void;
   setQuality(profile: QualityProfile): void;
 }
 
@@ -574,8 +568,8 @@ export function buildProps(props: readonly MapProp[], materialOf: PropContext['m
   for (const g of groups) group.add(g.object);
   return {
     group,
-    update(dt, riders) {
-      for (const g of groups) g.update(dt, riders);
+    update(dt, serverTick) {
+      for (const g of groups) g.update(dt, serverTick);
     },
     setQuality(next) {
       for (const g of groups) g.setQuality(next);

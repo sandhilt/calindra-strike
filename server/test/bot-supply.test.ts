@@ -61,6 +61,7 @@ describe('bots and the Mirante supply stand', () => {
     const brain = new BotBrain(0.5);
     let reached = -1;
     for (e.tick = 1; e.tick <= TICK_RATE * 60 && reached < 0; e.tick++) {
+      collision.liftTick = e.tick;
       applyCmd(collision, self.state, brain.think(self, e), 1);
       if (inSupplyReach(self.state, shopping.supplies[0])) reached = e.tick;
     }

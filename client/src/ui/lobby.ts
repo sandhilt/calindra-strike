@@ -202,7 +202,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
       h('span', { class: 'chip' }, [svg(ICONS.podium), 'Pódio dos 3 melhores']),
       h('span', { class: 'chip' }, [svg(ICONS.jump), 'Bunny hop liberado']),
     ]),
-    controlsList(),
+    controlsList(settings.bindings),
     h('div', { class: 'hero-links' }, [
       h('a', { class: 'github-link', href: GITHUB_URL, target: '_blank', rel: 'noopener noreferrer', title: 'Ver o código no GitHub', 'aria-label': 'Código do jogo no GitHub' }, [svg(ICONS.github)]),
     ]),

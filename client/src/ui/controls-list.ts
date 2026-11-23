@@ -1,42 +1,30 @@
 import { RADIO_MENUS } from '@calindra-strike/shared';
+import { type ControlGroup, type Bindings, actionBindingLabel, bindingLabel } from '../game/bindings.ts';
 import type { IconName } from './icons.ts';
 
-export type ControlSectionId = 'movimento' | 'combate' | 'interface';
-
-export interface ControlSection {
-  readonly id: ControlSectionId;
-  readonly icon: IconName;
-}
-
-export interface ControlRow {
-  readonly section: ControlSectionId;
-  readonly keys: string;
-  readonly label: string;
-  readonly icon: IconName;
-}
-
-export const CONTROL_SECTIONS: readonly ControlSection[] = [
+export const CONTROL_SECTIONS: readonly { id: ControlGroup; icon: IconName }[] = [
   { id: 'movimento', icon: 'move' },
   { id: 'combate', icon: 'gun' },
   { id: 'interface', icon: 'scoreboard' },
 ];
 
-/** The keys shown in the lobby and in the pause menu, so the two never drift apart. */
-export const CONTROLS: readonly ControlRow[] = [
-  { section: 'movimento', keys: 'WASD', label: 'mover', icon: 'move' },
-  { section: 'movimento', keys: 'Espaço', label: 'pular', icon: 'jump' },
-  { section: 'movimento', keys: 'Ctrl', label: 'agachar / mergulhar', icon: 'crouch' },
-  { section: 'movimento', keys: 'Shift', label: 'correr', icon: 'sprint' },
-  { section: 'movimento', keys: 'Shift + Ctrl', label: 'deslizar', icon: 'slide' },
-  { section: 'movimento', keys: '← →', label: 'inclinar', icon: 'lean' },
-  { section: 'movimento', keys: 'F H', label: 'inclinar · ou botões laterais do mouse', icon: 'lean' },
-  { section: 'movimento', keys: 'Ctrl Ctrl', label: 'deitar (dois toques) · ↓', icon: 'prone' },
-  { section: 'movimento', keys: 'Alt', label: 'andar em silêncio', icon: 'mute' },
-  { section: 'combate', keys: '1 2 3', label: 'armas · Q última', icon: 'gun' },
-  { section: 'combate', keys: 'R', label: 'recarregar', icon: 'reload' },
-  { section: 'combate', keys: 'E', label: 'plantar / desarmar o bug', icon: 'bug' },
-  { section: 'combate', keys: 'Mouse 2', label: 'mirar (segurar) · luneta da AWP', icon: 'scope' },
-  { section: 'interface', keys: 'Tab', label: 'placar · Y chat', icon: 'scoreboard' },
-  { section: 'interface', keys: RADIO_MENUS.map((menu) => menu.keyLabel).join(' '), label: 'rádio', icon: 'radio' },
-  { section: 'interface', keys: 'Esc', label: 'menu', icon: 'menu' },
-];
+export function controlRows(bindings: Bindings, group: ControlGroup): { keys: string; label: string }[] {
+  const crouch = actionBindingLabel(bindings, 'crouch');
+  const sprint = actionBindingLabel(bindings, 'sprint');
+  if (group === 'movimento') return [
+    { keys: `${sprint} + ${crouch}`, label: 'deslizar' },
+    { keys: crouch, label: 'deitar (dois toques)' },
+  ];
+  if (group === 'combate') return [];
+  return [
+    { keys: 'Esc', label: 'menu / soltar o mouse / cancelar captura (fixo)' },
+    { keys: RADIO_MENUS.map((menu) => bindingLabel(menu.key)).join(' '), label: 'abrir o rádio (fixo)' },
+    { keys: '1–9 / 0', label: 'escolher / fechar no rádio aberto (fixo)' },
+    { keys: 'Enter / Esc', label: 'enviar / fechar no chat aberto (fixo)' },
+    { keys: '1–3', label: 'escolher arma em «pronto?» / votar no pódio (fixo)' },
+    { keys: 'Enter / Espaço', label: 'jogar em «pronto?» (fixo)' },
+    { keys: '← → / Home / End', label: 'navegar na barra de abas (fixo)' },
+    { keys: 'WASD / Shift / E / Q / C', label: 'voar com a câmera livre (fixo)' },
+    { keys: 'Espaço / ← → / Mouse 1 / Mouse 2 / 1–2 / J / Tab', label: 'câmera, alvo, equipe, jogar e placar ao assistir (fixo)' },
+  ];
+}

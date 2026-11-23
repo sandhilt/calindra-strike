@@ -5,7 +5,7 @@ import { QUALITY, QUALITY_OPTIONS, type Quality } from '../game/render/quality.t
 import { ViewModel } from '../game/render/viewmodel.ts';
 import { type GunPlacement, formatPlacement } from '../game/render/weapon-placement.ts';
 import type { Settings } from '../settings.ts';
-import { buttonRow, checkRow, choiceRow, group, rangeRow, row } from '../ui/controls.ts';
+import { buttonRow, checkRow, choiceRow, controlsList, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
 import { stepBlend } from '../game/render/movement-pose.ts';
 import { ADS_BLEND_SECONDS } from '../game/render/ads-view.ts';
@@ -165,7 +165,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
 
   const panel = h('aside', { class: 'menu glass dbg-panel' }, [
     h('header', { class: 'menu-head' }, [h('div', {}, [h('h2', { text: 'debug' }), h('p', { class: 'sub', text: 'armas, animações e ângulo' })]), exit]),
-    h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [weaponHost, reloadHost, placementHost, copied, readout])]),
+    h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [weaponHost, reloadHost, placementHost, copied, readout, group('controles da partida', controlsList(settings.bindings))])]),
   ]);
   const scopeHost = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
   const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, scopeHost, panel]);

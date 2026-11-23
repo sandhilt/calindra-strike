@@ -1283,19 +1283,15 @@ export class ClientGame {
     if (before.zoom !== s.zoom && s.zoom > 0) this.sfx.zoom();
     if (before.ground && !s.onGround && s.vy > 0) this.sfx.jump();
     const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
-    const wet = surface !== null;
-    const entered = this.localWader.update(wet);
-    const heavy = before.vy < -480;
-    const landed = !before.ground && s.onGround && !before.drop;
-    if (entered || (landed && wet)) {
+    const skydiveEnded = before.drop && !s.dropping;
+    const landed = (!before.ground && s.onGround && !before.drop) || skydiveEnded;
+    const heavy = skydiveEnded || before.vy < -480;
+    const wade = this.localWader.update(surface !== null, s.onGround, landed);
+    if (wade === 'splash') {
       this.sfx.splash(heavy);
       if (surface !== null) this.effects.water.ripple(s.x, surface, s.z, 1);
-    }
-    else if (landed) this.sfx.land(heavy);
-    if (before.drop && !s.dropping) {
-      this.sfx.land(true);
-      this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
-    }
+    } else if (wade === 'thud') this.sfx.land(heavy);
+    if (skydiveEnded) this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
     if (before.weapon !== s.weapon) {
       this.view.setWeapon(s.weapon);
       this.sfx.deploy();
@@ -1726,26 +1722,24 @@ export class ClientGame {
       const sliding = (s.flags & RF_SLIDE) !== 0;
       if (wasVisible && sliding && !r.sliding) this.sfx.slide(pos);
       r.sliding = sliding;
-      const at = { x: s.x, y: s.y, z: s.z };
       const surface = waterSurfaceAt(this.map, s.x, s.y, s.z);
-      const entered = r.wader.update(surface !== null);
+      const landed = wasVisible && ground && !r.ground;
+      const wade = r.wader.update(surface !== null, ground, landed);
       if (wasVisible && ground && !sliding && r.speed > 150) {
         r.step += moved;
         if (r.step > 76) {
           r.step = 0;
           const stepLoud = sprinting ? 1.22 : 1;
           if (surface !== null) {
-            this.sfx.wetStep(at, stepLoud);
+            this.sfx.wetStep(pos, stepLoud);
             this.effects.water.ripple(s.x, surface, s.z, 0.5);
-          } else this.sfx.footstep(at, stepLoud);
+          } else this.sfx.footstep(pos, stepLoud);
         }
       }
-      const landed = wasVisible && ground && !r.ground;
-      if (wasVisible && surface !== null && (entered || landed)) {
-        this.sfx.splash(r.dropping, at);
+      if (wasVisible && wade === 'splash' && surface !== null) {
+        this.sfx.splash(r.dropping, pos);
         this.effects.water.ripple(s.x, surface, s.z, 1);
-      }
-      else if (landed) this.sfx.land(r.dropping, at);
+      } else if (wasVisible && wade === 'thud') this.sfx.land(r.dropping, pos);
       r.ground = ground;
       r.dropping = dropping;
       r.avatar.setWeapon(s.w as WeaponId);

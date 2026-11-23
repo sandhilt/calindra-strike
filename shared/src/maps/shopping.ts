@@ -27,8 +27,8 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
   ['mequi', 'outbaque', 'madeiro', 'bobis'],
 ];
 const STORES: readonly (readonly ShopBrand[])[] = [
-  ['zarra', 'cea', 'rener', 'hew'],
-  ['cacau-chou', 'amerikanas', 'riachuela', 'travessura'],
+  ['zarra', 'cea', 'rener', 'droga-raio'],
+  ['cacau-chou', 'amerikanas', 'pague-pouco', 'travessura'],
 ];
 
 /** Escalator rising toward -z from the atrium floor to the food court, with glass sides and a dark handrail. The client moves the steps. */

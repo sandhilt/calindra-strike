@@ -182,6 +182,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.fillStyle = '#c9a227';
     g.fillRect(120, 176, W - 240, 8);
   },
+  'droga-raio'(g) {
+    panel(g, '#d8202a');
+    label(g, 'Droga Raio', W / 2, 112, 92, '#ffffff', 'Arial Black, Arial, sans-serif', W - 50);
+    label(g, 'FARMÁCIA', W / 2, 192, 34, '#ffe9e9', 'Arial, sans-serif', W - 80, 'bold');
+  },
+  'pague-pouco'(g) {
+    panel(g, '#1f4fa8');
+    label(g, 'Pague Pouco', W / 2, 108, 84, '#f2c200', 'Arial Black, Arial, sans-serif', W - 50);
+    label(g, 'FARMÁCIA', W / 2, 190, 34, '#ffffff', 'Arial, sans-serif', W - 80, 'bold');
+  },
   travessura(g) {
     panel(g, '#1f3d2b');
     label(g, 'Livraria da', W / 2, 78, 48, '#efe6cf', SERIF, W - 60, 'italic');

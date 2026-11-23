@@ -387,6 +387,33 @@ function travessura(r: Room): void {
   r.box(-60, 8, 120, 1, 14, 150, 'white', 0xefe6cf);
 }
 
+const PILLS = [0xffffff, 0xe8f4ee, 0x2f9e44, 0x1f6fd1, 0xf2c200, 0xe60014, 0xdcdcdc];
+
+interface Pharmacy {
+  wall: Hex;
+  trim: Hex;
+  cross: Hex;
+}
+
+/** A pharmacy: medicine shelves along the back wall, a dispensing counter, one gondola row and a cross on the side wall. */
+function pharmacy(r: Room, p: Pharmacy, seed: number): void {
+  shell(r, { floor: 'tile', floorTint: 0xf1f4f2, wall: p.wall, trim: p.trim });
+  wallShelves(r, 0, 8, 320, 14, 4, PILLS, seed, 0xf5f7f6);
+  counter(r, p.trim, 0xf5f5f5);
+  for (const z of CANDY_ROWS) gondola(r, CANDY_X, z, CANDY_LENGTH, 20, PILLS, seed + z, false);
+  r.box(-(STORE_HALF_WIDTH - 2.5), 150, 1.5, 14, 44, 100, 'white', p.cross);
+  r.box(-(STORE_HALF_WIDTH - 2.5), 150, 1.5, 44, 14, 115, 'white', p.cross);
+  r.box(0, 30, 2 * STORE_HALF_WIDTH - 8, 1, 6, 118, 'white', p.cross);
+}
+
+function drogaRaio(r: Room): void {
+  pharmacy(r, { wall: 0xf7f2f0, trim: 0xd8202a, cross: 0xd8202a }, 71);
+}
+
+function paguePouco(r: Room): void {
+  pharmacy(r, { wall: 0xf1f5fa, trim: 0x1f4fa8, cross: 0xf2c200 }, 83);
+}
+
 const STORES: Record<ShopBrand, (r: Room) => void> = {
   zarra,
   cea,
@@ -396,6 +423,8 @@ const STORES: Record<ShopBrand, (r: Room) => void> = {
   amerikanas,
   riachuela,
   travessura,
+  'droga-raio': drogaRaio,
+  'pague-pouco': paguePouco,
 };
 
 /** The colour of each store's window displays and counters. */
@@ -408,6 +437,8 @@ const ACCENT: Record<ShopBrand, Hex> = {
   amerikanas: 0xe60014,
   riachuela: 0x1c2a5a,
   travessura: 0x2e5a3f,
+  'droga-raio': 0xd8202a,
+  'pague-pouco': 0x1f4fa8,
 };
 
 export function storeAccent(brand: ShopBrand): Hex {

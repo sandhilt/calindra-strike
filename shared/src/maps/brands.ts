@@ -18,6 +18,8 @@ export const STORE_BRANDS = {
   'cacau-chou': { name: 'Cacau Chou', kind: 'shop' },
   amerikanas: { name: 'Amerikanas', kind: 'shop' },
   riachuela: { name: 'Riachuela', kind: 'shop' },
+  'droga-raio': { name: 'Droga Raio', kind: 'shop' },
+  'pague-pouco': { name: 'Farmácia Pague Pouco', kind: 'shop' },
   travessura: { name: 'Livraria da Travessura', kind: 'shop' },
 } as const satisfies Record<string, { name: string; kind: 'food' | 'shop' }>;
 

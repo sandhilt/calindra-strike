@@ -1,4 +1,5 @@
 import type { Lift } from '../lift.ts';
+import type { SupplyPoint } from '../supply.ts';
 import { vec3 } from '../math.ts';
 import type { Box, EscalatorTravel, MapFeature, MapLight, MapProp, Mat } from './types.ts';
 
@@ -28,6 +29,7 @@ export class MapBuilder {
   readonly points: { x: number; z: number }[] = [];
   readonly restaurants: { x: number; y: number; z: number }[] = [];
   readonly lifts: Lift[] = [];
+  readonly supplies: SupplyPoint[] = [];
   private rot = 0;
   private readonly authoredFeatures: MapFeature[] = [];
 
@@ -155,6 +157,12 @@ export class MapBuilder {
     const [ax1, az1] = this.rotXZ(minX, minZ);
     const [ax2, az2] = this.rotXZ(maxX, maxZ);
     this.lifts.push({ minX: Math.min(ax1, ax2), maxX: Math.max(ax1, ax2), minZ: Math.min(az1, az2), maxZ: Math.max(az1, az2), stops });
+  }
+
+  /** A supply stand with its floor at `y`. */
+  supply(x: number, y: number, z: number): void {
+    const [ax, az] = this.rotXZ(x, z);
+    this.supplies.push({ x: ax, y, z: az });
   }
 
   point(x: number, z: number): void {

@@ -32,7 +32,7 @@ export class SimBot {
     const seen = this.history[Math.max(0, this.history.length - 1 - this.lagTicks)];
     const snap: Snap = {
       t: 'snap', time: tick * TICK_MS, ack: seen.seq, me: seen.me,
-      ps: others.map((o) => [o.id, o.state.x, o.state.y, o.state.z, 0, 0, RF_ALIVE]), ad: [], fl: [], bm, lu: [], lc: [],
+      ps: others.map((o) => [o.id, o.state.x, o.state.y, o.state.z, 0, 0, RF_ALIVE]), ad: [], fl: [], bm, lu: [], lc: [], su: [],
     };
     const teams = new Map<number, number>([[this.id, this.team], ...others.map((o): [number, number] => [o.id, o.team])]);
     // tools/bots.ts decides once per two ticks and sends the same input twice.

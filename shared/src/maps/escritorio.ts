@@ -152,6 +152,7 @@ export function buildEscritorio(): MapDef {
     airdropPoints: b.points,
     restaurants: [],
     lifts: [],
+    supplies: [],
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

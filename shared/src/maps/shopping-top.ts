@@ -71,6 +71,7 @@ function supplyStand(b: MapBuilder): void {
   b.block(x, z, 104, 104, 10, 'tile', DECK3, { tint: 0x2b2f36 });
   b.deco(x - 44, DECK3 + 10, z - 44, x + 44, DECK3 + 11, z + 44, 'lime');
   for (const [dx, dz] of [[-96, -40], [96, -40], [-96, 40], [96, 40]] as const) planter(b, x + dx, z + dz, 40, 80);
+  b.supply(x, DECK3, z);
   b.light(x, DECK3 + 120, z, '#b6ff4a');
   b.landmark('Suprimentos do Mirante', x, z);
 }

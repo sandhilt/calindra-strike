@@ -3,6 +3,7 @@ import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
+  SUPPLY_COOLDOWN_TICKS, inSupplyReach, needsSupply, resupply,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
   fillBotChat, isDeathStreakCallout, isKillStreakCallout,
   BOT_RADIO_LOW_HEALTH, pickBotRadio, type BotRadioTrigger, newTalkMemory, recordTalk, type TalkMemory,
@@ -291,6 +292,8 @@ export class Game {
   /** Every map/mode pair this server plays (rotation order). */
   readonly combos: { map: number; mode: GameMode }[];
   private airdrops: Airdrop[] = [];
+  /** Per supply stand of the map: the tick it is full again, 0 while it is full. */
+  private supplyReadyAt: number[] = [];
   private nextAirdropAt = 0;
   private airdropSeq = 1;
   private globalEvents: { ev: GameEvent; except: number }[] = [];
@@ -335,6 +338,7 @@ export class Game {
     this.map = getMap(r.map);
     this.world = this.worlds[r.map];
     this.mode = r.mode;
+    this.supplyReadyAt = this.map.supplies.map(() => 0);
   }
 
   get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
@@ -939,6 +943,7 @@ export class Game {
       bombPlaces: this.bombPlaces(),
       colleagues: this.colleagues,
       restaurants: this.map.restaurants,
+      supplies: this.map.supplies.map((stand, at) => ({ ...stand, ready: this.supplyReadyAt[at] <= this.tick })),
     };
     for (const p of list) {
       if (!p.brain || !p.alive || p.queue.length >= 2) continue;
@@ -1102,6 +1107,7 @@ export class Game {
     this.phase = 'live';
     this.phaseEnds = this.now() + this.opts.matchMs;
     this.airdrops = [];
+    this.supplyReadyAt = this.map.supplies.map(() => 0);
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
     this.endPending = false;
     this.resetScores();
@@ -1417,6 +1423,25 @@ export class Game {
     }
   }
 
+  /** A stand gives a player who needs it health, armour and ammunition, then stays empty for a while. */
+  private updateSupplies(): void {
+    this.map.supplies.forEach((stand, at) => {
+      if (this.supplyReadyAt[at] > this.tick) return;
+      for (const p of this.players.values()) {
+        if (!p.alive || p.state.dropping || !inSupplyReach(p.state, stand) || !needsSupply(p.state)) continue;
+        resupply(p.state);
+        this.supplyReadyAt[at] = this.tick + SUPPLY_COOLDOWN_TICKS;
+        this.emit({ k: 'supply', id: p.id, at });
+        return;
+      }
+    });
+  }
+
+  /** Per stand: 0 while full, otherwise the server ms when it fills again. */
+  private supplySnapshot(): number[] {
+    return this.supplyReadyAt.map((readyAt) => (readyAt > this.tick ? this.msAt(readyAt) : 0));
+  }
+
   private readyToStart(): boolean {
     let ready = 0;
     for (const p of this.players.values()) if (!isPending(p)) ready++;
@@ -1473,6 +1498,7 @@ export class Game {
         if (!p.alive && this.tick >= p.respawnAt) this.spawn(p);
       }
       this.updateAirdrops();
+      this.updateSupplies();
     }
 
     this.updateFlags();
@@ -1617,7 +1643,8 @@ export class Game {
     const bm = this.bombSnapshot();
     const lu = this.lunchSnapshot();
     const lc = this.colleagues.map(colleagueRow);
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)}}`;
+    const su = this.supplySnapshot();
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)},"su":${JSON.stringify(su)}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';

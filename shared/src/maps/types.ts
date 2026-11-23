@@ -1,4 +1,5 @@
 import type { Lift } from '../lift.ts';
+import type { SupplyPoint } from '../supply.ts';
 import type { Vec3 } from '../math.ts';
 import type { BrandMat } from './brands.ts';
 
@@ -120,6 +121,8 @@ export interface MapDef {
   restaurants: { x: number; y: number; z: number }[];
   /** Glass lifts of the map; empty where there are none. */
   lifts: readonly Lift[];
+  /** Supply stands where a player restocks health, armour and ammunition; empty where there are none. */
+  supplies: readonly SupplyPoint[];
   boxes: Box[];
   features: MapFeature[];
   lights: MapLight[];

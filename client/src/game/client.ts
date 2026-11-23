@@ -82,6 +82,7 @@ import { ColleaguesView } from './render/colleagues.ts';
 import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { AirdropView } from './render/airdrop.ts';
 import type { Rider } from './render/prop-motion.ts';
+import { SuppliesView } from './render/supply.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
 import { Effects } from './render/effects.ts';
@@ -282,6 +283,9 @@ export class ClientGame {
   private lastButtons = 0;
   private nextKeystrokeAt = 0;
   private readonly airdrops = new Map<number, AirdropView>();
+  private suppliesView: SuppliesView | null = null;
+  /** Whether each supply stand of the map is full, from the last snapshot. */
+  private supplyFull: boolean[] = [];
 
   private clockOffset = 0;
   private rtt = 0;
@@ -610,6 +614,10 @@ export class ClientGame {
       a.dispose();
     }
     this.airdrops.clear();
+    this.suppliesView?.dispose();
+    this.suppliesView = new SuppliesView(this.map.supplies);
+    this.scene.add(this.suppliesView.group);
+    this.supplyFull = this.map.supplies.map(() => true);
     this.flags = [];
     this.bomb = null;
     this.announcedBombRound = '';
@@ -775,6 +783,7 @@ export class ClientGame {
       }
     }
 
+    this.supplyFull = m.su.map((readyAt) => readyAt === 0);
     const present = new Set<number>();
     for (const [id, x, y, z, w, landed] of m.ad) {
       present.add(id);
@@ -882,6 +891,14 @@ export class ClientGame {
         }
         break;
       }
+      case 'supply':
+        if (e.id === this.myId) {
+          this.sfx.loot();
+          this.hud.announce('suprimentos do mirante', 'vida, colete e munição repostos');
+        } else {
+          this.hud.info(`${this.nameOf(e.id).name} pegou os suprimentos do Mirante`);
+        }
+        break;
       case 'join':
         if (e.id !== this.myId) this.hud.info(`${this.nameOf(e.id).name} entrou no jogo`);
         break;
@@ -1488,6 +1505,7 @@ export class ClientGame {
     this.updateCamera(dt);
     this.updateRemotes(dt);
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
+    this.suppliesView?.update(this.supplyFull, this.elapsed);
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
     this.colleaguesView?.update(this.lunch?.colleagues ?? [], dt);
     this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
@@ -1897,6 +1915,7 @@ export class ClientGame {
     this.flagRenderer?.dispose();
     this.colleaguesView?.dispose();
     this.bombRenderer?.dispose();
+    this.suppliesView?.dispose();
     this.world?.dispose();
     this.ventHum?.dispose();
     this.lightRt?.dispose();

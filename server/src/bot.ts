@@ -19,6 +19,10 @@ import {
   inBombReach,
   liftAt,
   LUNCH_USE_RADIUS_UNITS,
+  MAX_ARMOR,
+  TICK_RATE,
+  MAX_HEALTH,
+  needsSupply,
   type Colleague,
   type LunchPoint,
   weaponDef,
@@ -48,6 +52,8 @@ export interface BotEnv {
   bombPlaces?: BombPlaces;
   colleagues?: readonly Colleague[];
   restaurants?: readonly LunchPoint[];
+  /** Supply stands of the map and whether each one is full. */
+  supplies?: readonly { x: number; y: number; z: number; ready: boolean }[];
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
 }
 
@@ -145,6 +151,37 @@ export function pickLunchGoal(self: BotAgent, env: BotEnv): BombGoal | null {
   return { ...guardPatrolPoint(anchor, self, env.tick), holdRadiusUnits: null };
 }
 
+/** A bot worth a trip to a supply stand: hurt, without armour, or low on ammunition. Never when the stand would give nothing. */
+const BOT_RESUPPLY_HEALTH = 0.65 * MAX_HEALTH;
+const BOT_RESUPPLY_ARMOR = 0.3 * MAX_ARMOR;
+const BOT_RESUPPLY_AMMO_SHARE = 0.4;
+/** A bot this hurt breaks off an objective to restock, unless it carries the flag or the bug. */
+const BOT_RETREAT_HEALTH = 0.35 * MAX_HEALTH;
+
+function lowOnAmmo(s: PlayerState): boolean {
+  const def = weaponDef(s.primary);
+  return def.mag > 0 && s.mag[s.primary] + s.reserve[s.primary] < BOT_RESUPPLY_AMMO_SHARE * (def.mag + def.reserve);
+}
+
+/** The nearest full supply stand for a bot that needs one: roaming bots go when worth it, objective bots only when badly hurt. */
+export function pickSupplyGoal(self: BotAgent, env: BotEnv, onObjective: boolean): { x: number; y: number; z: number } | null {
+  const s = self.state;
+  if (!env.supplies?.length || !needsSupply(s)) return null;
+  const worth = onObjective ? s.health < BOT_RETREAT_HEALTH : s.health < BOT_RESUPPLY_HEALTH || s.armor < BOT_RESUPPLY_ARMOR || lowOnAmmo(s);
+  if (!worth) return null;
+  let best: { x: number; y: number; z: number } | null = null;
+  let bestD = Infinity;
+  for (const stand of env.supplies) {
+    if (!stand.ready) continue;
+    const d = Math.hypot(stand.x - s.x, (stand.y - s.y) * 2, stand.z - s.z);
+    if (d < bestD) {
+      best = stand;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 const ESCORT_TRAIL_UNITS = 150; // an escort trails its carrier at about this distance
 const GUARD_RING_UNITS = 240; // outside the plant radius, close enough to shoot a planter
 const GUARD_PATROL_TICKS = 180; // 3 s at 60 Hz on each patrol point
@@ -191,6 +228,7 @@ const CTF_DEFENDER_CYCLE = 4;
 const JUMP_LAUNCH_DISTANCE_UNITS = 72; // how close to the next node a bot starts its jump
 const JUMP_MIN_ALIGN_SPEED_UNITS = 60; // slower than this the bot is not carrying momentum in a wrong direction
 const JUMP_MIN_ALIGNMENT = Math.cos(35 * DEG); // moving within this angle of the node when jumping
+const RESTOCK_GOAL_TICKS = 20 * TICK_RATE; // a walk to a supply stand is allowed this long before the bot replans
 const CAB_CENTRE_UNITS = 12; // a rider this close to the cell the path rides from stands still
 const WAYPOINT_RADIUS_UNITS = 26; // arrived at a nav node
 const WAYPOINT_PASSED_RADIUS_UNITS = 64; // a node this close that the bot is moving away from also counts as reached
@@ -509,6 +547,14 @@ export class BotBrain {
       }
     }
     const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
+    const carrying = env.mode === 'ctf' ? ctfRole(self, env) === 'carrier' : bombRole(self, env) === 'carrier';
+    const restock = carrying ? null : pickSupplyGoal(self, env, objective !== null);
+    if (restock) {
+      this.goal = { x: restock.x, y: restock.y, z: restock.z };
+      this.goalUntil = env.tick + RESTOCK_GOAL_TICKS;
+      this.repathAt = 0;
+      return;
+    }
     if (objective) {
       this.goal = { x: objective.x, y: objective.y, z: objective.z };
       // An escort's goal is the carrier, which moves every tick: replanning each time restarted the path from the nearest

@@ -219,6 +219,7 @@ export function buildShopping(): MapDef {
     airdropPoints: b.points,
     restaurants: b.restaurants,
     lifts: b.lifts,
+    supplies: b.supplies,
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

@@ -187,6 +187,8 @@ export type GameEvent =
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
   | { k: 'drop'; id: number; x: number; z: number; w: number }
   | { k: 'loot'; id: number; drop: number; w: number }
+  /** A player restocked at the supply stand with this index in `MapDef.supplies`. */
+  | { k: 'supply'; id: number; at: number }
   | { k: 'join'; id: number }
   | { k: 'leave'; id: number }
   | { k: 'team'; id: number; team: number; auto: number };
@@ -208,7 +210,8 @@ export type ServerMsg =
   // state: 0 home, 1 carried, 2 planting, 3 dropped, 4 planted. actorId is the carrier (carried, planting) or the defuser (planted), -1 if none.
   // x,y,z follow the carrier while carried or planting. Deadlines are server ms, 0 when not running.
   // lu (hora de almoçar only, [] otherwise): [attackers, roundEndsAtMs]; lc: one colleagueRow per colleague.
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][] }
+  // su: one entry per supply stand of the map, 0 while it is full or the server ms when it fills again.
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][]; su: number[] }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
   | { t: 'score'; s: number[][]; ts: number[] }

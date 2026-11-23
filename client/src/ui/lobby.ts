@@ -37,9 +37,11 @@ function fmt(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function renderLobby(app: HTMLElement, settings: Settings, error: string, onPlay: (s: Settings, spectate: boolean) => void): () => void {
+/** `benchmark` opens the graphics test as soon as the lobby is up (the pause menu leaves the match to run it). */
+export function renderLobby(app: HTMLElement, settings: Settings, error: string, onPlay: (s: Settings, spectate: boolean) => void, benchmark = false): () => void {
   let status: Status | null = null;
   let disposed = false;
+  let closeBenchmark: (() => void) | undefined;
 
   const tiles = h('div', { class: 'tile-grid', 'aria-hidden': 'true' });
   for (let i = 0; i < 160; i++) {
@@ -105,6 +107,27 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     );
   };
   drawGraphics();
+  const benchmarkError = h('p', { class: 'form-error', role: 'alert' });
+  const startBenchmark = async () => {
+    benchmarkButton.disabled = true;
+    benchmarkError.textContent = '';
+    try {
+      const { openBenchmark } = await import('../benchmark/overlay.ts');
+      if (disposed) return;
+      closeBenchmark = openBenchmark((tier) => {
+        settings.quality = tier;
+        saveSettings(settings);
+        drawGraphics();
+      });
+    } catch {
+      benchmarkError.textContent = 'Não foi possível abrir o teste de desempenho.';
+    } finally {
+      benchmarkButton.disabled = false;
+    }
+  };
+  const benchmarkButton = h('button', {
+    class: 'btn benchmark-launch', type: 'button', title: 'Mede cada nível de gráficos neste PC e recomenda o melhor', onclick: () => void startBenchmark(),
+  }, [svg(ICONS.gauge), 'testar desempenho']);
 
   const codeInput = h('input', { class: 'input', name: 'office-code', maxlength: 64, placeholder: 'código do escritório', autocomplete: 'off', ...NO_PASSWORD_MANAGER, value: settings.code });
   const codeField = h('div', { class: 'field hidden' }, [h('label', { class: 'label', text: 'código de acesso' }), codeInput]);
@@ -120,7 +143,8 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'sua cor' }), swatches]),
     h('div', { class: 'field' }, [
       h('span', { class: 'label', text: 'gráficos' }),
-      graphics,
+      h('div', { class: 'lobby-graphics' }, [graphics, benchmarkButton]),
+      benchmarkError,
       h('p', { class: 'field-hint', text: 'PC fraco ou jogo travando? Use desempenho: a tela inteira com menos detalhes.' }),
     ]),
     codeField,
@@ -239,9 +263,11 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   };
   void poll();
   const iv = setInterval(() => void poll(), 5000);
+  if (benchmark) void startBenchmark();
 
   return () => {
     disposed = true;
+    closeBenchmark?.();
     clearInterval(iv);
   };
 }

@@ -35,6 +35,12 @@ Pick a recipe from [features/README.md](features/README.md). Harnesses:
 - **Match phases:** `scripts/watch-phase.sh [seconds]` prints each change of phase/map/mode with a timestamp.
 - **Raw WebSocket:** Node's global `WebSocket` accepts `{ headers: { Origin } }`, which is how origin enforcement is tested.
 
+## Graphics benchmark
+
+The benchmark needs only the Vite client. Open `http://127.0.0.1:5273/?benchmark&rounds=1&ms=600` in Chromium, wait for title `benchmark:done`, and capture `window.__benchmark` or the `[benchmark]` console JSON. Verify one run per tier and map, with positive frame counts and canvas dimensions. Check that run rows and tier summaries include median `cpuMs` for main-thread update and submission and `gpuMs` for WebGL 2 GPU elapsed time. Expect `gpuMs: null` if `EXT_disjoint_timer_query_webgl2` is unavailable or the run yields no valid GPU timing samples. Headless Chromium can use `--use-angle=swiftshader --enable-unsafe-swiftshader` to check that the report and overlay work. SwiftShader frame timings are meaningless for graphics recommendations. Use a real GPU for performance measurements.
+
+On the affected browser, use `?benchmark&tiers=high,high-no-rt&maps=shopping&rounds=4` at the same window size. Compare matching map and canvas dimensions and confirm `rt` is true on the high runs before interpreting their difference. For the player path, use **testar desempenho** in the lobby, confirm the camera walks from the same starting view at each tier and turns gradually, and check the top-left panel for progress, FPS, frame time, CPU/GPU ms per frame, GPU name, cores and optional JS heap. With no timer extension the panel shows `GPU: indisponível neste navegador`. Capture the result card with the per-tier timing lines, then verify **usar** updates the selected tier after reload. Esc cancels the run.
+
 ## Evidence
 
 Write proofs under `$VERIFY_DIR/artifacts/<feature-id>/` (default `/tmp/calindra-strike-verify/artifacts`). Per proof capture the action and the resulting state:

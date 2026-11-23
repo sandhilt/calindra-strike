@@ -62,6 +62,7 @@ export function readGpuFacts(renderer: THREE.WebGLRenderer): GpuFacts {
 export class LightRt {
   private readonly composer: EffectComposer;
   private readonly occlusion: SolidOcclusionPass;
+  private readonly output = new OutputPass();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number) {
     this.composer = new EffectComposer(renderer);
@@ -72,7 +73,7 @@ export class LightRt {
     this.occlusion.blendIntensity = OCCLUSION_STRENGTH;
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(this.occlusion);
-    this.composer.addPass(new OutputPass());
+    this.composer.addPass(this.output);
     this.setSize(width, height);
   }
 
@@ -88,5 +89,6 @@ export class LightRt {
   dispose(): void {
     this.composer.dispose();
     this.occlusion.dispose();
+    this.output.dispose();
   }
 }

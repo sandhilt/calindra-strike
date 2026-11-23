@@ -2567,3 +2567,71 @@ input:focus-visible {
 .cs-ready small {
   color: var(--text);
 }
+
+/* Graphics benchmark */
+.lobby-graphics { display: flex; flex-wrap: wrap; gap: 8px; }
+.benchmark-launch {
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--lime);
+  background: var(--lime-soft);
+  border-color: rgba(165, 250, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(165, 250, 0, 0.18), 0 6px 24px -10px rgba(165, 250, 0, 0.6);
+}
+.benchmark-launch svg { width: 18px; height: 18px; flex: none; }
+.benchmark-launch:hover { background: rgba(165, 250, 0, 0.2); border-color: var(--lime); }
+.menu .benchmark-launch { justify-self: start; margin: 4px 0 2px; }
+.benchmark-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  border: 0;
+  background: #101311;
+  color: inherit;
+  overflow: auto;
+}
+.benchmark-overlay[open] { display: grid; place-items: center; }
+.benchmark-canvas { position: fixed; inset: 0; pointer-events: none; }
+.benchmark-canvas canvas { display: block; width: 100%; height: 100%; }
+.benchmark-card {
+  position: relative;
+  width: min(100%, 420px);
+  backdrop-filter: none;
+}
+.benchmark-card h2 { margin: 0; font-size: 1.3rem; }
+.benchmark-metrics { margin: 0; padding: 0; list-style: none; }
+.benchmark-metrics li { padding: 8px 0; border-bottom: 1px solid #ffffff22; }
+.benchmark-recommendation { color: var(--lime, #a5fa00); font-weight: 700; }
+.benchmark-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lobby-graphics + .form-error:empty { display: none; }
+.benchmark-monitor {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  background: #101311cc;
+  color: #fff;
+  border-radius: 6px;
+  font: 0.8rem/1.45 ui-monospace, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.benchmark-running {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: auto;
+}

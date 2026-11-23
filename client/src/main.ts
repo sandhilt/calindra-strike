@@ -46,16 +46,16 @@ class Rejected extends Error {
   }
 }
 
-function lobby(error = ''): void {
+function lobby(error = '', benchmark = false): void {
   stopLobby?.();
-  stopLobby = renderLobby(app, settings, error, (s, spectate) => void play(s, spectate));
+  stopLobby = renderLobby(app, settings, error, (s, spectate) => void play(s, spectate), benchmark);
 }
 
 /** Easter egg: the Konami code on the lobby opens the weapon viewer. It is fetched only then, so it costs the normal game nothing. */
 const konami = sequenceMatcher(KONAMI_CODE);
 document.addEventListener('keydown', (e) => {
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-  if (!stopLobby || typing || !konami(e.code)) return;
+  if (!stopLobby || typing || document.querySelector('.benchmark-overlay[open]') || !konami(e.code)) return;
   void openDebug();
 });
 
@@ -275,5 +275,13 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   });
 }
 
-void loadBrand();
-lobby();
+if (new URLSearchParams(location.search).has('benchmark')) {
+  void import('./benchmark/harness.ts').then(({ runBenchmarkHarness }) => runBenchmarkHarness(app)).catch((error: unknown) => {
+    document.title = 'benchmark:error';
+    app.textContent = 'Não foi possível medir o desempenho neste navegador.';
+    console.error('[benchmark]', error);
+  });
+} else {
+  void loadBrand();
+  lobby();
+}

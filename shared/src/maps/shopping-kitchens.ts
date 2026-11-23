@@ -18,6 +18,13 @@ export const KITCHEN_FLOOR = 28;
 const KITCHEN_TOP = KITCHEN_HEIGHT - KITCHEN_FLOOR;
 /** Height of the roof above the kitchen platform, where the hood duct ends. */
 const ROOF_ABOVE_FLOOR = 448 - 192 - KITCHEN_FLOOR;
+/**
+ * Size of the boxes that run wall to wall. The side walls are 2 units thick, so ending these 0.5 short of the outer face buries
+ * their end caps in the wall, and stopping them 0.5 short of the front keeps the wall's front cap alone on that plane. At the full
+ * size they share the wall's outer planes and the two colours fight for the pixels.
+ */
+const SHELL_SPAN = KITCHEN_WIDTH - 1;
+const SHELL_DEPTH = KITCHEN_DEPTH - 0.5;
 /** The front fascia hangs from the lid down to here (relative to the platform). */
 const FASCIA_BOTTOM = 122;
 
@@ -100,16 +107,16 @@ function menuBoards(r: Room, x1: number, x2: number): void {
 
 /** What every kitchen has: a platform, a tiled back wall, side walls, a lid, a front fascia above the serving window. */
 function shell(r: Room, accent: Hex): void {
-  r.box(0, KITCHEN_DEPTH / 2, KITCHEN_WIDTH, KITCHEN_DEPTH, KITCHEN_FLOOR, -KITCHEN_FLOOR, 'tile', FLOOR_DARK);
-  r.box(0, 1, KITCHEN_WIDTH, 2, 112, 18, 'tile', TILE_WHITE);
-  r.box(0, 1, KITCHEN_WIDTH, 2, 18, 0, 'white', STEEL_DARK);
+  r.box(0, SHELL_DEPTH / 2, SHELL_SPAN, SHELL_DEPTH, KITCHEN_FLOOR, -KITCHEN_FLOOR, 'tile', FLOOR_DARK);
+  r.box(0, 1, SHELL_SPAN, 2, 112, 18, 'tile', TILE_WHITE);
+  r.box(0, 1, SHELL_SPAN, 2, 18, 0, 'white', STEEL_DARK);
   for (const side of [-1, 1]) {
     r.box(side * (KITCHEN_WIDTH / 2 - 1), KITCHEN_DEPTH / 2, 2, KITCHEN_DEPTH, KITCHEN_HEIGHT, -KITCHEN_FLOOR, 'white');
-    r.box(side * (KITCHEN_WIDTH / 2 - 2.2), KITCHEN_DEPTH / 2, 1.6, KITCHEN_DEPTH, 110, 0, 'tile', TILE_WHITE);
+    r.box(side * (KITCHEN_WIDTH / 2 - 2.2), SHELL_DEPTH / 2, 1.6, SHELL_DEPTH, 110, 0, 'tile', TILE_WHITE);
   }
-  r.box(0, KITCHEN_DEPTH / 2, KITCHEN_WIDTH, KITCHEN_DEPTH, 4, KITCHEN_TOP - 4, 'white');
-  r.box(0, KITCHEN_DEPTH - 1, KITCHEN_WIDTH, 2, KITCHEN_TOP - FASCIA_BOTTOM, FASCIA_BOTTOM, 'white', accent);
-  r.box(0, KITCHEN_DEPTH - 3, KITCHEN_WIDTH, 6, 4, FASCIA_BOTTOM - 4, 'white', STEEL_DARK);
+  r.box(0, KITCHEN_DEPTH / 2, SHELL_SPAN, KITCHEN_DEPTH, 4, KITCHEN_TOP - 4, 'white');
+  r.box(0, SHELL_DEPTH - 1, SHELL_SPAN, 2, KITCHEN_TOP - FASCIA_BOTTOM, FASCIA_BOTTOM, 'white', accent);
+  r.box(0, SHELL_DEPTH - 3, SHELL_SPAN, 6, 4, FASCIA_BOTTOM - 4, 'white', STEEL_DARK);
 }
 
 function fastKitchen(r: Room, spec: FastSpec): void {

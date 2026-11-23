@@ -317,28 +317,49 @@ input:focus-visible {
   color: var(--text);
 }
 
-.chip i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--lime);
-  box-shadow: 0 0 10px var(--lime);
+.chip svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--lime);
 }
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 10px 22px;
-  max-width: 640px;
+  gap: 14px;
+  max-width: 680px;
   font-size: 13px;
   color: var(--muted);
 }
 
-.controls div {
+.controls-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font: 400 11px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.controls-section h4 svg { width: 16px; height: 16px; color: var(--lime); }
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 20px;
+}
+
+.control {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
+
+.control > svg { width: 20px; height: 20px; flex: none; color: var(--lime); }
+.control-label { min-width: 0; }
 
 .feedback-link {
   display: inline-block;
@@ -757,53 +778,98 @@ input:focus-visible {
   }
 }
 
+/* Stamina: centred above the ammo row and below the crosshair; shown only while it matters (client.ts decides). */
 .stamina {
+  --level: var(--lime);
   position: absolute;
-  bottom: 84px;
-  left: 18px;
-  width: 108px;
-  color: var(--lime);
-  font: 11px var(--mono);
+  bottom: 96px;
+  left: 0;
+  right: 0;
+  width: 280px;
+  margin: 0 auto;
+  color: var(--level);
+  font: 12px var(--mono);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.25s;
 }
 
-.stamina.active {
-  opacity: 1;
+.stamina.active { opacity: 1; }
+.stamina.level-low { --level: #ffb020; }
+.stamina.level-winded { --level: var(--danger); }
+
+.stamina-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
+
+.stamina-head svg { width: 18px; height: 18px; flex: none; }
+.stamina-name { flex: 1; }
+.stamina-pct { font-weight: 400; font-size: 14px; letter-spacing: 0.04em; }
+
+.stamina-winded {
+  display: none;
+  font-weight: 700;
+  animation: stamina-pulse 0.55s ease-in-out infinite alternate;
+}
+
+.stamina.level-winded .stamina-winded { display: inline; }
+.stamina.level-winded .stamina-name { display: none; }
 
 .stamina-track {
-  height: 3px;
-  margin-top: 4px;
+  position: relative;
+  height: 11px;
   overflow: hidden;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--level) 40%, transparent);
 }
 
 .stamina-track i {
   display: block;
   height: 100%;
+  border-radius: 999px;
   background: currentColor;
   transform-origin: left;
   transition: transform 0.12s linear;
 }
 
-.stamina.winded {
-  color: var(--danger);
+/* Where sprint comes back after the player is winded. */
+.stamina-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
 }
 
-.stamina.winded .stamina-track {
-  background: color-mix(in srgb, currentColor 35%, transparent);
-  animation: stamina-pulse 0.65s ease-in-out infinite alternate;
+.stamina.level-winded .stamina-track { animation: stamina-pulse 0.55s ease-in-out infinite alternate; }
+
+/* Static red edge glow while winded: one box-shadow, no animation, no extra layer until it shows. */
+.stamina.level-winded::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 160px rgba(255, 60, 50, 0.3);
 }
 
 @keyframes stamina-pulse {
-  from { opacity: 0.4; }
+  from { opacity: 0.45; }
   to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamina.winded .stamina-track { animation: none; }
+  .stamina-winded,
+  .stamina.level-winded .stamina-track { animation: none; }
+  .stamina { transition: none; }
 }
 
 /* vitals + ammo */
@@ -1531,6 +1597,9 @@ input:focus-visible {
 }
 
 .menu-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 4px;
   font-family: var(--mono);
   font-size: 11px;
@@ -1542,7 +1611,7 @@ input:focus-visible {
 
 .menu .row {
   display: grid;
-  grid-template-columns: 124px minmax(0, 1fr);
+  grid-template-columns: 150px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   margin: 8px 0;
@@ -1550,12 +1619,31 @@ input:focus-visible {
 }
 
 .menu .row-value {
-  grid-template-columns: 124px minmax(0, 1fr) 46px;
+  grid-template-columns: 150px minmax(0, 1fr) 46px;
 }
 
 .menu .row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text);
 }
+
+.menu .row-label svg,
+.menu-group h3 svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--lime);
+}
+
+.menu-wide {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+}
+
+.menu-wide .controls { max-width: none; padding-bottom: 8px; }
+.menu-wide .controls-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 
 .menu .hint {
   display: block;

@@ -142,6 +142,8 @@ Any other harness takes the same command in its MCP config: `command: node`, `ar
 
 `get_state` includes `sounds`, what the agent heard since its last read: `shot` (with weapon and who fired), `impact` (with the `material` and `surface` it landed on) and `hurt`. Each carries `distance`, `bearingDeg` (positive to the right), `intensity` (0 to 1, the same inverse-distance curve the browser audio uses, full inside the reference distance of 260 units for shots and 200 for impacts) and `loudness` (`loud` from 0.5, `medium` from 0.2, `faint` below). Sounds quieter than 0.08 are not reported, and at most 12 are returned, loudest first. The server never sends a player their own shots, so those are worked out from the magazine dropping and the impact is where the crosshair meets the map; hammer swings make no sound here.
 
+`get_state` `you` includes `stance` (`stand`, `crouch` or `prone`; `ducked` stays true for both low stances), `sprinting`, `sliding`, `stamina` (0 to 1) and `lean` (-1 left to 1 right). The agent has no action tool for sprint, slide, lean or prone yet.
+
 `get_state` includes `timeOfDay` (`phase` `day`, `afternoon` or `night`, the `next` phase and the `blend` toward it, 0 to 1). It only says what the light looks like: agents perceive the same at night.
 
 `get_state` includes `flags` with each team’s flag state (`at_base`, `carried`, `dropped`), carrier id/name, position, distance and bearing. `score.teams` contains team kills in TDM and captures in CTF. Flag events report `take`, `drop`, `return` and `capture`.

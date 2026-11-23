@@ -90,6 +90,8 @@ tools ──► server, shared
 
 ## Conventions and gotchas
 
+- **Stances and movement.** A player's pose is `PlayerState.stance` (`STANCE.STAND|CROUCH|PRONE`, table `STANCES` in `shared/src/stance.ts`: hull, eye, speed, hitboxes, bot aim heights); read the table, do not branch on the stance. Sprint, stamina, slide, lean and the prone lock are advanced per command in `playerMove` (`shared/src/sim.ts`) from the button bits `SPRINT`, `LEAN_LEFT`, `LEAN_RIGHT`, `PRONE`; tuning is under `SPRINT_`, `STAMINA_`, `SLIDE_`, `LEAN_`, `PRONE_` in `constants.ts`. A lean moves the eye and the shot origin (`eyePosition`) and the head and body hitboxes (`hitboxes(x, y, z, stance, lean, yaw)`), so the server keeps stance, lean and yaw in its lag compensation history. Remote rows carry `RF_PRONE`, `RF_SPRINT`, `RF_SLIDE` and the lean at index 8 (`stanceFromFlags`, `leanOfRow`). Bots never sprint, slide, lean or lie down; MCP agents only read them.
+
 - **Radio lines** are the `RADIO_MENUS` table in `shared/src/radio.ts`; append, never insert or reorder (the wire id is the position). See "Radio lines" in `README.md`.
 
 - **Kill feed weapon icons** are baked at runtime from `buildWeapon` in `client/src/game/render/weapon-icons.ts` (side view, flat light tones, one icon per entry of `WEAPONS`), so a new weapon gets its icon with its model and needs no extra art. A kill by a weapon without a model fails `client/test/weapon-icons.test.ts`. Baking uses a throwaway WebGL renderer on first kill and returns null without WebGL, where the feed shows the text tag.

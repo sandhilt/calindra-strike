@@ -163,12 +163,13 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
   app.replaceChildren(root);
   let game: ClientGame | null = null;
   let stopped = false;
-  const leave = () => {
+  const exit = (benchmark: boolean) => {
     stopped = true;
     game?.dispose();
     game = null;
-    lobby();
+    lobby('', benchmark);
   };
+  const leave = () => exit(false);
 
   /** Drops the player slot and rejoins the same match as a watcher. */
   const spectate = () => {
@@ -246,6 +247,7 @@ function start(net: Connection, s: Settings, welcome: Welcome): void {
     join: () => void join(),
     resume: () => void game?.requestPlay(),
     leave,
+    benchmark: () => exit(true),
     spectate,
     settingsChanged: (ns) => game?.applySettings(ns),
     switchTeam: () => {

@@ -18,6 +18,8 @@ export interface OverlayHooks {
   join(): void;
   resume(): void;
   leave(): void;
+  /** Leaves the match and opens the graphics test in the lobby: running it beside a live match would measure both. */
+  benchmark(): void;
   spectate(): void;
   switchTeam(): void;
   vote(option: number): void;
@@ -157,6 +159,11 @@ export class Overlays {
           group(
             'vídeo',
             seg('gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
+            h(
+              'button',
+              { class: 'btn benchmark-launch', type: 'button', title: 'Sai da partida e mede cada nível de gráficos neste PC', onclick: () => this.hooks.benchmark() },
+              [svg(ICONS.gauge), 'testar desempenho'],
+            ),
             seg(
               'estatísticas',
               [

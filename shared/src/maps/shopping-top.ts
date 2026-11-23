@@ -102,10 +102,11 @@ function cover(b: MapBuilder): void {
   const boards: readonly (readonly [number, number, StoreBrand])[] = [
     [-1080, -840, 'burguer-rei'], [-700, -980, 'mania-picanha'], [-430, -800, 'hew'],
     [430, -800, 'rener'], [700, -980, 'mequi'], [1080, -840, 'parrilha'],
+    [-300, -990, 'cea'], [300, -990, 'amerikanas'],
   ];
   for (const [x, z, brand] of boards) board(b, x, z, 120, brand);
   for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28);
-  for (const [x, z] of [[-560, -880], [560, -880]] as const) planter(b, x, z, 28, 120);
+  for (const [x, z] of [[-560, -880], [560, -880], [-250, -780], [250, -780], [-880, -780], [880, -780]] as const) planter(b, x, z, 28, 120);
 }
 
 /** Pillars that carry the roof; the food court ones below carry this slab. */

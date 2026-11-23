@@ -59,6 +59,7 @@ import {
   createPlayerState,
   encodeCmd,
   getMap,
+  waterSurfaceAt,
   lerpAngle,
   rayHitbox,
   recoilOffset,
@@ -88,6 +89,7 @@ import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts
 import { AirdropView } from './render/airdrop.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
+import { Wader, stepVoice } from './wading.ts';
 import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
@@ -137,6 +139,7 @@ interface Remote {
   dropping: boolean;
   sliding: boolean;
   reload: ReloadPlayback;
+  wader: Wader;
 }
 
 export interface Welcome {
@@ -275,6 +278,7 @@ export class ClientGame {
   private eyeTargetId = -1;
   private punch = 0;
   private stepAcc = 0;
+  private readonly localWader = new Wader();
   private readonly localReload = new ReloadPlayback();
 
   private readonly remotes = new Map<number, Remote>();
@@ -773,7 +777,7 @@ export class ClientGame {
       let r = this.remotes.get(id);
       if (!r) {
         const n = this.nameOf(id);
-        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false, sliding: false, reload: new ReloadPlayback() };
+        r = { id, avatar: new Avatar(n.name, n.color), buf: [], visible: false, last: new THREE.Vector3(x, y, z), speed: 0, step: 0, ground: true, dropping: false, sliding: false, reload: new ReloadPlayback(), wader: new Wader() };
         this.scene.add(r.avatar.root);
         this.remotes.set(id, r);
       }
@@ -1278,7 +1282,12 @@ export class ClientGame {
     const s = this.me;
     if (before.zoom !== s.zoom && s.zoom > 0) this.sfx.zoom();
     if (before.ground && !s.onGround && s.vy > 0) this.sfx.jump();
-    if (!before.ground && s.onGround && !before.drop) this.sfx.land(before.vy < -480);
+    const wet = waterSurfaceAt(this.map, s.x, s.y, s.z) !== null;
+    const entered = this.localWader.update(wet);
+    const heavy = before.vy < -480;
+    const landed = !before.ground && s.onGround && !before.drop;
+    if (entered || (landed && wet)) this.sfx.splash(heavy);
+    else if (landed) this.sfx.land(heavy);
     if (before.drop && !s.dropping) {
       this.sfx.land(true);
       this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
@@ -1295,7 +1304,9 @@ export class ClientGame {
       this.stepAcc += speed / TICK_RATE;
       if (this.stepAcc > 76) {
         this.stepAcc = 0;
-        this.sfx.footstep(null, s.sprinting ? 0.68 : 0.55);
+        const stepLoud = s.sprinting ? 0.68 : 0.55;
+        if (stepVoice(wet) === 'wet') this.sfx.wetStep(null, stepLoud);
+        else this.sfx.footstep(null, stepLoud);
       }
     }
   }
@@ -1689,6 +1700,7 @@ export class ClientGame {
       if (!visible || !s) {
         r.avatar.root.visible = false;
         r.visible = false;
+        r.wader.reset();
         r.reload.end();
         continue;
       }
@@ -1708,14 +1720,21 @@ export class ClientGame {
       const sliding = (s.flags & RF_SLIDE) !== 0;
       if (wasVisible && sliding && !r.sliding) this.sfx.slide(pos);
       r.sliding = sliding;
+      const at = { x: s.x, y: s.y, z: s.z };
+      const wet = waterSurfaceAt(this.map, s.x, s.y, s.z) !== null;
+      const entered = r.wader.update(wet);
       if (wasVisible && ground && !sliding && r.speed > 150) {
         r.step += moved;
         if (r.step > 76) {
           r.step = 0;
-          this.sfx.footstep(pos, sprinting ? 1.22 : 1);
+          const stepLoud = sprinting ? 1.22 : 1;
+          if (stepVoice(wet) === 'wet') this.sfx.wetStep(at, stepLoud);
+          else this.sfx.footstep(at, stepLoud);
         }
       }
-      if (wasVisible && ground && !r.ground) this.sfx.land(r.dropping, { x: s.x, y: s.y, z: s.z });
+      const landed = wasVisible && ground && !r.ground;
+      if (wasVisible && (entered || (landed && wet))) this.sfx.splash(r.dropping, at);
+      else if (landed) this.sfx.land(r.dropping, at);
       r.ground = ground;
       r.dropping = dropping;
       r.avatar.setWeapon(s.w as WeaponId);

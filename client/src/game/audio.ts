@@ -248,6 +248,24 @@ export class Sfx {
     this.noiseBurst(this.out(pos, 160), this.ctx.currentTime, 850, 0.7, 0.012, 0.18, 0.18);
   }
 
+  /** Lighter than a footstep on a floor: a soft slosh of low noise with a short dip. */
+  wetStep(pos: Pos, loud = 1): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 160);
+    this.noiseBurst(out, t, 900 + Math.random() * 500, 0.9, 0.006, 0.11, 0.16 * loud);
+    this.tone(out, t, 'sine', 330, 170, 0.07, 0.07 * loud);
+  }
+
+  /** Feet or a landing into water: a burst of noise, a bright spatter and a falling blip. */
+  splash(heavy: boolean, pos: Pos = null): void {
+    const t = this.ctx.currentTime;
+    const out = this.out(pos, 200);
+    const gain = heavy ? 1 : 0.7;
+    this.noiseBurst(out, t, 1500, 0.7, 0.004, 0.4, 0.3 * gain);
+    this.noiseBurst(out, t + 0.03, 3600, 1.2, 0.004, 0.22, 0.12 * gain);
+    this.tone(out, t, 'sine', 760, 230, 0.16, 0.12 * gain);
+  }
+
   jump(): void {
     const t = this.ctx.currentTime;
     this.noiseBurst(this.master, t, 700, 1, 0.005, 0.08, 0.08);

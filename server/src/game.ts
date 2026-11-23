@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
-  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   SUPPLY_COOLDOWN_TICKS, inSupplyReach, needsSupply, resupply,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
@@ -285,6 +285,7 @@ export class Game {
   mode: GameMode = 'ffa';
   readonly teamScores = [0, 0];
   private flags: FlagState[] = [{ kind: 'home' }, { kind: 'home' }];
+  private readonly bombBasesByMap = new Map<string, ReturnType<typeof defuseBases>>();
   private readonly flagBasesByMap = new Map<string, FlagBase[]>();
   private bomb: BombState = { kind: 'home' };
   /** Team that carries and plants; the other team defends. Swaps after every round. */
@@ -472,7 +473,11 @@ export class Game {
   }
 
   private bombPlaces(): BombPlaces {
-    const bases = this.flagBases();
+    let bases = this.bombBasesByMap.get(this.map.id);
+    if (!bases) {
+      bases = defuseBases(this.map, (x, z) => this.groundY(x, this.map.dropHeight, z));
+      this.bombBasesByMap.set(this.map.id, bases);
+    }
     return { home: bases[this.attackers], site: bases[1 - this.attackers], attackers: this.attackers };
   }
 
@@ -958,7 +963,8 @@ export class Game {
       flags: this.flags,
       flagBases: this.flagBases(),
       bomb: this.bomb,
-      bombPlaces: this.bombPlaces(),
+      bombPlaces: this.mode === 'defuse' ? this.bombPlaces() : undefined,
+      lunchPlaces: this.mode === 'almoco' ? { attackers: this.attackers, hold: this.flagBases()[1 - this.attackers] } : undefined,
       colleagues: this.colleagues,
       restaurants: this.mode === 'almoco' ? this.map.restaurants.slice(this.lunchRound.target, this.lunchRound.target + 1) : this.map.restaurants,
       interiors: this.map.interiors,

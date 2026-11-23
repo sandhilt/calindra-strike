@@ -52,6 +52,7 @@ export interface BotEnv {
   flagBases?: readonly FlagBase[];
   bomb?: BombState;
   bombPlaces?: BombPlaces;
+  lunchPlaces?: { attackers: number; hold: FlagBase };
   colleagues?: readonly Colleague[];
   restaurants?: readonly LunchPoint[];
   /** Supply stands of the map and whether each one is full. */
@@ -138,10 +139,10 @@ function nearest<T extends LunchPoint>(from: LunchPoint, points: readonly T[]): 
  * colleague and holds USE beside it. Defenders hunt whoever leads a colleague, or patrol around the ones still waiting.
  */
 export function pickLunchGoal(self: BotAgent, env: BotEnv): BombGoal | null {
-  if (env.mode !== 'almoco' || !env.colleagues?.length || !env.restaurants?.length || !env.bombPlaces || (self.team !== 0 && self.team !== 1)) return null;
+  if (env.mode !== 'almoco' || !env.colleagues?.length || !env.restaurants?.length || !env.lunchPlaces || (self.team !== 0 && self.team !== 1)) return null;
   const s = self.state;
   const waiting = env.colleagues.filter((c) => c.kind === 'waiting');
-  if (self.team === env.bombPlaces.attackers) {
+  if (self.team === env.lunchPlaces.attackers) {
     const leading = env.colleagues.some((c) => c.kind === 'following' && c.leader === self.id);
     const target = leading ? null : nearest(s, waiting);
     if (target) return { x: target.x, y: target.y, z: target.z, holdRadiusUnits: LUNCH_HOLD_RADIUS_UNITS };
@@ -151,7 +152,7 @@ export function pickLunchGoal(self: BotAgent, env: BotEnv): BombGoal | null {
   const led = env.colleagues.find((c) => c.kind === 'following');
   const leader = led?.kind === 'following' ? [...env.players].find((p) => p.id === led.leader && p.alive) : undefined;
   if (leader) return { x: leader.state.x, y: leader.state.y, z: leader.state.z, holdRadiusUnits: null, settleRadiusUnits: ESCORT_TRAIL_UNITS };
-  const anchor = nearest(s, waiting) ?? env.bombPlaces.site;
+  const anchor = nearest(s, waiting) ?? env.lunchPlaces.hold;
   return { ...guardPatrolPoint(anchor, self, env.tick), holdRadiusUnits: null };
 }
 
@@ -205,7 +206,7 @@ export function guardPatrolPoint(anchor: { x: number; y: number; z: number }, se
 function bombRole(self: BotAgent, env: BotEnv): CtfRole {
   const bomb = env.bomb;
   if ((bomb?.kind === 'carried' || bomb?.kind === 'planting') && bomb.carrier === self.id) return 'carrier';
-  return self.team === env.bombPlaces?.attackers ? 'attacker' : 'defender';
+  return self.team === (env.bombPlaces?.attackers ?? env.lunchPlaces?.attackers) ? 'attacker' : 'defender';
 }
 
 function holdsPosition(self: BotAgent, goal: BombGoal | null, bombKind: BombState['kind'] | undefined): boolean {

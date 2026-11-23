@@ -1,12 +1,12 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
-import { bombStandBox, type BombPlaces, type BombState } from '@calindra-strike/shared';
+import { bombStandBox, defuseBases, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
-function setup(defuseLimit = 5, mode: GameMode = 'defuse', random = () => 0.5) {
+function setup(defuseLimit = 5, mode: GameMode = 'defuse', random = () => 0.5, maps?: string[]) {
   const messages: ServerMsg[] = [];
-  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: mode, defuseLimit, random });
+  const game = new Game({ maxPlayers: 16, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: mode, maps, defuseLimit, random });
   const players: ServerPlayer[] = [];
   for (let i = 0; i < 4; i++) {
     const p = game.join('P' + i, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
@@ -374,14 +374,17 @@ it('the planter steps back off the desk that appears under their feet', () => {
   assert.ok(Math.hypot(s.x - bomb.x, s.z - bomb.z) < BOMB_DESK_SIZE_UNITS, 'still right next to the laptop');
 });
 
-it('a revived defender never lands inside the keep-out around the bomb site', () => {
-  let seed = 12345;
-  const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
-  const { game, attacker, defender } = setup(5, 'defuse', random);
-  const site = game.map.flagBases[attackSite(game, attacker.team)];
-  for (let i = 0; i < 200; i++) {
-    (game as any).spawn(defender);
-    const distance = Math.hypot(defender.state.x - site.x, defender.state.z - site.z);
-    assert.ok(distance >= BOMB_SPAWN_KEEPOUT_UNITS, `spawn ${i} landed ${Math.round(distance)} units from the site`);
-  }
-});
+for (const mapId of ['forja', 'shopping']) {
+  it('defender respawns respect horizontal site keep-out on ' + mapId, () => {
+    let seed = 12345;
+    const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+    const { game, attacker, defender } = setup(5, 'defuse', random, [mapId]);
+    const bases = defuseBases(game.map, (x, z) => game.world.groundBelow(x, game.map.dropHeight, z, PLAYER_RADIUS));
+    const site = bases[attackSite(game, attacker.team)];
+    for (let i = 0; i < 200; i++) {
+      (game as unknown as { spawn(p: ServerPlayer): void }).spawn(defender);
+      const distance = Math.hypot(defender.state.x - site.x, defender.state.z - site.z);
+      assert.ok(distance >= BOMB_SPAWN_KEEPOUT_UNITS, `spawn ${i} started ${Math.round(distance)} units from the site`);
+    }
+  });
+}

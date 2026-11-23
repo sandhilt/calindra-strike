@@ -70,7 +70,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read your own stance (you.stance stand, crouch or prone; you.ducked is true for both low stances), sprinting, sliding, stamina (0 to 1; at 0 you are winded until it refills) winded (the meter emptied; no sprint until it refills) and lean (-1 left to 1 right; you set them with the sprint, slide, lean and prone tools, you.actions echoes what you asked for), timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first) and recent events/chat including flag, bomb and lunch actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read your own stance (you.stance stand, crouch or prone; you.ducked is true for both low stances), sprinting, sliding, stamina (0 to 1; at 0 you are winded until it refills) winded (the meter emptied; no sprint until it refills) and lean (-1 left to 1 right; you set them with the sprint, slide, lean and prone tools, you.actions echoes what you asked for), you.aiming (effective aim down sights), you.zoom (effective 0/1 for ADS or 0–2 for AWP), you.maxZoom (1 for ADS, 2 for AWP, 0 for hammer), timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first) and recent events/chat including flag, bomb and lunch actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -111,7 +111,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'fire',
     description:
-      'Hold the trigger for ms (default 150, 50 to 5000) where the crosshair points; use aim first. A short press is one shot with a semi-automatic weapon, a hold is a burst with an automatic one. The pilot stays idle, so nothing else fires. Shots and their impacts then show up in get_state sounds.',
+      'Hold the trigger for ms (default 150, 50 to 5000) where the crosshair points; use aim first. Firing keeps effective ADS raised. A short press is one shot with a semi-automatic weapon, a hold is a burst with an automatic one. The pilot stays idle, so nothing else fires. Shots and their impacts then show up in get_state sounds.',
     properties: { ms: { type: 'number', minimum: 50, maximum: 5000 } },
     run: (s, a) => s.fire(a.ms === undefined ? 150 : number(a, 'ms', 50, 5000)),
   },
@@ -141,7 +141,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'use',
-    description: `Hold USE while stationary to plant or defuse, or in hora de almoçar to call the waiting colleagues within ${LUNCH_USE_RADIUS_UNITS} units (attackers only). Defuse within reach of any side or corner of the solid desk. Defaults to until the objective changes, at most 10000 ms; returns planted, defused, following (the colleagues that now follow you) or interrupted with a reason.`,
+    description: `Hold USE while stationary to plant or defuse, or in hora de almoçar to call the waiting colleagues within ${LUNCH_USE_RADIUS_UNITS} units (attackers only). Objective use suppresses ADS until the hold ends. Defuse within reach of any side or corner of the solid desk. Defaults to until the objective changes, at most 10000 ms; returns planted, defused, following (the colleagues that now follow you) or interrupted with a reason.`,
     properties: { ms: { type: 'number', exclusiveMinimum: 0, maximum: 10000 } },
     run: (s, a) => s.use(a.ms === undefined ? undefined : number(a, 'ms', 1, 10000)),
   },
@@ -160,7 +160,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'zoom',
-    description: 'Set the scope level: 0 off, 1 or 2 zoomed. Only for a weapon with a scope (the AWP). Once set it replaces the pilot\'s automatic scoping until you respawn. The scope drops during the AWP bolt cycle and returns by itself.',
+    description: 'For pistol, rifle, SMG, shotgun and LMG, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer rejects zoom.',
     properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
     required: ['level'],
     run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),
@@ -174,7 +174,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'sprint',
-    description: `Sprint (on: true) or stop (on: false). Stays set, also while idle, until changed or you respawn, but it only runs while you move forward (move_to, hunt or attack) standing on the ground: speed rises 35 percent and stamina (get_state you.stamina, 0 to 1) drains from full in about 5 s. At 0 you are winded (you.winded) and cannot sprint until it refills to ${STAMINA_RESUME / STAMINA_MAX}, about 6 s from empty to full. Walk (the walk tool wins over sprint), crouch, prone, moving backward, a jump, firing, a slide or being winded end the sprint, ending it delays your next shot by about ${Math.round(9 * TICK_MS)} ms, and starting it drops the scope. get_state you.sprinting shows it running. Returns the latched actions and blockedBy, the latched ones that stop the sprint now.`,
+    description: `Sprint (on: true) or stop (on: false). Stays set, also while idle, until changed or you respawn, but it only runs while you move forward (move_to, hunt or attack) standing on the ground: speed rises 35 percent and stamina (get_state you.stamina, 0 to 1) drains from full in about 5 s. At 0 you are winded (you.winded) and cannot sprint until it refills to ${STAMINA_RESUME / STAMINA_MAX}, about 6 s from empty to full. Walk (the walk tool wins over sprint), crouch, prone, moving backward, a jump, firing, held ADS (zoom 1 on an ADS weapon), a slide or being winded end the sprint, ending it delays your next shot by about ${Math.round(9 * TICK_MS)} ms, and starting it drops the scope. get_state you.sprinting shows it running. Returns the latched actions and blockedBy, the latched ones that stop the sprint now.`,
     properties: { on: { type: 'boolean' } },
     required: ['on'],
     run: (s, a) => s.sprint(boolean(a, 'on')),
@@ -205,13 +205,13 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'reload',
-    description: 'Reload once (R). Requires a weapon that can reload.',
+    description: 'Reload once (R). Requires a weapon that can reload. Held ADS resumes when the reload ends.',
     properties: {},
     run: (s) => s.reload(),
   },
   {
     name: 'switch_weapon',
-    description: 'Switch weapon once: primary (1), pistol (2), hammer (3) or last (Q).',
+    description: 'Switch weapon once: primary (1), pistol (2), hammer (3) or last (Q). Switching clears the ADS request.',
     properties: { slot: { type: 'string', enum: Object.keys(WEAPON_SLOT_REQUEST) } },
     required: ['slot'],
     run: (s, a) => {

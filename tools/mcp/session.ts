@@ -202,9 +202,11 @@ export class GameSession {
     const v = this.state.view;
     let targetOutOfSight = false;
     if (m.t === 'snap') {
+      const previousWeapon = v.self?.weapon;
       const wasDropping = v.self?.dropping ?? false;
       const before = v.self && v.self.health > 0 ? { weapon: v.self.weapon, mag: v.self.mag[v.self.weapon] } : null;
       const raw = decodeSnapshot(v, m);
+      if (v.self?.weapon !== previousWeapon) this.actions.adsZoom = null;
       v.sounds.push(...this.ownShotSounds(v, before));
       this.state.world.setProp(bombProp(v));
       this.actions.ack = m.ack;
@@ -452,7 +454,7 @@ export class GameSession {
     return { firing: ms, weapon: weaponDef(self.weapon).name, mag: self.mag[self.weapon], aimed: this.actions.aim !== null };
   }
   private actionState(): ActionEcho {
-    return this.actions.echo();
+    return this.actions.echo(this.requirePlaying().view.self?.weapon);
   }
   private livingSelf(): PlayerState {
     const s = this.requirePlaying().view.self;
@@ -529,9 +531,9 @@ export class GameSession {
     return this.actionState();
   }
   sprint(on: boolean): object {
-    this.livingSelf();
+    const self = this.livingSelf();
     this.actions.sprint = on;
-    return { ...this.actionState(), blockedBy: this.actions.sprintBlockers() };
+    return { ...this.actionState(), blockedBy: this.actions.sprintBlockers(self.weapon) };
   }
   /** Asks for a slide when the last snapshot says it would start, and says why not otherwise. */
   slide(): object {
@@ -567,10 +569,15 @@ export class GameSession {
     return { ...this.actionState(), weapon: weaponDef(target).name };
   }
   setZoom(level: number): object {
-    const scopeLevels = weaponDef(this.livingSelf().weapon).zoomFov.length;
-    if (scopeLevels === 0) throw new Error('Weapon has no scope');
-    if (level > scopeLevels) throw new Error('Zoom level out of range');
-    this.actions.zoom = level;
+    const def = weaponDef(this.livingSelf().weapon);
+    if (def.ads) {
+      if (level !== 0 && level !== 1) throw new Error('Zoom level out of range');
+      this.actions.adsZoom = level;
+    } else {
+      if (def.zoomFov.length === 0) throw new Error('Weapon has no scope or aim down sights');
+      if (level > def.zoomFov.length) throw new Error('Zoom level out of range');
+      this.actions.zoom = level;
+    }
     return this.actionState();
   }
   close(reason = 'Left game'): void {

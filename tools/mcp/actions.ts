@@ -1,5 +1,5 @@
 import {
-  BTN, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, TICK_MS, WEAPON, weaponDef,
+  BTN, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, TICK_MS, WEAPON, slotWeapon, weaponDef,
   type Cmd, type PlayerState, type WeaponId,
 } from '../../shared/src/index.ts';
 
@@ -28,7 +28,7 @@ export const LEAN_SIDES: readonly LeanSide[] = Object.keys(LEAN_BUTTON) as LeanS
 export interface ActionEcho {
   crouch: boolean;
   walk: boolean;
-  /** null leaves the bot's auto-scope alone. */
+  /** Requested ADS or scope level. Null leaves automatic scoping in control. */
   zoom: number | null;
   sprint: boolean;
   lean: LeanSide;
@@ -39,8 +39,7 @@ export const NO_ACTIONS: ActionEcho = { crouch: false, walk: false, zoom: null, 
 
 /**
  * Agent-controlled keys on top of the bot brain's cmd: latched crouch, walk, sprint, lean and prone,
- * one-shot jump, slide, reload and weapon switch, a manual scope level that
- * replaces the brain's auto-scope, and a held free aim with timed fire.
+ * one-shot jump, slide, reload and weapon switch, held ADS, manual AWP scope, and free aim with timed fire.
  */
 export class ActionOverlay {
   use = false;
@@ -51,6 +50,7 @@ export class ActionOverlay {
   prone = false;
   /** null leaves the bot's auto-scope alone, 0 forces it off, 1..n is the wanted level. */
   zoom: number | null = null;
+  adsZoom: 0 | 1 | null = null;
   /** Where the agent holds the crosshair, in radians; replaces the view the brain wanted until cleared. */
   aim: { yaw: number; pitch: number } | null = null;
   private fireTicks = 0;
@@ -63,6 +63,7 @@ export class ActionOverlay {
   /** Seq of the last scope press; the snapshot only shows its effect once `ack` reaches it. */
   private pressSeq = 0;
   private weaponSeq = 0;
+  private adsSwitchSeq = 0;
 
   requestJump(): void {
     this.jumpPending = true;
@@ -90,12 +91,18 @@ export class ActionOverlay {
   }
 
   /** The latched actions that stop a sprint right now; sprint has no effect until they are off. */
-  sprintBlockers(): string[] {
-    return [this.walk ? 'walk' : '', this.crouch ? 'crouch' : '', this.prone ? 'prone' : ''].filter(Boolean);
+  sprintBlockers(weapon: WeaponId): string[] {
+    return [
+      this.walk ? 'walk' : '',
+      this.crouch ? 'crouch' : '',
+      this.prone ? 'prone' : '',
+      weaponDef(weapon).ads && this.adsZoom === 1 ? 'zoom' : '',
+    ].filter(Boolean);
   }
 
-  echo(): ActionEcho {
-    return { crouch: this.crouch, walk: this.walk, zoom: this.zoom, sprint: this.sprint, lean: this.lean, prone: this.prone };
+  echo(weapon?: WeaponId): ActionEcho {
+    const zoom = weapon !== undefined && weaponDef(weapon).ads ? this.adsZoom : this.zoom;
+    return { crouch: this.crouch, walk: this.walk, zoom, sprint: this.sprint, lean: this.lean, prone: this.prone };
   }
 
   requestReload(): void {
@@ -123,10 +130,12 @@ export class ActionOverlay {
     this.lean = 'off';
     this.prone = false;
     this.zoom = null;
+    this.adsZoom = null;
     this.jumpPending = false;
     this.slidePending = false;
     this.pressSeq = 0;
     this.weaponSeq = 0;
+    this.adsSwitchSeq = 0;
     this.ack = 0;
   }
 
@@ -156,7 +165,18 @@ export class ActionOverlay {
       this.jumpPending = false;
       if (self?.onGround) buttons |= BTN.JUMP;
     }
-    if (this.zoom !== null) {
+    if (self && weaponDef(self.weapon).ads) {
+      const target = slotWeapon(self, weapon);
+      if (target !== -1 && target !== self.weapon) {
+        this.adsZoom = null;
+        this.adsSwitchSeq = cmd.seq;
+      }
+      if (this.adsZoom !== null) {
+        buttons &= ~BTN.ATTACK2;
+        // A stale snapshot can show ADS while the server already has the hammer equipped.
+        if (this.adsZoom === 1 && this.ack >= this.adsSwitchSeq) buttons |= BTN.ATTACK2;
+      }
+    } else if (this.zoom !== null) {
       buttons &= ~BTN.ATTACK2;
       if (self && this.ack >= this.pressSeq && this.needsScopePress(self, this.zoom)) {
         buttons |= BTN.ATTACK2;

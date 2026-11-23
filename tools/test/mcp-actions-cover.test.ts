@@ -17,7 +17,7 @@ const COVER: Record<keyof typeof BTN, { by: string; why: string }> = {
   DUCK: { by: 'crouch', why: 'latched crouch; slide also presses it for one command' },
   WALK: { by: 'walk', why: 'latched silent walk' },
   ATTACK: { by: 'fire', why: 'timed trigger hold; the pilot also fires on attack and hunt' },
-  ATTACK2: { by: 'zoom', why: 'scope level for the AWP' },
+  ATTACK2: { by: 'zoom', why: 'held ADS or acknowledged AWP scope press' },
   RELOAD: { by: 'reload', why: 'one reload' },
   USE: { by: 'use', why: 'hold to plant, defuse or call colleagues' },
   SPRINT: { by: 'sprint', why: 'latched sprint' },

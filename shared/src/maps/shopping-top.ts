@@ -16,9 +16,9 @@ import type { EscalatorTravel } from './types.ts';
 export const LIFT_GAP_HALF = 62;
 /** /** Landing under the cab's floor at each upper stop (the cab's floor tops out half a unit above the stop, so the two never share a surface). */
 const LANDING_THICKNESS = 4;
-const HEDGE = 66;
+const HOPPABLE_HEDGE = 10;
 const LOW_HEDGE = 22;
-const BOARD = 140;
+const BOARD = 104;
 const PAINT = 0xe9edf2;
 
 /** Where the supply stand is, on the middle of the north half of the top floor. */
@@ -53,7 +53,7 @@ function glassRail(b: MapBuilder, x1: number, z1: number, x2: number, z2: number
   b.deco(x1 - 1, DECK3 + RAIL, z1 - 1, x2 + 1, DECK3 + RAIL + 4, z2 + 1, 'charcoal');
 }
 
-function planter(b: MapBuilder, x: number, z: number, w: number, d: number, hedge = HEDGE): void {
+function planter(b: MapBuilder, x: number, z: number, w: number, d: number, hedge = HOPPABLE_HEDGE): void {
   b.block(x, z, w, d, 26, 'tile', DECK3, { tint: 0xd8d2c4 });
   b.block(x, z, w - 8, d - 8, hedge, 'plant', DECK3 + 26);
 }
@@ -100,16 +100,23 @@ function lounge(b: MapBuilder): void {
   b.deco(X - 4, DECK3 + 90, -1000, X - 2, DECK3 + 250, -820, 'eitri');
 }
 
-/** Boards and planters that break the long lanes along the gallery, alternating so no straight line gets through. */
+/** Short ad panels interrupt standing sightlines, with low planters between them. */
 function cover(b: MapBuilder): void {
   const boards: readonly (readonly [number, number, StoreBrand])[] = [
-    [-1080, -840, 'burguer-rei'], [-560, -800, 'hew'],
-    [430, -800, 'rener'], [700, -980, 'mequi'], [1080, -840, 'parrilha'],
-    [-300, -990, 'cea'], [300, -990, 'amerikanas'],
+    [-1080, -822, 'burguer-rei'], [-576, -780, 'hew'],
+    [-304, -974, 'cea'], [430, -800, 'rener'], [304, -990, 'amerikanas'],
+    [680, -980, 'mequi'], [1080, -832, 'parrilha'],
   ];
-  for (const [x, z, brand] of boards) board(b, x, z, 120, brand);
-  for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28);
-  for (const [x, z] of [[560, -880], [-250, -780], [250, -780], [-880, -780], [880, -780]] as const) planter(b, x, z, 28, 120);
+  for (const [x, z, brand] of boards) board(b, x, z, 108, brand);
+  for (const [x, z] of [[-1000, -704], [-320, -704], [320, -704], [1000, -704]] as const) {
+    planter(b, x, z, 118, 36, 58);
+  }
+  for (const [x, z] of [[-880, -780], [560, -880], [880, -780]] as const) {
+    planter(b, x, z, 28, 120, 66);
+  }
+  for (const x of [-250, 250]) {
+    planter(b, x, -780, 28, 88);
+  }
 }
 
 /** Pillars that carry the roof; the food court ones below carry this slab. */
@@ -165,24 +172,18 @@ const PHARMACY_X = -730;
 const PHARMACY_HEIGHT = 176;
 const PHARMACY_LAMP_Y = 160;
 
-/**
- * A real shop on the Mirante: partitions and a facade with a door and two windows, the same dressing as the ground
- * floor stores inside. The ground floor storefronts are the model (`storefronts` in shopping.ts).
- */
+/** An open storefront with short returns framing the pharmacy displays. */
 function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   const cx = PHARMACY_X;
   const edge = STORE_HALF_WIDTH + 8;
-  b.wallX(cx - edge, cx + edge, FACADE_Z, 16, PHARMACY_HEIGHT, 'white', [
-    { from: cx - 272, to: cx - 112, bottom: 24, top: 108 },
-    { from: cx - 80, to: cx + 80, bottom: 0, top: 112 },
-    { from: cx + 112, to: cx + 272, bottom: 24, top: 108 },
-  ], DECK3);
+  const returnWidth = 64;
   for (const side of [-1, 1]) {
-    b.wallZ(-Z, FACADE_Z, cx + side * edge, 16, PHARMACY_HEIGHT, 'white', [], DECK3);
-    b.add(cx + side * 112, DECK3 + 24, FACADE_Z - 3, cx + side * 272, DECK3 + 108, FACADE_Z + 3, 'glass', { shoot: true });
+    const wallX = cx + side * edge;
+    b.wallZ(-Z, FACADE_Z, wallX, 16, PHARMACY_HEIGHT, 'white', [], DECK3);
+    b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, PHARMACY_HEIGHT, 'white', DECK3);
     b.block(cx + side * 150, -1010, 120, 24, 56, 'white', DECK3, { tint: storeAccent(brand) });
   }
-  b.deco(cx - 60, DECK3 + 114, FACADE_Z + 8, cx + 60, DECK3 + 174, FACADE_Z + 10, brandMat(brand));
+  b.deco(cx - 60, DECK3 + 114, -Z + 4, cx + 60, DECK3 + 174, -Z + 6, brandMat(brand));
   b.block(cx, -1100, 140, 36, 40, 'desk', DECK3);
   dressStore(new Room(b, cx, DECK3, -Z), brand);
   for (const lampZ of [60, 190]) b.light(cx, DECK3 + PHARMACY_LAMP_Y, -Z + lampZ, '#ffe9bd');

@@ -1,6 +1,7 @@
 import { STANCE, STANCES, type Stance, WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
+import { ADS_BLEND_SECONDS } from './ads-view.ts';
 import { SwingPlayer } from './hammer-swing.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
 
@@ -79,7 +80,12 @@ export interface AvatarPose {
   pitch: number;
   protect: boolean;
   reloading: boolean;
+  /** Holding the aim down sights: the gun comes up toward the eye. Absent counts as false. */
+  aiming?: boolean;
 }
+
+/** Radians the held weapon lifts toward the eye at full aim. */
+const AIM_LIFT_RAD = 0.32;
 
 /** Stylized soldier sized to the hitboxes: legs 0-32, torso 32-58, head 58-72. */
 export class Avatar {
@@ -105,6 +111,7 @@ export class Avatar {
   private sprintT = 0;
   private slideT = 0;
   private proneT = 0;
+  private aimT = 0;
 
   constructor(
     readonly name: string,
@@ -246,6 +253,7 @@ export class Avatar {
     this.sprintT = stepBlend(this.sprintT, p.sprinting, dt);
     this.slideT = stepBlend(this.slideT, p.sliding, dt);
     this.proneT = stepBlend(this.proneT, p.stance === STANCE.PRONE, dt);
+    this.aimT = stepBlend(this.aimT, p.aiming === true, dt, ADS_BLEND_SECONDS);
     const c = smoothBlend(this.crouchT);
     const sprint = smoothBlend(this.sprintT);
     const slide = smoothBlend(this.slideT);
@@ -268,6 +276,7 @@ export class Avatar {
 
     this.recoil = Math.max(0, this.recoil - dt * 10);
     this.mount.rotation.x = this.look.armed ? p.pitch * 0.85 + this.recoil * 0.12 + (p.reloading ? -0.5 : 0) : HANGING_ARMS_RAD;
+    if (this.look.armed) this.mount.rotation.x += AIM_LIFT_RAD * smoothBlend(this.aimT) * (1 - sprint);
     this.mount.rotation.x += -0.65 * sprint - 0.25 * slide + 1.42 * prone;
     this.head.rotation.x = p.pitch * 0.5 + 1.35 * prone;
     this.supportArm.rotation.x = -0.34 * stride * sprint;

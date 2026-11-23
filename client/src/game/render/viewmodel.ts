@@ -1,6 +1,7 @@
 import { STANCE, type Stance, TICK_MS, WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
+import { aimOffset, bobKeep } from './ads-view.ts';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
 import { QUALITY, type Quality } from './quality.ts';
@@ -85,6 +86,8 @@ export interface ViewPose {
   reloadElapsed: number; // ticks since the reload began, -1 when not reloading
   reloadShells: number; // rounds the reload loads (shotgun), ignored by magazine weapons
   deployFrac: number; // 0..1 while deploying, -1 otherwise
+  /** Linear 0..1 blend of the aim down sights (see `stepBlend`); the gun's own easing is applied here. 0 for a weapon with no aim. */
+  aim: number;
   hidden: boolean;
 }
 
@@ -133,6 +136,8 @@ export class ViewModel {
   private readonly armEuler = new THREE.Euler();
   private readonly belt: BeltFlow = { feed: 0, speed: 0, burst: 0 };
   private placementNow: GunPlacement = placementFor(WEAPON.RIFLE);
+  /** Where the gun goes at full aim (view units); recomputed when the weapon, its placement or the handedness changes. */
+  private aimShift: readonly [number, number, number] = [0, 0, 0];
   private beltLinks: number;
   private readonly baseRot = new THREE.Euler();
   private readonly basePos = new THREE.Vector3();
@@ -160,6 +165,7 @@ export class ViewModel {
   setLeftHanded(on: boolean): void {
     this.side = on ? -1 : 1;
     this.mirror.scale.x = this.side;
+    this.updateAimShift();
   }
 
   /** Sleeves follow the player's identity colour (team colour in TDM). */
@@ -291,8 +297,19 @@ export class ViewModel {
     this.kickGroup.add(m.group);
   }
 
+  /** True when the weapon on show has an aim down sights. */
+  private aimedWeapon(): boolean {
+    return this.weaponId !== -1 && weaponDef(this.weaponId).ads !== undefined;
+  }
+
+  private updateAimShift(): void {
+    const ads = this.weaponId === -1 ? undefined : weaponDef(this.weaponId).ads;
+    this.aimShift = ads && this.weaponId !== -1 ? aimOffset(this.weaponId, this.placementNow, ads.kind, this.side) : [0, 0, 0];
+  }
+
   private applyPlacement(group: THREE.Group, p: GunPlacement): void {
     this.placementNow = p;
+    this.updateAimShift();
     group.scale.setScalar(p.scale);
     group.position.set(...p.position);
     group.rotation.set(...p.rotation);
@@ -344,11 +361,12 @@ export class ViewModel {
     const dt = p.dt;
     this.holder.visible = !p.hidden;
     this.fireRecovery = Math.max(0, this.fireRecovery - dt);
-    const sprinting = p.sprinting && !p.firing && this.fireRecovery === 0;
+    const aim = this.aimedWeapon() ? smoothBlend(p.aim) : 0;
+    const sprinting = p.sprinting && !p.firing && this.fireRecovery === 0 && aim === 0;
     this.sprintT = p.hidden ? 0 : stepBlend(this.sprintT, sprinting, dt);
     this.slideT = stepBlend(this.slideT, p.sliding, dt);
     this.proneT = stepBlend(this.proneT, p.stance === STANCE.PRONE, dt);
-    const sprint = smoothBlend(this.sprintT);
+    const sprint = smoothBlend(this.sprintT) * (1 - aim);
     const slide = smoothBlend(this.slideT);
     const prone = smoothBlend(this.proneT);
 
@@ -356,11 +374,12 @@ export class ViewModel {
     const moving = p.onGround && p.speed > 30;
     if (moving) this.bobPhase += dt * (p.speed / 30 + 7 * sprint);
     const amp = moving ? Math.min(1, p.speed / 250) : 0;
-    const bobX = Math.sin(this.bobPhase) * (0.55 * amp + 0.8 * sprint);
-    const bobY = -Math.abs(Math.cos(this.bobPhase)) * (0.5 * amp + 0.9 * sprint);
+    const steady = bobKeep(aim);
+    const bobX = Math.sin(this.bobPhase) * (0.55 * amp + 0.8 * sprint) * steady;
+    const bobY = -Math.abs(Math.cos(this.bobPhase)) * (0.5 * amp + 0.9 * sprint) * steady;
     // sway: lags behind mouse motion
-    this.swayX += (-p.lookDX * 0.02 - this.swayX) * Math.min(1, dt * 10);
-    this.swayY += (p.lookDY * 0.02 - this.swayY) * Math.min(1, dt * 10);
+    this.swayX += (-p.lookDX * 0.02 * steady - this.swayX) * Math.min(1, dt * 10);
+    this.swayY += (p.lookDY * 0.02 * steady - this.swayY) * Math.min(1, dt * 10);
     this.swayX = THREE.MathUtils.clamp(this.swayX, -2.5, 2.5);
     this.swayY = THREE.MathUtils.clamp(this.swayY, -2.5, 2.5);
     // recoil spring
@@ -380,10 +399,11 @@ export class ViewModel {
     const exchange = this.weaponId === WEAPON.PISTOL || this.weaponId === WEAPON.RIFLE
       ? EXCHANGE_FRAMING[this.weaponId]
       : null;
+    const toEye = this.aimShift;
     this.holder.position.set(
-      bobX + this.swayX - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)),
-      bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0),
-      0,
+      bobX + this.swayX - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)) + toEye[0] * aim,
+      bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0) + toEye[1] * aim,
+      toEye[2] * aim,
     );
     const seat = reload.seatKick * SEAT_KICK_UNITS;
     this.kickGroup.position.set(0, kick * 0.4 + pistolShot.recoil * PISTOL_KICK.riseUnits - seat * 0.5, kick * 2.4 + pistolShot.recoil * PISTOL_KICK.backUnits + seat);

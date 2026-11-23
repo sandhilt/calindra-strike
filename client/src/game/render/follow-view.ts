@@ -1,4 +1,5 @@
-import { RF_DROP, RF_SLIDE, RF_SPRINT, RF_ZOOM, stanceFromFlags, TICK_MS, type WeaponId, weaponDef } from '@calindra-strike/shared';
+import { RF_AIM, RF_DROP, RF_SLIDE, RF_SPRINT, RF_ZOOM, stanceFromFlags, TICK_MS, type WeaponId, weaponDef } from '@calindra-strike/shared';
+import { gunHidden } from './ads-view.ts';
 import type { ViewPose } from './viewmodel.ts';
 
 /** What a snapshot says about the followed player's hands. */
@@ -10,6 +11,8 @@ export interface FollowedFrame {
   /** Ticks since their reload began and the rounds it loads, timed locally from the reload flag (-1 when not reloading). */
   reloadElapsed: number;
   reloadShells: number;
+  /** Linear 0..1 blend of the followed player's aim, eased by the caller each frame. */
+  aimBlend: number;
 }
 
 /**
@@ -50,7 +53,8 @@ export class FollowedViewTracker {
       reloadElapsed: f.reloadElapsed,
       reloadShells: f.reloadShells,
       deployFrac: deploy >= 1 ? -1 : deploy,
-      hidden: (f.flags & (RF_ZOOM | RF_DROP)) !== 0,
+      aim: f.aimBlend,
+      hidden: gunHidden(def, { zoom: f.flags & RF_ZOOM ? 1 : 0, aiming: (f.flags & RF_AIM) !== 0, blend: f.aimBlend }, (f.flags & RF_DROP) !== 0),
     };
   }
 }

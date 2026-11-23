@@ -33,7 +33,7 @@ export const CONTROLS: readonly ControlRow[] = [
   { section: 'combate', keys: '1 2 3', label: 'armas · Q última', icon: 'gun' },
   { section: 'combate', keys: 'R', label: 'recarregar', icon: 'reload' },
   { section: 'combate', keys: 'E', label: 'plantar / desarmar o bug', icon: 'bug' },
-  { section: 'combate', keys: 'Mouse 2', label: 'luneta da AWP', icon: 'scope' },
+  { section: 'combate', keys: 'Mouse 2', label: 'mirar (segurar) · luneta da AWP', icon: 'scope' },
   { section: 'interface', keys: 'Tab', label: 'placar · Y chat', icon: 'scoreboard' },
   { section: 'interface', keys: 'Z X V B', label: 'rádio', icon: 'radio' },
   { section: 'interface', keys: 'Esc', label: 'menu', icon: 'menu' },

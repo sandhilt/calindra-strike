@@ -4,6 +4,7 @@ import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
+import type { ScopeOverlay } from '../game/render/ads-view.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
@@ -108,7 +109,7 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
+  private readonly scope = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' }), h('div', { class: 'scope-mil' })]);
   private readonly teamBadge = h('div', { class: 'team-badge hidden' });
   /** Spectator controls call back here; the game decides what each action does. */
   onSpectate: (action: SpectatorAction) => void = () => {};
@@ -430,8 +431,9 @@ export class Hud {
     if (show) this.reloadI.style.width = `${Math.round(frac * 100)}%`;
   }
 
-  setCrosshair(gapPx: number, size: number, color: string, visible: boolean): void {
+  setCrosshair(gapPx: number, sizePx: number, color: string, visible: boolean): void {
     const g = Math.round(gapPx);
+    const size = Math.round(sizePx);
     this.set('ch', `${g}|${size}|${color}|${visible}`, () => {
       this.ch.style.display = visible ? '' : 'none';
       this.ch.style.setProperty('--ch-color', color);
@@ -475,8 +477,10 @@ export class Hud {
     this.protect.style.opacity = on ? '1' : '0';
   }
 
-  setScope(on: boolean): void {
-    this.scope.classList.toggle('on', on);
+  /** The optic keeps its look while it fades out, so the class only changes when a scope is on. */
+  setScope(overlay: ScopeOverlay): void {
+    if (overlay !== 'none') this.scope.classList.toggle('optic', overlay === 'optic');
+    this.scope.classList.toggle('on', overlay !== 'none');
   }
 
   announce(text: string, sub?: string, white = false): void {

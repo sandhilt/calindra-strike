@@ -7,7 +7,9 @@ import { type GunPlacement, formatPlacement } from '../game/render/weapon-placem
 import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
-import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
+import { stepBlend } from '../game/render/movement-pose.ts';
+import { ADS_BLEND_SECONDS } from '../game/render/ads-view.ts';
+import { autoFireShots, previewAim, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
 
 const DEFAULT_FOV = 58;
 const BACKGROUND = 0x8a7a5e;
@@ -56,6 +58,8 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   let holdFire = false;
   let walking = false;
   let running = false;
+  let aiming = false;
+  let aimT = 0;
   let leftHanded = settings.leftHanded;
   let shells = 0;
   let placement = copyOf(view.placement());
@@ -89,6 +93,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
       }, (v) => `${v}°`, nothing),
       checkRow('andando', 'balanço de caminhada', () => walking, (v) => (walking = v), nothing),
       checkRow('correndo', 'pose de corrida', () => running, (v) => (running = v), nothing),
+      checkRow('mirando', 'pose de mira e luneta', () => aiming, (v) => (aiming = v), nothing),
       checkRow('canhoto', 'arma no lado esquerdo', () => leftHanded, (v) => view.setLeftHanded((leftHanded = v)), nothing),
     );
 
@@ -162,7 +167,8 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     h('header', { class: 'menu-head' }, [h('div', {}, [h('h2', { text: 'debug' }), h('p', { class: 'sub', text: 'armas, animações e ângulo' })]), exit]),
     h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [weaponHost, reloadHost, placementHost, copied, readout])]),
   ]);
-  const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, panel]);
+  const scopeHost = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' }), h('div', { class: 'scope-mil' })]);
+  const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, scopeHost, panel]);
   root.replaceChildren(stage);
 
   const resize = () => {
@@ -185,6 +191,9 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     const total = reloadTotal(def, shells);
     stepReload(reload, dt, total);
     if (holdFire && def.fireTicks > 0) for (let i = autoFireShots(carry, dt, def.fireTicks); i > 0; i--) view.fire(false);
+    aimT = stepBlend(aimT, previewAim(def, aiming && !running, aimT).aiming, dt, ADS_BLEND_SECONDS);
+    const aim = previewAim(def, aiming && !running, aimT);
+    scopeHost.className = `scope${aim.overlay === 'none' ? '' : ' on'}${aim.overlay === 'optic' ? ' optic' : ''}`;
     view.update({
       speed: previewMovementSpeed(walking, running),
       stance: STANCE.STAND,
@@ -198,7 +207,8 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
       reloadElapsed: reload.elapsed,
       reloadShells: shells,
       deployFrac: -1,
-      hidden: false,
+      aim: aimT,
+      hidden: aim.overlay !== 'none',
     });
     if (reload.playing && total > 0) scrub.value = String(Math.round((reload.elapsed / total) * SCRUB_STEPS));
     const cursor = def.reloadTiming && reload.elapsed >= 0 ? reloadCursor(def.reloadTiming, reload.elapsed, shells) : null;

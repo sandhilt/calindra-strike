@@ -21,12 +21,14 @@ import {
   weaponDef,
   type PlayerState,
   type WeaponId,
+  LUNCH_COLLEAGUES,
+  LUNCH_USE_RADIUS_UNITS,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
 import { ActionOverlay, weaponSlots, WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
 import { Pilot, type Intent } from './pilot.ts';
 import { silent, type Log } from './log.ts';
-import { welcome, decodeSnapshot, renderView, bombProp, type ViewSound, type WorldView } from './view.ts';
+import { welcome, decodeSnapshot, renderView, bombProp, lunchColleagues, type ViewSound, type WorldView } from './view.ts';
 /** Heard sounds waiting for the next read; older ones are dropped, as events are. */
 const MAX_SOUNDS = 48;
 const MAX_IMPACTS_PER_SHOT = 4;
@@ -35,6 +37,10 @@ const MAX_OWN_SHOTS_PER_SNAPSHOT = 4;
 const AIM_PITCH_LIMIT_DEG = 89;
 /** How far ahead an aim reports what a shot would hit. */
 const AIM_PROBE_UNITS = 3000;
+const inUseReach = (c: { x: number; y: number; z: number }, self: PlayerState) =>
+  Math.hypot(c.x - self.x, c.y - self.y, c.z - self.z) <= LUNCH_USE_RADIUS_UNITS;
+/** What a held USE works on: the debug defusion laptop, or a colleague of hora de almoçar. */
+type UseObjective = 'bomb' | 'lunch';
 export interface SocketLike {
   readyState: number;
   send(data: string): void;
@@ -81,7 +87,7 @@ export class GameSession {
   state: State = { phase: 'idle' };
   intent: Intent = { kind: 'idle' };
   private seq = 0;
-  private using: { finish: (outcome: string, reason: string) => void; initial: number; started: boolean } | undefined;
+  private using: { objective: UseObjective; finish: (outcome: string, reason: string) => void; initial: number; started: boolean } | undefined;
   private readonly actions = new ActionOverlay();
   private names = new Map<number, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -224,6 +230,8 @@ export class GameSession {
         || (v.match.phase !== m.match.phase && m.match.phase !== 'podium')) {
         v.sprays = [];
         v.bomb = [];
+        v.lunch = [];
+        v.colleagues = [];
         this.state.world.setProp(null);
       }
       const enteringPodium = v.match.phase !== 'podium' && m.match.phase === 'podium';
@@ -266,6 +274,7 @@ export class GameSession {
         } else if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
         else if (e.k === 'flag' || e.k === 'bomb') v.events.push({ ...e, byName: this.names.get(e.by) });
+        else if (e.k === 'lunch') v.events.push({ ...e, byName: this.names.get(e.by), colleague: LUNCH_COLLEAGUES[e.who] });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
       }
     if (this.using) {
@@ -273,6 +282,7 @@ export class GameSession {
       const bomb = v.bomb;
       if (!self || self.health <= 0) this.using.finish('interrupted', 'Player died');
       else if (self.dropping) this.using.finish('interrupted', 'Player respawned or dropping');
+      else if (this.using.objective === 'lunch') this.watchLunchUse(m, v, self);
       else if (m.t === 'match' || !bomb.length) this.using.finish('interrupted', 'Match changed');
       else if (m.t === 'ev') {
         for (const event of m.e) {
@@ -451,8 +461,7 @@ export class GameSession {
     const self = this.livingSelf();
     const { view } = this.requirePlaying();
     if (self.dropping) throw new Error('Player is dropping');
-    if (view.match.mode !== 'defuse' || view.match.phase !== 'live' || !view.bomb.length)
-      throw new Error('No live debug defusion objective');
+    const objective = this.useObjective(view, self);
     if (!Number.isFinite(ms) || ms <= 0 || ms > 10000) throw new Error('Invalid ms');
     if (this.using) throw new Error('Already using');
     this.actions.use = true;
@@ -461,13 +470,44 @@ export class GameSession {
       const timer = this.options.clock.setInterval(() => {
         if (this.options.clock.now() - startedAt >= ms) this.using?.finish('interrupted', 'Duration elapsed');
       }, 25);
-      this.using = { initial: view.bomb[0], started: false, finish: (outcome, reason) => {
+      this.using = { objective, initial: view.bomb[0] ?? -1, started: false, finish: (outcome, reason) => {
         this.options.clock.clearInterval(timer);
         this.actions.use = false;
         this.using = undefined;
         resolve({ outcome, reason });
       } };
     });
+  }
+  private useObjective(view: WorldView, self: PlayerState): UseObjective {
+    if (view.match.mode === 'defuse' && view.match.phase === 'live' && view.bomb.length) return 'bomb';
+    const colleagues = lunchColleagues(view);
+    if (!colleagues || view.match.phase === 'podium') throw new Error('No live debug defusion or hora de almoçar objective');
+    if (view.roster.find((r) => r[0] === view.id)?.[3] !== view.lunch[0]) throw new Error('Only the attacking team takes colleagues to lunch');
+    if (!colleagues.some((c) => c.kind === 'waiting' && inUseReach(c, self))) throw new Error(`No waiting colleague within ${LUNCH_USE_RADIUS_UNITS} units; move_to one first`);
+    return 'lunch';
+  }
+  /**
+   * A colleague taking the call ends the hold. The round ending wins over a call in the same batch, since the next round
+   * puts the colleagues back. A snapshot with nobody left to call (an ally took them) ends it too, instead of freezing.
+   */
+  private watchLunchUse(m: ServerMsg, v: WorldView, self: PlayerState): void {
+    const colleagues = lunchColleagues(v);
+    if (m.t === 'match' || !colleagues) {
+      this.using?.finish('interrupted', 'Match changed');
+      return;
+    }
+    const followingMe = (names: string[]) => this.using?.finish('following', `${names.join(', ')} now ${names.length > 1 ? 'follow' : 'follows'} you`);
+    if (m.t === 'ev') {
+      const lunch = m.e.flatMap((e) => e.k === 'lunch' ? [e] : []);
+      if (lunch.some((e) => e.what === 'served' || e.what === 'full')) this.using?.finish('interrupted', 'Round ended');
+      const followers = lunch.filter((e) => e.what === 'follow' && e.by === v.id).map((e) => LUNCH_COLLEAGUES[e.who]);
+      if (followers.length) followingMe(followers);
+      return;
+    }
+    if (m.t !== 'snap' || colleagues.some((c) => c.kind === 'waiting' && inUseReach(c, self))) return;
+    const mine = colleagues.flatMap((c, i) => c.kind === 'following' && c.leader === v.id ? [LUNCH_COLLEAGUES[i]] : []);
+    if (mine.length) followingMe(mine);
+    else this.using?.finish('interrupted', 'No waiting colleague left in reach');
   }
   jump(): object {
     if (!this.livingSelf().onGround) throw new Error('Not on the ground');

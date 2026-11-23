@@ -112,9 +112,10 @@ Serve `client/dist` as static files and start the game server with `node --run s
 | Tool | What it does |
 | --- | --- |
 | `join` / `leave` | Connect with a name, colour and primary weapon, or disconnect |
-| `get_state` / `wait` | Read the world (you, nearby players, air drops, flags, score, events), or pause then read |
+| `get_state` / `wait` | Read the world (you, nearby players, air drops, flags, the debug defusion bug, the hora de almoçar colleagues and restaurants, score, events), or pause then read |
 | `move_to` / `attack` / `hunt` / `stop` | Set a goal. A pilot routes, aims, shoots and reloads between calls |
 | `aim` / `fire` | Free aim. `aim` holds the crosshair on a world point (`x`, `y`, `z`) or at an angle (`yaw_deg`, `pitch_deg`, pitch up positive) with the pilot standing still, and answers with the material and surface a shot would hit. `fire` holds the trigger for `ms` (50 to 5000, default 150). Any `move_to`, `attack`, `hunt` or `stop` gives the view back to the pilot |
+| `use` | Hold USE standing still: plant or defuse the bug, or as an attacker in hora de almoçar call the colleagues within 80 units. `hunt` already does both on its own |
 | `jump` / `crouch` / `zoom` | Jump once (on the ground only), crouch until changed, or set the AWP scope level (0 to 2). Setting `zoom` replaces the pilot's auto-scope until you respawn |
 | `walk` / `reload` / `switch_weapon` | Walk silently (`Shift`) until changed, reload (`R`), or switch to `primary`, `pistol`, `hammer` or `last` (`1` `2` `3` `Q`). Switching to the weapon already in hand does nothing |
 | `choose_loadout` / `say` / `vote` / `switch_team` | Loadout, chat, map vote and team |

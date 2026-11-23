@@ -748,6 +748,100 @@ test('manual use duration is bounded and releases on timeout', async () => {
   session.close();
 });
 
+async function lunchRound(attackers = 0) {
+  const ctx = setup();
+  const joined = ctx.session.join(args);
+  ctx.socket.message({ ...welcome, match: { ...welcome.match, mode: 'almoco', map: 2 } });
+  await joined;
+  const self = createPlayerState();
+  const hold = getMap(2).flagBases[1];
+  Object.assign(self, { x: hold.x + 50, y: 0, z: hold.z });
+  const rows = [[0, -1, hold.x, 0, hold.z, 0], [1, 2, hold.x, 0, hold.z - 300, 0], [2, -1, 0, 192, -990, 0]];
+  const snap = (colleagues = rows, time = 200) => ctx.socket.message({
+    t: 'snap', time, ack: 0, me: packState(self), ps: [], ad: [], lu: [attackers, 30_200], lc: colleagues,
+  });
+  return { ...ctx, self, snap, hold };
+}
+
+test('lunch perception names the colleagues, their leader and reach, and the nearest restaurant first', async () => {
+  const { session, socket, snap } = await lunchRound();
+  snap();
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.partialDeepStrictEqual(state.lunch, {
+    role: 'attacker', attackersTeam: 0, secondsLeft: 30, seated: 1, total: 3,
+    colleagues: [
+      { name: 'Estagiário', state: 'waiting', leaderName: null, distance: 50, inUseReach: true },
+      { name: 'PO', state: 'following', leaderId: 2, leaderName: 'enemy', inUseReach: false },
+      { name: 'Tech lead', state: 'seated', inUseReach: false },
+    ],
+  });
+  assert.match(state.lunch.rules, /call use/);
+  const distances = state.lunch.restaurants.map((r: { distance: number }) => r.distance);
+  assert.deepEqual(distances, distances.toSorted((a: number, b: number) => a - b));
+  socket.message({ t: 'ev', e: [{ k: 'lunch', what: 'seated', team: 0, by: 2, who: 1 }] });
+  assert.partialDeepStrictEqual(session.getState(), { events: [{ k: 'lunch', what: 'seated', byName: 'enemy', colleague: 'PO' }] });
+  socket.message({ t: 'match', match: { ...welcome.match, mode: 'tdm', map: 2 } });
+  assert.equal(JSON.parse(JSON.stringify(session.getState())).lunch, null);
+  session.close();
+});
+
+test('lunch use calls the colleagues in reach and reports who now follows', async () => {
+  const { session, socket, jobs, snap, self, hold } = await lunchRound();
+  snap();
+  const calling = session.use();
+  for (const fn of [...jobs.values()]) fn();
+  assert.ok(JSON.parse(socket.sent.at(-1)!).c.every((c: number[]) => (c[1] & BTN.USE) !== 0));
+  socket.message({ t: 'ev', e: [
+    { k: 'lunch', what: 'follow', team: 0, by: 1, who: 0 },
+    { k: 'lunch', what: 'follow', team: 0, by: 1, who: 2 },
+  ] });
+  assert.deepEqual(await calling, { outcome: 'following', reason: 'Estagiário, Tech lead now follow you' });
+  const ended = session.use();
+  socket.message({ t: 'ev', e: [{ k: 'lunch', what: 'full', team: 1, by: -1, who: -1 }] });
+  assert.deepEqual(await ended, { outcome: 'interrupted', reason: 'Round ended' });
+  Object.assign(self, { x: hold.x + 500 });
+  snap();
+  assert.throws(() => session.use(), /No waiting colleague within 80 units/);
+  session.close();
+});
+
+test('lunch use ends on the round turnover, an ally taking the colleague, or a snapshot that shows them following', async () => {
+  const { session, socket, snap, hold } = await lunchRound();
+  snap();
+  const turnover = session.use();
+  socket.message({ t: 'ev', e: [
+    { k: 'lunch', what: 'follow', team: 0, by: 1, who: 0 },
+    { k: 'lunch', what: 'full', team: 1, by: -1, who: -1 },
+  ] });
+  assert.deepEqual(await turnover, { outcome: 'interrupted', reason: 'Round ended' });
+  snap();
+  const ally = session.use();
+  snap([[1, 2, hold.x, 0, hold.z, 0]]);
+  assert.deepEqual(await ally, { outcome: 'interrupted', reason: 'No waiting colleague left in reach' });
+  snap();
+  const mine = session.use();
+  snap([[1, 1, hold.x, 0, hold.z, 0], [2, -1, 0, 192, -990, 0]]);
+  assert.deepEqual(await mine, { outcome: 'following', reason: 'Estagiário now follows you' });
+  session.close();
+});
+
+test('lunch perception goes quiet on the podium, where no round runs', async () => {
+  const { session, socket, snap } = await lunchRound();
+  socket.message({ t: 'match', match: { ...welcome.match, mode: 'almoco', map: 2, phase: 'podium' } });
+  snap();
+  assert.equal(JSON.parse(JSON.stringify(session.getState())).lunch, null);
+  session.close();
+});
+
+test('lunch use is for attackers only, and other modes have no objective to use', async () => {
+  const defending = await lunchRound(1);
+  defending.snap();
+  assert.throws(() => defending.session.use(), /Only the attacking team/);
+  defending.socket.message({ t: 'match', match: { ...welcome.match, mode: 'tdm', map: 2 } });
+  assert.throws(() => defending.session.use(), /No live debug defusion or hora de almoçar objective/);
+  defending.session.close();
+});
+
 test('radio tool sends the line id from a menu and slot, and rejects unknown menus and slots', async () => {
   const { session, socket } = setup();
   const joined = session.join(args);

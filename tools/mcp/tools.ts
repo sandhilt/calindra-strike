@@ -1,4 +1,4 @@
-import { CHAT_MAX_LEN, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
+import { CHAT_MAX_LEN, LUNCH_USE_RADIUS_UNITS, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
 import { WEAPON_SLOT_REQUEST, type WeaponSlot } from './actions.ts';
@@ -69,7 +69,7 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing) and recent events/chat including flag and bomb actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first) and recent events/chat including flag, bomb and lunch actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
@@ -116,7 +116,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'hunt',
-    description: 'Hunt perceived enemies; pursue CTF flags and debug defusion objectives by team role (pick up, plant and defuse with USE), otherwise roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
+    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), otherwise roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },
@@ -140,7 +140,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'use',
-    description: 'Hold USE while stationary to plant or defuse. Defuse within reach of any side or corner of the solid desk. Defaults to until the objective changes, at most 10000 ms; returns planted, defused or interrupted with a reason.',
+    description: `Hold USE while stationary to plant or defuse, or in hora de almoçar to call the waiting colleagues within ${LUNCH_USE_RADIUS_UNITS} units (attackers only). Defuse within reach of any side or corner of the solid desk. Defaults to until the objective changes, at most 10000 ms; returns planted, defused, following (the colleagues that now follow you) or interrupted with a reason.`,
     properties: { ms: { type: 'number', exclusiveMinimum: 0, maximum: 10000 } },
     run: (s, a) => s.use(a.ms === undefined ? undefined : number(a, 'ms', 1, 10000)),
   },

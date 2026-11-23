@@ -124,3 +124,30 @@ test('hunt plants as carrier and defuses as defender using the server brain', ()
     }
   }
 });
+
+test('hunt calls a waiting colleague with USE, then leads it away toward lunch', () => {
+  const map = getMap(2);
+  const world = new CollisionWorld(map);
+  const nav = new NavGrid(world, map);
+  const { view, s, pilot } = fixture();
+  Object.assign(view.match, { mode: 'almoco', map: 2 });
+  const hold = map.flagBases[1];
+  Object.assign(s, { x: hold.x + 30, z: hold.z, y: world.groundBelow(hold.x + 30, map.dropHeight, hold.z, 16) });
+  const row = (kind: number, leader: number) => [kind, leader, hold.x, s.y, hold.z, 0];
+  view.lunch = [0, 60_000];
+  view.colleagues = [row(0, -1)];
+  const call = pilot.nextCmd(view, { kind: 'hunt' }, nav, world, 1);
+  assert.ok(call.buttons & BTN.USE, 'holds USE beside a waiting colleague');
+  view.colleagues = [row(1, view.id)];
+  let walked = false;
+  for (let seq = 2; seq <= 30 && !walked; seq++) {
+    const cmd = pilot.nextCmd(view, { kind: 'hunt' }, nav, world, seq);
+    assert.equal(cmd.buttons & BTN.USE, 0, 'no USE while leading');
+    walked = (cmd.buttons & (BTN.FWD | BTN.BACK | BTN.LEFT | BTN.RIGHT)) !== 0;
+  }
+  assert.ok(walked, 'walks toward a restaurant while leading');
+  view.colleagues = [row(0, -1)];
+  pilot.setIntent({ kind: 'moveTo', x: hold.x + 600, z: hold.z }, s.y);
+  const passing = pilot.nextCmd(view, { kind: 'moveTo', x: hold.x + 600, z: hold.z }, nav, world, 40);
+  assert.equal(passing.buttons & BTN.USE, 0, 'a move_to past a colleague does not call it');
+});

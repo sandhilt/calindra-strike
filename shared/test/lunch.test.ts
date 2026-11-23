@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { LUNCH_COLLEAGUES, colleagueRow, getMaps, modeFitsMap, startLunch, stepLunch, type Colleague, type LunchActor, type LunchPlaces } from '../src/index.ts';
+import { LUNCH_COLLEAGUES, colleagueFromRow, colleagueRow, getMaps, modeFitsMap, startLunch, stepLunch, type Colleague, type LunchActor, type LunchPlaces } from '../src/index.ts';
 
 const hold = { x: 0, y: 0, z: 0 };
 const places: LunchPlaces = { hold, restaurants: [{ x: 0, y: 0, z: -1200 }] };
@@ -74,5 +74,12 @@ describe('hora de almoçar', () => {
     const playable = getMaps().filter((m) => modeFitsMap('almoco', m)).map((m) => m.id);
     assert.deepEqual(playable, ['shopping']);
     assert.ok(getMaps().every((m) => modeFitsMap('tdm', m)));
+  });
+
+  it('a colleague survives the wire row, minus the trail only the server walks', () => {
+    const following: Colleague = { kind: 'following', leader: 7, trail: [hold], x: 10, y: 96, z: -20, yaw: 0.5 };
+    assert.deepEqual(colleagueFromRow(colleagueRow(following)), { ...following, trail: [] });
+    for (const c of startLunch(hold)) assert.deepEqual(colleagueFromRow(colleagueRow(c)), c);
+    assert.equal(colleagueFromRow([2, -1, 0, 0, 0, 0]).kind, 'seated');
   });
 });

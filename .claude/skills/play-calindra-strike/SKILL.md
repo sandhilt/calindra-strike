@@ -121,6 +121,17 @@ Things you can play with:
 - `hunt` follows objectives while fighting. Within a team, players sorted by id take one defender per four members, the rest attack. Attackers seek the enemy flag and keep advancing while an enemy is over 600 units away, then duel; a carrier keeps running home even with an enemy in sight (after first returning a dropped own flag or hunting an enemy carrier); defenders fight, guard home or chase the carrier of their stolen flag. All roles return a dropped own flag by touching it.
 - Capture by bringing the enemy flag to your base while your own flag is home. Use `move_to` for explicit coordination and reissue `hunt` afterward. Callouts: `Levo a bandeira, cubram a volta`, `Nossa bandeira caiu em x,z`, `Portador inimigo em x,z`.
 
+## Hora de almoçar
+
+Mode `almoco`, only on `Shopping Sul Rio`. Rules in `shared/src/lunch.ts`, MCP view in `tools/mcp/view.ts` (`describeLunch`).
+
+- Hostage rescue. Three white colleagues (Estagiário, PO, Tech lead) wait at the defenders' base. Attackers call them and lead them to a restaurant counter in the upstairs food court (escalators beside the fountain). All seated wins the round for the attackers; the 90 s timer running out ("acabaram os lugares na praça de alimentação") wins it for the defenders. Sides swap every round, so re-read `lunch.role` after each `served` or `full` event. First to 4 rounds. The warmup plays the same rounds without a point.
+- Read `lunch` in `get_state`: `role` (`attacker`, `defender`), `attackersTeam`, `rules` (one sentence for your role), `secondsLeft`, `seated`/`total`, `colleagues` (`name`, `state` `waiting`/`following`/`seated`, `leaderId`/`leaderName`, `pos`, `distance`, `bearingDeg`, `inUseReach`) and `restaurants` (`pos`, `distance`, `bearingDeg`, nearest first). Events are `k: lunch` with `what: follow | stop | seated | served | full`, `byName` and `colleague`.
+- Rules: a waiting colleague follows the first living attacker holding USE within 80 units of it. Followers walk the leader's own path, so lead them the way you want them to go: up an escalator, not off the deck edge. A follower sits once within 180 units of a restaurant point on the same floor. A leader who dies or changes team leaves them waiting where they stand; any attacker can call them again from there.
+- `hunt` plays the mode: attackers walk to the nearest waiting colleague and hold USE beside it, then lead to the nearest restaurant; defenders chase whoever leads a colleague, or patrol a ring around the waiting ones.
+- `use` (`{ ms?: 1..10000 }`) calls by hand. It needs a waiting colleague with `inUseReach: true` and your team attacking, and answers `following` with the names that now follow you, or `interrupted` (round ended, died, timeout). One call can pick up all three, since they wait close together, and it ends early when an ally takes the last one in reach. Then `move_to` a restaurant `pos` or `hunt`. Only `hunt` calls colleagues by itself; a `move_to` walks past them.
+- Attacking: one player leads, the others clear ahead on the escalator and in the food court, since a dead leader strands the colleagues mid-route. Defending: the leader is the target; once the colleagues stop, guard where they stand instead of their base.
+
 ## Debug defusion
 
 Rules are defined in `shared/src/defuse.ts`, `server/src/bot.ts`, and `tools/mcp/view.ts`. In an MCP match on Escritório, `hunt` planted the bug and attempted defuses. A defuse interrupted by the player's death left the bug planted. The match timed out at 2–2 and the podium reported `winner: -1`.

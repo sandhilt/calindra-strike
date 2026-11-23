@@ -24,6 +24,7 @@ import {
   isTeamMode,
   TICK_MS,
   PLANT_MS, DEFUSE_MS, PLAYER_RADIUS, bombStandBox, BOMB_STAND_SIZE, fuseMs, type BombState,
+  LUNCH_COLLEAGUES, LUNCH_SEAT_RADIUS_UNITS, LUNCH_USE_RADIUS_UNITS, colleagueFromRow, type Colleague, type LunchEvent,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
 export interface Peer {
@@ -53,6 +54,7 @@ export type ViewEvent =
   | (Extract<GameEvent, { k: 'kill' }> & { byName?: string; toName?: string })
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
   | (Extract<GameEvent, { k: 'flag' | 'bomb' }> & { byName?: string })
+  | (LunchEvent & { byName?: string; colleague?: string })
   | { k: 'intent'; reason: string; id: number };
 export interface ChatLine {
   t: 'chat';
@@ -90,6 +92,9 @@ export interface WorldView {
   airdrops: Airdrop[];
   flags: number[][];
   bomb: number[];
+  /** Hora de almoçar header `[attackers, endsAt]` and one row per colleague, empty in other modes. */
+  lunch: number[];
+  colleagues: number[][];
   scores: number[][];
   events: ViewEvent[];
   sounds: ViewSound[];
@@ -108,6 +113,8 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     airdrops: [],
     flags: [],
     bomb: [],
+    lunch: [],
+    colleagues: [],
     sprays: [],
     scores: [],
     events: [],
@@ -148,6 +155,8 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
     });
   v.flags = m.fl ?? [];
   v.bomb = m.bm ?? [];
+  v.lunch = m.lu ?? [];
+  v.colleagues = m.lc ?? [];
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
@@ -271,6 +280,7 @@ export function renderView(
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
     airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...describeRelative(p) })),
     bomb: describeBomb(v, world),
+    lunch: describeLunch(v, describeRelative),
     flags: v.flags.map((row, team) => ({
       team,
       state: row[0] === 0 ? 'at_base' : row[0] === 1 ? 'carried' : 'dropped',
@@ -322,9 +332,49 @@ export function bombPlaces(v: WorldView, world: CollisionWorld) {
     bases = map.flagBases.map(b => ({ ...b, y: Math.max(0, terrain.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS)) }));
     bombBases.set(map, bases);
   }
-  const attackers = v.bomb[8];
+  const attackers = v.match.mode === 'almoco' ? v.lunch[0] : v.bomb[8];
   return { home: bases[attackers], site: bases[1 - attackers], attackers };
 }
+/** The colleagues of a running hora de almoçar round; undefined in other modes and on the podium, where no round runs. */
+export function lunchColleagues(v: WorldView): Colleague[] | undefined {
+  if (v.match.mode !== 'almoco' || v.match.phase === 'podium' || v.lunch.length < 2) return undefined;
+  return v.colleagues.map(colleagueFromRow);
+}
+
+const LUNCH_RULES = {
+  attacker: `Take every colleague to lunch before secondsLeft runs out. Stand within ${LUNCH_USE_RADIUS_UNITS} units of a waiting colleague and call use: it follows your path, escalators included. Walk to a restaurant; a following colleague sits when within ${LUNCH_SEAT_RADIUS_UNITS} units of one on its floor. All seated wins the round. If you die, the colleagues you led stop and wait where they are.`,
+  defender: 'Keep the colleagues from lunch until secondsLeft reaches 0: the food court fills up and your team wins the round. Kill whoever leads colleagues; they stop where their leader dies and must be called again.',
+} as const;
+
+function describeLunch(v: WorldView, describeRelative: Relative): object | null {
+  const colleagues = lunchColleagues(v);
+  if (!colleagues) return null;
+  const [attackers, endsAt] = v.lunch;
+  const s = v.self;
+  const role = v.roster.find((r) => r[0] === v.id)?.[3] === attackers ? 'attacker' : 'defender';
+  const name = (id: number) => v.roster.find((r) => r[0] === id)?.[1] ?? String(id);
+  return {
+    role,
+    attackersTeam: attackers,
+    rules: LUNCH_RULES[role],
+    secondsLeft: Math.max(0, (endsAt - v.time) / 1000),
+    seated: colleagues.filter((c) => c.kind === 'seated').length,
+    total: colleagues.length,
+    colleagues: colleagues.map((c, i) => ({
+      name: LUNCH_COLLEAGUES[i] ?? 'Colega',
+      state: c.kind,
+      leaderId: c.kind === 'following' ? c.leader : null,
+      leaderName: c.kind === 'following' ? name(c.leader) : null,
+      pos: [c.x, c.y, c.z],
+      ...describeRelative(c),
+      inUseReach: c.kind === 'waiting' && !!s && Math.hypot(c.x - s.x, c.y - s.y, c.z - s.z) <= LUNCH_USE_RADIUS_UNITS,
+    })),
+    restaurants: getMap(v.match.map).restaurants
+      .map((r) => ({ pos: [r.x, r.y, r.z], ...describeRelative(r) }))
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
+  };
+}
+
 function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
   const bomb = bombState(v);
   if (!bomb) return null;

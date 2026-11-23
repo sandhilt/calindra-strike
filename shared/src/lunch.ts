@@ -127,3 +127,11 @@ export const LUNCH_KINDS = ['waiting', 'following', 'seated'] as const;
 export function colleagueRow(c: Colleague): number[] {
   return [KIND_CODE[c.kind], c.kind === 'following' ? c.leader : -1, round(c.x, 10), round(c.y, 10), round(c.z, 10), round(c.yaw, 1000)];
 }
+
+/** Reads a wire row back; a following colleague comes back without its trail, which only the server walks. */
+export function colleagueFromRow([kind, leader, x, y, z, yaw]: readonly number[]): Colleague {
+  const placed = { x, y, z, yaw };
+  if (LUNCH_KINDS[kind] === 'following') return { ...placed, kind: 'following', leader, trail: [] };
+  if (LUNCH_KINDS[kind] === 'seated') return { ...placed, kind: 'seated' };
+  return { ...placed, kind: 'waiting' };
+}

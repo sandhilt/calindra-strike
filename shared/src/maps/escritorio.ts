@@ -151,6 +151,7 @@ export function buildEscritorio(): MapDef {
     dropHeight: 1000,
     airdropPoints: b.points,
     restaurants: [],
+    lifts: [],
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

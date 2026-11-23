@@ -1,3 +1,4 @@
+import type { Lift } from '../lift.ts';
 import type { Vec3 } from '../math.ts';
 import type { BrandMat } from './brands.ts';
 
@@ -109,6 +110,8 @@ export interface MapDef {
   airdropPoints: { x: number; z: number }[];
   /** Food court counters where Hora de almoçar seats colleagues; empty on maps that cannot play it. */
   restaurants: { x: number; y: number; z: number }[];
+  /** Glass lifts of the map; empty where there are none. */
+  lifts: readonly Lift[];
   boxes: Box[];
   features: MapFeature[];
   lights: MapLight[];

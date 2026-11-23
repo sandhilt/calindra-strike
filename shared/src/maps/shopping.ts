@@ -218,6 +218,7 @@ export function buildShopping(): MapDef {
     dropHeight: DROP_HEIGHT,
     airdropPoints: b.points,
     restaurants: b.restaurants,
+    lifts: b.lifts,
     boxes: b.boxes,
     features: b.features,
     lights: b.lights,

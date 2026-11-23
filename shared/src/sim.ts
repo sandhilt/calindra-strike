@@ -24,6 +24,7 @@ import {
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
+import { liftAt, liftRide, type Lift } from './lift.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
 import {
@@ -354,6 +355,25 @@ function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number)
   }
 }
 
+/**
+ * Riding a lift: ground movement on the cab floor, with the cab's climb in place of gravity and jumps.
+ * The rider is always grounded, so nothing in the shaft pulls them back down to the floor below.
+ */
+function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift, buttons: number, dt: number): void {
+  s.jumpHeld = (buttons & BTN.JUMP) !== 0;
+  const [wx, wz, moving] = wishDir(s, buttons);
+  let wishspeed = moving ? maxSpeedFor(s) : 0;
+  if (buttons & BTN.WALK) wishspeed *= WALK_SPEED_MULT;
+  if (s.ducked) wishspeed *= DUCK_SPEED_MULT;
+  friction(s, dt);
+  if (moving) accelerate(s, wx, wz, wishspeed, ACCELERATE, dt);
+  walkMove(w, s, dt);
+  const rise = liftRide(lift, s.y, (buttons & BTN.DUCK) !== 0, dt) - s.y;
+  s.y += w.clipAxis(s.x, s.y, s.z, hullHeight(s), 1, rise);
+  s.vy = 0;
+  s.onGround = true;
+}
+
 export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, dt: number): void {
   if (s.dropping) {
     skydive(w, s, buttons, dt);
@@ -375,6 +395,12 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     } else if (!w.hullOverlaps(s.x, s.y, s.z, STAND_HEIGHT)) {
       s.ducked = false;
     }
+  }
+
+  const lift = liftAt(w.map.lifts, s.x, s.y, s.z);
+  if (lift) {
+    rideLift(w, s, lift, buttons, dt);
+    return;
   }
 
   // --- jump (must re-press; CS 1.6 bunnyhop speed cap) ---

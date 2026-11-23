@@ -14,6 +14,8 @@ export const RT_CHOICES = ['auto', ...RT_LEVELS] as const;
 export type RtChoice = (typeof RT_CHOICES)[number];
 export const DEFAULT_RT_CHOICE: RtChoice = 'auto';
 export const AUTO_RT_START: RtLevel = 'high';
+/** Where `auto` starts on an integrated GPU: `high` costs about 27 ms of its GPU time per frame, so the first seconds of every match would stutter until the governor stepped down. */
+export const INTEGRATED_RT_START: RtLevel = 'medium';
 
 export interface RtProfile {
   /** Label on the pause menu. */

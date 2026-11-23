@@ -104,8 +104,8 @@ import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
 import { RtGovernor } from './render/rt-governor.ts';
-import { AUTO_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
-import { lightRtSupported } from './render/rt-support.ts';
+import { AUTO_RT_START, INTEGRATED_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
+import { INTEGRATED_GPU_TIP, lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
@@ -346,6 +346,8 @@ export class ClientGame {
   private lightRtLevel: RtLevel = 'off';
   /** What `auto` runs: lowered by the frame-time governor and kept for the rest of the match. */
   private rtCeiling: RtLevel = AUTO_RT_START;
+  private integratedGpu = false;
+  private toldAboutGpu = false;
   private readonly rtGovernor = new RtGovernor();
   private inLift = false;
   private menuOpen = false;
@@ -373,7 +375,10 @@ export class ClientGame {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.autoClear = true;
-    this.lightRtAvailable = lightRtSupported(readGpuFacts(this.renderer));
+    const facts = readGpuFacts(this.renderer);
+    this.lightRtAvailable = lightRtSupported(facts);
+    this.integratedGpu = facts.integrated;
+    if (facts.integrated) this.rtCeiling = INTEGRATED_RT_START;
     container.append(this.renderer.domElement);
     this.renderer.domElement.tabIndex = -1;
 
@@ -532,6 +537,13 @@ export class ClientGame {
   private hintLift(hud: Hud, inside: boolean): void {
     if (inside && !this.inLift) hud.info('elevador: espere no vão, ele sobe e desce sozinho e para em cada andar');
     this.inLift = inside;
+  }
+
+  /** Once per session, when frames are slow on an integrated card: the discrete one is usually a setting away. */
+  private tellAboutIntegratedGpu(): void {
+    if (!this.integratedGpu || this.toldAboutGpu) return;
+    this.toldAboutGpu = true;
+    this.hud.info(INTEGRATED_GPU_TIP);
   }
 
   /** The level the player chose (or `auto` settled on), on a tier that has the pass. */
@@ -1616,12 +1628,16 @@ export class ClientGame {
       return;
     }
 
-    if (performanceHint.sample(frameSeconds, this.settings.quality)) this.hud.info(FPS_HINT_TEXT);
+    if (performanceHint.sample(frameSeconds, this.settings.quality)) {
+      this.hud.info(FPS_HINT_TEXT);
+      this.tellAboutIntegratedGpu();
+    }
     const cheaper = this.settings.lightRt === 'auto' ? this.rtGovernor.sample(frameSeconds, this.lightRtLevel) : null;
     if (cheaper) {
       this.rtCeiling = cheaper;
       this.applyLightRt(this.wantedRtLevel());
       this.hud.info(`quadros lentos: sombra de contato baixou para ${rtLabel(cheaper)}`);
+      this.tellAboutIntegratedGpu();
     }
 
     const [ldx, ldy] = this.input.takeLook();

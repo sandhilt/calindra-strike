@@ -17,6 +17,7 @@ import {
   clamp,
   eyeHeight,
   inBombReach,
+  liftAt,
   LUNCH_USE_RADIUS_UNITS,
   type Colleague,
   type LunchPoint,
@@ -190,6 +191,7 @@ const CTF_DEFENDER_CYCLE = 4;
 const JUMP_LAUNCH_DISTANCE_UNITS = 72; // how close to the next node a bot starts its jump
 const JUMP_MIN_ALIGN_SPEED_UNITS = 60; // slower than this the bot is not carrying momentum in a wrong direction
 const JUMP_MIN_ALIGNMENT = Math.cos(35 * DEG); // moving within this angle of the node when jumping
+const CAB_CENTRE_UNITS = 12; // a rider this close to the cell the path rides from stands still
 const WAYPOINT_RADIUS_UNITS = 26; // arrived at a nav node
 const WAYPOINT_PASSED_RADIUS_UNITS = 64; // a node this close that the bot is moving away from also counts as reached
 const WAYPOINT_PASSED_MARGIN_UNITS = 4; // ignore jitter when judging that the bot is moving away
@@ -408,6 +410,8 @@ export class BotBrain {
   private strafeUntil = 0;
   private path: NavNode[] = [];
   private jumps: boolean[] = [];
+  /** Per path node: the way there from the node before it is a lift ride. */
+  private lifts: boolean[] = [];
   private pathIdx = 0;
   /** Closest the bot has been to the current waypoint, to tell that it has gone past it. */
   private waypointClosest = Infinity;
@@ -416,7 +420,7 @@ export class BotBrain {
   private pathGoal: { x: number; y: number; z: number } | null = null;
   private repathAt = 0;
   private goalUntil = 0;
-  private lastCheck = { x: 0, z: 0, tick: 0 };
+  private lastCheck = { x: 0, y: 0, z: 0, tick: 0 };
   private stuck = 0;
   private prevButtons = 0;
 
@@ -542,6 +546,10 @@ export class BotBrain {
     this.jumps = p.map((n, i) => {
       const prev = i === 0 ? a : p[i - 1];
       return env.nav.edgeBetween(prev, n)?.jump ?? false;
+    });
+    this.lifts = p.map((n, i) => {
+      const prev = i === 0 ? a : p[i - 1];
+      return env.nav.edgeBetween(prev, n)?.lift ?? false;
     });
     this.pathIdx = 0;
     this.waypointClosest = Infinity;
@@ -702,17 +710,21 @@ export class BotBrain {
         if (Math.abs(wrapAngle(yaw - this.yaw)) < 70 * DEG) buttons |= BTN.FWD;
       }
     } else {
-      const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
-      this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
-      // Steer with the keys, not just the view: a bot that only walks forward carries its momentum past a sharp turn
-      // (a ramp foot, a doorway) while it is still turning, and slides off the side.
-      buttons |= moveButtons(wrapAngle(yaw - this.yaw));
-      if (this.jumps[this.pathIdx] && readyToJump(s, node)) buttons |= BTN.JUMP;
+      const ride = this.cabControls(s, env);
+      if (ride !== null) buttons |= ride;
+      else {
+        const [yaw] = anglesTo(s.x, 0, s.z, node.x, 0, node.z);
+        this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
+        // Steer with the keys, not just the view: a bot that only walks forward carries its momentum past a sharp turn
+        // (a ramp foot, a doorway) while it is still turning, and slides off the side.
+        buttons |= moveButtons(wrapAngle(yaw - this.yaw));
+        if (this.jumps[this.pathIdx] && readyToJump(s, node)) buttons |= BTN.JUMP;
+      }
     }
 
     // unstick: jump, then pick somewhere else
     if (env.tick - this.lastCheck.tick >= 45) {
-      const moved = Math.hypot(s.x - this.lastCheck.x, s.z - this.lastCheck.z);
+      const moved = Math.hypot(s.x - this.lastCheck.x, s.z - this.lastCheck.z, s.y - this.lastCheck.y);
       if (moved < 10 && node) {
         this.stuck++;
         if (this.stuck >= 3 && !this.directive) {
@@ -722,7 +734,7 @@ export class BotBrain {
           this.stuck = 0;
         }
       } else this.stuck = 0;
-      this.lastCheck = { x: s.x, z: s.z, tick: env.tick };
+      this.lastCheck = { x: s.x, y: s.y, z: s.z, tick: env.tick };
     }
     if (this.stuck > 0 && s.onGround && !s.jumpHeld) buttons |= BTN.JUMP;
     if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
@@ -746,6 +758,31 @@ export class BotBrain {
       node = this.path[this.pathIdx];
     }
     return node;
+  }
+
+  /**
+   * Inside a lift shaft the cab does the walking: stand in the middle and wait, crouching to go down, until the floor
+   * the path leaves at is level with the bot. Null when the bot is not riding.
+   */
+  private cabControls(s: PlayerState, env: BotEnv): number | null {
+    if (!liftAt(env.world.map.lifts, s.x, s.y, s.z)) return null;
+    const ahead = this.lifts.indexOf(true, this.pathIdx);
+    const target = this.path[ahead >= 0 ? ahead : this.pathIdx];
+    if (!target) return null;
+    if (Math.abs(target.y - s.y) <= REACH_MAX_HEIGHT_UNITS) {
+      if (ahead >= 0) {
+        this.pathIdx = ahead + 1;
+        this.waypointClosest = Infinity;
+      }
+      return null;
+    }
+    let buttons = target.y < s.y ? BTN.DUCK : 0;
+    if (Math.hypot(target.x - s.x, target.z - s.z) > CAB_CENTRE_UNITS) {
+      const [yaw] = anglesTo(s.x, 0, s.z, target.x, 0, target.z);
+      this.turnTo(yaw, 0, 1 / 60, this.aim.walkTurnDegPerSecond);
+      buttons |= moveButtons(wrapAngle(yaw - this.yaw));
+    }
+    return buttons;
   }
 
   private advanceWhileAiming(self: BotAgent, env: BotEnv): number {

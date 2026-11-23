@@ -46,22 +46,24 @@ describe('lift field', () => {
     assert.equal(liftAt([], 0, 0, 150), undefined);
   });
 
-  it('climbs at full speed, crawls around the stops in between and holds at both ends', () => {
+  it('climbs at full speed, crawls around every stop and holds at both ends', () => {
     assert.equal(liftRide(LIFT, 60, false, 1), 60 + LIFT_SPEED_UNITS);
     assert.equal(liftRide(LIFT, 192, false, 1), 192 + LIFT_DWELL_SPEED_UNITS);
     assert.equal(liftRide(LIFT, 192 + LIFT_DWELL_RADIUS_UNITS + 1, false, 1), 192 + LIFT_DWELL_RADIUS_UNITS + 1 + LIFT_SPEED_UNITS);
+    assert.equal(liftRide(LIFT, 0, false, 1), LIFT_DWELL_SPEED_UNITS, 'leaves the ground floor slowly');
     assert.equal(liftRide(LIFT, 380, false, 1), 384, 'never past the last stop');
     assert.equal(liftRide(LIFT, 0, true, 1), 0, 'never below the first stop');
     assert.equal(liftRide(LIFT, 384, false, 1), 384);
-    assert.equal(liftRide(LIFT, 384, true, 1), 384 - LIFT_SPEED_UNITS);
+    assert.equal(liftRide(LIFT, 384, true, 1), 384 - LIFT_DWELL_SPEED_UNITS, 'leaves the top slowly');
+    assert.equal(liftRide(LIFT, 300, true, 1), 300 - LIFT_SPEED_UNITS);
   });
 
   it('takes a few seconds to ride, and the crawl at a stop is the only slow part', () => {
     const toTop = liftRideSeconds(LIFT, 0, 384);
     const toDeck = liftRideSeconds(LIFT, 0, 192);
-    assert.ok(toTop > 3 && toTop < 8, 'ground to top took ' + toTop);
+    assert.ok(toTop > 4 && toTop < 10, 'ground to top took ' + toTop);
     assert.ok(toDeck > 1.5 && toDeck < toTop);
-    assert.equal(liftRideSeconds(LIFT, 384, 0) > 3, true, 'down takes as long as up');
+    assert.ok(Math.abs(liftRideSeconds(LIFT, 384, 0) - toTop) < 0.2, 'down takes as long as up');
   });
 });
 
@@ -159,4 +161,45 @@ describe('riding a lift', () => {
     };
     assert.deepEqual(run(), run());
   });
+});
+
+describe('the Shopping Sul Rio lifts', () => {
+  const shopping = getMaps().find((m) => m.id === 'shopping');
+  assert.ok(shopping);
+  const world = new CollisionWorld(shopping);
+
+  it('has one shaft in each half, serving the ground floor, the food court and the Mirante, and a cab prop for each', () => {
+    assert.equal(shopping.lifts.length, 2);
+    for (const lift of shopping.lifts) assert.deepEqual(lift.stops, [0, 192, 384]);
+    assert.deepEqual(shopping.lifts.map((l) => Math.sign(l.minZ)).toSorted(), [-1, 1]);
+    assert.equal(shopping.props.filter((p) => p.kind === 'lift').length, 2);
+  });
+
+  for (const side of [-1, 1]) {
+    const yaw = side < 0 ? 0 : Math.PI;
+    const doorZ = (z: number) => side * z;
+    it(`takes a rider from the atrium to the food court deck and out its doorway (${side < 0 ? 'north' : 'south'} half)`, () => {
+      const s = rider(world, 0, 0, doorZ(530));
+      for (let i = 0; i < 24; i++) step(world, s, BTN.FWD, yaw);
+      assert.ok(Math.abs(s.z) > 560 && Math.abs(s.z) < 672, 'inside the shaft at z=' + s.z);
+      for (let i = 0; i < 600 && s.y < 192 - 4; i++) step(world, s, 0, yaw);
+      for (let i = 0; i < 90; i++) step(world, s, BTN.FWD, yaw);
+      assert.ok(Math.abs(s.z) > 690, 'out on the deck, z=' + s.z);
+      assert.ok(Math.abs(s.y - 192) < 1, 'level with the deck, y=' + s.y);
+    });
+
+    it(`takes a rider all the way to the Mirante, holds there, and brings them back down with crouch (${side < 0 ? 'north' : 'south'} half)`, () => {
+      const s = rider(world, 0, 0, doorZ(530));
+      for (let i = 0; i < 24; i++) step(world, s, BTN.FWD, yaw);
+      for (let i = 0; i < 60 * 8; i++) step(world, s, 0, yaw);
+      assert.equal(s.y, 384);
+      for (let i = 0; i < 30; i++) step(world, s, BTN.FWD, yaw);
+      assert.ok(Math.abs(s.z) > 690 && Math.abs(s.y - 384) < 1, 'out on the Mirante at ' + [s.z, s.y]);
+      for (let i = 0; i < 40; i++) step(world, s, BTN.BACK, yaw);
+      for (let i = 0; i < 60 * 12 && s.y > 0; i++) step(world, s, BTN.DUCK, yaw);
+      assert.equal(s.y, 0);
+      for (let i = 0; i < 120; i++) step(world, s, BTN.BACK, yaw);
+      assert.ok(Math.abs(s.z) < 550, 'walked out into the atrium, z=' + s.z);
+    });
+  }
 });

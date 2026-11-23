@@ -56,9 +56,11 @@ describe('NavGrid', () => {
 
   it('rides an escalator from the mall atrium up to each food court', () => {
     for (const side of [-1, 1]) {
-      const p = route(navS, [0, 0, side * 450], [0, 192, side * 860]);
+      // the up escalator of each half is the east one in the north and the west one in the south
+      const p = route(navS, [-side * 528, 0, side * 300], [-side * 528, 192, side * 860]);
       assert.notEqual(p, null);
       assert.equal(p!.at(-1)!.y, 192);
+      assert.ok(p!.some((n) => n.y > 0 && n.y < 192), 'passes the escalator steps');
       for (let i = 1; i < p!.length; i++) assert.ok(p![i].y - p![i - 1].y <= 40, 'no edge rises more than a jump');
     }
   });
@@ -76,12 +78,12 @@ describe('NavGrid', () => {
 
   it('climbs from the food court to the Mirante and back by the stair bays, one escalator step at a time', () => {
     for (const side of [-1, 1]) {
-      const up = route(navS, [0, 192, side * 880], [0, 384, side * 880]);
+      const up = route(navS, [-side * 1120, 192, side * 744], [-side * 1120, 384, side * 744]);
       assert.notEqual(up, null);
       assert.equal(up!.at(-1)!.y >= 384, true);
       for (let i = 1; i < up!.length; i++) assert.ok(up![i].y - up![i - 1].y <= 40, 'no edge rises more than a jump');
       assert.ok(up!.some((n) => n.y > 192 && n.y < 384), 'passes the bay escalator steps');
-      const down = route(navS, [0, 384, side * 880], [0, 192, side * 800]);
+      const down = route(navS, [side * 1120, 384, side * 744], [side * 1120, 192, side * 744]);
       assert.notEqual(down, null);
       assert.equal(down!.at(-1)!.y, 192);
     }
@@ -93,6 +95,34 @@ describe('NavGrid', () => {
         const p = route(navS, [base.x, 0, base.z], [0, 384, side * 880]);
         assert.notEqual(p, null);
         assert.equal(p!.some((n) => n.y >= 384), true);
+      }
+    }
+  });
+
+  it('rides the glass lift between the atrium and the Mirante, in both directions, with one lift edge each way', () => {
+    for (const side of [-1, 1]) {
+      for (const [from, to] of [
+        [[0, 0, side * 520], [0, 384, side * 800]],
+        [[0, 384, side * 760], [0, 0, side * 450]],
+      ] as const) {
+        const start = navS.nearest(from[0], from[1], from[2]);
+        assert.ok(start);
+        const p = route(navS, [...from], [...to]);
+        assert.ok(p);
+        const edges = p.map((n, i) => navS.edgeBetween(i === 0 ? start : p[i - 1], n));
+        assert.equal(edges.filter((e) => e?.lift).length, 1, 'one ride');
+      }
+    }
+  });
+
+  it('never lets a walker jump or drop into or out of a shaft between floors', () => {
+    const [lift] = shopping.lifts;
+    for (const n of navS.nodes) {
+      const inside = (x: number, z: number) => x > lift.minX && x < lift.maxX && z > lift.minZ && z < lift.maxZ;
+      for (const e of n.edges) {
+        const m = navS.nodes[e.to];
+        if (e.lift || (!inside(n.x, n.z) && !inside(m.x, m.z))) continue;
+        assert.ok(Math.abs(m.y - n.y) <= 18, 'edge ' + [n.x, n.y, n.z] + ' to ' + [m.x, m.y, m.z] + ' climbs or falls in the shaft');
       }
     }
   });

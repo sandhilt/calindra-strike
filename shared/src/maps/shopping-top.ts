@@ -1,6 +1,7 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
-import { DECK, DECK3, GALLERY_Z, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
+import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
+import { DECK, DECK3, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
 import type { EscalatorTravel } from './types.ts';
 
 /**
@@ -117,7 +118,36 @@ function bay(b: MapBuilder, x1: number, x2: number, travel: EscalatorTravel, sig
   }
 }
 
+/**
+ * The glass lift: a shaft of glass walls against the atrium edge, the field that carries riders, and the prop that
+ * draws the cab. Ground floor riders get in from the atrium; the doorways of the food court and the Mirante open
+ * onto their floors across the edge, where the rails leave a gap.
+ */
+function liftShaft(b: MapBuilder): void {
+  const doorTop = LIFT_DOOR_HEIGHT_UNITS;
+  const wall = (x1: number, z1: number, x2: number, z2: number, y1: number, y2: number): void => b.add(x1, y1, z1, x2, y2, z2, 'glass', { shoot: true });
+  const x0 = LIFT_MIN_X - LIFT_WALL;
+  const x1 = LIFT_MAX_X + LIFT_WALL;
+  const zFront = LIFT_MIN_Z - LIFT_WALL;
+  const zBack = LIFT_MAX_Z + LIFT_WALL;
+  wall(x0, zFront, LIFT_MIN_X, zBack, 0, ROOF);
+  wall(LIFT_MAX_X, zFront, x1, zBack, 0, ROOF);
+  wall(x0, LIFT_MAX_Z, x1, zBack, doorTop, ROOF);
+  wall(x0, zFront, x1, LIFT_MIN_Z, 0, DECK);
+  wall(x0, zFront, x1, LIFT_MIN_Z, DECK + doorTop, DECK3);
+  wall(x0, zFront, x1, LIFT_MIN_Z, DECK3 + doorTop, ROOF);
+  b.deco(x0 - 2, ROOF, zFront - 2, x1 + 2, ROOF + 4, zBack + 2, 'charcoal');
+  b.lift(LIFT_MIN_X, LIFT_MIN_Z, LIFT_MAX_X, LIFT_MAX_Z, [0, DECK, DECK3]);
+  b.prop({
+    kind: 'lift', x: (LIFT_MIN_X + LIFT_MAX_X) / 2, z: (LIFT_MIN_Z + LIFT_MAX_Z) / 2, yaw: 0,
+    width: LIFT_MAX_X - LIFT_MIN_X, depth: LIFT_MAX_Z - LIFT_MIN_Z, height: ROOF,
+    stops: [{ y: 0, side: 'back' }, { y: DECK, side: 'front' }, { y: DECK3, side: 'front' }],
+  });
+  b.landmark('Elevador panorâmico', 0, (LIFT_MIN_Z + LIFT_MAX_Z) / 2);
+}
+
 export function topFloor(b: MapBuilder): void {
+  liftShaft(b);
   b.add(-TOP_X, DECK3 - SLAB, -Z, TOP_X, DECK3, GALLERY_Z, 'tile');
   b.deco(-TOP_X, DECK3 - SLAB, GALLERY_Z, TOP_X, DECK3 - SLAB + 4, GALLERY_Z + 3);
   glassRail(b, -TOP_X, GALLERY_Z - 4, -LIFT_GAP_HALF, GALLERY_Z);

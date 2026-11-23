@@ -1,9 +1,11 @@
-import { type CollisionWorld, type MapDef, STAND_HEIGHT } from '@calindra-strike/shared';
+import { type CollisionWorld, type Lift, type MapDef, MAX_SPEED, STAND_HEIGHT, liftRideSeconds } from '@calindra-strike/shared';
 
 export interface NavEdge {
   to: number;
   cost: number;
   jump: boolean;
+  /** Ride a lift to the node: stand still in the cab (crouch to go down) until the floor is level with it. */
+  lift?: true;
 }
 
 export interface NavNode {
@@ -34,7 +36,8 @@ const DIRS = [
 /**
  * Layered navigation grid generated from the collision boxes: every column of
  * the map gets one node per standable surface (floor, crate tops, roofs...).
- * Edges walk, step, jump up or drop down between neighbouring columns.
+ * Edges walk, step, jump up or drop down between neighbouring columns. Inside a lift shaft the cells get a node on
+ * every floor the lift serves, joined by lift edges instead of drops.
  */
 export class NavGrid {
   readonly nodes: NavNode[] = [];
@@ -63,11 +66,14 @@ export class NavGrid {
     this.columns = Array.from({ length: this.nx * this.nz }, () => []);
 
     const solids = map.boxes.filter((bx) => bx.solid && bx.max.y < MAX_SURFACE);
+    const cabNodes = new Map<number, Lift>();
     for (let i = 0; i < this.nx; i++) {
       for (let j = 0; j < this.nz; j++) {
         const x = this.minX + i * CELL;
         const z = this.minZ + j * CELL;
         const tops = new Set<number>();
+        const lift = map.lifts.find((l) => x - 16 >= l.minX && x + 16 <= l.maxX && z - 16 >= l.minZ && z + 16 <= l.maxZ);
+        for (const stop of lift?.stops ?? []) tops.add(stop);
         for (const bx of solids) {
           // anything under the player's 32x32 footprint can be what they stand on (stair edges, narrow crates)
           if (x + 16 > bx.min.x && x - 16 < bx.max.x && z + 16 > bx.min.z && z - 16 < bx.max.z) tops.add(bx.max.y);
@@ -77,6 +83,7 @@ export class NavGrid {
           const id = this.nodes.length;
           this.nodes.push({ id, x, y, z, edges: [] });
           this.columns[i * this.nz + j].push(id);
+          if (lift && lift.stops.includes(y)) cabNodes.set(id, lift);
         }
       }
     }
@@ -93,6 +100,8 @@ export class NavGrid {
               const m = this.nodes[mid];
               const dy = m.y - n.y;
               if (dy > MAX_JUMP || dy < -MAX_DROP) continue;
+              // the cab holds a rider: into or out of the shaft is a walk across a doorway, never a jump or a drop
+              if ((cabNodes.has(id) || cabNodes.has(mid)) && Math.abs(dy) > MAX_STEP) continue;
               if (!this.clear(n, m)) continue;
               const dist = Math.hypot(m.x - n.x, m.z - n.z);
               const jump = dy > MAX_STEP;
@@ -101,6 +110,15 @@ export class NavGrid {
             }
           }
         }
+      }
+    }
+
+    for (const [id, lift] of cabNodes) {
+      const n = this.nodes[id];
+      for (const [other, otherLift] of cabNodes) {
+        const m = this.nodes[other];
+        if (otherLift !== lift || m.x !== n.x || m.z !== n.z || m.y === n.y) continue;
+        n.edges.push({ to: other, cost: liftRideSeconds(lift, n.y, m.y) * MAX_SPEED, jump: false, lift: true });
       }
     }
 

@@ -22,5 +22,12 @@ export const GALLERY_Z = -672;
 export const FACADE_Z = -880;
 /** The top floor slab stops here; past it, at each end, is a stair bay open from the deck to the roof. */
 export const TOP_X = 1216;
+/** Inner footprint of the glass lift beside the middle of the atrium edge, in the north half. */
+export const LIFT_MIN_X = -56;
+export const LIFT_MAX_X = 56;
+export const LIFT_MIN_Z = GALLERY_Z;
+export const LIFT_MAX_Z = GALLERY_Z + 112;
+/** Glass walls of the lift shaft. */
+export const LIFT_WALL = 6;
 /** Glass balustrades stand above a jump, so nobody (bots' nav included) hops off a floor or an escalator. */
 export const RAIL = 64;

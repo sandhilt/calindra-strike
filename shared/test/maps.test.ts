@@ -120,7 +120,7 @@ describe('the shopping map props', () => {
   const world = new CollisionWorld(shopping);
 
   it('repeat the shared fixtures in point symmetric pairs, since the south half is the north one turned 180 degrees', () => {
-    const shared = shopping.props.filter((p) => p.kind === 'ceilingFan' || p.kind === 'escalator' || p.kind === 'vent');
+    const shared = shopping.props.filter((p) => p.kind === 'ceilingFan' || p.kind === 'escalator' || p.kind === 'vent' || p.kind === 'lift');
     const key = (kind: string, x: number, z: number) => `${kind}@${Math.round(x)},${Math.round(z)}`;
     const seen = new Set(shared.map((p) => key(p.kind, p.x, p.z)));
     assert.ok(shared.length > 20);
@@ -129,7 +129,7 @@ describe('the shopping map props', () => {
 
   it('draws every kind the map is meant to show', () => {
     const kinds = new Set(shopping.props.map((p) => p.kind));
-    for (const kind of ['ceilingFan', 'mannequin', 'clothesRack', 'escalator', 'fountain', 'vent'] as const) assert.ok(kinds.has(kind), kind);
+    for (const kind of ['ceilingFan', 'mannequin', 'clothesRack', 'escalator', 'fountain', 'vent', 'lift'] as const) assert.ok(kinds.has(kind), kind);
   });
 
   it('has one ascending and one descending escalator between each pair of floors in each half', () => {

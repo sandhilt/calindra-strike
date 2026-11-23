@@ -1,4 +1,4 @@
-import type { MapProp, Mat, PropKind } from '@calindra-strike/shared';
+import { LIFT_DOOR_HEIGHT_UNITS, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import {
   CASCADE_DROP,
@@ -7,16 +7,22 @@ import {
   VENT_FAN_RAD_PER_S,
   WISPS_PER_VENT,
   dropPose,
+  cabHeights,
+  doorOpening,
   escalatorPhase,
   fanAngle,
   fillStepSlot,
   lifeFraction,
+  nearestStop,
   newStepSlot,
+  ridersIn,
   RISER_THICKNESS_UNITS,
   stepGeometry,
   TREAD_THICKNESS_UNITS,
   wispPose,
+  LIFT_CABS_PER_SHAFT,
   type DropPose,
+  type Rider,
   type StepSlot,
   type WispPose,
 } from './prop-motion.ts';
@@ -30,7 +36,8 @@ type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
 /** What a prop kind hands back to the world: something to put in the scene, and how it moves. */
 export interface PropGroup {
   readonly object: THREE.Object3D;
-  update(dt: number): void;
+  /** `riders` are the people in the world, for the props that follow them (lift cabs). */
+  update(dt: number, riders: readonly Rider[]): void;
   /** Takes a graphics tier mid-match: starts or stops motion and builds or drops the optional parts. */
   setQuality(profile: QualityProfile): void;
 }
@@ -407,6 +414,112 @@ function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGro
   };
 }
 
+const LIFT_FRAME_COLOR = 0x2b2e33;
+const LIFT_CAB_COLOR = 0xaab1ba;
+const LIFT_LAMP_ON = 0x6dff7a;
+const LIFT_LAMP_OFF = 0x3a3f46;
+const LIFT_LAMP_WAIT = 0xff5a4e;
+
+interface Cab {
+  readonly group: THREE.Group;
+  readonly doors: Record<'front' | 'back', THREE.Mesh[]>;
+  readonly lamps: THREE.MeshBasicMaterial[];
+}
+
+/**
+ * The cabs of every lift shaft. The field carries whoever stands in the footprint (see `lift.ts`), so a cab is
+ * simply drawn under each cluster of riders, doors open at a stop and shut between them, and one rests on the
+ * bottom stop when the shaft is empty. A lamp over each doorway shows whether a cab is standing there.
+ * Cheap on every tier: a handful of meshes that only move when somebody rides.
+ */
+function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  const root = new THREE.Group();
+  const floorMat = new THREE.MeshStandardMaterial({ color: LIFT_CAB_COLOR, roughness: 0.4, metalness: 0.5 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: LIFT_FRAME_COLOR, roughness: 0.6, metalness: 0.3 });
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0xbfd6e0, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.45, depthWrite: false });
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
+  const box = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number): THREE.Mesh => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z);
+    return mesh;
+  };
+  const shafts = items.map((lift) => {
+    const place = new THREE.Group();
+    place.position.set(lift.x, 0, lift.z);
+    place.rotation.y = lift.yaw;
+    root.add(place);
+    const half = { x: lift.width / 2, z: lift.depth / 2 };
+    ctx.statics.at(lift.x, 0, lift.z, lift.yaw);
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) ctx.statics.box(6, lift.height, 6, LIFT_FRAME_COLOR, { x: sx * half.x, y: lift.height / 2, z: sz * half.z });
+    }
+    const lintels = lift.stops.map((stop) => {
+      const lamp = new THREE.MeshBasicMaterial({ color: LIFT_LAMP_OFF });
+      const z = (stop.side === 'front' ? -1 : 1) * (half.z + 7);
+      const y = stop.y + LIFT_DOOR_HEIGHT_UNITS + 8;
+      place.add(box(20, 6, 3, frameMat, 0, y, z));
+      place.add(box(14, 3, 3.2, lamp, 0, y, z));
+      return lamp;
+    });
+    const cabs: Cab[] = Array.from({ length: LIFT_CABS_PER_SHAFT }, () => {
+      const group = new THREE.Group();
+      group.add(box(lift.width - 4, 3, lift.depth - 4, floorMat, 0, -1, 0));
+      for (const [w, d, x, z] of [[lift.width - 4, 3, 0, -half.z + 2], [lift.width - 4, 3, 0, half.z - 2], [3, lift.depth - 4, -half.x + 2, 0], [3, lift.depth - 4, half.x - 2, 0]] as const) {
+        group.add(box(w, 3, d, frameMat, x, LIFT_DOOR_HEIGHT_UNITS, z));
+      }
+      group.add(box(lift.width - 24, 1.5, lift.depth - 24, lightMat, 0, LIFT_DOOR_HEIGHT_UNITS - 0.5, 0));
+      const doors: Cab['doors'] = { front: [], back: [] };
+      for (const side of ['front', 'back'] as const) {
+        for (const sx of [-1, 1]) {
+          const door = box(half.x, LIFT_DOOR_HEIGHT_UNITS, 1.5, doorMat, sx * half.x / 2, LIFT_DOOR_HEIGHT_UNITS / 2, (side === 'front' ? -1 : 1) * (half.z - 3));
+          group.add(door);
+          doors[side].push(door);
+        }
+      }
+      const lamps = lift.stops.map((_, i) => {
+        const lamp = new THREE.MeshBasicMaterial({ color: LIFT_LAMP_OFF });
+        group.add(box(6, 6, 1.2, lamp, (i - (lift.stops.length - 1) / 2) * 10, LIFT_DOOR_HEIGHT_UNITS - 10, half.z - 4));
+        return lamp;
+      });
+      group.visible = false;
+      place.add(group);
+      group.position.set(0, 0, 0);
+      return { group, doors, lamps };
+    });
+    return { lift, cabs, lintels };
+  });
+  const pose = (riders: readonly Rider[]): void => {
+    for (const { lift, cabs, lintels } of shafts) {
+      const heights = cabHeights(ridersIn(lift, riders), lift.stops[0].y);
+      const standing = new Set<number>();
+      cabs.forEach((cab, i) => {
+        const y = heights[i];
+        cab.group.visible = y !== undefined;
+        if (y === undefined) return;
+        cab.group.position.y = y;
+        const near = nearestStop(lift.stops, y);
+        const open = doorOpening(near.distance);
+        if (open > 0.5) standing.add(near.index);
+        for (const side of ['front', 'back'] as const) {
+          const mine = lift.stops[near.index].side === side ? open : 0;
+          for (const door of cab.doors[side]) door.scale.x = 1 - 0.8 * mine;
+        }
+        cab.lamps.forEach((lamp, k) => lamp.color.setHex(k === near.index ? LIFT_LAMP_ON : LIFT_LAMP_OFF));
+      });
+      lintels.forEach((lamp, k) => lamp.color.setHex(standing.has(k) ? LIFT_LAMP_ON : LIFT_LAMP_WAIT));
+    }
+  };
+  pose([]);
+  return {
+    object: root,
+    update(_dt, riders) {
+      pose(riders);
+    },
+    setQuality() {},
+  };
+}
+
 /** One builder per prop kind: a kind added to `MapProp` without one here fails the typecheck. */
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
@@ -415,6 +528,7 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   escalator: buildEscalators,
   fountain: buildFountains,
   vent: buildVents,
+  lift: buildLifts,
 };
 
 function isPropKind(kind: string): kind is PropKind {
@@ -428,7 +542,7 @@ function buildKind<K extends PropKind>(kind: K, props: readonly MapProp[], ctx: 
 
 export interface PropsView {
   readonly group: THREE.Group;
-  update(dt: number): void;
+  update(dt: number, riders: readonly Rider[]): void;
   setQuality(profile: QualityProfile): void;
 }
 
@@ -447,8 +561,8 @@ export function buildProps(props: readonly MapProp[], materialOf: PropContext['m
   for (const g of groups) group.add(g.object);
   return {
     group,
-    update(dt) {
-      for (const g of groups) g.update(dt);
+    update(dt, riders) {
+      for (const g of groups) g.update(dt, riders);
     },
     setQuality(next) {
       for (const g of groups) g.setQuality(next);

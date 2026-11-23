@@ -104,6 +104,7 @@ export class MapBuilder {
       case 'mannequin':
       case 'clothesRack':
       case 'vent':
+      case 'lift':
         return { ...p, x, z, yaw: p.yaw - turn };
       case 'escalator': {
         const [dirX, dirZ] = this.rotXZ(p.dirX, p.dirZ);

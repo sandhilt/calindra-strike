@@ -2,6 +2,7 @@ import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat } from '@calind
 import * as THREE from 'three';
 import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
+import type { Rider } from './prop-motion.ts';
 import { buildProps } from './props.ts';
 import { signMaterial } from './store-signs.ts';
 import { TEX, TEX_SCALE } from './textures.ts';
@@ -113,7 +114,8 @@ export interface WorldView {
   /** Paints the sky, lights, fog and glows with a look of the day cycle. Only writes values, nothing is allocated. */
   applyLook(look: DayLook): void;
   /** Advances the moving scenery (fans, escalator steps, fountain water, vent smoke) by dt seconds. */
-  update(dt: number): void;
+  /** `riders` are the people in the world, so lift cabs can follow them; none when nobody is. */
+  update(dt: number, riders?: readonly Rider[]): void;
   /** Takes a graphics tier chosen mid-match: starts or stops the ambient motion and builds or drops the vent smoke. */
   setQuality(profile: QualityProfile): void;
   dispose(): void;
@@ -393,8 +395,8 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
       for (const halo of halos) halo.opacity = Math.min(1, GLOW_OPACITY * look.glow);
       for (const s of silhouettes) s.mat.color.copy(s.base).multiplyScalar(look.scenery);
     },
-    update(dt) {
-      props.update(dt);
+    update(dt, riders) {
+      props.update(dt, riders ?? []);
     },
     setQuality(next) {
       props.setQuality(next);

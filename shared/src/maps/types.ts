@@ -57,6 +57,12 @@ export interface Outfit {
 
 export type EscalatorTravel = 'up' | 'down';
 
+/** A floor a lift serves and which side of the shaft its doorway is on: the front faces local -z at yaw 0. */
+export interface LiftStopDoor {
+  y: number;
+  side: 'front' | 'back';
+}
+
 /**
  * Scenery the client draws from a model and may animate. Never solid: whatever must block movement or
  * bullets is a Box. Angles follow three.js `rotation.y`, and a prop faces local -z at yaw 0.
@@ -71,7 +77,9 @@ export type MapProp =
   /** Water jet and falling drops standing on a basin whose surface is at `y`. */
   | { kind: 'fountain'; x: number; y: number; z: number; radius: number }
   /** A wall grille with a fan behind it, a hum nearby and a faint wisp of vapour. It faces local -z. */
-  | { kind: 'vent'; x: number; y: number; z: number; yaw: number; width: number; height: number };
+  | { kind: 'vent'; x: number; y: number; z: number; yaw: number; width: number; height: number }
+  /** The glass cab and frame of a lift shaft, centred on its footprint. The cabs follow whoever rides (the field is `MapDef.lifts`). */
+  | { kind: 'lift'; x: number; z: number; yaw: number; width: number; depth: number; height: number; stops: readonly LiftStopDoor[] };
 
 export type PropKind = MapProp['kind'];
 

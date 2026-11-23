@@ -81,6 +81,7 @@ import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
 import { lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { AirdropView } from './render/airdrop.ts';
+import type { Rider } from './render/prop-motion.ts';
 import { Avatar } from './render/avatar.ts';
 import type { GroundAt } from './render/debris-sim.ts';
 import { Effects } from './render/effects.ts';
@@ -1496,7 +1497,7 @@ export class ClientGame {
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
-      this.world.update(dt);
+      this.world.update(dt, this.liftRiders());
       this.updateDayLight(this.world);
       followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.world.sunDir);
       this.world.sky.position.copy(this.camera.position);
@@ -1639,6 +1640,14 @@ export class ClientGame {
         this.camera.rotation.set(-0.9 * rise - 0.2, this.input.yaw, 0, 'YXZ');
       }
     }
+  }
+
+  /** Everyone who could be in a lift shaft: the cab is drawn under them. */
+  private liftRiders(): Rider[] {
+    const riders: Rider[] = [];
+    if (this.alive && !this.spectator) riders.push({ x: this.me.x, y: this.me.y, z: this.me.z });
+    for (const r of this.remotes.values()) if (r.visible) riders.push({ x: r.last.x, y: r.last.y, z: r.last.z });
+    return riders;
   }
 
   private updateRemotes(dt: number): void {

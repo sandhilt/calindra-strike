@@ -4,8 +4,9 @@
  * what they press. Client prediction and the server agree without sharing any state, and the cab drawn on the
  * client simply follows its riders.
  *
- * The cab slows to a crawl around every stop between the ends, long enough to walk out through the doorway
- * of that floor, and holds at the first and last stop.
+ * The cab slows to a crawl around every stop, long enough to walk out through the doorway of that floor (the
+ * ground floor one too: a rider who stands up on arriving rises only a hand's breadth before they are out),
+ * and holds at the first and last stop.
  */
 export interface Lift {
   /** Inner footprint of the shaft (world units): a player is carried while their centre is inside it. */
@@ -18,9 +19,9 @@ export interface Lift {
 }
 
 export const LIFT_SPEED_UNITS = 150;
-/** Speed near an intermediate stop, so the doorway stays level with the floor for a second and a half. */
+/** Speed near a stop, so the doorway stays level with the floor for a second and a half. */
 export const LIFT_DWELL_SPEED_UNITS = 28;
-/** Distance either side of an intermediate stop where the cab crawls: about what a step up or a doorway allows. */
+/** Distance either side of a stop where the cab crawls: about what a step up or a doorway allows. */
 export const LIFT_DWELL_RADIUS_UNITS = 20;
 /** Feet this far above the last stop are still carried, so a hop at the top does not drop the rider down the shaft. */
 export const LIFT_TOP_SLACK_UNITS = 8;
@@ -37,10 +38,9 @@ export function liftAt(lifts: readonly Lift[], x: number, y: number, z: number):
   );
 }
 
-/** Climb speed at height `y`: slow around the stops between the ends. */
+/** Climb speed at height `y`: slow around every stop. */
 export function liftSpeed(lift: Lift, y: number): number {
-  const between = lift.stops.slice(1, -1);
-  return between.some((stop) => Math.abs(y - stop) <= LIFT_DWELL_RADIUS_UNITS) ? LIFT_DWELL_SPEED_UNITS : LIFT_SPEED_UNITS;
+  return lift.stops.some((stop) => Math.abs(y - stop) <= LIFT_DWELL_RADIUS_UNITS) ? LIFT_DWELL_SPEED_UNITS : LIFT_SPEED_UNITS;
 }
 
 /** Feet height after one tick of riding, never past the first or last stop. */

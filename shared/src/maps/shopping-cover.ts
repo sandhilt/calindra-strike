@@ -126,7 +126,8 @@ function foodCourt(b: MapBuilder): void {
     [-1040, 'burguer-rei'], [-600, 'mania-picanha'], [600, 'mequi'], [1040, 'parrilha'],
   ];
   for (const [x, brand] of menus) board(b, x, -795, 120, DECK, 140, brand, 0xd9c7a3);
-  for (const x of [-1000, -320, 0, 320, 1000]) planter(b, x, -704, x === 0 ? 120 : 160, 28, DECK);
+  // nothing stands outside the lift doorway at x = 0
+  for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28, DECK);
 }
 
 export function coverShopping(b: MapBuilder): void {

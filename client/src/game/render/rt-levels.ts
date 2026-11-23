@@ -20,6 +20,8 @@ export interface RtProfile {
   denoiseSamples: number;
   /** MSAA samples of the composer targets. The canvas's own antialiasing does not reach a pass chain, so 0 shows jagged edges. */
   msaa: number;
+  /** Takes depth from the scene the composer already drew and rebuilds normals from it, so the scene is not drawn a second time for normals. Slightly softer at silhouettes. */
+  sceneDepth: boolean;
   /** How much of the traced occlusion shows in the image (0..1). */
   strength: number;
   /** Ray-march radius in world units, about half a player's height. */
@@ -29,9 +31,9 @@ export interface RtProfile {
 /** `high` is what the pass looked like before it had levels. Each step down keeps the effect and lowers its cost. */
 export const RT: Readonly<Record<RtLevel, RtProfile | null>> = {
   off: null,
-  light: { label: 'leve', resolution: 0.5, rays: 3, denoiseSamples: 8, msaa: 0, strength: 0.75, radiusUnits: 40 },
-  medium: { label: 'médio', resolution: 0.5, rays: 6, denoiseSamples: 12, msaa: 2, strength: 0.85, radiusUnits: 40 },
-  high: { label: 'alto', resolution: 1, rays: 8, denoiseSamples: 16, msaa: 4, strength: 0.85, radiusUnits: 40 },
+  light: { label: 'leve', resolution: 0.5, rays: 3, denoiseSamples: 8, msaa: 0, sceneDepth: true, strength: 0.75, radiusUnits: 40 },
+  medium: { label: 'médio', resolution: 0.5, rays: 6, denoiseSamples: 12, msaa: 2, sceneDepth: true, strength: 0.85, radiusUnits: 40 },
+  high: { label: 'alto', resolution: 1, rays: 8, denoiseSamples: 16, msaa: 4, sceneDepth: false, strength: 0.85, radiusUnits: 40 },
 };
 
 const OFF_LABEL = 'desligado';

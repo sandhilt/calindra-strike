@@ -12,11 +12,17 @@ class SolidOcclusionPass extends GTAOPass {
   private readonly world: THREE.Scene;
   private readonly hidden: THREE.Object3D[] = [];
   private readonly resolution: number;
+  private readonly sceneDepth: boolean;
 
-  constructor(scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, resolution: number) {
+  /** `sceneDepth` reads the depth of the scene the composer already drew and rebuilds normals from it, instead of drawing the scene again for normals. */
+  constructor(scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, resolution: number, sceneDepth: THREE.DepthTexture | null) {
     super(scene, camera, width, height);
     this.world = scene;
     this.resolution = resolution;
+    this.sceneDepth = sceneDepth !== null;
+    if (sceneDepth) {
+      this.setGBuffer(sceneDepth);
+    }
   }
 
   /** The composer hands every pass the canvas size; the occlusion targets, and the scene redraw into them, take a share of it. */
@@ -25,6 +31,14 @@ class SolidOcclusionPass extends GTAOPass {
   }
 
   override render(...args: Parameters<GTAOPass['render']>): void {
+    if (this.sceneDepth) {
+      // The composer swaps its two targets, so the depth that matches this frame's colour is the read buffer's.
+      const depth = args[2].depthTexture;
+      this.gtaoMaterial.uniforms.tDepth.value = depth;
+      this.pdMaterial.uniforms.tDepth.value = depth;
+      super.render(...args);
+      return;
+    }
     this.world.traverse((o) => {
       if (o.visible && leavesOcclusion(o)) {
         o.visible = false;
@@ -53,6 +67,14 @@ export function readGpuFacts(renderer: THREE.WebGLRenderer): GpuFacts {
   };
 }
 
+/** The composer's colour target with a depth texture the occlusion pass can read; the composer clones it for its second target. */
+function sceneTarget(renderer: THREE.WebGLRenderer, width: number, height: number): THREE.WebGLRenderTarget {
+  const ratio = renderer.getPixelRatio();
+  const w = Math.max(1, Math.round(width * ratio));
+  const h = Math.max(1, Math.round(height * ratio));
+  return new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(w, h) });
+}
+
 /**
  * A light, screen-space take on ray-traced lighting for the high tier: the scene is drawn through a composer and
  * a ground-truth occlusion pass marches rays through the depth buffer, so corners, desks and cover pick up contact
@@ -64,10 +86,10 @@ export class LightRt {
   private readonly output = new OutputPass();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, profile: RtProfile) {
-    this.composer = new EffectComposer(renderer);
+    this.composer = new EffectComposer(renderer, profile.sceneDepth ? sceneTarget(renderer, width, height) : undefined);
     this.composer.renderTarget1.samples = profile.msaa;
     this.composer.renderTarget2.samples = profile.msaa;
-    this.occlusion = new SolidOcclusionPass(scene, camera, width, height, profile.resolution);
+    this.occlusion = new SolidOcclusionPass(scene, camera, width, height, profile.resolution, this.composer.renderTarget1.depthTexture);
     this.occlusion.updateGtaoMaterial({ radius: profile.radiusUnits, samples: profile.rays });
     this.occlusion.updatePdMaterial({ samples: profile.denoiseSamples });
     this.occlusion.blendIntensity = profile.strength;

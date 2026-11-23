@@ -47,7 +47,7 @@ test('every level keeps the effect: it shows, with rays, and at a usable resolut
 test('the default level is below the old full-cost pass, and high is that old pass', () => {
   assert.equal(DEFAULT_RT_LEVEL, 'medium');
   assert.ok(RT.medium && RT.high && RT.medium.resolution < RT.high.resolution && RT.medium.rays < RT.high.rays);
-  assert.deepEqual(RT.high, { label: 'alto', resolution: 1, rays: 8, denoiseSamples: 16, msaa: 4, strength: 0.85, radiusUnits: 40 });
+  assert.deepEqual(RT.high, { label: 'alto', resolution: 1, rays: 8, denoiseSamples: 16, msaa: 4, sceneDepth: false, strength: 0.85, radiusUnits: 40 });
 });
 
 test('only the high tier can run the ray pass, so the performance tier never builds it', () => {

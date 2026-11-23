@@ -244,6 +244,10 @@ export class Sfx {
     this.tone(out, t, 'sine', 95, 60, 0.06, 0.12 * loud);
   }
 
+  slide(pos: Pos = null): void {
+    this.noiseBurst(this.out(pos, 160), this.ctx.currentTime, 850, 0.7, 0.012, 0.18, 0.18);
+  }
+
   jump(): void {
     const t = this.ctx.currentTime;
     this.noiseBurst(this.master, t, 700, 1, 0.005, 0.08, 0.08);

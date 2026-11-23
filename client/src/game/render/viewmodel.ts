@@ -1,5 +1,6 @@
-import { TICK_MS, WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
+import { STANCE, type Stance, TICK_MS, WEAPON, type WeaponId, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
 import { QUALITY, type Quality } from './quality.ts';
@@ -69,8 +70,14 @@ export function flashTexture(): THREE.CanvasTexture {
   return t;
 }
 
+const SPRINT_FIRE_RECOVERY_SECONDS = 0.15;
+
 export interface ViewPose {
   speed: number;
+  stance: Stance;
+  sprinting: boolean;
+  sliding: boolean;
+  firing: boolean;
   onGround: boolean;
   dt: number;
   lookDX: number;
@@ -106,6 +113,10 @@ export class ViewModel {
   private readonly flash: THREE.Sprite;
   private flashT = 0;
   private bobPhase = 0;
+  private sprintT = 0;
+  private slideT = 0;
+  private proneT = 0;
+  private fireRecovery = 0;
   private swayX = 0;
   private swayY = 0;
   private readonly kick: KickState = { thump: 0, push: 0 };
@@ -313,6 +324,7 @@ export class ViewModel {
   }
 
   fire(heavy: boolean): void {
+    this.fireRecovery = SPRINT_FIRE_RECOVERY_SECONDS;
     if (this.weaponId === WEAPON.HAMMER) {
       this.swing.start(heavy);
       return;
@@ -331,12 +343,21 @@ export class ViewModel {
   update(p: ViewPose): void {
     const dt = p.dt;
     this.holder.visible = !p.hidden;
+    this.fireRecovery = Math.max(0, this.fireRecovery - dt);
+    const sprinting = p.sprinting && !p.firing && this.fireRecovery === 0;
+    this.sprintT = p.hidden ? 0 : stepBlend(this.sprintT, sprinting, dt);
+    this.slideT = stepBlend(this.slideT, p.sliding, dt);
+    this.proneT = stepBlend(this.proneT, p.stance === STANCE.PRONE, dt);
+    const sprint = smoothBlend(this.sprintT);
+    const slide = smoothBlend(this.slideT);
+    const prone = smoothBlend(this.proneT);
+
     // bob
     const moving = p.onGround && p.speed > 30;
-    if (moving) this.bobPhase += dt * (p.speed / 30);
+    if (moving) this.bobPhase += dt * (p.speed / 30 + 7 * sprint);
     const amp = moving ? Math.min(1, p.speed / 250) : 0;
-    const bobX = Math.sin(this.bobPhase) * 0.55 * amp;
-    const bobY = -Math.abs(Math.cos(this.bobPhase)) * 0.5 * amp;
+    const bobX = Math.sin(this.bobPhase) * (0.55 * amp + 0.8 * sprint);
+    const bobY = -Math.abs(Math.cos(this.bobPhase)) * (0.5 * amp + 0.9 * sprint);
     // sway: lags behind mouse motion
     this.swayX += (-p.lookDX * 0.02 - this.swayX) * Math.min(1, dt * 10);
     this.swayY += (p.lookDY * 0.02 - this.swayY) * Math.min(1, dt * 10);
@@ -360,16 +381,16 @@ export class ViewModel {
       ? EXCHANGE_FRAMING[this.weaponId]
       : null;
     this.holder.position.set(
-      bobX + this.swayX - this.side * (present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)),
-      bobY - dip - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0),
+      bobX + this.swayX - this.side * (3 * sprint + present * BOLT_PRESENT.leftUnits + reload.tilt * (exchange?.left ?? 0)),
+      bobY - dip - 2.8 * sprint - 2 * slide - 2.5 * prone - this.swayY + air + present * BOLT_PRESENT.upUnits + reload.tilt * (exchange?.up ?? 0),
       0,
     );
     const seat = reload.seatKick * SEAT_KICK_UNITS;
     this.kickGroup.position.set(0, kick * 0.4 + pistolShot.recoil * PISTOL_KICK.riseUnits - seat * 0.5, kick * 2.4 + pistolShot.recoil * PISTOL_KICK.backUnits + seat);
     this.kickGroup.rotation.set(
-      kick * 0.09 + pistolShot.recoil * PISTOL_KICK.pitchRad + reload.tilt * RELOAD_PITCH,
-      0,
-      -reload.tilt * (exchange?.roll ?? RELOAD_ROLL * framing.roll),
+      kick * 0.09 + pistolShot.recoil * PISTOL_KICK.pitchRad + reload.tilt * RELOAD_PITCH - 0.14 * sprint,
+      0.38 * sprint,
+      0.3 * sprint - 0.21 * slide - reload.tilt * (exchange?.roll ?? RELOAD_ROLL * framing.roll),
     );
 
     if (this.model) {

@@ -1,5 +1,6 @@
-import { WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { STANCE, STANCES, type Stance, WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { SwingPlayer } from './hammer-swing.ts';
 import { buildWeapon, type WeaponModel } from './weapons3d.ts';
 
@@ -69,7 +70,10 @@ const HANGING_ARMS_RAD = -1.35;
 
 export interface AvatarPose {
   speed: number;
-  ducked: boolean;
+  stance: Stance;
+  sprinting: boolean;
+  sliding: boolean;
+  lean: number;
   dropping: boolean;
   onGround: boolean;
   pitch: number;
@@ -98,6 +102,9 @@ export class Avatar {
   private recoil = 0;
   private readonly materials: THREE.MeshStandardMaterial[] = [];
   private crouchT = 0;
+  private sprintT = 0;
+  private slideT = 0;
+  private proneT = 0;
 
   constructor(
     readonly name: string,
@@ -235,30 +242,38 @@ export class Avatar {
   }
 
   update(dt: number, p: AvatarPose): void {
-    this.crouchT += ((p.ducked ? 1 : 0) - this.crouchT) * Math.min(1, dt * 14);
-    const c = this.crouchT;
-    // crouch: shorter legs, hips down, torso leaning forward
-    this.upper.position.y = 32 - 24 * c;
-    this.upper.rotation.x = -0.35 * c;
-    this.legL.position.y = this.legR.position.y = 32 - 24 * c;
-    this.legL.scale.y = this.legR.scale.y = 1 - 0.7 * c;
+    this.crouchT = stepBlend(this.crouchT, p.stance === STANCE.CROUCH, dt);
+    this.sprintT = stepBlend(this.sprintT, p.sprinting, dt);
+    this.slideT = stepBlend(this.slideT, p.sliding, dt);
+    this.proneT = stepBlend(this.proneT, p.stance === STANCE.PRONE, dt);
+    const c = smoothBlend(this.crouchT);
+    const sprint = smoothBlend(this.sprintT);
+    const slide = smoothBlend(this.slideT);
+    const prone = smoothBlend(this.proneT);
+    const hip = THREE.MathUtils.lerp(32 - 24 * c, 12, prone);
+    this.upper.position.y = this.legL.position.y = this.legR.position.y = hip;
+    this.upper.rotation.x = THREE.MathUtils.lerp(-0.35 * c - 0.28 * sprint + 0.85 * slide, -Math.PI / 2, prone);
+    this.upper.rotation.z = -0.25 * p.lean;
+    this.legL.scale.y = this.legR.scale.y = THREE.MathUtils.lerp(1 - 0.7 * c, 1, prone);
+    this.tag.position.y = STANCES[p.stance].height + 18;
 
     const moving = p.onGround && p.speed > 20;
-    if (moving) this.phase += dt * (p.speed / 26);
+    if (moving) this.phase += dt * (p.speed / 26 + 4 * sprint);
     else this.phase *= 0.9;
-    const swing = moving ? Math.sin(this.phase) * Math.min(0.75, p.speed / 300) : 0;
-    this.legL.rotation.x = swing;
-    this.legR.rotation.x = -swing;
-    if (!p.onGround && !p.dropping) {
-      this.legL.rotation.x = 0.5;
-      this.legR.rotation.x = -0.2;
-    }
+    const stride = moving ? Math.sin(this.phase) * (Math.min(0.75, p.speed / 300) + 0.3 * sprint) : 0;
+    const swingL = p.onGround ? stride : 0.5;
+    const swingR = p.onGround ? -stride : -0.2;
+    this.legL.rotation.x = THREE.MathUtils.lerp(THREE.MathUtils.lerp(swingL, 1.35, slide), -Math.PI / 2 + 0.12 * stride, prone);
+    this.legR.rotation.x = THREE.MathUtils.lerp(THREE.MathUtils.lerp(swingR, -0.55, slide), -Math.PI / 2 - 0.12 * stride, prone);
 
     this.recoil = Math.max(0, this.recoil - dt * 10);
     this.mount.rotation.x = this.look.armed ? p.pitch * 0.85 + this.recoil * 0.12 + (p.reloading ? -0.5 : 0) : HANGING_ARMS_RAD;
-    this.head.rotation.x = p.pitch * 0.5;
+    this.mount.rotation.x += -0.65 * sprint - 0.25 * slide + 1.42 * prone;
+    this.head.rotation.x = p.pitch * 0.5 + 1.35 * prone;
+    this.supportArm.rotation.x = -0.34 * stride * sprint;
     const blow = this.swing.step(dt);
     this.rightArm.rotation.set(...blow.arm);
+    this.rightArm.rotation.x += 0.26 * stride * sprint;
     this.wrist.rotation.set(...blow.wrist);
 
     this.canopy.visible = p.dropping;

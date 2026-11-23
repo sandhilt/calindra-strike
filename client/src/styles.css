@@ -745,6 +745,55 @@ input:focus-visible {
   }
 }
 
+.stamina {
+  position: absolute;
+  bottom: 84px;
+  left: 18px;
+  width: 108px;
+  color: var(--lime);
+  font: 11px var(--mono);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.stamina.active {
+  opacity: 1;
+}
+
+.stamina-track {
+  height: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stamina-track i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transform-origin: left;
+  transition: transform 0.12s linear;
+}
+
+.stamina.winded {
+  color: var(--danger);
+}
+
+.stamina.winded .stamina-track {
+  background: color-mix(in srgb, currentColor 35%, transparent);
+  animation: stamina-pulse 0.65s ease-in-out infinite alternate;
+}
+
+@keyframes stamina-pulse {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamina.winded .stamina-track { animation: none; }
+}
+
 /* vitals + ammo */
 .vitals {
   position: absolute;

@@ -1964,6 +1964,7 @@ export class ClientGame {
     this.world?.dispose();
     this.ventHum?.dispose();
     this.lightRt?.dispose();
+    this.effects.water.setEnabled(false);
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();

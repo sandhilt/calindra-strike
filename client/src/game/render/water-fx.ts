@@ -39,6 +39,7 @@ export class WaterFx {
   private rings: Ring[] = [];
   private droplets: Droplet[] = [];
   private dropletMesh: THREE.InstancedMesh | null = null;
+  private dropletMaterial: THREE.MeshBasicMaterial | null = null;
   private enabled = false;
   private ringIdx = 0;
   private dropletIdx = 0;
@@ -74,6 +75,7 @@ export class WaterFx {
       drop.surfaceY = surfaceY;
       drop.active = true;
     }
+    if (this.dropletMesh) this.dropletMesh.visible = true;
   }
 
   update(dt: number): void {
@@ -98,7 +100,8 @@ export class WaterFx {
       ring.mesh.visible = true;
     }
     const mesh = this.dropletMesh;
-    if (!mesh) return;
+    if (!mesh?.visible) return;
+    let live = 0;
     for (let i = 0; i < DROPLET_POOL; i++) {
       const drop = this.droplets[i];
       if (drop.active) {
@@ -106,10 +109,12 @@ export class WaterFx {
         drop.p.addScaledVector(drop.v, dt);
         if (drop.p.y < drop.surfaceY && drop.v.y < 0) drop.active = false;
       }
+      if (drop.active) live++;
       this.tmpM.makeScale(drop.active ? 1 : 0, drop.active ? 1 : 0, drop.active ? 1 : 0).setPosition(drop.p);
       mesh.setMatrixAt(i, this.tmpM);
     }
     mesh.instanceMatrix.needsUpdate = true;
+    mesh.visible = live > 0;
   }
 
   clear(): void {
@@ -118,6 +123,7 @@ export class WaterFx {
       ring.mesh.visible = false;
     }
     for (const drop of this.droplets) drop.active = false;
+    if (this.dropletMesh) this.dropletMesh.visible = false;
   }
 
   private build(): void {
@@ -132,11 +138,10 @@ export class WaterFx {
       this.scene.add(mesh);
       this.rings.push({ mesh, delay: 0, age: 0, reach: RING_END_RADIUS_UNITS, active: false });
     }
-    const dropletMesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(DROPLET_RADIUS_UNITS, 5, 4),
-      new THREE.MeshBasicMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.85, fog: false }),
-      DROPLET_POOL,
-    );
+    const dropletMaterial = new THREE.MeshBasicMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.85, fog: false });
+    const dropletMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(DROPLET_RADIUS_UNITS, 5, 4), dropletMaterial, DROPLET_POOL);
+    this.dropletMaterial = dropletMaterial;
+    dropletMesh.visible = false;
     dropletMesh.frustumCulled = false;
     dropletMesh.renderOrder = 6;
     this.scene.add(dropletMesh);
@@ -156,6 +161,8 @@ export class WaterFx {
       this.dropletMesh.geometry.dispose();
       this.dropletMesh.dispose();
     }
+    this.dropletMaterial?.dispose();
+    this.dropletMaterial = null;
     this.dropletMesh = null;
     this.droplets = [];
     this.ringIdx = 0;

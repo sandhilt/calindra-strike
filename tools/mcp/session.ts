@@ -398,8 +398,9 @@ export class GameSession {
     const intent = this.intent.kind === 'moveTo' ? { ...this.intent, arrived: pilot.arrived } : this.intent;
     return renderView(view, intent, this.actionState(), world);
   }
-  setIntent(intent: Intent): object {
+  setIntent(requested: Intent): object {
     const { view, nav, world, pilot } = this.requirePlaying();
+    let intent = requested;
     let distance: number | undefined;
     if (intent.kind === 'moveTo') {
       const s = view.self;
@@ -413,6 +414,8 @@ export class GameSession {
         throw new Error('No floor near y=' + intent.y + ' at that x,z (the nearest is at y=' + end.y + ')');
       if (world.hullOverlaps(intent.x, end.y + 0.1, intent.z, STAND_HEIGHT))
         throw new Error('Target intersects solid map geometry');
+      // the pilot arrives at a walkable height, so a floor the agent asked for is the one the grid has there
+      if (intent.y !== undefined) intent = { ...intent, y: end.y };
       distance = Math.hypot(intent.x - s.x, intent.z - s.z);
     }
     if (

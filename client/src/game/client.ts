@@ -1663,6 +1663,7 @@ export class ClientGame {
   /** Everyone who could be in a lift shaft: the cab is drawn under them. */
   private liftRiders(): Rider[] {
     const riders: Rider[] = [];
+    if (this.map.lifts.length === 0) return riders;
     if (this.alive && !this.spectator) riders.push({ x: this.me.x, y: this.me.y, z: this.me.z });
     for (const r of this.remotes.values()) if (r.visible) riders.push({ x: r.last.x, y: r.last.y, z: r.last.z });
     return riders;

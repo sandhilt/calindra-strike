@@ -1067,8 +1067,14 @@ test('get_state says when the player rides a lift and how long to the top', asyn
 test('move_to takes a floor height and sends the pilot to the top floor, and refuses a floor that is not there', async () => {
   const { session } = await playOnShopping({ x: 0, y: 0, z: -450 }, 100);
   const up = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: -880, y: 384 }))) as { intent: { y: number }; distance: number };
-  assert.equal(up.intent.y, 384);
+  assert.ok(Math.abs(up.intent.y - 384) <= 16, 'resolved to the floor height ' + up.intent.y);
   assert.throws(() => session.setIntent({ kind: 'moveTo', x: 0, z: -880, y: 1000 }), /No floor near y=1000/);
   const ground = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: -300 }))) as { intent: { y?: number } };
   assert.equal(ground.intent.y, undefined);
+});
+
+test('move_to resolves a height near a floor to the height the pilot will actually stand at', async () => {
+  const { session } = await playOnShopping({ x: 0, y: 0, z: -450 }, 100);
+  const { intent } = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: 800, y: 232 }))) as { intent: { y: number } };
+  assert.equal(intent.y, 192);
 });

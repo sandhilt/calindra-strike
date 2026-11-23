@@ -232,6 +232,8 @@ const JUMP_MIN_ALIGN_SPEED_UNITS = 60; // slower than this the bot is not carryi
 const JUMP_MIN_ALIGNMENT = Math.cos(35 * DEG); // moving within this angle of the node when jumping
 /** Roaming picks above this roll go to a shop or room interior when the map has any: the last fifth of the dice. Below it a bot chases an enemy up to 0.65 and wanders to a random node up to here. */
 const INTERIOR_ROAM_FROM = 0.8;
+const ENEMY_ROAM_UNTIL = 0.85;
+const ENEMY_ROAM_UNTIL_WITH_INTERIORS = 0.65;
 const INTERIOR_GOAL_TICKS = 30 * TICK_RATE; // far enough to walk across the mall before the bot gives up
 const BROWSE_MIN_TICKS = 3 * TICK_RATE;
 const BROWSE_EXTRA_TICKS = 4 * TICK_RATE;
@@ -586,7 +588,7 @@ export class BotBrain {
     else if (interior) {
       this.goal = { x: interior.x, y: interior.y, z: interior.z };
       this.goalIsInterior = true;
-    } else if (enemy && r < 0.65) this.goal = { x: enemy.state.x, y: enemy.state.y, z: enemy.state.z };
+    } else if (enemy && r < (env.interiors?.length ? ENEMY_ROAM_UNTIL_WITH_INTERIORS : ENEMY_ROAM_UNTIL)) this.goal = { x: enemy.state.x, y: enemy.state.y, z: enemy.state.z };
     else {
       const n = env.nav.randomNode(env.random);
       this.goal = { x: n.x, y: n.y, z: n.z };
@@ -814,7 +816,7 @@ export class BotBrain {
 
   private navigationNode(self: BotAgent, env: BotEnv): NavNode | undefined {
     const s = self.state;
-    if (!this.goal || env.tick >= this.goalUntil) this.pickGoal(self, env);
+    if (!this.goal || (env.tick >= this.goalUntil && !this.browsing)) this.pickGoal(self, env);
     if (env.tick >= this.repathAt) this.repath(self, env);
     let node = this.path[this.pathIdx];
     while (node && Math.abs(node.y - s.y) <= REACH_MAX_HEIGHT_UNITS) {

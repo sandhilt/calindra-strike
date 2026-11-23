@@ -7,7 +7,7 @@
  * STUCK_RADIUS_UNITS of one spot for `--stuck` seconds without firing or holding USE.
  */
 import { parseArgs } from 'node:util';
-import { TICK_RATE, WEAPON, mulberry32 } from '../shared/src/index.ts';
+import { type GameMode, TICK_RATE, WEAPON, getMap, getMaps, modeFitsMap, mulberry32 } from '../shared/src/index.ts';
 import { Game } from '../server/src/game.ts';
 
 const STUCK_RADIUS_UNITS = 64;
@@ -120,7 +120,8 @@ function report(label: string, t: Tally): string {
 }
 
 const total = newTally();
-for (const mode of values.modes.split(',')) {
+const mapDef = getMap(Math.max(0, getMaps().findIndex((m) => m.id === values.map)));
+for (const mode of values.modes.split(',').filter((m) => modeFitsMap(m as GameMode, mapDef))) {
   const modeTally = newTally();
   for (let seed = 1; seed <= Number(values.seeds); seed++) {
     add(modeTally, run(values.map, mode, Number(values.bots), Number(values.seconds), seed, Number(values.stuck)));

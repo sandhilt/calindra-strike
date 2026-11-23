@@ -32,12 +32,17 @@ function trip(from: [number, number, number], to: [number, number, number], seed
   const brain = new BotBrain(0.5);
   brain.setDirective({ kind: 'goto', x: to[0], y: to[1], z: to[2] });
   let rode = 0;
+  const shafts = new Set<unknown>();
   for (env.tick = 1; env.tick <= TICK_RATE * 60; env.tick++) {
     applyCmd(collision, self.state, brain.think(self, env), 1);
-    if (liftAt(shopping!.lifts, self.state.x, self.state.y, self.state.z)) rode++;
-    if (brain.arrived) return { seconds: env.tick / TICK_RATE, rode, state: self.state };
+    const shaft = liftAt(shopping!.lifts, self.state.x, self.state.y, self.state.z);
+    if (shaft) {
+      rode++;
+      shafts.add(shaft);
+    }
+    if (brain.arrived) return { seconds: env.tick / TICK_RATE, rode, shafts, state: self.state };
   }
-  return { seconds: Infinity, rode, state: self.state };
+  return { seconds: Infinity, rode, shafts, state: self.state };
 }
 
 describe('bots and the glass lift', () => {
@@ -66,6 +71,7 @@ describe('bots and the glass lift', () => {
 
   it('crosses the mall from one top floor to the other, riding down one shaft and up the other', () => {
     const r = trip([0, 384, -616], [0, 384, 800]);
+    assert.equal(r.shafts.size, 2, 'rode both shafts');
     assert.ok(r.seconds < 40, `took ${r.seconds}s, stopped at ${[r.state.x, r.state.y, r.state.z].map(Math.round)}`);
     assert.ok(Math.abs(r.state.y - 384) <= 20);
   });

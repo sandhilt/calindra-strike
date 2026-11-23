@@ -3,7 +3,7 @@ import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
-import { DECK, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
@@ -219,6 +219,7 @@ export function buildShopping(): MapDef {
     dropHeight: DROP_HEIGHT,
     airdropPoints: b.points,
     restaurants: b.restaurants,
+    floors: [{ y: 0, name: 'térreo' }, { y: DECK, name: 'praça de alimentação' }, { y: DECK3, name: 'Mirante' }],
     lifts: b.lifts,
     supplies: b.supplies,
     interiors: b.interiors,

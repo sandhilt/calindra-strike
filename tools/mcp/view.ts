@@ -26,6 +26,7 @@ import {
   TICK_MS,
   PLANT_MS, DEFUSE_MS, PLAYER_RADIUS, bombStandBox, BOMB_STAND_SIZE, fuseMs, type BombState,
   LUNCH_COLLEAGUES, LUNCH_SEAT_RADIUS_UNITS, LUNCH_USE_RADIUS_UNITS, colleagueFromRow, type Colleague, type LunchEvent,
+  floorAt, inSupplyReach, liftAt, liftRideSeconds, needsSupply, SUPPLY_COOLDOWN_SECONDS,
 } from '../../shared/src/index.ts';
 import type { Intent } from './pilot.ts';
 export interface Peer {
@@ -56,6 +57,7 @@ export type ViewEvent =
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
   | (Extract<GameEvent, { k: 'flag' | 'bomb' }> & { byName?: string })
   | (LunchEvent & { byName?: string; colleague?: string })
+  | (Extract<GameEvent, { k: 'supply' }> & { name?: string })
   | { k: 'intent'; reason: string; id: number };
 export interface ChatLine {
   t: 'chat';
@@ -91,6 +93,8 @@ export interface WorldView {
   lastSeen: Map<number, LastSeen>;
   perception: 'line-of-sight' | 'omniscient';
   airdrops: Airdrop[];
+  /** One entry per supply stand of the map: 0 while full, or the server ms when it fills again. */
+  supplies: number[];
   flags: number[][];
   bomb: number[];
   /** Hora de almoçar header `[attackers, endsAt]` and one row per colleague, empty in other modes. */
@@ -112,6 +116,7 @@ export function welcome(m: Extract<ServerMsg, { t: 'welcome' }>): WorldView {
     lastSeen: new Map(),
     perception: 'line-of-sight',
     airdrops: [],
+    supplies: [],
     flags: [],
     bomb: [],
     lunch: [],
@@ -158,6 +163,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
   v.bomb = m.bm ?? [];
   v.lunch = m.lu ?? [];
   v.colleagues = m.lc ?? [];
+  v.supplies = m.su ?? [];
   v.airdrops = m.ad.map((p) => ({ id: p[0], x: p[1], y: p[2], z: p[3], weapon: p[4], landed: !!p[5] }));
   return peers;
 }
@@ -269,6 +275,7 @@ export function renderView(
       reloading: s ? s.reload > 0 : false,
       ducked: s?.ducked ?? false,
       onGround: s?.onGround ?? false,
+      floor: s ? floorOf(v, s) : null,
       zoom: s?.zoom ?? 0,
       maxZoom: s ? weaponDef(s.weapon).zoomFov.length : 0,
       actions,
@@ -287,6 +294,8 @@ export function renderView(
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
     airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...describeRelative(p) })),
+    lifts: describeLifts(v, describeRelative),
+    supplies: describeSupplies(v, describeRelative),
     bomb: describeBomb(v, world),
     lunch: describeLunch(v, describeRelative),
     flags: v.flags.map((row, team) => ({
@@ -353,6 +362,56 @@ const LUNCH_RULES = {
   attacker: `Take every colleague to lunch before secondsLeft runs out. Stand within ${LUNCH_USE_RADIUS_UNITS} units of a waiting colleague and call use: it follows your path, escalators included. Walk to a restaurant; a following colleague sits when within ${LUNCH_SEAT_RADIUS_UNITS} units of one on its floor. All seated wins the round. If you die, the colleagues you led stop and wait where they are.`,
   defender: 'Keep the colleagues from lunch until secondsLeft reaches 0: the food court fills up and your team wins the round. Kill whoever leads colleagues; they stop where their leader dies and must be called again.',
 } as const;
+
+/** The named floor the player stands on, null on a map with a single level. */
+function floorOf(v: WorldView, s: PlayerState): { index: number; name: string; y: number } | null {
+  const map = getMap(v.match.map);
+  const floor = floorAt(map.floors, s.y);
+  return floor && { ...floor, y: map.floors[floor.index].y };
+}
+
+const LIFT_RULES =
+  'Walk into the shaft: the cab carries you up by itself and holds at the top floor; hold crouch (the crouch tool) to go down. It crawls at every floor, so step out through that floor\'s doorway while its height is level with you (jumping is off inside). The ground floor doorway faces the atrium; the others open onto their floor across the edge. move_to (give y for the floor) and hunt ride it for you.';
+
+function describeLifts(v: WorldView, describeRelative: Relative): object[] {
+  const map = getMap(v.match.map);
+  const s = v.self;
+  return map.lifts
+    .map((lift) => {
+      const centre = { x: (lift.minX + lift.maxX) / 2, z: (lift.minZ + lift.maxZ) / 2 };
+      const floors = lift.stops.map((y) => ({ y, name: map.floors.find((f) => f.y === y)?.name ?? null }));
+      const riding = !!s && !!liftAt([lift], s.x, s.y, s.z);
+      return {
+        pos: [centre.x, centre.z],
+        ...describeRelative(centre),
+        floors,
+        riding,
+        secondsToTop: riding && s ? Math.round(liftRideSeconds(lift, s.y, lift.stops[lift.stops.length - 1]) * 10) / 10 : null,
+        rules: LIFT_RULES,
+      };
+    })
+    .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+}
+
+function describeSupplies(v: WorldView, describeRelative: Relative): object[] {
+  const map = getMap(v.match.map);
+  const s = v.self;
+  return map.supplies
+    .map((stand, i) => {
+      const readyAt = v.supplies[i] ?? 0;
+      return {
+        pos: [stand.x, stand.y, stand.z],
+        floor: floorAt(map.floors, stand.y)?.name ?? null,
+        ...describeRelative(stand),
+        ready: readyAt === 0,
+        secondsLeft: readyAt === 0 ? 0 : Math.max(0, Math.round((readyAt - v.time) / 100) / 10),
+        inReach: !!s && inSupplyReach(s, stand),
+        youNeedIt: !!s && needsSupply(s),
+        about: `Walk onto it to restock health, armour and ammunition (only when you need it); it refills ${SUPPLY_COOLDOWN_SECONDS} s after someone takes it.`,
+      };
+    })
+    .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+}
 
 function describeLunch(v: WorldView, describeRelative: Relative): object | null {
   const colleagues = lunchColleagues(v);

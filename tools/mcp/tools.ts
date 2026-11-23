@@ -69,16 +69,16 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'get_state',
     description:
-      'Read timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first) and recent events/chat including flag, bomb and lunch actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
+      'Read timeOfDay (the light of the map: phase day, afternoon or night, the phase it is blending into and how far, 0 to 1; a look only, sight and sound do not change), scene (crosshair facing, visible cover, known doors/stairs and landmarks, nearby sprays), perceived players, lastSeen positions, scores, debug defusion bomb (role, site, carrier/defuser, Black Friday flag, fuse, solid stand, timer and progress), flags (state, carrier, position, distance/bearing), hora de almoçar (role and rules, seconds left, seated count, each colleague with state, leader, distance/bearing and whether it is in USE reach, restaurants nearest first), you.floor (the named floor you stand on, null on one-level maps), lifts (glass lifts nearest first: floors served, whether you are riding, seconds to the top, how to ride), supplies (supply stands nearest first: floor, ready or seconds until they refill, inReach, youNeedIt) and recent events/chat including flag, bomb, lunch and supply actions, and sounds: what you heard since the last read (shot, impact with its material and surface, hurt), each with distance, bearing, intensity 0 to 1 and loudness (loud, medium, faint), loudest first; quieter than 0.08 is not reported. Bearing is degrees relative to your facing, positive right. Perception reports sight, sound or team; omniscient mode is explicitly labeled. Reading drains events/chat.',
     properties: {},
     run: (s) => s.getState(),
   },
   {
     name: 'move_to',
-    description: 'Keep navigating to x,z in game units until another intent is set. Unreachable goals fail.',
-    properties: { x: { type: 'number' }, z: { type: 'number' } },
+    description: 'Keep navigating to x,z in game units until another intent is set. Unreachable goals fail. y picks the floor on a multi-floor map (floor heights in get_state lifts.floors and you.floor; default: the height you stand at); the pilot uses stairs, escalators and the glass lift by itself, so move_to a point on another floor to change floor.',
+    properties: { x: { type: 'number' }, z: { type: 'number' }, y: { type: 'number' } },
     required: ['x', 'z'],
-    run: (s, a) => s.setIntent({ kind: 'moveTo', x: number(a, 'x'), z: number(a, 'z') }),
+    run: (s, a) => s.setIntent({ kind: 'moveTo', x: number(a, 'x'), z: number(a, 'z'), ...(a.y === undefined ? {} : { y: number(a, 'y') }) }),
   },
   {
     name: 'attack',
@@ -116,7 +116,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'hunt',
-    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), otherwise roam toward airdrops or random nodes until an enemy is perceived. Persists across respawns.',
+    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), otherwise roam toward airdrops, shop and room interiors or random nodes until an enemy is perceived, and walk to a full supply stand (Shopping Sul Rio, Mirante) when hurt or low on ammunition, riding escalators and the glass lift. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },
@@ -152,7 +152,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'crouch',
-    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox.',
+    description: 'Crouch (on: true) or stand (on: false). Stays set, also while idle, until changed or you respawn. Crouching is slow but tightens spread and shrinks the hitbox. Inside a glass lift shaft, crouch goes down (the cab rises by itself while you stand).',
     properties: { on: { type: 'boolean' } },
     required: ['on'],
     run: (s, a) => s.setCrouch(boolean(a, 'on')),

@@ -108,6 +108,12 @@ export interface MapLight {
   color: string;
 }
 
+/** The floor a player with feet at `y` stands on: the highest one at most a step and a jump under them. */
+export function floorAt(floors: readonly { y: number; name: string }[], y: number): { index: number; name: string } | null {
+  const index = floors.findLastIndex((floor) => floor.y <= y + 24);
+  return index < 0 ? null : { index, name: floors[index].name };
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -119,6 +125,8 @@ export interface MapDef {
   airdropPoints: { x: number; z: number }[];
   /** Food court counters where Hora de almoçar seats colleagues; empty on maps that cannot play it. */
   restaurants: { x: number; y: number; z: number }[];
+  /** Named floors, lowest first; empty on maps with a single level. Agents read the floor they stand on from it. */
+  floors: readonly { y: number; name: string }[];
   /** Glass lifts of the map; empty where there are none. */
   lifts: readonly Lift[];
   /** Places inside shops and rooms that roaming bots walk to now and then, so interiors are not left empty; empty where there are none. */

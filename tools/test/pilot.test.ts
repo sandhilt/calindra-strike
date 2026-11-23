@@ -151,3 +151,40 @@ test('hunt calls a waiting colleague with USE, then leads it away toward lunch',
   const passing = pilot.nextCmd(view, { kind: 'moveTo', x: hold.x + 600, z: hold.z }, nav, world, 40);
   assert.equal(passing.buttons & BTN.USE, 0, 'a move_to past a colleague does not call it');
 });
+
+function mall(at: [number, number, number]) {
+  const map = getMap(2);
+  const world = new CollisionWorld(map);
+  const nav = new NavGrid(world, map);
+  const view = welcome({
+    t: 'welcome', id: 1, time: 1000, roster: [[1, 'agent', 0, 0, 0]],
+    match: { phase: 'live', mode: 'tdm', map: 2, endsAt: 10000, teams: [0, 0], limit: 0 },
+    maxPlayers: 16, token: '', spectator: null, ready: { kind: 'confirmed' }, idleKickMs: null, idleKickWarmupMs: null,
+  });
+  const s = createPlayerState();
+  view.self = s;
+  spawnState(s, at[0], at[1], at[2], 0, WEAPON.RIFLE);
+  s.dropping = false;
+  s.onGround = true;
+  return { world, nav, view, s, pilot: new Pilot(1, () => 0.5) };
+}
+
+test('move_to a point on the top floor rides the glass lift, and move_to the ground comes back down', () => {
+  const { world, nav, view, s, pilot } = mall([0, 0, -520]);
+  const up = { kind: 'moveTo', x: 0, z: -800, y: 384 } as const;
+  pilot.setIntent(up, 0);
+  let top = 0;
+  for (let seq = 1; seq <= 60 * 40 && !pilot.arrived; seq++) {
+    applyCmd(world, s, pilot.nextCmd(view, up, nav, world, seq), 1);
+    top = Math.max(top, s.y);
+  }
+  assert.ok(pilot.arrived, `Stopped at ${s.x},${s.y},${s.z}`);
+  assert.ok(Math.abs(s.y - 384) <= 20, 'on the Mirante, at ' + s.y);
+  const down = { kind: 'moveTo', x: 0, z: -450, y: 0 } as const;
+  pilot.setIntent(down, s.y);
+  for (let seq = 3000; seq <= 3000 + 60 * 40 && !pilot.arrived; seq++) {
+    applyCmd(world, s, pilot.nextCmd(view, down, nav, world, seq), 1);
+  }
+  assert.ok(pilot.arrived, `Stopped at ${s.x},${s.y},${s.z}`);
+  assert.ok(Math.abs(s.y) <= 20, 'back on the ground, at ' + s.y);
+});

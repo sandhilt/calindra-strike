@@ -1018,3 +1018,51 @@ test('the agent hears its own shots from the magazine dropping, with the impact 
   assert.deepEqual(JSON.parse(JSON.stringify(ctx.session.getState())).sounds, [], 'a reload is not a shot');
   ctx.session.close();
 });
+
+const shoppingWelcome = { ...welcome, match: { ...welcome.match, map: 2 } };
+
+async function playOnShopping(at: { x: number; y: number; z: number }, health: number, su: number[] = [0, 0]) {
+  const harness = setup();
+  const joined = harness.session.join(args);
+  harness.socket.emit('open', {});
+  harness.socket.message(shoppingWelcome);
+  await joined;
+  const s = createPlayerState();
+  Object.assign(s, at, { health, onGround: true, dropping: false });
+  harness.socket.message({
+    t: 'snap', time: 200, me: packState(s), ps: [[1, at.x, at.y, at.z, 0, 0, RF_ALIVE, 2]], ad: [], fl: [], bm: [], lu: [], lc: [], su,
+  });
+  return harness;
+}
+
+test('get_state names the floor, lists the glass lifts and the supply stands, and reports a restock', async () => {
+  const { session, socket } = await playOnShopping({ x: 10, y: 384, z: -870 }, 75, [0, 120_000]);
+  socket.message({ t: 'ev', e: [{ k: 'supply', id: 2, at: 0 }] });
+  const state = JSON.parse(JSON.stringify(session.getState()));
+  assert.deepEqual(state.you.floor, { index: 2, name: 'Mirante', y: 384 });
+  assert.equal(state.lifts.length, 2);
+  assert.equal(state.lifts[0].riding, false);
+  assert.deepEqual(state.lifts[0].floors, [{ y: 0, name: 'térreo' }, { y: 192, name: 'praça de alimentação' }, { y: 384, name: 'Mirante' }]);
+  assert.match(state.lifts[0].rules, /crouch/);
+  assert.equal(state.supplies.length, 2);
+  assert.partialDeepStrictEqual(state.supplies[0], { floor: 'Mirante', ready: true, secondsLeft: 0, inReach: true, youNeedIt: true });
+  assert.partialDeepStrictEqual(state.supplies[1], { ready: false, inReach: false });
+  assert.ok(state.supplies[1].secondsLeft > 119);
+  assert.deepEqual(state.events.map((e: { k: string; name?: string }) => [e.k, e.name]), [['supply', 'enemy']]);
+});
+
+test('get_state says when the player rides a lift and how long to the top', async () => {
+  const { session } = await playOnShopping({ x: 8, y: 100, z: -616 }, 100);
+  const lift = JSON.parse(JSON.stringify(session.getState())).lifts[0];
+  assert.equal(lift.riding, true);
+  assert.ok(lift.secondsToTop > 1 && lift.secondsToTop < 6, 'secondsToTop ' + lift.secondsToTop);
+});
+
+test('move_to takes a floor height and sends the pilot to the top floor, and refuses a floor that is not there', async () => {
+  const { session } = await playOnShopping({ x: 0, y: 0, z: -450 }, 100);
+  const up = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: -880, y: 384 }))) as { intent: { y: number }; distance: number };
+  assert.equal(up.intent.y, 384);
+  assert.throws(() => session.setIntent({ kind: 'moveTo', x: 0, z: -880, y: 1000 }), /No floor near y=1000/);
+  const ground = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: -300 }))) as { intent: { y?: number } };
+  assert.equal(ground.intent.y, undefined);
+});

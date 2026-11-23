@@ -135,6 +135,7 @@ export function buildForja(): MapDef {
     dropHeight: 1150,
     airdropPoints: b.points,
     restaurants: [],
+    floors: [],
     lifts: [],
     supplies: [],
     interiors: [],

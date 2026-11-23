@@ -30,6 +30,8 @@ import { Pilot, type Intent } from './pilot.ts';
 import { silent, type Log } from './log.ts';
 import { welcome, decodeSnapshot, renderView, bombProp, lunchColleagues, type ViewSound, type WorldView } from './view.ts';
 /** Heard sounds waiting for the next read; older ones are dropped, as events are. */
+/** A move_to height may be this far from the floor the grid has at that spot before it counts as a wrong floor (units). */
+const MOVE_TO_FLOOR_SLACK_UNITS = 48;
 const MAX_SOUNDS = 48;
 const MAX_IMPACTS_PER_SHOT = 4;
 const MAX_OWN_SHOTS_PER_SNAPSHOT = 4;
@@ -276,6 +278,7 @@ export class GameSession {
         else if (e.k === 'flag' || e.k === 'bomb') v.events.push({ ...e, byName: this.names.get(e.by) });
         else if (e.k === 'lunch') v.events.push({ ...e, byName: this.names.get(e.by), colleague: LUNCH_COLLEAGUES[e.who] });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
+        else if (e.k === 'supply') v.events.push({ ...e, name: this.names.get(e.id) });
       }
     if (this.using) {
       const self = v.self;
@@ -401,10 +404,13 @@ export class GameSession {
     if (intent.kind === 'moveTo') {
       const s = view.self;
       if (!s) throw new Error('No living player snapshot yet');
+      const floorY = intent.y ?? s.y;
       const start = nav.nearest(s.x, s.y, s.z),
-        end = nav.nearest(intent.x, s.y, intent.z);
+        end = nav.nearest(intent.x, floorY, intent.z);
       if (!start || !end || Math.hypot(end.x - intent.x, end.z - intent.z) > 72 || !nav.findPath(start, end))
         throw new Error('Target unreachable on navigation grid');
+      if (intent.y !== undefined && Math.abs(end.y - intent.y) > MOVE_TO_FLOOR_SLACK_UNITS)
+        throw new Error('No floor near y=' + intent.y + ' at that x,z (the nearest is at y=' + end.y + ')');
       if (world.hullOverlaps(intent.x, end.y + 0.1, intent.z, STAND_HEIGHT))
         throw new Error('Target intersects solid map geometry');
       distance = Math.hypot(intent.x - s.x, intent.z - s.z);

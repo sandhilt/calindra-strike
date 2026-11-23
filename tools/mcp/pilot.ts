@@ -14,7 +14,7 @@ import { bombState, bombPlaces, flagStates, lunchColleagues, type WorldView } fr
 
 export type Intent =
   | { kind: 'idle' }
-  | { kind: 'moveTo'; x: number; z: number }
+  | { kind: 'moveTo'; x: number; z: number; y?: number }
   | { kind: 'attack'; targetId: number; ended?: boolean }
   | { kind: 'hunt' };
 
@@ -33,7 +33,7 @@ export class Pilot {
   }
 
   setIntent(intent: Intent, y: number): void {
-    if (intent.kind === 'moveTo') this.brain.setDirective({ kind: 'goto', x: intent.x, z: intent.z, y });
+    if (intent.kind === 'moveTo') this.brain.setDirective({ kind: 'goto', x: intent.x, z: intent.z, y: intent.y ?? y });
     else if (intent.kind === 'attack') this.brain.setDirective({ kind: 'engage', targetId: intent.targetId });
     else this.brain.setDirective(null);
   }
@@ -108,6 +108,7 @@ export class Pilot {
       colleagues,
       restaurants: map.restaurants,
       interiors: map.interiors,
+      supplies: map.supplies.map((stand, i) => ({ ...stand, ready: (view.supplies[i] ?? 0) === 0 })),
       flagBases: map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) })),
     });
     if (this.brain.directiveEnded) return idle;

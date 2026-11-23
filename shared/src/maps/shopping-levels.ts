@@ -1,9 +1,9 @@
 /**
- * The vertical layout of Shopping Sul Rio, shared by the files that author it: ground floor, the food court
+ * The layout of Shopping Sul Rio, shared by the files that author it: ground floor, the food court
  * deck and the top floor above it, each one a floor slab thick under its walking surface.
  */
-export const X = 1408;
-export const Z = 1152;
+export const X = 1536;
+export const Z = 1536;
 export const SLAB = 16;
 /** Walking surface of the food court floor. */
 export const DECK = 192;
@@ -19,9 +19,16 @@ export const WALL = ROOF + SLAB;
 export const DROP_HEIGHT = 1200;
 /** Edge of the upper floors, looking over the atrium. */
 export const GALLERY_Z = -672;
-export const FACADE_Z = -880;
+export const FACADE_Z = -Z + 272;
 /** The top floor slab stops here; past it, at each end, is a stair bay open from the deck to the roof. */
-export const TOP_X = 1216;
+export const TOP_X = X - 192;
+/** Shared geometry for the end escalators and their bins. */
+export const BAY_ESCALATORS = [
+  { x1: X - 144, x2: X - 48, travel: 'up' },
+  { x1: -X + 48, x2: -X + 144, travel: 'down' },
+] as const;
+export const BAY_FOOT_Z = -948;
+export const BAY_TOP_Z = BAY_FOOT_Z - 320;
 /** Inner footprint of the glass lift beside the middle of the atrium edge, in the north half. */
 export const LIFT_MIN_X = -56;
 export const LIFT_MAX_X = 56;

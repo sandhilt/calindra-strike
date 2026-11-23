@@ -12,7 +12,8 @@ import type { EscalatorTravel, MapDef } from './types.ts';
 const ROOF_CLIP_MARGIN = 256;
 /** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
 const STORE_LAMP_Y = 160;
-const STORE_XS = [-1056, -352, 352, 1056] as const;
+const STORE_XS = [-3, -1, 1, 3].map((bay) => bay * X / 4);
+const STORE_PARTITIONS = [-X / 2, 0, X / 2];
 const ESCALATORS = [
   { x1: 480, x2: 576, travel: 'up', name: 'Escada rolante que sobe' },
   { x1: -576, x2: -480, travel: 'down', name: 'Escada rolante que desce' },
@@ -74,19 +75,19 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
     { from: cx + 112, to: cx + 272, bottom: 24, top: 108 },
   ]);
   b.wallX(-X, X, FACADE_Z, 16, DECK - SLAB, 'white', openings);
-  for (const x of [-704, 0, 704]) b.wallZ(-Z, FACADE_Z, x, 16, DECK - SLAB, 'white');
+  for (const x of STORE_PARTITIONS) b.wallZ(-Z, FACADE_Z, x, 16, DECK - SLAB, 'white');
   STORE_XS.forEach((cx, i) => {
     const brand = brands[i];
     for (const side of [-1, 1]) {
       b.add(cx + side * 112, 24, FACADE_Z - 3, cx + side * 272, 108, FACADE_Z + 3, 'glass', { shoot: true });
-      b.block(cx + side * 150, -1010, 120, 24, 56, 'white', 0, { tint: storeAccent(brand) });
+      b.block(cx + side * 150, -Z + 142, 120, 24, 56, 'white', 0, { tint: storeAccent(brand) });
     }
     b.deco(cx - 60, 114, FACADE_Z + 8, cx + 60, 174, FACADE_Z + 10, brandMat(brand));
-    b.block(cx, -1100, 140, 36, 40, 'desk');
-    b.landmark(STORE_BRANDS[brand].name, cx, -1000);
+    b.block(cx, -Z + 52, 140, 36, 40, 'desk');
+    b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
     dressStore(new Room(b, cx, 0, -Z), brand);
     for (const lampZ of [60, 190]) b.light(cx, STORE_LAMP_Y, -Z + lampZ, '#ffe9bd');
-    b.interior(cx, 0, -1010);
+    b.interior(cx, 0, -Z + 142);
   });
 }
 
@@ -106,21 +107,22 @@ function booth(b: MapBuilder, x: number, tint: number): void {
 }
 
 function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
-  b.landmark('Praça de alimentação', 0, -860);
+  b.landmark('Praça de alimentação', 0, -1072);
   STORE_XS.forEach((cx, i) => {
     const brand = brands[i];
     b.add(cx - KITCHEN_WIDTH / 2, DECK, -Z, cx + KITCHEN_WIDTH / 2, DECK + KITCHEN_HEIGHT, -Z + KITCHEN_DEPTH, 'clip', { visible: false, shoot: true });
     buildKitchen(new Room(b, cx, DECK + KITCHEN_FLOOR, -Z), brand);
-    b.add(cx - 150, DECK, -1056, cx + 150, DECK + 40, -1020, 'white', { tint: counterTint(brand) });
-    b.deco(cx - 154, DECK + 40, -1060, cx + 154, DECK + 42, -1016, 'white', 0xdfe3e8);
-    b.deco(cx - 80, DECK + 110, -1056, cx + 80, DECK + 190, -1054, brandMat(brand));
-    for (const side of [-1, 1]) b.deco(cx + side * 80, DECK + 146, -1056, cx + side * 160, DECK + 150, -1053);
-    b.light(cx, DECK + 150, -1000, '#ffd9a0');
-    b.landmark(STORE_BRANDS[brand].name, cx, -1000);
-    b.restaurant(cx, DECK, -990, STORE_BRANDS[brand].name);
+    b.add(cx - 150, DECK, -Z + KITCHEN_DEPTH, cx + 150, DECK + 40, -Z + 132, 'white', { tint: counterTint(brand) });
+    b.deco(cx - 154, DECK + 40, -Z + 92, cx + 154, DECK + 42, -Z + 136, 'white', 0xdfe3e8);
+    b.deco(cx - 80, DECK + 110, -Z + KITCHEN_DEPTH, cx + 80, DECK + 190, -Z + 98, brandMat(brand));
+    for (const side of [-1, 1]) b.deco(cx + side * 80, DECK + 146, -Z + KITCHEN_DEPTH, cx + side * 160, DECK + 150, -Z + 99);
+    b.light(cx, DECK + 150, -Z + 152, '#ffd9a0');
+    b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
+    b.restaurant(cx, DECK, -Z + 162, STORE_BRANDS[brand].name);
   });
   const tables = [
-    ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -940] as const),
+    ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -Z + 248] as const),
+    ...[-1136, -720, -352, 96, 496, 912].map((x) => [x, -1136] as const),
     ...[-1150, -880, -200, 200, 880, 1150].map((x) => [x, -800] as const),
   ];
   tables.forEach(([tx, tz], i) => {
@@ -130,10 +132,10 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     for (const side of [-1, 1]) b.block(tx + side * 52, tz, 22, 22, 18, 'desk', DECK, { tint: CHAIR_TINTS[i % CHAIR_TINTS.length] });
   });
   for (const x of [-1150, -880, -520, -200, 200, 520, 880, 1150]) b.prop({ kind: 'ceilingFan', x, y: FOOD_CEILING - 44, z: -870, radius: 44 });
-  for (const x of [-704, 0, 704]) booth(b, x, 0xb8452f);
+  for (const x of STORE_PARTITIONS) booth(b, x, 0xb8452f);
   const duct = new Room(b, 0, DECK, -Z);
-  duct.box(0, 16, 2 * 1380, 32, 36, 126, 'white', 0xc9ced6);
-  for (const x of [-1312, -704, 0, 704, 1312]) duct.vent(x, 144, 32, 'front');
+  duct.box(0, 16, 2 * (X - 28), 32, 36, 126, 'white', 0xc9ced6);
+  for (const x of [-X + 96, ...STORE_PARTITIONS, X - 96]) duct.vent(x, 144, 32, 'front');
 }
 
 /**
@@ -211,6 +213,7 @@ export function buildShopping(): MapDef {
     b.point(0, -480);
     b.point(-1150, -200);
     b.point(300, -250);
+    b.point(1400, -320);
     half++;
   });
 
@@ -219,7 +222,7 @@ export function buildShopping(): MapDef {
     name: 'Shopping Sul Rio',
     subtitle: 'escada rolante, chafariz e praça de alimentação',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
-    dropArea: { minX: -1300, maxX: 1300, minZ: -600, maxZ: 600 },
+    dropArea: { minX: -X + 108, maxX: X - 108, minZ: -600, maxZ: 600 },
     flagBases: [{ x: -1000, z: -480 }, { x: 1000, z: 480 }],
     dropHeight: DROP_HEIGHT,
     airdropPoints: b.points,

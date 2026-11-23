@@ -1,6 +1,6 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
-import { DECK3, X } from './shopping-levels.ts';
+import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, X } from './shopping-levels.ts';
 
 /**
  * Cover that breaks the long clean shots of Shopping Sul Rio: ad boards in the covered gallery, a car promotion, an
@@ -17,7 +17,6 @@ const HEDGE = 70;
 const PAINT = 0xe9edf2;
 
 const GALLERY_FLOOR = 0;
-const DECK = 192;
 /** Ad columns stay under the longest drop a walker takes (300 units, `MAX_DROP` in the nav grid). */
 const COLUMN = 280;
 
@@ -89,15 +88,27 @@ function infoDesk(b: MapBuilder, x: number, z: number): void {
  * display and made a maze of walls before the entrances.
  */
 function gallery(b: MapBuilder): void {
-  const edge = -672;
+  const edge = GALLERY_Z;
   const run = 110;
   const boards: readonly (readonly [number, StoreBrand])[] = [
     [-690, 'cea'],
   ];
+  for (const [x, brand] of [[-1120, 'zarra'], [-360, 'rener'], [384, 'hew'], [1152, 'cea']] as const) {
+    const z = FACADE_Z + (x < 0 ? 144 : 232);
+    board(b, x, z, 144, GALLERY_FLOOR, WALL, brand);
+    bench(b, x + 64, z, 28, 96, false);
+  }
+  for (const [x, z] of [[-1248, -912], [-560, -976], [160, -856], [864, -1168], [1280, -960]] as const) {
+    b.block(x, z, 220, 20, WALL, 'white', GALLERY_FLOOR, { tint: PAINT });
+  }
+  b.landmark('Galeria das lojas', 0, FACADE_Z + 160);
   for (const [x, brand] of boards) board(b, x, edge - 8 - run / 2, run, GALLERY_FLOOR, WALL, brand);
 }
 
 function atrium(b: MapBuilder): void {
+  for (const [x, z, brand] of [[-1376, -316, 'zarra'], [672, -64, 'hew'], [1440, -416, 'rener']] as const) {
+    column(b, x, z, 64, COLUMN, brand);
+  }
   carStand(b, 860, -250);
   infoDesk(b, -300, -560);
   cart(b, -90, -330, 'mequi', 0xd7263d);
@@ -125,6 +136,15 @@ function foodCourt(b: MapBuilder): void {
     [-600, 'mania-picanha'], [600, 'mequi'],
   ];
   for (const [x, brand] of menus) board(b, x, -795, 120, DECK, 140, brand, 0xd9c7a3);
+  for (const [x, z, brand] of [[-960, -1080, 'kfg'], [-384, -1232, 'outbaque'], [128, -992, 'bobis'], [784, -1224, 'madeiro']] as const) {
+    board(b, x, z, 156, DECK, 140, brand, 0xd9c7a3);
+  }
+  for (const [x, z, brand] of [[-1170, -804, 'kfg'], [-750, -736, 'outbaque'], [690, -915, 'bobis'], [1220, -844, 'madeiro']] as const) {
+    board(b, x, z, 120, DECK, 140, brand, 0xd9c7a3);
+  }
+  for (const [x, z] of [[-1120, -1240], [-464, -944], [240, -1216], [1056, -1032]] as const) {
+    b.block(x, z, 192, 20, 112, 'white', DECK, { tint: PAINT });
+  }
   // nothing stands outside the lift doorway at x = 0
   for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28, DECK);
 }
@@ -176,9 +196,6 @@ function slitBin(b: MapBuilder, x1: number, x2: number, z: number, y0: number): 
 
 const ATRIUM_ESCALATORS = [{ x1: 480, x2: 576 }, { x1: -576, x2: -480 }] as const;
 const ESCALATOR_FOOT_Z = -352;
-const BAY_ESCALATORS = [{ x1: 1264, x2: 1360 }, { x1: -1360, x2: -1264 }] as const;
-const BAY_FOOT_Z = -756;
-const BAY_TOP_Z = -1076;
 const FOOD_COURT_BINS = [[-720, -870], [720, -870]] as const;
 
 function bins(b: MapBuilder): void {

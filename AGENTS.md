@@ -141,6 +141,8 @@ The `desempenho` tier exists for weak machines (integrated graphics, old laptops
 - **Test it.** Add a case next to `only the high tier sparkles` in `client/test/` asserting which tiers have it, so a later change cannot switch it on for `performance`.
 - **Cheap is allowed.** Gameplay, sound, text and small effects that cost almost nothing run on every tier, as the impact sounds do. When unsure, measure on the performance tier or leave it off.
 
+The AWP scope uses `QualityProfile.scopeBlur` for its surround. `ClientGame.applyQuality` updates the HUD when the tier changes. Only `alta` enables the masked CSS backdrop blur while scoped, using the existing canvas. Other tiers and browsers without backdrop blur support use the black mask.
+
 ## Document every new feature
 
 Whenever you add a feature, document it in the same change. A feature that is only in the code is not finished. Follow `skills/document-calindra-strike-feature/SKILL.md` for where to write, what to include, and when it is done.

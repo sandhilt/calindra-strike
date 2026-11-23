@@ -509,6 +509,7 @@ export class ClientGame {
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
     this.applyLightRt(this.wantedRtLevel());
     this.effects.setQuality(quality);
+    this.hud.setScopeBlur(profile.scopeBlur);
     this.view.setQuality(quality);
     if (this.world) {
       applyShadowQuality(this.world.sun, profile);

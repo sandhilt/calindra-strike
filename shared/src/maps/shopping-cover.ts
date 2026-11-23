@@ -128,8 +128,44 @@ function foodCourt(b: MapBuilder): void {
   for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28, DECK);
 }
 
+const BIN_SIDE = 28;
+const BIN_HEIGHT = 46;
+/** Escalator glass sides are 6 units thick; a bin set flush against one leaves no pocket a walker could wedge into. */
+const ESCALATOR_GLASS = 6;
+const BIN_BESIDE_GLASS = ESCALATOR_GLASS + BIN_SIDE / 2;
+
+/** A mall waste bin: a green body with a dark lid, waist-low so it blocks walking but not a shot. */
+function trashBin(b: MapBuilder, x: number, z: number, y0 = 0): void {
+  b.block(x, z, BIN_SIDE, BIN_SIDE, BIN_HEIGHT, 'charcoal', y0, { tint: 0x4a6b52 });
+  b.deco(x - BIN_SIDE / 2 - 2, y0 + BIN_HEIGHT, z - BIN_SIDE / 2 - 2, x + BIN_SIDE / 2 + 2, y0 + BIN_HEIGHT + 4, z + BIN_SIDE / 2 + 2, 'charcoal');
+}
+
+/** Bins in the four corners of every escalator, against its glass sides, where bots used to wedge in the gap. */
+function escalatorBins(b: MapBuilder, x1: number, x2: number, footZ: number, topZ: number, y0 = 0): void {
+  const half = BIN_SIDE / 2;
+  for (const x of [x1 - BIN_BESIDE_GLASS, x2 + BIN_BESIDE_GLASS]) {
+    trashBin(b, x, footZ + half, y0);
+    trashBin(b, x, topZ - half, y0);
+  }
+}
+
+const ATRIUM_ESCALATORS = [{ x1: 480, x2: 576 }, { x1: -576, x2: -480 }] as const;
+const ESCALATOR_FOOT_Z = -352;
+const GALLERY_EDGE_Z = -672;
+const BAY_ESCALATORS = [{ x1: 1264, x2: 1360 }, { x1: -1360, x2: -1264 }] as const;
+const BAY_FOOT_Z = -756;
+const BAY_TOP_Z = -1076;
+const FOOD_COURT_BINS = [[-1010, -870], [-720, -870], [0, -860], [720, -870], [1010, -870]] as const;
+
+function bins(b: MapBuilder): void {
+  for (const { x1, x2 } of ATRIUM_ESCALATORS) escalatorBins(b, x1, x2, ESCALATOR_FOOT_Z, GALLERY_EDGE_Z);
+  for (const { x1, x2 } of BAY_ESCALATORS) escalatorBins(b, x1, x2, BAY_FOOT_Z, BAY_TOP_Z, DECK);
+  for (const [x, z] of FOOD_COURT_BINS) trashBin(b, x, z, DECK);
+}
+
 export function coverShopping(b: MapBuilder): void {
   gallery(b);
   atrium(b);
   foodCourt(b);
+  bins(b);
 }

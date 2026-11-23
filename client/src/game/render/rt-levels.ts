@@ -9,6 +9,12 @@ export type RtLevel = (typeof RT_LEVELS)[number];
 
 export const DEFAULT_RT_LEVEL: RtLevel = 'medium';
 
+/** What the menu stores: a fixed level, or `auto`, which starts at `high` and lets the frame-time governor step it down. */
+export const RT_CHOICES = ['auto', ...RT_LEVELS] as const;
+export type RtChoice = (typeof RT_CHOICES)[number];
+export const DEFAULT_RT_CHOICE: RtChoice = 'auto';
+export const AUTO_RT_START: RtLevel = 'high';
+
 export interface RtProfile {
   /** Label on the pause menu. */
   label: string;
@@ -37,8 +43,9 @@ export const RT: Readonly<Record<RtLevel, RtProfile | null>> = {
 };
 
 const OFF_LABEL = 'desligado';
+const AUTO_LABEL = 'automático';
 
-export const RT_OPTIONS: readonly { v: RtLevel; label: string }[] = RT_LEVELS.map((v) => ({ v, label: RT[v]?.label ?? OFF_LABEL }));
+export const RT_OPTIONS: readonly { v: RtChoice; label: string }[] = RT_CHOICES.map((v) => ({ v, label: v === 'auto' ? AUTO_LABEL : (RT[v]?.label ?? OFF_LABEL) }));
 
 export const rtLabel = (level: RtLevel): string => RT[level]?.label ?? OFF_LABEL;
 
@@ -46,10 +53,15 @@ export function isRtLevel(value: unknown): value is RtLevel {
   return RT_LEVELS.some((level) => level === value);
 }
 
-/** Reads a saved or untrusted value. The old on/off switch maps to `medium` and `off`; anything else gets the default. */
-export function parseRtLevel(value: unknown): RtLevel {
-  if (typeof value === 'boolean') return value ? DEFAULT_RT_LEVEL : 'off';
-  return isRtLevel(value) ? value : DEFAULT_RT_LEVEL;
+/** Reads a saved or untrusted value. The old on/off switch maps to `auto` and `off`; anything else gets the default. */
+export function parseRtChoice(value: unknown): RtChoice {
+  if (typeof value === 'boolean') return value ? DEFAULT_RT_CHOICE : 'off';
+  return RT_CHOICES.some((choice) => choice === value) ? (value as RtChoice) : DEFAULT_RT_CHOICE;
+}
+
+/** The level to run: a fixed choice as it is, `auto` at the governor's ceiling (which starts at `high`). */
+export function resolveRtChoice(choice: RtChoice, autoCeiling: RtLevel): RtLevel {
+  return choice === 'auto' ? autoCeiling : choice;
 }
 
 /** The step one notch cheaper, never below `light`: the lowest level the frame-time governor falls back to. */
@@ -59,7 +71,3 @@ export function cheaperRtLevel(level: RtLevel): RtLevel {
   return level;
 }
 
-/** The cheaper of the chosen level and a ceiling. `off` is the cheapest, so a player's choice of it always wins. */
-export function capRtLevel(chosen: RtLevel, ceiling: RtLevel): RtLevel {
-  return RT_LEVELS.indexOf(chosen) <= RT_LEVELS.indexOf(ceiling) ? chosen : ceiling;
-}

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RT_GOVERNOR, RtGovernor, medianOf } from '../src/game/render/rt-governor.ts';
-import { capRtLevel, cheaperRtLevel, type RtLevel } from '../src/game/render/rt-levels.ts';
+import { cheaperRtLevel, resolveRtChoice, type RtLevel } from '../src/game/render/rt-levels.ts';
 
 /** Feeds frames of a fixed length for `seconds` and returns the levels the governor asked for. */
 function run(governor: RtGovernor, frameMs: number, seconds: number, running: RtLevel): RtLevel[] {
@@ -59,13 +59,13 @@ test('median averages the middle pair of an even count', () => {
   assert.equal(medianOf([4, 1, 2, 3]), 2.5);
 });
 
-test('levels step down one at a time and the ceiling only ever lowers a choice', () => {
+test('levels step down one at a time and only auto follows the ceiling', () => {
   assert.equal(cheaperRtLevel('high'), 'medium');
   assert.equal(cheaperRtLevel('medium'), 'light');
   assert.equal(cheaperRtLevel('light'), 'light');
   assert.equal(cheaperRtLevel('off'), 'off');
-  assert.equal(capRtLevel('high', 'light'), 'light');
-  assert.equal(capRtLevel('light', 'medium'), 'light');
-  assert.equal(capRtLevel('off', 'light'), 'off');
-  assert.equal(capRtLevel('high', 'high'), 'high');
+  assert.equal(resolveRtChoice('auto', 'high'), 'high');
+  assert.equal(resolveRtChoice('auto', 'light'), 'light');
+  assert.equal(resolveRtChoice('high', 'light'), 'high');
+  assert.equal(resolveRtChoice('off', 'light'), 'off');
 });

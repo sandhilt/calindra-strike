@@ -93,7 +93,7 @@ const MENU_TABS: Record<MenuTabId, MenuTab> = {
     build: (s, r) =>
       h('div', { class: 'menu-rows' }, [
         r.seg('video', 'gráficos', QUALITY_OPTIONS, () => s.quality, (v) => (s.quality = v), 'bordas suaves aplicam ao reentrar'),
-        r.seg('sun', 'ray tracing', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'luz e sombra de contato, só no gráfico alta; mais alto pesa mais na placa de vídeo'),
+        r.seg('sun', 'sombra de contato', RT_OPTIONS, () => s.lightRt, (v) => (s.lightRt = v), 'escurece cantos e vãos, só no gráfico alta; automático baixa sozinho se os quadros caírem, os outros ficam fixos'),
         r.seg(
           'activity',
           'estatísticas',

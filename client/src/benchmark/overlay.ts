@@ -5,11 +5,11 @@ import { h } from '../ui/dom.ts';
 import { benchmarkSetup, isRtVariant, parseBenchmarkParams, type BenchmarkTier } from './options.ts';
 import { runBenchmark } from './run.ts';
 
-/** Plain tiers by their menu name; a ray pass variant as `alta` plus its level, e.g. `alta · ray tracing leve`. */
+/** Plain tiers by their menu name; a ray pass variant as `alta` plus its level, e.g. `alta · sombra de contato leve`. */
 function tierLabel(tier: BenchmarkTier): string {
   if (!isRtVariant(tier)) return QUALITY[tier].label;
   const { profile, rtLevel } = benchmarkSetup(tier);
-  return `${profile.label} · ray tracing ${rtLabel(rtLevel)}`;
+  return `${profile.label} · sombra de contato ${rtLabel(rtLevel)}`;
 }
 
 function perFrame(ms: number | null): string {

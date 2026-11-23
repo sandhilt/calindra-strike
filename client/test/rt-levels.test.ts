@@ -1,7 +1,7 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { QUALITY, QUALITY_TIERS } from '../src/game/render/quality.ts';
-import { DEFAULT_RT_LEVEL, RT, RT_LEVELS, RT_OPTIONS, parseRtLevel, rtLabel, type RtProfile } from '../src/game/render/rt-levels.ts';
+import { DEFAULT_RT_LEVEL, RT, RT_CHOICES, RT_LEVELS, RT_OPTIONS, parseRtChoice, rtLabel, type RtProfile } from '../src/game/render/rt-levels.ts';
 import { benchmarkSetup } from '../src/benchmark/options.ts';
 import { defaults, loadSettings } from '../src/settings.ts';
 
@@ -65,25 +65,25 @@ test('the benchmark pins the ray pass level of each high variant', () => {
   assert.equal(benchmarkSetup('high-no-rt').profile, QUALITY.high);
 });
 
-test('the menu lists the four steps in order with their Portuguese labels', () => {
-  assert.deepEqual(RT_OPTIONS.map((o) => o.label), ['desligado', 'leve', 'médio', 'alto']);
+test('the menu lists auto first, then the four steps, with their Portuguese labels', () => {
+  assert.deepEqual(RT_OPTIONS.map((o) => o.label), ['automático', 'desligado', 'leve', 'médio', 'alto']);
   assert.equal(rtLabel('medium'), 'médio');
 });
 
-test('a saved level is kept, and the old switch migrates to médio or desligado', () => {
+test('a saved choice is kept, and the old switch migrates to automático or desligado', () => {
   storeSettings({ lightRt: true });
-  assert.equal(loadSettings().lightRt, 'medium');
+  assert.equal(loadSettings().lightRt, 'auto');
   storeSettings({ lightRt: false });
   assert.equal(loadSettings().lightRt, 'off');
-  for (const level of RT_LEVELS) {
+  for (const level of RT_CHOICES) {
     storeSettings({ lightRt: level });
     assert.equal(loadSettings().lightRt, level);
   }
 });
 
-test('a missing or unknown saved level falls back to médio', () => {
+test('a missing or unknown saved level falls back to automático', () => {
   storeSettings({ name: 'ana' });
-  assert.equal(loadSettings().lightRt, 'medium');
-  for (const bad of ['ultra', '', 0, null, {}, ['off']]) assert.equal(parseRtLevel(bad), 'medium');
-  assert.equal(defaults().lightRt, 'medium');
+  assert.equal(loadSettings().lightRt, 'auto');
+  for (const bad of ['ultra', '', 0, null, {}, ['off']]) assert.equal(parseRtChoice(bad), 'auto');
+  assert.equal(defaults().lightRt, 'auto');
 });

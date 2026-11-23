@@ -100,7 +100,7 @@ import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
 import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
 import { RtGovernor } from './render/rt-governor.ts';
-import { RT, capRtLevel, rtLabel, type RtLevel } from './render/rt-levels.ts';
+import { AUTO_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
 import { lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
 import { PodiumScene } from './render/podium.ts';
@@ -336,8 +336,8 @@ export class ClientGame {
   private lightRtAvailable = false;
   private lightRt: LightRt | null = null;
   private lightRtLevel: RtLevel = 'off';
-  /** Lowered by the frame-time governor and kept for the rest of the match. */
-  private rtCeiling: RtLevel = 'high';
+  /** What `auto` runs: lowered by the frame-time governor and kept for the rest of the match. */
+  private rtCeiling: RtLevel = AUTO_RT_START;
   private readonly rtGovernor = new RtGovernor();
   private menuOpen = false;
   private elapsed = 0;
@@ -511,9 +511,9 @@ export class ClientGame {
     this.bombRenderer?.setScreenRefreshMs(profile.laptopScreenRefreshMs);
   }
 
-  /** The level the player chose, on a tier that has the pass. */
+  /** The level the player chose (or `auto` settled on), on a tier that has the pass. */
   private wantedRtLevel(): RtLevel {
-    return QUALITY[this.settings.quality].lightRt ? capRtLevel(this.settings.lightRt, this.rtCeiling) : 'off';
+    return QUALITY[this.settings.quality].lightRt ? resolveRtChoice(this.settings.lightRt, this.rtCeiling) : 'off';
   }
 
   /** Builds the ray-marched lighting at a level for a card that can run it, and tears it down for `off`. A level change rebuilds it. */
@@ -1570,11 +1570,11 @@ export class ClientGame {
     }
 
     if (performanceHint.sample(frameSeconds, this.settings.quality)) this.hud.info(FPS_HINT_TEXT);
-    const cheaper = this.rtGovernor.sample(frameSeconds, this.lightRtLevel);
+    const cheaper = this.settings.lightRt === 'auto' ? this.rtGovernor.sample(frameSeconds, this.lightRtLevel) : null;
     if (cheaper) {
       this.rtCeiling = cheaper;
       this.applyLightRt(this.wantedRtLevel());
-      this.hud.info(`quadros lentos: ray tracing baixou para ${rtLabel(cheaper)}`);
+      this.hud.info(`quadros lentos: sombra de contato baixou para ${rtLabel(cheaper)}`);
     }
 
     const [ldx, ldy] = this.input.takeLook();

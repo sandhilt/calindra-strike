@@ -1,9 +1,11 @@
 import { BTN, DEG, MAX_PITCH, clamp, wrapAngle } from '@calindra-strike/shared';
+import { nextProne } from './prone-input.ts';
 
 /** Keyboard + mouse state. Uses `code` so WASD works on any keyboard layout. */
 export class Input {
   private keys = new Set<string>();
   private mouse = 0;
+  private prone = false;
   yaw = 0;
   pitch = 0;
   sensitivity = 2;
@@ -27,11 +29,13 @@ export class Input {
       this.disposers.push(() => document.removeEventListener(t, f as EventListener, opts));
     };
     on('keydown', (e) => {
+      if (this.locked && (e.code === 'AltLeft' || e.code === 'AltRight')) e.preventDefault();
       if (this.onKey(e.code, true, e)) return;
       if (!this.enabled) return;
       if (this.locked && (e.code === 'Tab' || e.code === 'Space' || e.ctrlKey || e.code.startsWith('Arrow'))) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
+      this.prone = nextProne(this.prone, e.code === 'KeyV', this.movementButtons());
       switch (e.code) {
         case 'Digit1':
           this.weaponReq = 1;
@@ -48,6 +52,7 @@ export class Input {
       }
     });
     on('keyup', (e) => {
+      if (this.locked && (e.code === 'AltLeft' || e.code === 'AltRight')) e.preventDefault();
       this.onKey(e.code, false, e);
       this.keys.delete(e.code);
     });
@@ -93,6 +98,11 @@ export class Input {
   releaseAll(): void {
     this.keys.clear();
     this.mouse = 0;
+    this.clearProne();
+  }
+
+  clearProne(): void {
+    this.prone = false;
   }
 
   async lock(): Promise<void> {
@@ -112,8 +122,7 @@ export class Input {
     return this.keys.has(code);
   }
 
-  buttons(): number {
-    if (!this.enabled || !(this.locked || this.debug)) return 0;
+  private movementButtons(): number {
     let b = 0;
     if (this.keys.has('KeyW')) b |= BTN.FWD;
     if (this.keys.has('KeyS')) b |= BTN.BACK;
@@ -121,7 +130,17 @@ export class Input {
     if (this.keys.has('KeyD')) b |= BTN.RIGHT;
     if (this.keys.has('Space')) b |= BTN.JUMP;
     if (this.keys.has('ControlLeft') || this.keys.has('KeyC') || this.keys.has('ControlRight')) b |= BTN.DUCK;
-    if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) b |= BTN.WALK;
+    if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) b |= BTN.SPRINT;
+    if (this.keys.has('AltLeft') || this.keys.has('AltRight')) b |= BTN.WALK;
+    if (this.keys.has('KeyZ')) b |= BTN.LEAN_LEFT;
+    if (this.keys.has('KeyX')) b |= BTN.LEAN_RIGHT;
+    return b;
+  }
+
+  buttons(): number {
+    if (!this.enabled || !(this.locked || this.debug)) return 0;
+    let b = this.movementButtons();
+    if (this.prone) b |= BTN.PRONE;
     if (this.keys.has('KeyR')) b |= BTN.RELOAD;
     if (this.keys.has('KeyE')) b |= BTN.USE;
     if (this.mouse & 1) b |= BTN.ATTACK;

@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createInterface } from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
+import { toolDefinitions } from '../mcp/tools.ts';
 async function freePort(): Promise<number> {
   const socket = createServer();
   await new Promise<void>((resolve, reject) => {
@@ -129,7 +130,7 @@ test('stdio MCP plays against the real authoritative WebSocket server', { timeou
   }
   await rpc('initialize', { protocolVersion: '2025-06-18' });
   mcp.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
-  assert.equal((await rpc('tools/list')).tools.length, 22);
+  assert.equal((await rpc('tools/list')).tools.length, toolDefinitions.length);
   await tool('join', { name: 'mcp-integration' });
   await tool('hunt');
   await tool('radio', { menu: 'comandos', line: 1 });
@@ -139,6 +140,11 @@ test('stdio MCP plays against the real authoritative WebSocket server', { timeou
   assert.notDeepEqual(afterWait.you.pos, before.you.pos);
   assert.equal(afterWait.you.name, 'mcp-integration');
   assert.equal(afterWait.you.intent.kind, 'hunt');
+  await tool('sprint', { on: true });
+  await tool('lean', { side: 'left' });
+  assert.partialDeepStrictEqual((await tool('get_state')).you.actions, { sprint: true, lean: 'left', prone: false });
+  await tool('sprint', { on: false });
+  await tool('lean', { side: 'off' });
   const state = await tool('get_state');
   assert.ok(['warmup', 'live', 'podium'].includes(state.phase));
   const status = (await (await fetch(url + '/status')).json()) as {

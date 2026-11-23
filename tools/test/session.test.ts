@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { KICK_CLOSE_CODE, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, STANCE, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, STANCE, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -57,6 +57,7 @@ function setup(omniscient = false, autoVote = false, log?: Log) {
   });
   return { session, socket, jobs, advance: (ms: number) => { now += ms; for (const fn of [...jobs.values()]) fn(); } };
 }
+const noActions = { crouch: false, walk: false, zoom: null, sprint: false, lean: 'off', prone: false };
 const args = { name: 'agent', color: 0, primary: WEAPON.RIFLE, code: 'secret' };
 const welcome = {
   t: 'welcome',
@@ -318,7 +319,7 @@ test('crouch, walk and zoom reset when the player dies, even if no tick ran in b
   live();
   assert.ok(tickButtons().every((b) => !(b & (BTN.DUCK | BTN.WALK))));
   const state = JSON.parse(JSON.stringify(session.getState()));
-  assert.deepEqual(state.you.actions, { crouch: false, walk: false, zoom: null });
+  assert.deepEqual(state.you.actions, noActions);
   session.close();
 });
 
@@ -329,7 +330,7 @@ test('crouch, walk and zoom reset on a respawn of a player who never died (match
   await call('zoom', { level: 1 });
   live(WEAPON.SNIPER, false, true); // spawn(): alive again, skydiving
   assert.ok(tickButtons().every((b) => !(b & (BTN.DUCK | BTN.WALK))));
-  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, walk: false, zoom: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, noActions);
   session.close();
 });
 
@@ -342,7 +343,7 @@ test('latched actions and pending requests reset when the map changes', async ()
   await call('reload');
   await call('switch_weapon', { slot: 'hammer' });
   socket.message({ t: 'match', match: { ...welcome.match, map: 1 } });
-  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, { crouch: false, walk: false, zoom: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, noActions);
   const buttons = tickButtons();
   assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [0, 0]);
   assert.ok(buttons.every((b) => !(b & (BTN.DUCK | BTN.WALK | BTN.JUMP | BTN.ATTACK2 | BTN.RELOAD))));
@@ -391,7 +392,7 @@ test('get_state reports ducked, onGround, zoom, maxZoom and the requested action
   const you = JSON.parse(JSON.stringify(awp.session.getState())).you;
   assert.partialDeepStrictEqual(you, {
     onGround: true, ducked: false, stance: 'stand', sprinting: false, sliding: false, stamina: 1, lean: 0, zoom: 0, maxZoom: 2,
-    actions: { crouch: true, walk: true, zoom: 2 },
+    actions: { ...noActions, crouch: true, walk: true, zoom: 2 },
     slots: {
       primary: weaponDef(WEAPON.RIFLE).name,
       pistol: weaponDef(WEAPON.PISTOL).name,
@@ -478,6 +479,135 @@ test('walk latches WALK on both commands while idle and releases on off', async 
   session.close();
 });
 
+test('sprint latches SPRINT on both commands while idle, releases, echoes blockedBy and is strict', async () => {
+  const { call, tickButtons, session } = await playing();
+  const on = await call('sprint', { on: true });
+  assert.equal(on.isError, undefined);
+  assert.partialDeepStrictEqual(JSON.parse(on.content[0].text), { sprint: true, blockedBy: [] });
+  assert.ok(tickButtons().every((b) => b & BTN.SPRINT));
+  assert.ok(tickButtons().every((b) => b & BTN.SPRINT));
+  await call('walk', { on: true });
+  assert.deepEqual(JSON.parse((await call('sprint', { on: true })).content[0].text).blockedBy, ['walk']);
+  await call('walk', { on: false });
+  await call('sprint', { on: false });
+  assert.ok(tickButtons().every((b) => !(b & BTN.SPRINT)));
+  assert.equal((await call('sprint', { on: 'true' })).isError, true);
+  assert.equal((await call('sprint')).isError, true);
+  assert.equal((await call('sprint', { on: true, extra: 1 })).isError, true);
+  session.close();
+});
+
+test('lean latches the chosen side on both commands and rejects anything else', async () => {
+  const { call, tickButtons, session } = await playing();
+  for (const [side, bit] of [['left', BTN.LEAN_LEFT], ['right', BTN.LEAN_RIGHT]] as const) {
+    assert.equal((await call('lean', { side })).isError, undefined, side);
+    assert.ok(tickButtons().every((b) => (b & (BTN.LEAN_LEFT | BTN.LEAN_RIGHT)) === bit), side);
+  }
+  assert.equal(JSON.parse((await call('lean', { side: 'off' })).content[0].text).lean, 'off');
+  assert.ok(tickButtons().every((b) => !(b & (BTN.LEAN_LEFT | BTN.LEAN_RIGHT))));
+  for (const bad of [{ side: 'up' }, { side: 'Left' }, { side: 1 }, { side: null }, {}, { side: 'left', on: true }]) {
+    assert.equal((await call('lean', bad)).isError, true, JSON.stringify(bad));
+  }
+  session.close();
+});
+
+test('prone latches PRONE, refuses a jump while lying and resets with the rest', async () => {
+  const { call, live, tickButtons, session, socket } = await playing(WEAPON.RIFLE);
+  assert.equal((await call('prone', { on: true })).isError, undefined);
+  assert.ok(tickButtons().every((b) => b & BTN.PRONE));
+  assert.equal((await call('prone', { on: 1 })).isError, true);
+  const lying = createPlayerState();
+  Object.assign(lying, { health: 100, weapon: WEAPON.RIFLE, onGround: true, stance: STANCE.PRONE });
+  socket.message({ t: 'snap', time: 300, ack: 0, me: packState(lying), ps: [[1, 0, 0, 0, 0, 0, RF_ALIVE, WEAPON.RIFLE]], ad: [] });
+  const jump = await call('jump');
+  assert.equal(jump.isError, true);
+  assert.match(JSON.stringify(jump), /prone/);
+  await call('sprint', { on: true });
+  await call('lean', { side: 'right' });
+  socket.message({ t: 'snap', time: 400, me: null, ps: [], ad: [] });
+  live();
+  assert.ok(tickButtons().every((b) => !(b & (BTN.PRONE | BTN.SPRINT | BTN.LEAN_RIGHT))));
+  assert.deepEqual(JSON.parse(JSON.stringify(session.getState())).you.actions, noActions);
+  session.close();
+});
+
+/** A snapshot of the agent sprinting (or not), as the server would send it. */
+function sprintSnapshot(ctx: Awaited<ReturnType<typeof playing>>, patch: Partial<ReturnType<typeof createPlayerState>> = {}) {
+  const s = createPlayerState();
+  Object.assign(s, { health: 100, weapon: WEAPON.RIFLE, onGround: true, sprinting: true, vx: SLIDE_MIN_SPEED + 60, stamina: STAMINA_MAX }, patch);
+  ctx.socket.message({ t: 'snap', time: 300, ack: 0, me: packState(s), ps: [[1, 0, 0, 0, 0, 0, RF_ALIVE, WEAPON.RIFLE]], ad: [] });
+}
+const slideResult = async (ctx: Awaited<ReturnType<typeof playing>>) => JSON.parse((await ctx.call('slide')).content[0].text);
+const duckPresses = (ctx: Awaited<ReturnType<typeof playing>>) => ctx.tickButtons().filter((b) => b & BTN.DUCK).length;
+
+test('slide presses DUCK for one command when the snapshot shows a sprint, and says so', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  sprintSnapshot(ctx);
+  const res = await slideResult(ctx);
+  assert.partialDeepStrictEqual(res, { requested: true, sprinting: true, speed: SLIDE_MIN_SPEED + 60, stamina: 1 });
+  assert.equal(duckPresses(ctx), 1);
+  assert.equal(duckPresses(ctx), 0);
+  ctx.session.close();
+});
+
+test('slide reports why it cannot start and presses nothing', async () => {
+  const cases: [string, Partial<ReturnType<typeof createPlayerState>>, RegExp][] = [
+    ['not sprinting', { sprinting: false }, /Not sprinting/],
+    ['too slow', { vx: SLIDE_MIN_SPEED - 40 }, /Too slow/],
+    ['tired', { stamina: SLIDE_STAMINA_COST - 1 }, /Not enough stamina/],
+    ['airborne', { onGround: false }, /Not on the ground/],
+    ['already sliding', { slide: 10 }, /Already sliding/],
+  ];
+  for (const [name, patch, reason] of cases) {
+    const ctx = await playing(WEAPON.RIFLE);
+    sprintSnapshot(ctx, patch);
+    const res = await slideResult(ctx);
+    assert.equal(res.requested, false, name);
+    assert.match(res.reason, reason, name);
+    assert.equal(duckPresses(ctx), 0, name);
+    ctx.session.close();
+  }
+});
+
+test('a latched crouch hides the slide press, so slide says to release it first', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  sprintSnapshot(ctx);
+  await ctx.call('crouch', { on: true });
+  const res = await slideResult(ctx);
+  assert.equal(res.requested, false);
+  assert.match(res.reason, /crouch\(false\)/);
+  await ctx.call('crouch', { on: false });
+  assert.equal((await slideResult(ctx)).requested, true);
+  ctx.session.close();
+});
+
+test('a slide request is dropped when the next snapshot shows the sprint ended, and needs a living player', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  sprintSnapshot(ctx);
+  assert.equal((await slideResult(ctx)).requested, true);
+  sprintSnapshot(ctx, { sprinting: false });
+  assert.equal(duckPresses(ctx), 0);
+  ctx.socket.message({ t: 'snap', time: 500, me: null, ps: [], ad: [] });
+  assert.equal((await ctx.call('slide')).isError, true);
+  for (const [name, a] of [['sprint', { on: true }], ['lean', { side: 'left' }], ['prone', { on: true }]] as const) {
+    assert.equal((await ctx.call(name, a)).isError, true, name);
+  }
+  ctx.session.close();
+});
+
+test('get_state reports winded and the sprint, lean and prone requests', async () => {
+  const ctx = await playing(WEAPON.RIFLE);
+  await ctx.call('sprint', { on: true });
+  await ctx.call('lean', { side: 'left' });
+  sprintSnapshot(ctx, { winded: true, stamina: 0, lean: -0.5 });
+  const you = JSON.parse(JSON.stringify(ctx.session.getState())).you;
+  assert.partialDeepStrictEqual(you, {
+    sprinting: true, winded: true, stamina: 0, lean: -0.5,
+    actions: { ...noActions, sprint: true, lean: 'left' },
+  });
+  ctx.session.close();
+});
+
 test('reload pulses exactly once across a tick and rejects the hammer', async () => {
   const rifle = await playing(WEAPON.RIFLE);
   assert.equal((await rifle.call('reload')).isError, undefined);
@@ -503,7 +633,7 @@ test('switch_weapon maps every slot to one command and returns its weapon name',
     const response = await call('switch_weapon', { slot });
     assert.equal(response.isError, undefined, slot);
     assert.partialDeepStrictEqual(JSON.parse(response.content[0].text), {
-      crouch: false, walk: false, zoom: null, weapon: weaponDef(target).name,
+      ...noActions, weapon: weaponDef(target).name,
     });
     tickButtons();
     assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [request, 0], slot);

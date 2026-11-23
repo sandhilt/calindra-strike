@@ -1,4 +1,7 @@
-import { BTN, TICK_MS, WEAPON, weaponDef, type Cmd, type PlayerState, type WeaponId } from '../../shared/src/index.ts';
+import {
+  BTN, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, TICK_MS, WEAPON, weaponDef,
+  type Cmd, type PlayerState, type WeaponId,
+} from '../../shared/src/index.ts';
 
 export const WEAPON_SLOT_REQUEST = { primary: 1, pistol: 2, hammer: 3, last: 4 } as const;
 export type WeaponSlot = keyof typeof WEAPON_SLOT_REQUEST;
@@ -17,15 +20,35 @@ export function weaponSlots(self: PlayerState): {
   };
 }
 
+const LEAN_BUTTON = { left: BTN.LEAN_LEFT, right: BTN.LEAN_RIGHT, off: 0 } as const;
+export type LeanSide = keyof typeof LEAN_BUTTON;
+export const LEAN_SIDES: readonly LeanSide[] = Object.keys(LEAN_BUTTON) as LeanSide[];
+
+/** What the agent has asked for, echoed by every action tool and by get_state `you.actions`. */
+export interface ActionEcho {
+  crouch: boolean;
+  walk: boolean;
+  /** null leaves the bot's auto-scope alone. */
+  zoom: number | null;
+  sprint: boolean;
+  lean: LeanSide;
+  prone: boolean;
+}
+
+export const NO_ACTIONS: ActionEcho = { crouch: false, walk: false, zoom: null, sprint: false, lean: 'off', prone: false };
+
 /**
- * Agent-controlled keys on top of the bot brain's cmd: latched crouch and walk,
- * one-shot jump, reload and weapon switch, a manual scope level that
+ * Agent-controlled keys on top of the bot brain's cmd: latched crouch, walk, sprint, lean and prone,
+ * one-shot jump, slide, reload and weapon switch, a manual scope level that
  * replaces the brain's auto-scope, and a held free aim with timed fire.
  */
 export class ActionOverlay {
   use = false;
   crouch = false;
   walk = false;
+  sprint = false;
+  lean: LeanSide = 'off';
+  prone = false;
   /** null leaves the bot's auto-scope alone, 0 forces it off, 1..n is the wanted level. */
   zoom: number | null = null;
   /** Where the agent holds the crosshair, in radians; replaces the view the brain wanted until cleared. */
@@ -34,6 +57,7 @@ export class ActionOverlay {
   /** Last cmd seq the server reports as processed (snapshot `ack`). */
   ack = 0;
   private jumpPending = false;
+  private slidePending = false;
   private reloadPending = false;
   private weaponPending: WeaponRequest | null = null;
   /** Seq of the last scope press; the snapshot only shows its effect once `ack` reaches it. */
@@ -42,6 +66,36 @@ export class ActionOverlay {
 
   requestJump(): void {
     this.jumpPending = true;
+  }
+
+  requestSlide(): void {
+    this.slidePending = true;
+  }
+
+  /**
+   * Why a slide would not start now, or null when it would. Mirrors `tryStartSlide` in the sim, which a test pins:
+   * the sim starts one on the tick DUCK is pressed (an edge), so a latched crouch hides the press.
+   */
+  slideBlocker(self: PlayerState): string | null {
+    if (this.crouch) return 'Crouch is latched on, so DUCK is already held and a slide needs a fresh press; call crouch(false) first';
+    if (this.prone) return 'Prone is latched on, and a prone player cannot sprint; call prone(false) first';
+    if (self.dropping) return 'Player is dropping';
+    if (!self.onGround) return 'Not on the ground';
+    if (self.slide > 0) return 'Already sliding';
+    if (!self.sprinting) return 'Not sprinting; call sprint(true) and move forward (get_state you.sprinting shows it)';
+    const speed = Math.hypot(self.vx, self.vz);
+    if (speed < SLIDE_MIN_SPEED) return `Too slow: ${Math.round(speed)} units/s, a slide needs ${SLIDE_MIN_SPEED}`;
+    if (self.stamina < SLIDE_STAMINA_COST) return `Not enough stamina: ${self.stamina / STAMINA_MAX} of 1, a slide costs ${SLIDE_STAMINA_COST / STAMINA_MAX}`;
+    return null;
+  }
+
+  /** The latched actions that stop a sprint right now; sprint has no effect until they are off. */
+  sprintBlockers(): string[] {
+    return [this.walk ? 'walk' : '', this.crouch ? 'crouch' : '', this.prone ? 'prone' : ''].filter(Boolean);
+  }
+
+  echo(): ActionEcho {
+    return { crouch: this.crouch, walk: this.walk, zoom: this.zoom, sprint: this.sprint, lean: this.lean, prone: this.prone };
   }
 
   requestReload(): void {
@@ -65,8 +119,12 @@ export class ActionOverlay {
     this.reloadPending = false;
     this.weaponPending = null;
     this.crouch = false;
+    this.sprint = false;
+    this.lean = 'off';
+    this.prone = false;
     this.zoom = null;
     this.jumpPending = false;
+    this.slidePending = false;
     this.pressSeq = 0;
     this.weaponSeq = 0;
     this.ack = 0;
@@ -86,6 +144,14 @@ export class ActionOverlay {
       this.weaponPending = null;
     }
     if (this.crouch) buttons |= BTN.DUCK;
+    if (this.sprint) buttons |= BTN.SPRINT;
+    buttons |= LEAN_BUTTON[this.lean];
+    if (this.prone) buttons |= BTN.PRONE;
+    if (this.slidePending) {
+      this.slidePending = false;
+      // One command only: the sim needs DUCK to go from released to pressed while sprinting.
+      if (self && !(buttons & BTN.DUCK) && this.slideBlocker(self) === null) buttons |= BTN.DUCK;
+    }
     if (this.jumpPending) {
       this.jumpPending = false;
       if (self?.onGround) buttons |= BTN.JUMP;

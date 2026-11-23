@@ -46,8 +46,8 @@ export interface QualityProfile {
   /** Light ray-marched lighting, on only where the graphics card supports it. */
   lightRt: boolean;
   /**
-   * Scenery that moves for looks only: ceiling fans, vent fans, fountain water and jet. On for high and low,
-   * off for performance, where they stand still. Escalator steps are not part of this: they move on every tier.
+   * Scenery that moves for looks only: vent fans, fountain water and jet. On for high and low,
+   * off for performance, where they stand still. Ceiling fans are not part of this: they turn on every tier. Escalator steps are not part of this: they move on every tier.
    */
   ambientMotion: boolean;
   /** Rings and droplets where feet meet water. On for high and low; off for performance, where they are not even built. */

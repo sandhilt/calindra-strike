@@ -139,15 +139,16 @@ function buildCeilingFans(fans: readonly PropOf<'ceilingFan'>[], ctx: PropContex
   const geometry = blades.merge();
   if (!geometry) return still();
   const spinners = new Spinners(geometry, newPropMaterial(), slots, CEILING_FAN_RAD_PER_S);
+  // Fans turn on every tier: posing a few instances is free, and a still fan reads as broken.
   const clock = new MotionClock(ctx.profile);
+  clock.running = true;
   return {
     object: spinners.mesh,
     update(dt) {
-      if (clock.tick(dt)) spinners.pose(clock.seconds);
+      clock.tick(dt);
+      spinners.pose(clock.seconds);
     },
-    setQuality(profile) {
-      clock.running = profile.ambientMotion;
-    },
+    setQuality() {},
   };
 }
 

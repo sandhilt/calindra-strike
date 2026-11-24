@@ -34,7 +34,7 @@ describe('kitchen ambience on Shopping Sul Rio', () => {
 
   it('uses every voice, so fast food and grills sound different from each other', () => {
     const voices = new Set<CookVoice>(cooks.map((c) => c.voice));
-    assert.deepEqual([...voices].toSorted(), ['charcoal', 'fryer', 'griddle', 'wood']);
+    assert.deepEqual([...voices].toSorted(), ['boil', 'charcoal', 'fryer', 'griddle', 'wood']);
   });
 
   it('sounds and burns in both halves of the mall, whose food courts hold different restaurants', () => {
@@ -44,7 +44,7 @@ describe('kitchen ambience on Shopping Sul Rio', () => {
     }
   });
 
-  it('puts fire only where something is cooked over fire: grills, the wood oven and the flame grill', () => {
+  it('puts fire only where something is cooked over fire: burners, grills and the wood oven', () => {
     for (const f of flames) {
       assert.ok(f.size >= 6 && f.size <= 24, `a flame ${f.size} units tall`);
       const near = cooks.some((c) => Math.abs(c.x - f.x) <= KITCHEN_HALF_WIDTH && Math.sign(c.z) === Math.sign(f.z));

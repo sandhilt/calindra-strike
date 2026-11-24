@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getMap } from '@calindra-strike/shared';
+import { AMBIENT_VOICES } from '../src/game/audio.ts';
 import { MAX_AMBIENT_LOOPS, NearbyLoops, ambientEmitters, nearestEmitters, type Emitter } from '../src/game/nearby-loops.ts';
 
 function airEmitters(xs: number[]): Emitter[] {
@@ -52,24 +53,57 @@ test('loops start nearby, refresh on schedule, and stop on dispose', () => {
   assert.equal(live.size, 0);
 });
 
-test('Shopping emits air, fountain water, and each authored cooking voice at its prop', () => {
+test('Shopping emits air, fountain water, fan hum and each cooking voice at its prop', () => {
   const { props } = getMap(2);
   const vents = props.filter((prop) => prop.kind === 'vent');
   const fountains = props.filter((prop) => prop.kind === 'fountain');
   const cooks = props.filter((prop) => prop.kind === 'cook');
+  const fans = props.filter((prop) => prop.kind === 'ceilingFan');
   const emitters = ambientEmitters(props);
+  assert.ok(fans.length > 0);
+  assert.deepEqual(emitters.filter(({ voice }) => voice === 'fan'),
+    fans.map(({ x, y, z }) => ({ x, y, z, voice: 'fan', within: 210, sameFloor: true })));
   assert.ok(vents.length > 0);
   assert.equal(fountains.length, 1);
-  assert.deepEqual(new Set(cooks.map(({ voice }) => voice)), new Set(['fryer', 'griddle', 'charcoal', 'wood']));
-  assert.equal(emitters.length, vents.length + fountains.length + cooks.length);
+  assert.deepEqual(new Set(cooks.map(({ voice }) => voice)), new Set(['boil', 'fryer', 'griddle', 'charcoal', 'wood']));
+  assert.equal(emitters.length, vents.length + fountains.length + cooks.length + fans.length);
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'air'),
     vents.map(({ x, y, z }) => ({ x, y, z, voice: 'air', within: 420 })));
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'water'),
     fountains.map(({ x, y, z }) => ({ x, y, z, voice: 'water', within: 640 })));
-  assert.deepEqual(emitters.filter(({ voice }) => voice !== 'air' && voice !== 'water'),
+  assert.deepEqual(emitters.filter(({ voice }) => voice !== 'air' && voice !== 'water' && voice !== 'fan'),
     cooks.map(({ x, y, z, voice }) => ({ x, y, z, voice, within: 380, sameFloor: true })));
 });
 
 test('a map without ambient props has no emitters', () => {
   assert.deepEqual(ambientEmitters(getMap(0).props), []);
+});
+
+test('fan hum shares the loop budget and stays on the floor under the blades', () => {
+  const fans = ambientEmitters(Array.from({ length: 8 }, (_, x) => ({
+    kind: 'ceilingFan', x, y: 340, z: 0, radius: 44,
+  })));
+  const active = new Set<Emitter>();
+  const loops = new NearbyLoops(fans, (emitter) => {
+    active.add(emitter);
+    return { stop: () => active.delete(emitter) };
+  });
+  loops.update(1, { x: 0, y: 224, z: 0 });
+  assert.deepEqual([...active], fans.slice(0, MAX_AMBIENT_LOOPS));
+  loops.update(1, { x: 0, y: 416, z: 0 });
+  assert.equal(active.size, 0);
+  loops.update(1, { x: 0, y: 32, z: 0 });
+  assert.equal(active.size, 0);
+});
+
+test('ambient beds are about 25–33% softer and fan hum has the lowest gain', () => {
+  const previous = { air: 0.07, water: 0.10, fryer: 0.11, griddle: 0.10, charcoal: 0.10, wood: 0.09 };
+  for (const [voice, gain] of Object.entries(previous)) {
+    assert.ok(voice in AMBIENT_VOICES);
+    const current = AMBIENT_VOICES[voice as keyof typeof previous].gain;
+    assert.ok(current / gain >= 0.67 && current / gain <= 0.75, voice);
+  }
+  const { fan, boil, ...otherVoices } = AMBIENT_VOICES;
+  assert.ok(boil.gain > fan.gain);
+  assert.ok(Object.values(otherVoices).every(({ gain }) => gain > fan.gain));
 });

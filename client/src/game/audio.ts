@@ -23,7 +23,7 @@ const AMBIENT_FADE_SECONDS = 0.25;
 const NOISE_OFFSET_MARGIN_SECONDS = 0.5;
 const COOK_AUDIBLE_UNITS = 380;
 
-export type AmbientVoice = 'air' | 'water' | CookVoice;
+export type AmbientVoice = 'air' | 'water' | 'fan' | CookVoice;
 
 type AmbientFilter =
   | { type: 'bandpass'; hz: number; q: number }
@@ -42,31 +42,41 @@ interface VoiceSpec {
 export const AMBIENT_VOICES: Record<AmbientVoice, VoiceSpec> = {
   air: {
     filters: [{ type: 'bandpass', hz: 380, q: 0.5 }, { type: 'lowpass', hz: 1100 }],
-    gain: 0.07, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: AIR_AUDIBLE_UNITS,
+    gain: 0.05, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: AIR_AUDIBLE_UNITS,
+  },
+  fan: {
+    filters: [{ type: 'bandpass', hz: 110, q: 2 }, { type: 'lowpass', hz: 320 }],
+    gain: 0.022, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: 210, sameFloor: true,
+    lfo: { hz: 3, depth: 0.12 },
+  },
+  boil: {
+    filters: [{ type: 'highpass', hz: 950 }, { type: 'bandpass', hz: 2400, q: 0.65 }],
+    gain: 0.055, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
+    lfo: { hz: 5, depth: 0.45 },
   },
   water: {
     filters: [{ type: 'bandpass', hz: 1600, q: 0.5 }, { type: 'lowpass', hz: 5000 }],
-    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: 640,
+    gain: 0.07, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: 640,
     lfo: { hz: 0.7, depth: 0.15 },
   },
   fryer: {
     filters: [{ type: 'highpass', hz: 3000 }, { type: 'bandpass', hz: 6000, q: 0.8 }],
-    gain: 0.11, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
+    gain: 0.08, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 13, depth: 0.4 },
   },
   griddle: {
     filters: [{ type: 'highpass', hz: 2200 }, { type: 'bandpass', hz: 8000, q: 0.7 }],
-    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
+    gain: 0.07, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 7, depth: 0.3 },
   },
   charcoal: {
     filters: [{ type: 'bandpass', hz: 900, q: 0.6 }, { type: 'lowpass', hz: 2500 }],
-    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
+    gain: 0.07, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 9, depth: 0.5 },
   },
   wood: {
     filters: [{ type: 'lowpass', hz: 1200 }, { type: 'bandpass', hz: 500, q: 0.5 }],
-    gain: 0.09, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
+    gain: 0.065, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 4.5, depth: 0.5 },
   },
 };

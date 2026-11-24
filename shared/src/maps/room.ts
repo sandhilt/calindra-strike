@@ -47,8 +47,12 @@ export class Room {
   }
 
   /** A flame `size` units tall standing at (x, z) on height y. */
-  flame(x: number, z: number, y: number, size: number): void {
-    this.b.prop({ kind: 'flame', x: this.ox + x, y: this.oy + y, z: this.oz + z, size });
+  flame(x: number, z: number, y: number, size: number, style?: 'burner'): void {
+    this.b.prop({ kind: 'flame', x: this.ox + x, y: this.oy + y, z: this.oz + z, size, ...(style ? { burner: true } : {}) });
+  }
+
+  steam(x: number, z: number, y: number): void {
+    this.b.prop({ kind: 'steam', x: this.ox + x, y: this.oy + y, z: this.oz + z });
   }
 
   /** The spot a cooking sound comes from. */

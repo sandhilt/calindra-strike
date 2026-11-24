@@ -4,6 +4,8 @@ import type { Pos } from './sound-packs/types.ts';
 
 export const MAX_AMBIENT_LOOPS = 5;
 const REFRESH_SECONDS = 0.25;
+/** Use the occupied space underneath the motor for the floor check. */
+const FAN_FLOOR_OFFSET_UNITS = 80;
 
 type Point = NonNullable<Pos>;
 
@@ -20,6 +22,7 @@ export function ambientEmitters(props: readonly MapProp[]): Emitter[] {
   return props.flatMap((prop) => {
     let voice: AmbientVoice;
     switch (prop.kind) {
+      case 'ceilingFan': voice = 'fan'; break;
       case 'vent': voice = 'air'; break;
       case 'fountain': voice = 'water'; break;
       case 'cook': voice = prop.voice; break;
@@ -33,8 +36,9 @@ export function ambientEmitters(props: readonly MapProp[]): Emitter[] {
 
 export function nearestEmitters(emitters: readonly Emitter[], from: Point): number[] {
   return emitters
-    .map(({ x, y, z, within, sameFloor }, index) => ({
-      index, within, sameFloor, distance: Math.hypot(x - from.x, y - from.y, z - from.z), rise: Math.abs(y - from.y),
+    .map(({ x, y, z, within, sameFloor, voice }, index) => ({
+      index, within, sameFloor, distance: Math.hypot(x - from.x, y - from.y, z - from.z),
+      rise: Math.abs(y - (voice === 'fan' ? FAN_FLOOR_OFFSET_UNITS : 0) - from.y),
     }))
     .filter(({ distance, within, sameFloor, rise }) => distance <= within && !(sameFloor && rise > SAME_FLOOR_UNITS))
     .toSorted((a, b) => a.distance - b.distance)

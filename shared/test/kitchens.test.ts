@@ -19,6 +19,22 @@ const look = (box: Box) => `${box.mat}/${box.tint ?? 'plain'}`;
 
 describe('food court kitchens', () => {
   for (const brand of FOOD_BRANDS) {
+    it(`${brand} has a visible pot above a burner with steam coming off its lid`, () => {
+      const b = new MapBuilder();
+      buildKitchen(new Room(b, 0, 0, 0), brand);
+      const burner = b.props.find((prop) => {
+        if (prop.kind !== 'flame' || !prop.burner) return false;
+        assert.ok(prop.y > 12, 'the counter must not hide the flame');
+        return b.boxes.some((box) => {
+          return box.visible && !box.solid && box.min.y > prop.y && box.min.y <= prop.y + prop.size
+            && box.min.x < prop.x && box.max.x > prop.x && box.min.z < prop.z && box.max.z > prop.z
+            && b.props.some((steam) => steam.kind === 'steam' && steam.x === prop.x && steam.z === prop.z
+              && steam.y > box.max.y && steam.y - box.max.y < 9);
+        });
+      });
+      assert.ok(burner);
+    });
+
     it(`${brand} shows one look on each outer plane, so no two boxes fight over a pixel`, () => {
       const b = new MapBuilder();
       buildKitchen(new Room(b, 0, 0, 0), brand);

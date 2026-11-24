@@ -10,6 +10,7 @@ import {
   AUDIBLE_INTENSITY,
   dayCycleAt,
   heardIntensity,
+  defuseBases,
   type BombPoint,
   unpackState,
   RF_ALIVE,
@@ -359,7 +360,7 @@ export function bombProp(v: WorldView, bomb = bombState(v)) {
   return bombStandBox(bomb.kind, { x, y, z });
 }
 
-const bombBases = new WeakMap<MapDef, BombPoint[]>();
+const bombBases = new WeakMap<MapDef, ReturnType<typeof defuseBases>>();
 
 export function bombPlaces(v: WorldView, world: CollisionWorld) {
   const map = world.map;
@@ -367,10 +368,10 @@ export function bombPlaces(v: WorldView, world: CollisionWorld) {
   if (!bases) {
     // The desk or crate can sit over a base, whose height must stay fixed.
     const terrain = new CollisionWorld(map);
-    bases = map.flagBases.map(b => ({ ...b, y: Math.max(0, terrain.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS)) }));
+    bases = defuseBases(map, (x, z) => Math.max(0, terrain.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS)));
     bombBases.set(map, bases);
   }
-  const attackers = v.match.mode === 'almoco' ? v.lunch[0] : v.bomb[8];
+  const attackers = v.bomb[8];
   return { home: bases[attackers], site: bases[1 - attackers], attackers };
 }
 /** The colleagues of a running hora de almoçar round; undefined in other modes and on the podium, where no round runs. */
@@ -476,12 +477,17 @@ function describeBomb(v: WorldView, world?: CollisionWorld): object | null {
   const carrier = bomb.kind === 'carried' || bomb.kind === 'planting';
   const defuser = bomb.kind === 'planted' && actor >= 0;
   const team = v.roster.find(r => r[0] === v.id)?.[3];
-  const site = world ? bombPlaces(v, world).site : null;
+  const places = world ? bombPlaces(v, world) : null;
+  const floors = getMap(v.match.map).floors;
+  const describeBase = (point: BombPoint) => ({
+    pos: [point.x, point.y, point.z], floor: floorAt(floors, point.y)?.name ?? null, ...relative(v.self)(point),
+  });
   const progress = (end: number, duration: number) => Math.max(0, Math.min(1, 1 - (end - v.time) / duration));
   return { state: bomb.kind, carrierId: carrier ? actor : null, carrierName: carrier ? name(actor) : null,
     defuserId: defuser ? actor : null, defuserName: defuser ? name(actor) : null,
     pos: [x, y, z], ...relative(v.self)({ x, z }),
-    site: site ? { pos: [site.x, site.y, site.z], ...relative(v.self)(site) } : null,
+    home: places ? describeBase(places.home) : null,
+    site: places ? describeBase(places.site) : null,
     attackersTeam: attackers, role: team === attackers ? 'attacker' : team === 1 - attackers ? 'defender' : 'spectator',
     blackFriday, fuseSeconds: Math.round(fuseMs(blackFriday) / 1000),
     stand: prop && dimensions ? {

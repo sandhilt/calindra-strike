@@ -18,6 +18,7 @@ import {
   MODE_LABEL,
   MODE_RULES,
   type MapDef,
+  defuseBases,
   type MatchInfo,
   PLAYER_COLORS,
   radioLine,
@@ -305,6 +306,7 @@ export class ClientGame {
   private announcedLunchRound = 0;
   private bomb: BombView | null = null;
   private announcedBombRound = '';
+  private bombBases!: ReturnType<typeof defuseBases>;
   private bombRenderer?: BombRenderer;
   private nextBombBeepAt = 0;
   private defuseVariant = 0;
@@ -695,7 +697,9 @@ export class ClientGame {
     this.flags = [];
     this.bomb = null;
     this.announcedBombRound = '';
-    const bases = this.map.flagBases.map(base => ({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) }));
+    const groundY = (x: number, z: number) => this.collision.groundBelow(x, this.map.dropHeight, z, PLAYER_RADIUS);
+    const bases = this.map.flagBases.map(base => ({ ...base, y: groundY(base.x, base.z) }));
+    this.bombBases = defuseBases(this.map, (x, z) => Math.max(0, groundY(x, z)));
     this.flagRenderer?.dispose();
     this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
@@ -709,7 +713,7 @@ export class ClientGame {
     this.announcedLunchRound = 0;
     this.hud.clearLunchBanner();
     this.bombRenderer?.dispose();
-    this.bombRenderer = new BombRenderer(bases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
+    this.bombRenderer = new BombRenderer(this.bombBases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
     for (const r of this.remotes.values()) r.buf.length = 0;
     this.effects.clear();
@@ -1026,9 +1030,9 @@ export class ClientGame {
   /** E pressed where it cannot plant or defuse: say why instead of failing silently. */
   private explainUse(): void {
     const bomb = this.bomb;
-    const site = bomb && this.map.flagBases[1 - bomb.attackers];
+    const site = bomb && this.bombBases[1 - bomb.attackers];
     if (!bomb || !site) return;
-    const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site: { x: site.x, y: this.me.y, z: site.z }, name: id => this.nameOf(id).name, practice: this.match.phase === 'warmup' });
+    const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site, name: id => this.nameOf(id).name, practice: this.match.phase === 'warmup' });
     if (!reason) return;
     this.hud.info(reason);
     this.sfx.denied();
@@ -2074,8 +2078,8 @@ export class ClientGame {
     if (!bomb) return;
     const carrying = !this.spectator && (bomb.state === 'carried' || bomb.state === 'planting') && bomb.carrier === this.myId;
     if (carrying) {
-      const site = this.map.flagBases[1 - bomb.attackers];
-      targets.push({ ...site, y: this.collision.groundBelow(site.x, this.map.dropHeight, site.z, PLAYER_RADIUS) + 100, label: `site · segure ${this.controlLabels.use} para plantar` });
+      const site = this.bombBases[1 - bomb.attackers];
+      targets.push({ ...site, y: site.y + 100, label: `site · segure ${this.controlLabels.use} para plantar` });
       return;
     }
     const at = this.bombRenderer?.position() ?? bomb;

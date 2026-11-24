@@ -1,4 +1,4 @@
-import { CollisionWorld, getMaps } from '@calindra-strike/shared';
+import { BOMB_SITE_RADIUS_UNITS, CollisionWorld, getMaps, inBombReach } from '@calindra-strike/shared';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { NavGrid } from '../src/nav.ts';
@@ -97,6 +97,29 @@ describe('NavGrid', () => {
         assert.notEqual(p, null);
         assert.equal(p!.some((n) => n.y >= 384), true);
       }
+    }
+  });
+
+  it('connects both ground bases to each Mirante defusion base and connects the two sites', () => {
+    assert.ok(shopping.defuseBases);
+    const [home, site] = shopping.defuseBases;
+    const groundStart = navS.nearest(shopping.flagBases[0].x, 0, shopping.flagBases[0].z);
+    assert.ok(groundStart);
+    const reachable = navS.reachableFrom(groundStart);
+    for (const base of shopping.defuseBases) {
+      assert.ok(reachable.every(node => node.y >= base.y || !inBombReach(node, base, BOMB_SITE_RADIUS_UNITS)),
+        'plant radius stays clear of reachable surfaces on lower floors');
+      for (const ground of shopping.flagBases) {
+        const path = route(navS, [ground.x, 0, ground.z], [base.x, base.y, base.z]);
+        assert.equal(path?.at(-1)?.y, base.y);
+        assert.ok(path?.some(node => node.y > 192 && node.y < 384), 'route uses a Mirante escalator');
+      }
+      const viaLift = route(navS, [0, 384, Math.sign(base.z) * 760], [base.x, base.y, base.z]);
+      assert.equal(viaLift?.at(-1)?.y, base.y);
+      assert.ok(viaLift?.every(node => node.y >= base.y), 'base is walkable directly from the top lift exit');
+    }
+    for (const [from, to] of [[home, site], [site, home]]) {
+      assert.equal(route(navS, [from.x, from.y, from.z], [to.x, to.y, to.z])?.at(-1)?.y, to.y);
     }
   });
 

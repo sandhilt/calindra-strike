@@ -94,6 +94,7 @@ export class Pilot {
     const map = getMap(view.match.map);
     // Only hunt plays the round: the brain holds USE beside a colleague, which would hijack a move_to.
     const colleagues = intent.kind === 'hunt' ? lunchColleagues(view) : undefined;
+    const flagBases = map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) }));
     const cmd = this.brain.think(self, {
       world,
       nav,
@@ -105,12 +106,13 @@ export class Pilot {
       airdrops: view.airdrops,
       flags: flagStates(view),
       bomb: bombState(view),
-      bombPlaces: view.bomb.length || colleagues ? bombPlaces(view, world) : undefined,
+      bombPlaces: view.bomb.length ? bombPlaces(view, world) : undefined,
+      lunchPlaces: colleagues ? { attackers: view.lunch[0], hold: flagBases[1 - view.lunch[0]] } : undefined,
       colleagues,
       restaurants: view.lunch.length >= 3 ? map.restaurants.slice(view.lunch[2], view.lunch[2] + 1) : map.restaurants,
       interiors: map.interiors,
       supplies: map.supplies.map((stand, i) => ({ ...stand, ready: (view.supplies[i] ?? 0) === 0 })),
-      flagBases: map.flagBases.map(b => ({ ...b, y: world.groundBelow(b.x, map.dropHeight, b.z, PLAYER_RADIUS) })),
+      flagBases,
     });
     if (this.brain.directiveEnded) return idle;
     return { ...cmd, seq };

@@ -1,7 +1,16 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, practiceRound, bombSpawnScore, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { stepBomb, defuseBases, practiceRound, bombSpawnScore, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
 import { BLACK_FRIDAY_FUSE_TICKS, BOMB_SPAWN_KEEPOUT_UNITS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
+
+it('uses authored defuse heights and resolves both flag bases on maps without them', () => {
+  const flagBases = [{ x: -10, z: -20 }, { x: 10, z: 20 }] as const;
+  const explicit = [{ x: -30, y: 384, z: -40 }, { x: 30, y: 384, z: 40 }] as const;
+  assert.strictEqual(defuseBases({ flagBases, defuseBases: explicit }, () => assert.fail('unexpected ground lookup')), explicit);
+  assert.deepEqual(defuseBases({ flagBases }, (x, z) => x + z + 30), [
+    { x: -10, y: 0, z: -20 }, { x: 10, y: 60, z: 20 },
+  ]);
+});
 
 const places: BombPlaces = { home: { x: 0, y: 0, z: -1000 }, site: { x: 0, y: 0, z: 1000 }, attackers: 0 };
 const actor = (team: number, at: { x: number; y: number; z: number }, extra: Partial<BombActor> = {}): BombActor =>

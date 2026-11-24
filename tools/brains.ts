@@ -11,7 +11,7 @@ export const defuseBrain: Brain = {
   decide({ snap, terrain, self, players, leg, enemy, closeEnemy }) {
     const bomb = readBombRow(snap.bm);
     if (!bomb) return null;
-    const places = { home: terrain.bases[bomb.attackers], site: terrain.bases[1 - bomb.attackers], attackers: bomb.attackers };
+    const places = { home: terrain.bombBases[bomb.attackers], site: terrain.bombBases[1 - bomb.attackers], attackers: bomb.attackers };
     return defuseGoal(bomb, places, self, players, leg, enemy, closeEnemy);
   },
 };

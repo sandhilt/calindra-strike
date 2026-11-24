@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombState, type ServerMsg } from '@calindra-strike/shared';
+import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, TICK_RATE, BOMB_SITE_RADIUS_UNITS, defuseBases, inBombReach, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombPoint, type BombState, type ServerMsg } from '@calindra-strike/shared';
 import { BotBrain, guardPatrolPoint, pickBombGoal, type BotAgent, type BotEnv } from '../src/bot.ts';
 import { NavGrid } from '../src/nav.ts';
 import { Game } from '../src/game.ts';
@@ -76,10 +76,10 @@ it('defenders walk to the planted bomb and hold use next to it', () => {
 });
 
 const BUDGET_TICKS = 60 * 180;
-function botGame(mapId: string) {
+function botGame(mapId: string, botFill = 2) {
   let seed = 4242;
   const random = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 2 ** 32; };
-  const game = new Game({ maxPlayers: 2, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: 'defuse', maps: [mapId], defuseLimit: 0, botFill: 2, botSkill: 0.5, random });
+  const game = new Game({ maxPlayers: botFill, matchMs: 600000, podiumMs: 5000, warmupMinPlayers: 2, modes: 'defuse', maps: [mapId], defuseLimit: 0, botFill, botSkill: 0.5, random, plantTimeoutMs: mapId === 'shopping' ? 60_000 : undefined });
   const events: string[] = [];
   const observer = game.join('bootstrap', 0, WEAPON.RIFLE, (data) => {
     const msg = JSON.parse(data) as ServerMsg;
@@ -127,9 +127,8 @@ for (const map of getMaps()) {
     const { game, events, attacker, defender } = botGame(map.id);
     attacker.alive = false;
     attacker.respawnAt = Infinity;
-    const site = game.map.flagBases[1 - attacker.team];
-    const y = game.world.groundBelow(site.x, game.map.dropHeight, site.z, 16);
-    (game as any).bomb = { kind: 'planted', x: site.x, y, z: site.z, explodeAtTick: game.tick + FUSE_TICKS * 6, variant: 1, defuse: null };
+    const site = defuseBases(map, (x, z) => game.world.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS))[1 - attacker.team];
+    (game as unknown as { bomb: BombState }).bomb = { kind: 'planted', ...site, explodeAtTick: game.tick + FUSE_TICKS * 6, variant: 1, defuse: null };
     let ticks = 0;
     while (ticks < BUDGET_TICKS && !events.includes('defused')) { game.update(); ticks++; }
     t.diagnostic(map.id + ': ticks-to-defuse=' + (events.includes('defused') ? ticks : 'none'));
@@ -138,6 +137,45 @@ for (const map of getMaps()) {
     assert.equal(game.teamScores[defender.team], 1);
   });
 }
+
+it('Shopping bots take, plant and defuse live on the Mirante without getting permanently stuck', (t) => {
+  const { game, events } = botGame('shopping', 8);
+  const bases = game.map.defuseBases;
+  assert.ok(bases);
+  const progress = new Map<number, { x: number; y: number; z: number; at: number }>();
+  let longestIdleTicks = 0;
+  let plants = 0;
+  const round = game as unknown as { attackers: number; bomb: BombState };
+  for (let tick = 0; tick < BUDGET_TICKS; tick++) {
+    const previous = events.length;
+    const site: BombPoint = bases[1 - round.attackers];
+    game.update();
+    if (events.slice(previous).includes('plant')) {
+      assert.equal(round.bomb.kind, 'planted');
+      assert.equal(round.bomb.y, site.y);
+      assert.ok(inBombReach(round.bomb, site, BOMB_SITE_RADIUS_UNITS));
+      plants++;
+    }
+    for (const bot of game.players.values()) {
+      const { x, y, z, dropping } = bot.state;
+      if (!bot.alive || dropping) {
+        progress.delete(bot.id);
+        continue;
+      }
+      const anchor = progress.get(bot.id);
+      if (!anchor || Math.hypot(x - anchor.x, y - anchor.y, z - anchor.z) >= 24) {
+        progress.set(bot.id, { x, y, z, at: tick });
+      } else {
+        longestIdleTicks = Math.max(longestIdleTicks, tick - anchor.at);
+      }
+    }
+  }
+  const defuses = events.filter(event => event === 'defused').length;
+  t.diagnostic('180 s, 8 bots, 60 s plant window. Plants: ' + plants + ', defuses: ' + defuses + ', longest within 24 units: ' + (longestIdleTicks / TICK_RATE).toFixed(1) + ' s');
+  assert.ok(events.includes('take') && plants > 0);
+  assert.ok(defuses > 0);
+  assert.ok(longestIdleTicks < 30 * TICK_RATE, 'every living landed bot moved within 30 seconds');
+});
 
 it('a bot approaching a solid desk diagonally defuses from the corner', () => {
   const { game, events, attacker, defender } = botGame(map.id);

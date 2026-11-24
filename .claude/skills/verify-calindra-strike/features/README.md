@@ -30,3 +30,4 @@ Maintained source for verifying user-facing behavior. Read this index, then the 
 - [Access control](./access-control.md): allowed origins and the optional join code.
 - [Spectating](./spectate.md): timed team choice, independent spectator capacity, server broadcasts and action restrictions.
 - [Remap match controls](./rebind-controls.md): keyboard and mouse capture, conflicts, resets and persistence in a WebGL-capable browser.
+- [Shopping debug defusion](./shopping-defusion.md) covers both Mirante bases, the laptop and the climb.

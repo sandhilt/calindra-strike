@@ -3,7 +3,16 @@ import {
   BOMB_SITE_RADIUS_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_MS, FUSE_TICKS, PLANT_TICKS,
 } from './constants.ts';
 
+import type { MapDef } from './maps/types.ts';
+
 export interface BombPoint { x: number; y: number; z: number }
+
+/** Resolve the objective bases against static terrain when the map omits explicit heights. */
+export function defuseBases(map: Pick<MapDef, 'flagBases' | 'defuseBases'>, groundY: (x: number, z: number) => number): readonly [BombPoint, BombPoint] {
+  if (map.defuseBases) return map.defuseBases;
+  const [first, second] = map.flagBases;
+  return [{ ...first, y: groundY(first.x, first.z) }, { ...second, y: groundY(second.x, second.z) }];
+}
 export type BombState =
   | { kind: 'home' }
   | { kind: 'carried'; carrier: number }

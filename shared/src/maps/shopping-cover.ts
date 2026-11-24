@@ -71,13 +71,28 @@ function cart(b: MapBuilder, x: number, z: number, brand: StoreBrand, tint: numb
   for (const sx of [-1, 1]) b.block(x + sx * 49, z - 24, 5, 5, 100, 'charcoal', 46);
 }
 
-/** The car on its stand: a low red body, a cabin, wheels and a backdrop wall that hides what is behind. */
+/** A compact city hatchback with a short nose, tall glass cabin and wheels near the corners. */
 function carStand(b: MapBuilder, x: number, z: number): void {
   b.block(x, z, 300, 170, 8, 'tile', 0, { tint: 0x2b2f36 });
-  b.block(x, z + 6, 190, 82, 28, 'metal', 8, { tint: 0xb3202a });
-  b.block(x - 8, z + 6, 108, 70, 26, 'metal', 36, { tint: 0xb3202a });
-  b.deco(x - 62, 42, z - 30, x + 46, 58, z + 42, 'glass');
-  for (const [wx, wz] of [[-62, -34], [62, -34], [-62, 46], [62, 46]] as const) b.block(x + wx, z + wz, 30, 12, 30, 'charcoal', 8);
+  const paint = 0x8bd4ce;
+  b.block(x, z + 6, 140, 62, 22, 'metal', 14, { tint: paint });
+  b.deco(x - 73, 19, z - 21, x + 73, 31, z + 33, 'metal', paint);
+  b.block(x - 9, z + 6, 104, 52, 24, 'metal', 36, { tint: 0x303843 });
+  b.deco(x - 63, 36, z - 23, x + 49, 47, z + 35, 'glass', 0x577b89);
+  b.deco(x - 60, 47, z - 21, x + 39, 60, z + 33, 'glass', 0x577b89);
+  b.deco(x - 58, 60, z - 19, x + 34, 68, z + 31, 'white', 0xf4f2eb);
+  for (const wx of [-54, 54]) {
+    for (const side of [-1, 1]) {
+      const wheelZ = z + 6 + side * 29;
+      b.block(x + wx, wheelZ, 24, 10, 24, 'charcoal', 8);
+      const hubZ = wheelZ + side * 5;
+      b.deco(x + wx - 6, 14, hubZ - 0.5, x + wx + 6, 26, hubZ + 0.5, 'metal', 0xc4cbd0);
+    }
+  }
+  for (const dz of [-19, 19]) {
+    b.deco(x + 69, 28, z + 6 + dz - 6, x + 74, 33, z + 6 + dz + 6, 'white', 0xe7faff);
+    b.deco(x - 74, 27, z + 6 + dz - 6, x - 69, 33, z + 6 + dz + 6, 'white', 0xe63d4b);
+  }
   b.block(x, z - 96, 300, 14, WALL, 'white', 0, { tint: 0x1d2330 });
   adPanel(b, x - 110, 62, z - 88.6, x + 110, 62 + 110, z - 88.4, 'kfg');
   b.block(x - 140, z + 80, 10, 10, 90, 'charcoal', 8);

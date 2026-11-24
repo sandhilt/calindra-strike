@@ -1,7 +1,7 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { trimSolid } from './shopping-deck-walls.ts';
-import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, X } from './shopping-levels.ts';
+import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, DROP_HEIGHT, FACADE_Z, GALLERY_Z, ROOF, ROOF_CLIP_MARGIN, X } from './shopping-levels.ts';
 
 /**
  * Cover that breaks the long clean shots of Shopping Sul Rio: ad boards in the covered gallery, a car promotion, an
@@ -36,6 +36,17 @@ function board(b: MapBuilder, x: number, z: number, length: number, y0: number, 
 function column(b: MapBuilder, x: number, z: number, side: number, top: number, brand: StoreBrand, tint = PAINT): void {
   b.block(x, z, side, side, top, 'white', 0, { tint });
   adPanel(b, x - side / 2 - 0.6, top - 110, z - side / 2 - 0.6, x + side / 2 + 0.6, top - 110 + side / 2, z + side / 2 + 0.6, brand);
+}
+
+/**
+ * A column from the floor to the roof, with its ad at the height of the shorter columns. An invisible block over its top
+ * keeps a glider from landing there, where it could not get down.
+ */
+function roofColumn(b: MapBuilder, x: number, z: number, side: number, brand: StoreBrand): void {
+  b.block(x, z, side, side, ROOF, 'white', 0, { tint: PAINT });
+  const adY = COLUMN - 110;
+  adPanel(b, x - side / 2 - 0.6, adY, z - side / 2 - 0.6, x + side / 2 + 0.6, adY + side / 2, z + side / 2 + 0.6, brand);
+  b.block(x, z, side, side, DROP_HEIGHT + ROOF_CLIP_MARGIN - ROOF, 'clip', ROOF, { visible: false, shoot: true });
 }
 
 /** Planter walls: a tiled base with a hedge on top that stops bullets. */
@@ -107,9 +118,8 @@ function gallery(b: MapBuilder): void {
 }
 
 function atrium(b: MapBuilder): void {
-  for (const [x, z, brand] of [[-1376, -316, 'zarra'], [672, -64, 'hew'], [1440, -416, 'rener']] as const) {
-    column(b, x, z, 64, COLUMN, brand);
-  }
+  for (const [x, z, brand] of [[-1376, -316, 'zarra'], [1440, -416, 'rener']] as const) roofColumn(b, x, z, 64, brand);
+  column(b, 672, -64, 64, COLUMN, 'hew');
   carStand(b, 860, -250);
   infoDesk(b, -300, -560);
   cart(b, -90, -330, 'mequi', 0xd7263d);

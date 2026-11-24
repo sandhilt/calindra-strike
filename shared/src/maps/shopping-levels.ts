@@ -17,6 +17,8 @@ export const ROOF = DECK3 + 240;
 export const WALL = ROOF + SLAB;
 /** Skydive start altitude: the same distance over the roof top as before the top floor existed. */
 export const DROP_HEIGHT = 1200;
+/** Invisible columns that keep a glider from landing on a tall top reach this far over the drop height (units). */
+export const ROOF_CLIP_MARGIN = 256;
 /** Edge of the upper floors, looking over the atrium. */
 export const GALLERY_Z = -672;
 export const FACADE_Z = -Z + 272;

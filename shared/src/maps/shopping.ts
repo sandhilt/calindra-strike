@@ -3,16 +3,17 @@ import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
-import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressDeckWalls } from './shopping-deck-walls.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
-const ROOF_CLIP_MARGIN = 256;
 /** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
 const STORE_LAMP_Y = 160;
+/** The skydive start stays this far from the end walls, clear of the roof high columns at the ends of the atrium and the invisible blocks over them. */
+const END_COLUMN_CLEARANCE = 208;
 const STORE_XS = [-3, -1, 1, 3].map((bay) => bay * X / 4);
 const STORE_PARTITIONS = [-X / 2, 0, X / 2];
 const ESCALATORS = [
@@ -227,7 +228,7 @@ export function buildShopping(): MapDef {
     name: 'Shopping Sul Rio',
     subtitle: 'escada rolante, chafariz e praça de alimentação',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
-    dropArea: { minX: -X + 108, maxX: X - 108, minZ: -600, maxZ: 600 },
+    dropArea: { minX: -X + END_COLUMN_CLEARANCE, maxX: X - END_COLUMN_CLEARANCE, minZ: -600, maxZ: 600 },
     defuseBases: [{ x: -1090, y: DECK3, z: -1020 }, { x: 1090, y: DECK3, z: 1020 }],
     flagBases: [{ x: -1000, z: -480 }, { x: 1000, z: 480 }],
     dropHeight: DROP_HEIGHT,

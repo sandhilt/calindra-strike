@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import {
-  BATATA_BOUNTY_POINTS, BATATA_DURATION_SECONDS, SNAPSHOT_EVERY_TICKS, TICK_RATE, WEAPON,
-  type ServerMsg,
+  BATATA_BOUNTY_POINTS, BATATA_DURATION_SECONDS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS,
+  SNAPSHOT_EVERY_TICKS, TICK_RATE, WEAPON, liftCab, type ServerMsg,
 } from '@calindra-strike/shared';
 import { Game } from '../src/game.ts';
 
-function setup(roll: number) {
+function setup(roll: number, map = 'forja') {
   const messages: ServerMsg[] = [];
   const game = new Game({
     maxPlayers: 8, matchMs: 120_000, podiumMs: 5000, warmupMinPlayers: 3,
-    modes: 'carrapeta', carrapetaPickupTimeoutSeconds: 5, random: () => roll,
+    modes: 'carrapeta', maps: [map], carrapetaPickupTimeoutSeconds: 5, random: () => roll,
   });
   function join(name: string) {
     const player = game.join(name, 0, WEAPON.RIFLE, (data) => { if (name === 'First') messages.push(JSON.parse(data)); });
@@ -24,6 +24,15 @@ function setup(roll: number) {
   function run(ticks: number) {
     for (let i = 0; i < ticks; i++) game.update();
   }
+  for (const player of [first, second]) {
+    assert.equal(player.state.primary, WEAPON.RIFLE);
+    Object.assign(player.state, {
+      y: game.world.groundBelow(player.state.x, player.state.y, player.state.z, PLAYER_RADIUS),
+      dropping: false,
+      onGround: true,
+    });
+  }
+  run(1);
   function snapshot() {
     run(SNAPSHOT_EVERY_TICKS);
     const snap = messages.findLast((m) => m.t === 'snap');
@@ -39,6 +48,7 @@ it('drops the objective on holder death and draws another player when it times o
   run(TICK_RATE);
   assert.equal(second.points, 1);
 
+  first.state.x = second.state.x - 2 * CTF_PICKUP_RADIUS_UNITS;
   game['kill'](second, first, WEAPON.RIFLE, false);
   assert.equal(first.points, 0);
   assert.equal(second.state.primary, WEAPON.RIFLE);
@@ -79,4 +89,21 @@ it('halves the live holder during frenzy, awards a bounty, and restores the new 
   assert.equal(second.state.mag[WEAPON.MGL], 3);
   assert.deepEqual(messages.flatMap((m) => m.t === 'ev' ? m.e : [])
     .filter((e) => e.k === 'frenzy').map((e) => e.what), ['on', 'off']);
+});
+
+it('awards possession points only outside the lift cab', () => {
+  const { game, first, run } = setup(0, 'shopping');
+  const shaft = game.map.lifts[0];
+  assert.ok(shaft);
+  Object.assign(first.state, {
+    x: (shaft.minX + shaft.maxX) / 2,
+    y: liftCab(shaft, game.tick + TICK_RATE).y,
+    z: (shaft.minZ + shaft.maxZ) / 2,
+    dropping: false,
+  });
+  run(TICK_RATE);
+  assert.equal(first.points, 0);
+  first.state.x = shaft.maxX + 100;
+  run(TICK_RATE);
+  assert.equal(first.points, 1);
 });

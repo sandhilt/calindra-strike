@@ -26,6 +26,7 @@ import {
   TICK_RATE,
   MAX_HEALTH,
   needsSupply,
+  magCapacity,
   type Colleague,
   type LunchPoint,
   weaponDef,
@@ -671,7 +672,7 @@ export class BotBrain {
 
     // out of ammo on the primary: fall back like a player would
     const def = weaponDef(s.weapon);
-    if (def.mag > 0 && s.mag[s.weapon] === 0 && s.reserve[s.weapon] === 0) weapon = s.weapon === WEAPON.PISTOL ? 3 : 2;
+    if (def.mag > 0 && s.mag[s.weapon] === 0 && !this.hasReloadAmmo(s)) weapon = s.weapon === WEAPON.PISTOL ? 3 : 2;
 
     if (s.dropping) {
       // glide toward the action and dive once roughly above it
@@ -801,8 +802,12 @@ export class BotBrain {
         this.pickGoal(self, env);
       }
       this.repathAt = Math.min(this.repathAt, env.tick + 10);
-      if (bombGoal?.holdRadiusUnits != null && Math.hypot(bombGoal.x - s.x, bombGoal.z - s.z) < APPROACH_RADIUS_UNITS) {
-        const [yaw] = anglesTo(s.x, 0, s.z, bombGoal.x, 0, bombGoal.z);
+      const drop = env.carrapeta?.kind === 'dropped' ? env.carrapeta : null;
+      const dropGoal = drop && this.goal && distance3(this.goal, drop) === 0
+        && Math.abs(drop.y - s.y) <= REACH_MAX_HEIGHT_UNITS ? drop : null;
+      const approach = bombGoal?.holdRadiusUnits != null ? bombGoal : dropGoal;
+      if (approach && Math.hypot(approach.x - s.x, approach.z - s.z) < APPROACH_RADIUS_UNITS) {
+        const [yaw] = anglesTo(s.x, 0, s.z, approach.x, 0, approach.z);
         this.turnTo(yaw, 0, dt, this.aim.walkTurnDegPerSecond);
         if (Math.abs(wrapAngle(yaw - this.yaw)) < 70 * DEG) buttons |= BTN.FWD;
       }
@@ -910,8 +915,12 @@ export class BotBrain {
     return buttons;
   }
 
+  private hasReloadAmmo(s: PlayerState): boolean {
+    return (s.weapon === WEAPON.MGL && s.infiniteMgl) || s.reserve[s.weapon] > 0;
+  }
+
   private wantsReload(s: PlayerState, def: ReturnType<typeof weaponDef>): boolean {
-    return s.reload === 0 && def.mag > 0 && s.mag[s.weapon] < def.mag * 0.4 && s.reserve[s.weapon] > 0;
+    return s.reload === 0 && def.mag > 0 && s.mag[s.weapon] < magCapacity(def, s.halvedAmmo) * 0.4 && this.hasReloadAmmo(s);
   }
 
   private cmd(buttons: number, weapon: number, env: BotEnv): Cmd {

@@ -444,7 +444,7 @@ export class Game {
     const streak = this.tick - this.carrapeta.sinceTick;
     if (streak <= 0 || streak % TICK_RATE !== 0) return;
     const holder = this.players.get(this.carrapeta.holder);
-    if (holder) this.addCarrapetaPoints(holder, carrapetaPointsPerSecond(streak, this.frenzy));
+    if (holder && !this.inCab(holder.state)) this.addCarrapetaPoints(holder, carrapetaPointsPerSecond(this.tick, this.frenzy, this.carrapeta.sinceTick));
   }
 
   private addCarrapetaPoints(player: ServerPlayer, points: number): void {

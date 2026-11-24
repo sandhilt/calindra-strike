@@ -24,7 +24,8 @@ export function stepCarrapeta(
   const reroll = state.kind === 'dropped' && tick >= state.rerollAtTick;
   let chosen: CarrapetaActor | undefined;
   if (state.kind === 'none' || reroll) {
-    if (actors.length) chosen = actors[Math.floor(roll() * actors.length)];
+    const landed = actors.filter((actor) => actor.landed);
+    if (landed.length) chosen = landed[Math.floor(roll() * landed.length)];
   } else {
     let best = Infinity;
     for (const actor of actors) {
@@ -63,8 +64,9 @@ export function stepFrenzy(state: FrenzyState, tick: number, at?: number): Frenz
   return { kind: 'frenzy', sinceTick: tick, untilTick: tick + BATATA_DURATION_SECONDS * TICK_RATE };
 }
 
-export function carrapetaPointsPerSecond(streakTicks: number, frenzy: FrenzyState): number {
+export function carrapetaPointsPerSecond(tick: number, frenzy: FrenzyState, heldSinceTick: number): number {
   if (frenzy.kind === 'calm') return 1;
+  const streakTicks = tick - Math.max(heldSinceTick, frenzy.sinceTick);
   return Math.min(BATATA_MAX_MULTIPLIER, 2 ** Math.floor(streakTicks / (BATATA_DOUBLE_EVERY_SECONDS * TICK_RATE)));
 }
 

@@ -15,15 +15,18 @@ it('draws a holder, drops on loss, picks the nearest landed player, and rerolls 
     { ...at, id: 2, landed: true, x: 12 },
     { ...at, id: 3, landed: true, x: 6 },
   ];
-  const draw = stepCarrapeta({ kind: 'none' }, players, 0, () => 0);
-  assert.deepEqual(draw.event, { k: 'carrapeta', what: 'take', by: 1 });
-  const drop = dropCarrapeta(draw.state, 1, at, 100);
-  assert.deepEqual(drop.event, { k: 'carrapeta', what: 'lose', by: 1, at });
-  assert.equal(dropCarrapeta(draw.state, 2, at, 100).state, draw.state);
+  const pending = { kind: 'none' } as const;
+  assert.deepEqual(stepCarrapeta(pending, players.slice(0, 1), 0, () => 0), { state: pending });
+  const draw = stepCarrapeta(pending, players, 0, () => 0);
+  assert.deepEqual(draw.event, { k: 'carrapeta', what: 'take', by: 2 });
+  const drop = dropCarrapeta(draw.state, 2, at, 100);
+  assert.deepEqual(drop.event, { k: 'carrapeta', what: 'lose', by: 2, at });
+  assert.equal(dropCarrapeta(draw.state, 1, at, 100).state, draw.state);
   assert.equal(stepCarrapeta(drop.state, players.slice(0, 1), 99, () => 0).state, drop.state);
   assert.equal(stepCarrapeta(drop.state, [], 100, () => 0).state, drop.state);
   assert.deepEqual(stepCarrapeta(drop.state, players, 99, () => 0).event, { k: 'carrapeta', what: 'take', by: 3 });
-  assert.deepEqual(stepCarrapeta(drop.state, players, 100, () => 0.5).event, { k: 'carrapeta', what: 'reroll', by: 2 });
+  assert.deepEqual(stepCarrapeta(drop.state, players.slice(0, 1), 100, () => 0), { state: drop.state });
+  assert.deepEqual(stepCarrapeta(drop.state, players, 101, () => 0).event, { k: 'carrapeta', what: 'reroll', by: 2 });
 });
 
 it('activates frenzy inside the match, doubles the streak rate with a cap, and expires', () => {
@@ -40,11 +43,13 @@ it('activates frenzy inside the match, doubles the streak rate with a cap, and e
   assert.deepEqual(stepFrenzy(frenzy, untilTick), calm);
   assert.equal(stepFrenzy(calm, untilTick + 1), calm);
   const interval = BATATA_DOUBLE_EVERY_SECONDS * TICK_RATE;
-  assert.equal(carrapetaPointsPerSecond(2 * interval, calm), 1);
-  assert.equal(carrapetaPointsPerSecond(interval - 1, frenzy), 1);
-  assert.equal(carrapetaPointsPerSecond(interval, frenzy), 2);
-  assert.equal(carrapetaPointsPerSecond(2 * interval, frenzy), 4);
-  assert.equal(carrapetaPointsPerSecond(100 * interval, frenzy), BATATA_MAX_MULTIPLIER);
+  assert.equal(carrapetaPointsPerSecond(at, calm, 0), 1);
+  assert.equal(carrapetaPointsPerSecond(at, frenzy, 0), 1);
+  assert.equal(carrapetaPointsPerSecond(at + interval - 1, frenzy, 0), 1);
+  assert.equal(carrapetaPointsPerSecond(at + interval, frenzy, 0), 2);
+  assert.equal(carrapetaPointsPerSecond(at + 2 * interval, frenzy, 0), 4);
+  assert.equal(carrapetaPointsPerSecond(at + 2 * interval, frenzy, at + interval), 2);
+  assert.equal(carrapetaPointsPerSecond(at + 100 * interval, frenzy, 0), BATATA_MAX_MULTIPLIER);
   assert.equal(carrapetaKillPoints(calm, 1, 1, 2), 0);
   assert.equal(carrapetaKillPoints(frenzy, 1, 1, 2), BATATA_KILL_POINTS);
   assert.equal(carrapetaKillPoints(frenzy, 1, 2, 1), BATATA_BOUNTY_POINTS);

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  BATATA_PER_MATCH, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
+  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
   dropCarrapeta, frenzyAtTicks, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
@@ -434,9 +434,15 @@ export class Game {
     const player = this.players.get(result.event.by);
     if (!player) return;
     player.state.infiniteMgl = true;
+    player.state.health = MAX_HEALTH;
+    player.state.armor = CARRAPETA_ARMOR;
     setHalvedAmmo(player.state, this.frenzy.kind === 'frenzy');
     giveWeapon(player.state, WEAPON.MGL);
     this.emit(result.event);
+  }
+
+  private holdsCarrapeta(p: ServerPlayer): boolean {
+    return this.carrapeta.kind === 'held' && this.carrapeta.holder === p.id;
   }
 
   private updateFrenzy(holder: ServerPlayer | undefined): void {
@@ -472,6 +478,7 @@ export class Game {
     this.carrapeta = result.state;
     if (!result.event) return;
     setHalvedAmmo(s, false);
+    s.armor = Math.min(s.armor, MAX_ARMOR);
     s.infiniteMgl = false;
     s.mag[WEAPON.MGL] = 0;
     s.reserve[WEAPON.MGL] = 0;
@@ -1585,7 +1592,7 @@ export class Game {
     for (let i = this.airdrops.length - 1; i >= 0; i--) {
       const d = this.airdrops[i];
       for (const p of this.players.values()) {
-        if (!p.alive || p.state.dropping) continue;
+        if (!p.alive || p.state.dropping || this.holdsCarrapeta(p)) continue;
         const s = p.state;
         // claim from the ground next to it, or by standing on top
         const near = Math.hypot(s.x - d.x, s.z - d.z) < AIRDROP_PICKUP_RADIUS;

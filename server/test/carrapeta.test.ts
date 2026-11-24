@@ -200,3 +200,28 @@ it('plays the Batata Quente twice in a match', () => {
   }
   assert.equal(starts.length, 2);
 });
+
+it('gives a new holder 100 health and 200 armour, and keeps them out of airdrops and supply stands', () => {
+  const { game, first, second, run } = setup(0.9);
+  const holder = second.state.primary === WEAPON.MGL ? second : first;
+  assert.equal(holder.state.health, 100);
+  assert.equal(holder.state.armor, 200);
+  holder.state.armor = 150;
+  const other = holder === first ? second : first;
+  other.state.x = holder.state.x + 3000;
+  game['airdrops'] = [{ id: 99, x: holder.state.x, z: holder.state.z, y: holder.state.y, landY: holder.state.y, w: WEAPON.SNIPER, landed: true }];
+  run(2);
+  assert.equal(game['airdrops'].length, 1, 'the holder does not collect the crate');
+  assert.equal(holder.state.armor, 150);
+  assert.equal(holder.state.primary, WEAPON.MGL);
+});
+
+it('caps the armour back to the normal maximum once the Carrapeta is lost', () => {
+  const { game, first, second, run } = setup(0.9);
+  const holder = second.state.primary === WEAPON.MGL ? second : first;
+  const other = holder === first ? second : first;
+  game['kill'](holder, other, WEAPON.RIFLE, false);
+  holder.respawnAt = Infinity;
+  run(1);
+  assert.ok(holder.state.armor <= 100);
+});

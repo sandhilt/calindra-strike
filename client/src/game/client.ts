@@ -1013,14 +1013,7 @@ export class ClientGame {
       }
       case 'loot': {
         const def = weaponDef(e.w);
-        const holderLoot = this.carrapeta?.kind === 'held' && this.carrapeta.holder === e.id;
-        if (holderLoot) {
-          // The holder keeps the Azeitadora: the crate only refills health and armour.
-          if (e.id === this.myId) {
-            this.sfx.loot();
-            this.hud.announce('suprimento coletado', 'vida e colete repostos · você segue com a Azeitadora');
-          } else this.hud.info(`${this.nameOf(e.id).name} pegou um suprimento`);
-        } else if (e.id === this.myId) {
+        if (e.id === this.myId) {
           this.sfx.loot();
           this.hud.announce(`${def.name.toLowerCase()} na mão`, def.zoomFov.length ? 'botão direito: mira 40° → 10° · fique parado pra acertar' : def.ads ? 'botão direito: mirar · arma lendária + armadura completa' : 'arma lendária + armadura completa');
           this.view.setWeapon(e.w as WeaponId);

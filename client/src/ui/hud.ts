@@ -570,7 +570,7 @@ export class Hud {
       this.hpBar.style.width = `${hp}%`;
       this.hp.classList.toggle('low', hp <= 25);
       this.arV.textContent = String(armor);
-      this.arBar.style.width = `${armor}%`;
+      this.arBar.style.width = `${Math.min(100, armor)}%`;
       this.armor.classList.toggle('hidden', armor <= 0);
       this.vignette.style.opacity = hp <= 25 ? '0.7' : '0';
     });

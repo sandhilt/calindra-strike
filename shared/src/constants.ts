@@ -229,6 +229,7 @@ export const CARRAPETA_AIRDROP_RESERVE = 6;
 export const CARRAPETA_BLAST_RADIUS_UNITS = 160;
 export const CARRAPETA_SELF_DAMAGE_SCALE = 0.35;
 export const CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS = 8 * TICK_RATE; // extra respawn wait for a death while nobody holds the objective (tuning value)
+export const CARRAPETA_ARMOR = 200; // armour a new holder starts with (health is the usual MAX_HEALTH); it is capped back to MAX_ARMOR when the Carrapeta is lost
 export const CARRAPETA_MAX_HOLD_SECONDS = 45; // longest one player keeps the Carrapeta before it is redrawn among the others (tuning value)
 export const BATATA_PER_MATCH = 2; // Batata Quente events every match, one in each equal slice of the window between BATATA_WINDOW_START and BATATA_WINDOW_END
 export const BATATA_DURATION_SECONDS = 30;

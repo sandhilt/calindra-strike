@@ -185,18 +185,20 @@ const COUNTER_HEIGHT = 56;
 const WALL_FACE = STORE_HALF_WIDTH - 6;
 const POSTER_DEPTHS = [44, 178, 236] as const;
 
-/** A green cross made of two thin bars, drawn on a plane facing +z at `z` (centred on x, y). */
+/** A green cross of three adjoining rectangles (so no two faces share a plane), on a plane facing +z at `z` (centred on x, y). */
 function crossFacingFront(b: MapBuilder, x: number, y: number, z: number, arm: number): void {
   const bar = arm / 3;
-  b.deco(x - bar / 2, y - arm / 2, z, x + bar / 2, y + arm / 2, z + 1, 'white', PHARMACY_GREEN);
+  b.deco(x - bar / 2, y + bar / 2, z, x + bar / 2, y + arm / 2, z + 1, 'white', PHARMACY_GREEN);
   b.deco(x - arm / 2, y - bar / 2, z, x + arm / 2, y + bar / 2, z + 1, 'white', PHARMACY_GREEN);
+  b.deco(x - bar / 2, y - arm / 2, z, x + bar / 2, y - bar / 2, z + 1, 'white', PHARMACY_GREEN);
 }
 
 /** The same cross on a side wall, facing the shop's middle. */
 function crossFacingMiddle(b: MapBuilder, x1: number, x2: number, y: number, z: number, arm: number): void {
   const bar = arm / 3;
-  b.deco(x1, y - arm / 2, z - bar / 2, x2, y + arm / 2, z + bar / 2, 'white', PHARMACY_GREEN);
+  b.deco(x1, y + bar / 2, z - bar / 2, x2, y + arm / 2, z + bar / 2, 'white', PHARMACY_GREEN);
   b.deco(x1, y - bar / 2, z - arm / 2, x2, y + bar / 2, z + arm / 2, 'white', PHARMACY_GREEN);
+  b.deco(x1, y - arm / 2, z - bar / 2, x2, y - bar / 2, z + bar / 2, 'white', PHARMACY_GREEN);
 }
 
 /** Brand sign on a lintel across the open entrance, clear of the doorway below it. */

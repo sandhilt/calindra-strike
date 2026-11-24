@@ -57,10 +57,13 @@ function dressWall(b: MapBuilder, f: Face, a1: number, a2: number): void {
   layer(b, f, a1, a2, FOOD_CEILING - DECK - CORNICE_HEIGHT, FOOD_CEILING - DECK, DEPTH.cornice, 'white', DARK);
 }
 
+/** The skirt sits this far behind the pilaster, so where they overlap their front faces are not on one plane. */
+const PILASTER_SKIRT_SETBACK = 0.5;
+
 function pilaster(b: MapBuilder, f: Face, center: number): void {
   const half = PILASTER_WIDTH / 2;
   layer(b, f, center - half, center + half, BASEBOARD_HEIGHT, PAINT_TOP, DEPTH.pilaster, 'white', 0xd7c9a8);
-  layer(b, f, center - half - 2, center + half + 2, BASEBOARD_HEIGHT, WAINSCOT_TOP, DEPTH.pilaster, 'white', 0x6f2c1f);
+  layer(b, f, center - half - 2, center + half + 2, BASEBOARD_HEIGHT, WAINSCOT_TOP, DEPTH.pilaster - PILASTER_SKIRT_SETBACK, 'white', 0x6f2c1f);
 }
 
 /** The open stretch of an end wall between the stair bay and the atrium edge; the bay's own wall is the Mirante's. */

@@ -2793,6 +2793,42 @@ input:focus-visible {
 }
 .lunch-followers i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #ffd54f; }
 .lunch-followers i.on { background: #ffd54f; box-shadow: 0 0 8px rgba(255, 213, 79, 0.9); }
+.carrapeta-banner {
+  width: min(470px, calc(100% - 24px));
+  padding: 18px 24px 22px;
+  animation-duration: var(--carrapeta-banner-duration);
+}
+.carrapeta-banner.rush {
+  width: min(580px, calc(100% - 24px));
+  background: repeating-linear-gradient(135deg, #270a05 0 16px, #170502 16px 32px);
+}
+.carrapeta-symbol {
+  font-size: clamp(44px, 9vw, 82px);
+  line-height: 1;
+  color: #ffd54f;
+  text-shadow: 0 0 24px #f29e29;
+}
+.carrapeta-banner.rush .lunch-name {
+  font-size: clamp(24px, 5vw, 48px);
+  text-transform: uppercase;
+}
+.carrapeta-banner span { color: #fff1d7; }
+.carrapeta-status {
+  max-width: calc(100% - 24px);
+  color: #ffe9a8;
+  text-align: center;
+}
+.carrapeta-aura {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(255, 190, 51, 0.35));
+  pointer-events: none;
+}
+.ammo .count .ammo-capacity {
+  display: block;
+  font-size: 12px;
+  color: #ffd54f;
+}
 .black-friday-banner b {
   font-size: clamp(32px, 7vw, 64px);
   font-weight: 900;

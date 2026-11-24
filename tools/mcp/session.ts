@@ -1,5 +1,6 @@
 import { perceive } from './perception.ts';
 import {
+  isTeamMode,
   CollisionWorld,
   HEARING_REF_UNITS,
   anglesToward,
@@ -214,7 +215,7 @@ export class GameSession {
       v.sounds.push(...this.ownShotSounds(v, before));
       this.state.world.setProp(bombProp(v));
       this.actions.ack = m.ack;
-      const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient);
+      const perceived = perceive(raw, v.self, this.state.world, v.lastSeen, v.time, this.options.omniscient, isTeamMode(v.match.mode));
       v.peers = perceived.peers;
       v.lastSeen = perceived.lastSeen;
       // reset on the snapshot, not on a tick: a respawn can arrive between two ticks.
@@ -239,6 +240,8 @@ export class GameSession {
         v.sprays = [];
         v.bomb = [];
         v.lunch = [];
+        if (v.match.mode === 'carrapeta' || m.match.mode === 'carrapeta') v.scores = [];
+        v.carrapeta = undefined;
         v.colleagues = [];
         this.state.world.setProp(null);
       }
@@ -282,6 +285,8 @@ export class GameSession {
         } else if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
         else if (e.k === 'flag' || e.k === 'bomb') v.events.push({ ...e, byName: this.names.get(e.by) });
+        else if (e.k === 'carrapeta' || e.k === 'blast') v.events.push({ ...e, byName: this.names.get(e.by) });
+        else if (e.k === 'frenzy') v.events.push(e);
         else if (e.k === 'lunch') v.events.push({ ...e, byName: this.names.get(e.by), colleague: LUNCH_COLLEAGUES[e.who] });
         else if (e.k === 'join' || e.k === 'leave') v.events.push({ ...e, name: this.names.get(e.id) });
         else if (e.k === 'supply') v.events.push({ ...e, name: this.names.get(e.id) });
@@ -399,7 +404,7 @@ export class GameSession {
     }
     socket.send(raw ?? JSON.stringify(msg));
   }
-  getState(): object {
+  getState() {
     const { view, pilot, world } = this.requirePlaying();
     const intent = this.intent.kind === 'moveTo' ? { ...this.intent, arrived: pilot.arrived } : this.intent;
     return renderView(view, intent, this.actionState(), world);

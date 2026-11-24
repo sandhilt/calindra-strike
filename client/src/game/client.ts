@@ -16,6 +16,7 @@ import {
   INTERP_DELAY_MS,
   liftClockTick,
   MODE_LABEL,
+  type CarrapetaSnapshot,
   respawnTicksOf,
   type MapDef,
   defuseBases,
@@ -95,6 +96,8 @@ import { ColleaguesView } from './render/colleagues.ts';
 import { signCanvas } from './render/store-signs.ts';
 import { followersOf, followersText, lunchAnnouncement, LUNCH_RUSH_PITCH, LUNCH_RUSH_TAG, lunchMessage, lunchRole, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { LunchTargetView } from './render/lunch-target.ts';
+import { CARRAPETA_GOLD, CARRAPETA_SYMBOL, carrapetaFeed, carrapetaStatus, compareScoreRows, weaponAmmo } from './carrapeta.ts';
+import { CarrapetaView } from './render/carrapeta.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { SuppliesView } from './render/supply.ts';
 import { Avatar } from './render/avatar.ts';
@@ -256,7 +259,7 @@ export class ClientGame {
   private voteCounts: number[] = [];
   private teamScores = [0, 0];
   private readonly online = new Set<number>();
-  private readonly scores = new Map<number, { kills: number; deaths: number; ping: number; streak: number; hs: number }>();
+  private readonly scores = new Map<number, { kills: number; deaths: number; ping: number; streak: number; hs: number; points: number }>();
   match: MatchInfo;
 
   private readonly me: PlayerState = createPlayerState();
@@ -303,6 +306,10 @@ export class ClientGame {
   private lunch: LunchView | null = null;
   private colleaguesView?: ColleaguesView;
   private lunchTargetView?: LunchTargetView;
+  private carrapeta: CarrapetaSnapshot | null = null;
+  private carrapetaView?: CarrapetaView;
+  private announcedCarrapeta = false;
+  private announcedFrenzy = false;
   /** The `endsAt` of the round last announced: it changes once per round. */
   private announcedLunchRound = 0;
   private bomb: BombView | null = null;
@@ -528,6 +535,11 @@ export class ClientGame {
     this.applyLightRt(this.wantedRtLevel());
     this.effects.setQuality(quality);
     this.hud.setScopeBlur(profile.scopeBlur);
+    if (!profile.carrapetaAura) {
+      this.carrapetaView?.dispose();
+      this.carrapetaView = undefined;
+      this.hud.setCarrapetaAura(false);
+    }
     this.view.setQuality(quality);
     if (this.world) {
       applyShadowQuality(this.world.sun, profile);
@@ -704,6 +716,7 @@ export class ClientGame {
     this.flagRenderer?.dispose();
     this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
+    this.clearCarrapeta();
     this.lunch = null;
     this.colleaguesView?.dispose();
     this.colleaguesView = new ColleaguesView();
@@ -743,7 +756,7 @@ export class ClientGame {
         break;
       case 'score':
         this.scores.clear();
-        for (const [id, kills, deaths, ping, streak, hs] of m.s) this.scores.set(id, { kills, deaths, ping, streak, hs });
+        for (const [id, kills, deaths, ping, streak, hs, points = 0] of m.s) this.scores.set(id, { kills, deaths, ping, streak, hs, points });
         if (Array.isArray(m.ts)) this.teamScores = m.ts;
         break;
       case 'match':
@@ -788,6 +801,13 @@ export class ClientGame {
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
     this.flags = flagViews(m.fl);
+    this.carrapeta = this.match.mode === 'carrapeta' && this.match.phase === 'live' ? m.ca ?? null : null;
+    const state = this.carrapeta;
+    if (state) {
+      if (!this.spectator && state.kind === 'held' && state.holder === this.myId) this.announceCarrapetaTake();
+      else this.clearCarrapetaTake();
+      if (state.frenzyUntilMs > m.time) this.announceFrenzy();
+    }
     this.lunch = this.match.mode === 'almoco' ? lunchView(m.lu, m.lc) : null;
     this.announceLunchRound();
     const bomb = this.match.mode === 'defuse' ? bombView(m.bm) : null;
@@ -911,6 +931,24 @@ export class ClientGame {
       case 'lunch':
         this.onLunchEvent(e);
         break;
+      case 'carrapeta':
+        this.hud.info(carrapetaFeed(e.what, this.nameOf(e.by).name), CARRAPETA_GOLD);
+        if (e.by === this.myId) {
+          if (e.what === 'lose') this.clearCarrapetaTake();
+          else this.announceCarrapetaTake();
+        }
+        break;
+      case 'frenzy':
+        if (e.what === 'on') this.announceFrenzy();
+        else {
+          this.announcedFrenzy = false;
+          this.hud.announceCarrapeta('off');
+        }
+        break;
+      case 'blast':
+        this.sfx.boom(e.at);
+        this.blastParticles(e.at, QUALITY[this.settings.quality].carrapetaBlastParticles);
+        break;
       case 'shot':
         this.onRemoteShot(e);
         break;
@@ -1023,9 +1061,58 @@ export class ClientGame {
     if (e.what !== 'exploded') return;
     const at = this.bomb?.state === 'planted' ? this.bomb : this.bombRenderer?.position();
     if (!at) return;
-    this.sfx.boom({ x: at.x, y: at.y, z: at.z });
-    this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ff7a1a', 70);
-    this.effects.burst(v3.set(at.x, at.y + 24, at.z), '#ffd23f', 40);
+    this.sfx.boom(at);
+    this.blastParticles({ x: at.x, y: at.y + 24, z: at.z }, true);
+  }
+
+  private blastParticles(at: { x: number; y: number; z: number }, full: boolean): void {
+    const pos = v3.set(at.x, at.y, at.z);
+    this.effects.burst(pos, '#ff7a1a', full ? 70 : 8);
+    if (full) this.effects.burst(pos, '#ffd23f', 40);
+  }
+
+  private announceCarrapetaTake(): void {
+    if (this.announcedCarrapeta) return;
+    this.announcedCarrapeta = true;
+    this.hud.announceCarrapeta('take');
+    this.sfx.bombTaken();
+  }
+
+  private announceFrenzy(): void {
+    if (this.announcedFrenzy) return;
+    this.announcedFrenzy = true;
+    this.hud.announceCarrapeta('on');
+    this.sfx.blackFriday();
+  }
+
+  private clearCarrapetaTake(): void {
+    if (!this.announcedCarrapeta) return;
+    this.announcedCarrapeta = false;
+    this.hud.clearCarrapetaTake();
+  }
+
+  private clearCarrapeta(): void {
+    this.carrapeta = null;
+    this.announcedCarrapeta = false;
+    this.announcedFrenzy = false;
+    this.carrapetaView?.dispose();
+    this.carrapetaView = undefined;
+    this.hud.clearCarrapetaBanner();
+    this.hud.setCarrapetaStatus(null);
+    this.hud.setCarrapetaAura(false);
+  }
+
+  private updateCarrapetaView(): void {
+    const state = this.carrapeta;
+    const holder = state?.kind === 'held' ? state.holder : -1;
+    const firstPerson = this.spectator
+      ? this.cameraMode === 'first' && holder === this.followedId && holder >= 0
+      : this.alive && holder === this.myId;
+    const aura = QUALITY[this.settings.quality].carrapetaAura;
+    this.hud.setCarrapetaAura(aura && firstPerson);
+    if (!aura) return;
+    if (state && state.kind !== 'none') this.carrapetaView ??= new CarrapetaView(this.scene);
+    this.carrapetaView?.update(state, this.remotes.get(holder)?.avatar.root, this.elapsed);
   }
 
   /** E pressed where it cannot plant or defuse: say why instead of failing silently. */
@@ -1124,6 +1211,7 @@ export class ClientGame {
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
+    if (info.mode !== 'carrapeta' || info.phase !== 'live') this.clearCarrapeta();
     if (info.mode !== 'ctf') this.flags = [];
     if (info.mode !== 'almoco') {
       this.lunch = null;
@@ -1150,6 +1238,8 @@ export class ClientGame {
       if (info.phase === 'live' && isTeamMode(info.mode)) {
         const t = TEAMS[this.myTeam];
         this.hud.announce(MODE_LABEL[info.mode], `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} ${scoreUnit(info.mode)} ou ` : ''}${min} min`);
+      } else if (info.mode === 'carrapeta' && info.phase === 'live') {
+        if (!this.announcedCarrapeta) this.hud.announce(MODE_LABEL.carrapeta, 'sobreviva com a Carrapeta para pontuar');
       } else if (info.phase === 'live') this.hud.announce('todos contra todos', `${this.map.name} · ${min} min · mais kills vence`);
       else if (before.phase !== 'warmup') this.hud.announce('aquecimento', 'esperando mais jogadores', true);
     }
@@ -1162,8 +1252,8 @@ export class ClientGame {
   private enterPodium(info: MatchInfo): void {
     const results = info.results ?? [];
     const tdm = isTeamMode(info.mode);
-    const winner = tdm ? (info.winner ?? -1) : -1;
-    const featured = winner >= 0 ? results.filter((r) => r.team === winner) : results;
+    const winner = tdm || info.mode === 'carrapeta' ? (info.winner ?? -1) : -1;
+    const featured = tdm && winner >= 0 ? results.filter((r) => r.team === winner) : results;
     const colorFor = (r: ResultRow) => (tdm && r.team >= 0 ? TEAMS[r.team].color : (PLAYER_COLORS[r.color] ?? '#f0f0f0'));
     this.podiumActive = true;
     this.podium.setResults(featured.slice(0, 3), colorFor);
@@ -1647,6 +1737,7 @@ export class ClientGame {
     const [ldx, ldy] = this.input.takeLook();
     this.updateCamera(dt);
     this.updateRemotes(dt);
+    this.updateCarrapetaView();
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
     this.suppliesView?.update(this.supplyFull, this.elapsed);
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
@@ -1933,7 +2024,7 @@ export class ClientGame {
     if (this.match.phase === 'live') {
       const left = Math.max(0, this.match.endsAt - now);
       const sec = Math.ceil(left / 1000);
-      hud.setTimer(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, `${this.map.name} · ${this.match.mode}`, sec <= 30);
+      hud.setTimer(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, `${this.map.name} · ${MODE_LABEL[this.match.mode]}`, sec <= 30);
       if (sec <= 10 && sec > 0 && sec !== this.lastBeep) {
         this.lastBeep = sec;
         this.sfx.beep(sec <= 3);
@@ -1941,18 +2032,21 @@ export class ClientGame {
     } else hud.setTimer('aquec.', 'esperando jogadores', false);
 
     const rows = this.ranked();
-    const leaders: LeaderRow[] = rows.slice(0, 3).map((r, i) => ({ name: r.name, color: r.color, kills: r.kills, rank: i + 1, me: r.me }));
+    const leader = (r: ScoreRow, i: number): LeaderRow => ({ name: r.name, color: r.color, score: r.points ?? r.kills, rank: i + 1, me: r.me });
+    const leaders = rows.slice(0, 3).map(leader);
     const myIdx = rows.findIndex((r) => r.me);
-    const meRow = myIdx >= 0 ? { name: rows[myIdx].name, color: rows[myIdx].color, kills: rows[myIdx].kills, rank: myIdx + 1, me: true } : null;
+    const meRow = myIdx >= 0 ? leader(rows[myIdx], myIdx) : null;
     const tdm = isTeamMode(this.match.mode);
-    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, scoreUnit(this.match.mode));
-    else hud.setLeaders(leaders, meRow);
+    const unit = scoreUnit(this.match.mode);
+    if (tdm) hud.setTeams(this.teamScores, this.match.limit, this.myTeam, unit);
+    else hud.setLeaders(leaders, meRow, unit);
     hud.setTeamBadge(tdm ? this.myTeam : -1);
     hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
     hud.showScoreboard(this.spectator ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
+    hud.setCarrapetaStatus(this.carrapeta ? carrapetaStatus(this.carrapeta, now, id => id === this.myId ? 'você está com ela' : this.nameOf(id).name) : null);
     const following = this.lunch && !this.spectator && this.alive ? followersOf(this.lunch, this.myId) : 0;
     hud.setLunchFollowers(following, this.lunch?.colleagues.length ?? 0, followersText(following, this.lunch?.colleagues.length ?? 0));
     const showStamina = !this.spectator && this.alive && (s.sprinting || s.winded || s.stamina < STAMINA_MAX);
@@ -1991,7 +2085,8 @@ export class ClientGame {
       { key: this.controlLabels.secondary, label: 'FAÍSCA', active: s.weapon === WEAPON.PISTOL },
       { key: this.controlLabels.melee, label: 'MARTELO', active: s.weapon === WEAPON.HAMMER },
     ];
-    hud.setWeapon(def.name, def.tag, s.mag[def.id], this.match.phase === 'warmup' ? '∞' : s.reserve[def.id], def.legendary, def.slot === 3, slots);
+    const { mag, reserve, capacity } = weaponAmmo(s, def, this.match.phase === 'warmup');
+    hud.setWeapon(def.name, def.tag, mag, reserve, def.legendary, def.slot === 3, slots, capacity);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
     hud.setScope(overlay);
     hud.setProtect(s.protect > 0 || s.dropping);
@@ -2050,6 +2145,14 @@ export class ClientGame {
       }
     }
     this.bombMarkers(targets);
+    const carrapeta = this.carrapeta;
+    if (carrapeta?.kind === 'dropped') {
+      targets.push({ x: carrapeta.x, y: carrapeta.y + 55, z: carrapeta.z, label: `${CARRAPETA_SYMBOL} Carrapeta no chão` });
+    }
+    if (carrapeta?.kind === 'held') {
+      const at = this.carrierPose(carrapeta.holder);
+      if (at && !at.firstPerson) targets.push({ x: at.x, y: at.y + 90, z: at.z, label: `${CARRAPETA_SYMBOL} ${this.nameOf(carrapeta.holder).name}` });
+    }
     if (carrying && this.myTeam >= 0) {
       const base = this.map.flagBases[this.myTeam];
       targets.push({ ...base, y: this.collision.groundBelow(base.x, this.map.dropHeight, base.z, PLAYER_RADIUS) + 100, label: 'sua base · capture aqui' });
@@ -2091,10 +2194,11 @@ export class ClientGame {
     const rows: ScoreRow[] = [];
     for (const id of this.online) {
       const n = this.nameOf(id);
-      const sc = this.scores.get(id) ?? { kills: 0, deaths: 0, ping: 0, streak: 0, hs: 0 };
-      rows.push({ id, name: n.name, color: n.color, team: n.team, bot: this.names.get(id)?.bot ?? false, kills: sc.kills, deaths: sc.deaths, hs: sc.hs, ping: sc.ping, me: id === this.myId });
+      const sc = this.scores.get(id) ?? { kills: 0, deaths: 0, ping: 0, streak: 0, hs: 0, points: 0 };
+      const points = this.match.mode === 'carrapeta' ? sc.points : undefined;
+      rows.push({ id, name: n.name, color: n.color, team: n.team, bot: this.names.get(id)?.bot ?? false, kills: sc.kills, points, deaths: sc.deaths, hs: sc.hs, ping: sc.ping, me: id === this.myId });
     }
-    rows.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.id - b.id);
+    rows.sort(compareScoreRows);
     return rows;
   }
 
@@ -2108,6 +2212,7 @@ export class ClientGame {
     if (document.pointerLockElement) document.exitPointerLock();
     this.input.dispose();
     this.sfx.dispose();
+    this.clearCarrapeta();
     this.flagRenderer?.dispose();
     this.colleaguesView?.dispose();
     this.lunchTargetView?.dispose();

@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -222,3 +222,17 @@ export type DayPhase = (typeof DAY_PHASES)[number];
 export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000, afternoon: 4 * 60_000, night: 4 * 60_000 };
 /** The last stretch of a slot is spent blending into the next phase. */
 export const DAY_TRANSITION_MS = 30_000;
+
+export const CARRAPETA_PICKUP_TIMEOUT_SECONDS = 20;
+export const CARRAPETA_AIRDROP_CHANCE = 0.15;
+export const CARRAPETA_AIRDROP_RESERVE = 6;
+export const CARRAPETA_BLAST_RADIUS_UNITS = 160;
+export const CARRAPETA_SELF_DAMAGE_SCALE = 0.35;
+export const BATATA_CHANCE = 0.6;
+export const BATATA_DURATION_SECONDS = 30;
+export const BATATA_WINDOW_START = 0.25;
+export const BATATA_WINDOW_END = 0.75;
+export const BATATA_DOUBLE_EVERY_SECONDS = 5;
+export const BATATA_MAX_MULTIPLIER = 8;
+export const BATATA_KILL_POINTS = 3;
+export const BATATA_BOUNTY_POINTS = 5;

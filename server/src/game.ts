@@ -1,5 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import {
+  CARRAPETA_AIRDROP_CHANCE, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
+  eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
+  dropCarrapeta, frenzyAtTick, setHalvedAmmo, stepCarrapeta, stepFrenzy,
+  type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
@@ -121,6 +125,7 @@ interface Ghost {
   name: string;
   team: number;
   kills: number;
+  points: number;
   deaths: number;
   headshots: number;
   bestStreak: number;
@@ -208,6 +213,7 @@ export interface ServerPlayer {
   tokens: number;
   using: boolean; // BTN.USE held in the last processed command
   kills: number;
+  points: number;
   deaths: number;
   headshots: number;
   streak: number;
@@ -254,6 +260,7 @@ export interface GameOptions {
   warmupMinPlayers: number;
   modes?: ModeSetting | GameMode[];
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
+  carrapetaPickupTimeoutSeconds?: number;
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
   friendlyFire?: boolean; // team modes only: bullets hurt teammates (off unless the operator turns it on)
@@ -293,6 +300,9 @@ export class Game {
   private attackers: 0 | 1 = 0;
   private bombRound: BombRound = { variant: 0, blackFriday: false };
   private colleagues: Colleague[] = [];
+  private carrapeta: CarrapetaState = { kind: 'none' };
+  private frenzy: FrenzyState = { kind: 'calm' };
+  private frenzyAt?: number;
   private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0, rush: false };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
@@ -393,6 +403,82 @@ export class Game {
     this.startBombRound();
     this.syncBombStand();
     this.startLunchRound();
+    this.carrapeta = { kind: 'none' };
+    this.frenzy = { kind: 'calm' };
+    this.frenzyAt = undefined;
+  }
+
+  private updateCarrapeta(): void {
+    if (this.mode !== 'carrapeta' || this.phase !== 'live') return;
+    const holder = this.carrapeta.kind === 'held' ? this.players.get(this.carrapeta.holder) : undefined;
+    this.scoreCarrapetaTime();
+    this.updateFrenzy(holder);
+    if (this.carrapeta.kind === 'held') return;
+    const actors = [...this.players.values()].filter((p) => p.alive).map((p) => ({
+      id: p.id, x: p.state.x, y: p.state.y, z: p.state.z, landed: !p.state.dropping,
+    }));
+    const result = stepCarrapeta(this.carrapeta, actors, this.tick, this.random);
+    this.carrapeta = result.state;
+    if (!result.event) return;
+    const player = this.players.get(result.event.by);
+    if (!player) return;
+    player.state.infiniteMgl = true;
+    setHalvedAmmo(player.state, this.frenzy.kind === 'frenzy');
+    giveWeapon(player.state, WEAPON.MGL);
+    this.emit(result.event);
+  }
+
+  private updateFrenzy(holder: ServerPlayer | undefined): void {
+    const next = stepFrenzy(this.frenzy, this.tick, this.frenzyAt);
+    if (next === this.frenzy) return;
+    this.frenzy = next;
+    this.frenzyAt = undefined;
+    if (holder) setHalvedAmmo(holder.state, next.kind === 'frenzy');
+    this.emit(next.kind === 'frenzy'
+      ? { k: 'frenzy', what: 'on', untilMs: this.msAt(next.untilTick) }
+      : { k: 'frenzy', what: 'off' });
+  }
+
+  private scoreCarrapetaTime(): void {
+    if (this.carrapeta.kind !== 'held') return;
+    const streak = this.tick - this.carrapeta.sinceTick;
+    if (streak <= 0 || streak % TICK_RATE !== 0) return;
+    const holder = this.players.get(this.carrapeta.holder);
+    if (holder && !this.inCab(holder.state)) this.addCarrapetaPoints(holder, carrapetaPointsPerSecond(this.tick, this.frenzy, this.carrapeta.sinceTick));
+  }
+
+  private addCarrapetaPoints(player: ServerPlayer, points: number): void {
+    if (points === 0) return;
+    player.points += points;
+    this.scoreDirty = true;
+  }
+
+  private dropPlayerCarrapeta(p: ServerPlayer): void {
+    const s = p.state;
+    const at = { x: s.x, y: this.groundY(s.x, s.y, s.z), z: s.z };
+    const timeout = this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS;
+    const result = dropCarrapeta(this.carrapeta, p.id, at, this.tick + timeout * TICK_RATE);
+    this.carrapeta = result.state;
+    if (!result.event) return;
+    setHalvedAmmo(s, false);
+    s.infiniteMgl = false;
+    s.mag[WEAPON.MGL] = 0;
+    s.reserve[WEAPON.MGL] = 0;
+    giveWeapon(s, p.primaryChoice);
+    if (s.lastWeapon === WEAPON.MGL) s.lastWeapon = WEAPON.PISTOL;
+    this.emit(result.event);
+  }
+
+  private carrapetaSnapshot(): CarrapetaSnapshot | undefined {
+    if (this.mode !== 'carrapeta') return undefined;
+    const frenzyUntilMs = this.frenzy.kind === 'frenzy' ? this.msAt(this.frenzy.untilTick) : 0;
+    const state = this.carrapeta;
+    if (state.kind === 'held') return { kind: state.kind, holder: state.holder, sinceMs: this.msAt(state.sinceTick), frenzyUntilMs };
+    if (state.kind === 'dropped') {
+      const { kind, x, y, z, rerollAtTick } = state;
+      return { kind, x, y, z, rerollAtMs: this.msAt(rerollAtTick), frenzyUntilMs };
+    }
+    return { kind: state.kind, frenzyUntilMs };
   }
 
   /** Colleagues wait at the defenders' base; the attackers have one round to take them all to lunch. */
@@ -461,6 +547,7 @@ export class Game {
 
   private dropObjective(p: ServerPlayer): void {
     p.using = false;
+    if (this.carrapeta.kind === 'held' && this.carrapeta.holder === p.id) this.dropPlayerCarrapeta(p);
     if (this.mode !== 'ctf' && this.mode !== 'defuse') return;
     const at = { x: p.state.x, y: this.groundY(p.state.x, p.state.y, p.state.z), z: p.state.z };
     if (this.mode === 'defuse') {
@@ -717,6 +804,7 @@ export class Game {
       tokens: CMD_BURST,
       using: false,
       kills: 0,
+      points: 0,
       deaths: 0,
       headshots: 0,
       streak: 0,
@@ -743,6 +831,7 @@ export class Game {
     if (ghost && ghost.expires >= this.tick && ghost.matchId === this.matchId) {
       // same match: give the score back (and the side, if it is still free)
       p.kills = ghost.kills;
+      p.points = ghost.points;
       p.deaths = ghost.deaths;
       p.headshots = ghost.headshots;
       p.bestStreak = ghost.bestStreak;
@@ -845,6 +934,7 @@ export class Game {
         name: p.name,
         team: p.team,
         kills: p.kills,
+        points: p.points,
         deaths: p.deaths,
         headshots: p.headshots,
         bestStreak: p.bestStreak,
@@ -923,6 +1013,7 @@ export class Game {
       tokens: CMD_BURST,
       using: false,
       kills: 0,
+      points: 0,
       deaths: 0,
       headshots: 0,
       streak: 0,
@@ -962,6 +1053,8 @@ export class Game {
       random: this.random,
       players: list,
       airdrops: this.airdrops,
+      carrapeta: this.carrapeta,
+      frenzy: this.frenzy,
       flags: this.flags,
       flagBases: this.flagBases(),
       bomb: this.bomb,
@@ -1117,6 +1210,7 @@ export class Game {
   private resetScores(): void {
     for (const p of this.players.values()) {
       p.kills = 0;
+      p.points = 0;
       p.deaths = 0;
       p.headshots = 0;
       p.streak = 0;
@@ -1144,11 +1238,17 @@ export class Game {
     this.balanceTeams();
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);
+    if (this.mode === 'carrapeta') {
+      this.frenzyAt = frenzyAtTick(this.tick, Math.floor(this.opts.matchMs / TICK_MS), this.random(), this.random());
+      this.updateCarrapeta();
+    }
     this.broadcastMatch();
     this.botsGreetRound();
   }
 
   private endMatch(): void {
+    this.scoreCarrapetaTime();
+    if (this.frenzy.kind === 'frenzy') this.emit({ k: 'frenzy', what: 'off' });
     this.resetObjectives();
     this.phase = 'podium';
     this.phaseEnds = this.now() + this.opts.podiumMs;
@@ -1158,12 +1258,13 @@ export class Game {
     if (this.winner >= 0) this.botSay(this.randomBot(this.winner), 'teamWin');
     this.results = [...this.players.values()]
       .filter((p) => !isPending(p))
-      .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.headshots - a.headshots || a.joinedAt - b.joinedAt)
+      .sort((a, b) => b.points - a.points || b.kills - a.kills || a.deaths - b.deaths || b.headshots - a.headshots || a.joinedAt - b.joinedAt)
       .map((p) => ({
         id: p.id,
         name: p.name,
         color: p.color,
         kills: p.kills,
+        points: this.mode === 'carrapeta' ? p.points : undefined,
         deaths: p.deaths,
         hs: p.headshots,
         best: p.bestStreak,
@@ -1173,6 +1274,10 @@ export class Game {
     for (const p of this.players.values()) {
       p.alive = false;
       p.queue.length = 0;
+    }
+    if (this.mode === 'carrapeta') {
+      const [first, second] = this.results;
+      if (first && first.points !== second?.points) this.winner = first.id;
     }
     this.airdrops = [];
     this.buildVote();
@@ -1331,6 +1436,7 @@ export class Game {
     const shooterSafe = this.inCab(p.state);
     for (const q of this.players.values()) {
       if (shooterSafe || q === p || !q.alive || q.state.dropping || q.state.protect > 0 || this.inCab(q.state)) continue;
+      if (!carrapetaEnemies(this.frenzy, this.carrapeta, p.id, q.id)) continue;
       if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
@@ -1354,7 +1460,23 @@ export class Game {
       }
       const dist = best ? best.t : limit;
       ends.push(round(ox + dx * dist, 10), round(oy + dy * dist, 10), round(oz + dz * dist, 10));
-      if (best) {
+      if (def.special && (best || wall)) {
+        const at = { x: ox + dx * dist, y: oy + dy * dist, z: oz + dz * dist };
+        // Start the visibility ray just before the hit so a wall still shields its far side.
+        const clearDist = Math.max(0, dist - 0.01);
+        const origin = { x: ox + dx * clearDist, y: oy + dy * clearDist, z: oz + dz * clearDist };
+        this.emit({ k: 'blast', by: p.id, w: shot.weapon, at });
+        for (const target of targets) {
+          const center = { x: target.x, y: target.y + eyeHeight(target) / 2, z: target.z };
+          const dmg = blastDamage(this.world, origin, center, def.damage, false);
+          if (dmg > 0) damageBy.set(target.q, { dmg, head: false, zone: ZONE_BODY });
+        }
+        if (!shooterSafe && p.state.protect === 0) {
+          const center = { x: p.state.x, y: p.state.y + eyeHeight(p.state) / 2, z: p.state.z };
+          const dmg = blastDamage(this.world, origin, center, def.damage, true);
+          if (dmg > 0) damageBy.set(p, { dmg, head: false, zone: ZONE_BODY });
+        }
+      } else if (best) {
         const zoneMult = best.zone === ZONE_HEAD ? def.headMult : best.zone === ZONE_LEGS ? 0.75 : 1;
         const base = shot.heavy && def.heavy ? def.heavy.damage : def.damage;
         const dmg = base * zoneMult * def.rangeMod ** (dist / 500);
@@ -1389,6 +1511,9 @@ export class Game {
   }
 
   private kill(victim: ServerPlayer, killer: ServerPlayer, weapon: WeaponId, head: boolean): void {
+    if (this.carrapeta.kind === 'held') {
+      this.addCarrapetaPoints(killer, carrapetaKillPoints(this.frenzy, this.carrapeta.holder, killer.id, victim.id));
+    }
     this.dropObjective(victim);
     victim.alive = false;
     victim.deaths++;
@@ -1421,7 +1546,10 @@ export class Game {
     const pt = pts[Math.floor(this.random() * pts.length)];
     const startY = this.map.dropHeight + 250;
     const landY = Math.max(0, this.world.groundBelow(pt.x, startY, pt.z, AIRDROP_HALF));
-    const w = pickLegendary(this.random());
+    const roll = this.random();
+    const w = this.mode === 'carrapeta' ? pickLegendary(roll)
+      : roll < CARRAPETA_AIRDROP_CHANCE ? WEAPON.MGL
+      : pickLegendary((roll - CARRAPETA_AIRDROP_CHANCE) / (1 - CARRAPETA_AIRDROP_CHANCE));
     const d: Airdrop = { id: this.airdropSeq++, x: pt.x, z: pt.z, y: startY, landY, w, landed: false };
     this.airdrops.push(d);
     this.emit({ k: 'drop', id: d.id, x: d.x, z: d.z, w });
@@ -1451,7 +1579,7 @@ export class Game {
         const near = Math.hypot(s.x - d.x, s.z - d.z) < AIRDROP_PICKUP_RADIUS;
         const vertical = s.y > d.y - 60 && s.y < d.y + AIRDROP_HALF * 2 + 8;
         if (near && vertical && (d.landed || s.y >= d.y)) {
-          giveWeapon(s, d.w);
+          if (!s.infiniteMgl) giveWeapon(s, d.w);
           s.armor = MAX_ARMOR;
           s.health = MAX_HEALTH;
           this.emit({ k: 'loot', id: p.id, drop: d.id, w: d.w });
@@ -1504,6 +1632,7 @@ export class Game {
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();
     else if (this.phase === 'podium' && now >= this.phaseEnds) this.nextMap();
 
+    this.updateCarrapeta();
     this.syncBombStand();
     this.runBots();
     if (this.tick % 600 === 0) for (const [k, g] of this.ghosts) if (g.expires < this.tick) this.ghosts.delete(k);
@@ -1689,7 +1818,9 @@ export class Game {
     const lu = this.lunchSnapshot();
     const lc = this.colleagues.map(colleagueRow);
     const su = this.supplySnapshot();
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)},"su":${JSON.stringify(su)}}`;
+    const ca = this.carrapetaSnapshot();
+    const objective = ca ? `,"ca":${JSON.stringify(ca)}` : '';
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)},"su":${JSON.stringify(su)}${objective}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';
@@ -1700,7 +1831,7 @@ export class Game {
   private sendScores(): void {
     this.scoreDirty = false;
     this.lastScoreSent = this.now();
-    const s = [...this.players.values()].map((p) => [p.id, p.kills, p.deaths, p.ping, p.streak, p.headshots]);
+    const s = [...this.players.values()].map((p) => [p.id, p.kills, p.deaths, p.ping, p.streak, p.headshots, ...(this.mode === 'carrapeta' ? [p.points] : [])]);
     const msg = JSON.stringify({ t: 'score', s, ts: this.teamScores });
     for (const p of this.recipients()) p.send(msg);
   }

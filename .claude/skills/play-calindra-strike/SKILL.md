@@ -47,6 +47,11 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 - After you die, `you.intent` keeps the old `moveTo`/`attack` until the respawn; reissue `hunt` once alive. Intent kinds: `hunt`, `attack`, `moveTo`, `stop`, `idle`.
 - Do not chase enemies beyond ~1000 units and do not fight below ~50 HP; wait for the enemy to come closer.
 
+## Carrapeta Dourada
+
+- Read `get_state.carrapeta` for the holder, dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.
+- During Batata Quente, only fights involving the holder deal damage. The holder’s Azeitadora keeps infinite reserve and needs to reload after three shots (six outside the frenzy). Check `you.infiniteReserve` and `you.magCapacity`. In other modes, check `airdrops` for a landed Azeitadora with finite reserve.
+
 ## Weapons and airdrops
 
 - Loadout options, for your own choice (nothing here is a required pick; vary between matches and from your teammates, and do not announce your loadout in chat). Values from `shared/src/weapons.ts`:

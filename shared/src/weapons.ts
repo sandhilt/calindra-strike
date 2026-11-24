@@ -1,3 +1,4 @@
+import { CARRAPETA_AIRDROP_RESERVE } from './constants.ts';
 import { DEG, clamp } from './math.ts';
 
 export const WEAPON = {
@@ -8,9 +9,10 @@ export const WEAPON = {
   SHOTGUN: 4,
   SNIPER: 5,
   LMG: 6,
+  MGL: 7,
 } as const;
 export type WeaponId = (typeof WEAPON)[keyof typeof WEAPON];
-export const WEAPON_COUNT = 7;
+export const WEAPON_COUNT = 8;
 
 export interface SpreadDef {
   base: number; // radians, standing still
@@ -47,6 +49,7 @@ export interface WeaponDef {
   tag: string; // short HUD label
   slot: 1 | 2 | 3;
   legendary: boolean;
+  special?: true;
   damage: number;
   pellets: number;
   headMult: number;
@@ -93,6 +96,7 @@ export const RELOAD_TIMING: Readonly<Record<WeaponId, ReloadTiming | null>> = {
   [WEAPON.SMG]: { kind: 'magazine', outTicks: 45, inTicks: 45, boltTicks: 35 },
   [WEAPON.SHOTGUN]: { kind: 'shells', startTicks: 20, shellTicks: 20, pumpTicks: 20 },
   [WEAPON.SNIPER]: { kind: 'magazine', outTicks: 50, inTicks: 55, boltTicks: 45 },
+  [WEAPON.MGL]: { kind: 'magazine', outTicks: 40, inTicks: 80, boltTicks: 35 },
   [WEAPON.LMG]: { kind: 'magazine', outTicks: 100, inTicks: 110, boltTicks: 70 },
 };
 
@@ -335,6 +339,30 @@ export const WEAPONS: readonly WeaponDef[] = [
     spread: { base: 0.012, move: 0.08, air: 0.25, duckMult: 0.7, perShot: 0.001, perShotMax: 0.02 },
     recoil: { climb: 0.5, maxPitch: 5, sway: 2.2, swayPeriod: 18, swayStart: 8, recovery: 7 },
   }),
+  W({
+    id: WEAPON.MGL,
+    name: 'Azeitadora',
+    tag: 'AZT',
+    slot: 1,
+    legendary: false,
+    special: true,
+    damage: 125,
+    pellets: 1,
+    headMult: 1,
+    rangeMod: 1,
+    range: 3000,
+    armorPen: 0.85,
+    fireTicks: 42,
+    auto: false,
+    mag: 6,
+    reserve: CARRAPETA_AIRDROP_RESERVE,
+    deployTicks: 32,
+    speed: 220,
+    scopedSpeed: 220,
+    zoomFov: [],
+    spread: { base: 0.003, move: 0.01, air: 0.04, duckMult: 0.75, perShot: 0, perShotMax: 0 },
+    recoil: { climb: 2, maxPitch: 4, sway: 0, swayPeriod: 1, swayStart: 0, recovery: 5 },
+  }),
 ];
 
 export const PRIMARY_CHOICES: readonly WeaponId[] = [WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN];
@@ -361,9 +389,18 @@ export function weaponDef(id: number): WeaponDef {
   return WEAPONS[id] ?? WEAPONS[WEAPON.HAMMER];
 }
 
+/** Magazine and reserve capacities under the holder's current ammo rules. */
+export function magCapacity(def: WeaponDef, halved: boolean): number {
+  return halved ? Math.ceil(def.mag / 2) : def.mag;
+}
+
+export function reserveCapacity(def: WeaponDef, halved: boolean): number {
+  return halved ? Math.ceil(def.reserve / 2) : def.reserve;
+}
+
 /** Rounds a reload still has to load: the room in the magazine, limited by the reserve. */
-export function shellsToLoad(def: WeaponDef, mag: number, reserve: number): number {
-  return Math.max(0, Math.min(def.mag - mag, reserve));
+export function shellsToLoad(def: WeaponDef, mag: number, reserve: number, halved = false): number {
+  return Math.max(0, Math.min(magCapacity(def, halved) - mag, reserve));
 }
 
 export function isWeaponId(v: unknown): v is WeaponId {

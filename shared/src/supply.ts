@@ -1,5 +1,5 @@
 import { MAX_ARMOR, MAX_HEALTH, TICK_RATE } from './constants.ts';
-import { WEAPON, weaponDef, type WeaponId } from './weapons.ts';
+import { WEAPON, magCapacity, reserveCapacity, weaponDef, type WeaponId } from './weapons.ts';
 import type { PlayerState } from './sim.ts';
 
 /**
@@ -27,7 +27,7 @@ export function needsSupply(s: PlayerState): boolean {
   if (s.health < MAX_HEALTH || s.armor < MAX_ARMOR) return true;
   return stocked(s).some((id) => {
     const def = weaponDef(id);
-    return def.mag > 0 && (s.mag[id] < def.mag || s.reserve[id] < def.reserve);
+    return def.mag > 0 && (s.mag[id] < magCapacity(def, s.halvedAmmo) || s.reserve[id] < reserveCapacity(def, s.halvedAmmo));
   });
 }
 
@@ -42,7 +42,7 @@ export function resupply(s: PlayerState): void {
   s.armor = MAX_ARMOR;
   for (const id of stocked(s)) {
     const def = weaponDef(id);
-    s.mag[id] = def.mag;
-    s.reserve[id] = def.reserve;
+    s.mag[id] = magCapacity(def, s.halvedAmmo);
+    s.reserve[id] = reserveCapacity(def, s.halvedAmmo);
   }
 }

@@ -1,6 +1,7 @@
 import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS, type RadioMenu } from '@calindra-strike/shared';
 import { type ActionId, type Bindings, actionBindingLabel } from '../game/bindings.ts';
 import { BLACK_FRIDAY_PITCH, type BombRole, type CarryNotice } from '../game/bomb.ts';
+import { CARRAPETA_BANNERS, CARRAPETA_SYMBOL, type CarrapetaBanner } from '../game/carrapeta.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
@@ -15,7 +16,7 @@ import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stam
 export interface LeaderRow {
   name: string;
   color: string;
-  kills: number;
+  score: number;
   rank: number;
   me: boolean;
 }
@@ -25,6 +26,7 @@ export interface ScoreRow {
   name: string;
   color: string;
   kills: number;
+  points?: number;
   deaths: number;
   hs: number;
   ping: number;
@@ -81,6 +83,12 @@ export class Hud {
   private blackFridayTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly lunchBanner = h('div', { class: 'lunch-banner hidden', role: 'alert' });
   private lunchBannerTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly carrapetaBanner = h('div', { class: 'lunch-banner carrapeta-banner hidden', role: 'alert' });
+  private carrapetaBannerTimer: ReturnType<typeof setTimeout> | undefined;
+  private carrapetaBannerKind: CarrapetaBanner | undefined;
+  private queuedCarrapetaTake = false;
+  private readonly carrapetaStatus = h('div', { class: 'lunch-followers carrapeta-status glass hidden' });
+  private readonly carrapetaAura = h('div', { class: 'carrapeta-aura hidden', 'aria-hidden': 'true' });
   private readonly lunchFollowers = h('div', { class: 'lunch-followers glass hidden', role: 'status' });
   private lunchFollowersText = '';
   private readonly bombCarry = h('div', { class: 'bomb-carry hidden', role: 'status' });
@@ -182,11 +190,15 @@ export class Hud {
   readonly chatInput = h('input', { class: 'chat-input hidden', maxlength: 100, placeholder: 'mensagem para todos…', autocomplete: 'off', spellcheck: 'false' });
   private readonly radioMenu = h('div', { class: 'radio-menu glass hidden' });
   private readonly sbBody = h('tbody');
+  private readonly sbScore = h('th', { text: 'kills' });
   private readonly sbTitle = h('span', { class: 'label', text: '' });
   readonly scoreboard = h('div', { class: 'scoreboard glass hidden' }, [
     h('header', {}, [h('h2', { text: 'placar' }), this.sbTitle]),
     h('table', {}, [
-      h('thead', {}, [h('tr', {}, ['#', 'jogador', 'kills', 'mortes', 'hs', 'ping'].map((t) => h('th', { text: t })))]),
+      h('thead', {}, [h('tr', {}, [
+        h('th', { text: '#' }), h('th', { text: 'jogador' }), this.sbScore,
+        ...['mortes', 'hs', 'ping'].map((t) => h('th', { text: t })),
+      ])]),
       this.sbBody,
     ]),
   ]);
@@ -227,6 +239,9 @@ export class Hud {
       this.bombCarry,
       this.blackFridayBanner,
       this.lunchBanner,
+      this.carrapetaAura,
+      this.carrapetaBanner,
+      this.carrapetaStatus,
       this.lunchFollowers,
       this.plantBar,
       this.bombActivity,
@@ -264,14 +279,14 @@ export class Hud {
     });
   }
 
-  setLeaders(rows: LeaderRow[], me: LeaderRow | null): void {
-    const key = JSON.stringify([rows, me]);
+  setLeaders(rows: LeaderRow[], me: LeaderRow | null, unit: string): void {
+    const key = JSON.stringify([rows, me, unit]);
     this.set('leaders', key, () => {
       const card = (r: LeaderRow | null, rank: number) => {
-        if (!r) return h('div', { class: 'leader glass empty' }, [h('div', { class: 'rank', style: `background:${RANK_COLORS[rank - 1] ?? '#444'}`, text: String(rank) }), h('div', { class: 'who' }, [h('div', { class: 'name', text: '—' }), h('div', { class: 'k', text: '0 kills' })])]);
+        if (!r) return h('div', { class: 'leader glass empty' }, [h('div', { class: 'rank', style: `background:${RANK_COLORS[rank - 1] ?? '#444'}`, text: String(rank) }), h('div', { class: 'who' }, [h('div', { class: 'name', text: '—' }), h('div', { class: 'k', text: `0 ${unit}` })])]);
         return h('div', { class: `leader glass${r.me ? ' me' : ''}` }, [
           h('div', { class: 'rank', style: `background:${RANK_COLORS[r.rank - 1] ?? r.color}`, text: String(r.rank) }),
-          h('div', { class: 'who' }, [h('div', { class: 'name', text: r.name }), h('div', { class: 'k', text: `${r.kills} kill${r.kills === 1 ? '' : 's'}` })]),
+          h('div', { class: 'who' }, [h('div', { class: 'name', text: r.name }), h('div', { class: 'k', text: `${r.score} ${r.score === 1 ? unit.replace(/s$/, '') : unit}` })]),
         ]);
       };
       this.leadersLeft.replaceChildren(card(rows[0] ?? null, 1), card(rows[1] ?? null, 2));
@@ -424,6 +439,55 @@ export class Hud {
     this.lunchBanner.classList.add('hidden');
   }
 
+  announceCarrapeta(kind: CarrapetaBanner): void {
+    if (kind === 'take' && this.carrapetaBannerKind === 'on') {
+      this.queuedCarrapetaTake = true;
+      return;
+    }
+    if (kind === 'on' && this.carrapetaBannerKind === 'take') this.queuedCarrapetaTake = true;
+    this.carrapetaBannerKind = kind;
+    clearTimeout(this.carrapetaBannerTimer);
+    this.carrapetaBanner.classList.add('hidden');
+    const { title, text, durationMs } = CARRAPETA_BANNERS[kind];
+    this.carrapetaBanner.replaceChildren(
+      h('strong', { class: 'carrapeta-symbol', text: CARRAPETA_SYMBOL, 'aria-hidden': 'true' }),
+      h('b', { class: 'lunch-name', text: title }),
+      h('span', { text }),
+    );
+    this.carrapetaBanner.classList.toggle('rush', kind === 'on');
+    this.carrapetaBanner.style.setProperty('--carrapeta-banner-duration', `${durationMs}ms`);
+    void this.carrapetaBanner.offsetWidth;
+    this.carrapetaBanner.classList.remove('hidden');
+    this.carrapetaBannerTimer = setTimeout(() => {
+      const queuedTake = this.queuedCarrapetaTake;
+      this.clearCarrapetaBanner();
+      if (queuedTake) this.announceCarrapeta('take');
+    }, durationMs);
+  }
+
+  clearCarrapetaBanner(): void {
+    clearTimeout(this.carrapetaBannerTimer);
+    this.carrapetaBanner.classList.add('hidden');
+    this.carrapetaBannerKind = undefined;
+    this.queuedCarrapetaTake = false;
+  }
+
+  clearCarrapetaTake(): void {
+    this.queuedCarrapetaTake = false;
+    if (this.carrapetaBannerKind === 'take') this.clearCarrapetaBanner();
+  }
+
+  setCarrapetaStatus(text: string | null): void {
+    this.set('carrapeta', text ?? '', () => {
+      this.carrapetaStatus.classList.toggle('hidden', text === null);
+      this.carrapetaStatus.textContent = text ? `${CARRAPETA_SYMBOL} ${text}` : '';
+    });
+  }
+
+  setCarrapetaAura(active: boolean): void {
+    this.carrapetaAura.classList.toggle('hidden', !active);
+  }
+
   /** The colleagues following this player; hidden at zero, so only a leader sees it. */
   setLunchFollowers(count: number, total: number, text: string): void {
     const key = `${count}/${total}`;
@@ -502,13 +566,14 @@ export class Hud {
     });
   }
 
-  setWeapon(name: string, tag: string, mag: number, reserve: number | '∞', legendary: boolean, melee: boolean, slots: { key: string; label: string; active: boolean }[]): void {
-    this.set('weapon', JSON.stringify([name, mag, reserve, slots]), () => {
+  setWeapon(name: string, tag: string, mag: number, reserve: number | '∞', legendary: boolean, melee: boolean, slots: { key: string; label: string; active: boolean }[], capacity: number | null = null): void {
+    this.set('weapon', JSON.stringify([name, mag, reserve, slots, capacity]), () => {
       this.wName.textContent = name;
       this.wTag.textContent = legendary ? 'LENDÁRIA' : tag;
       this.wBox.classList.toggle('legendary', legendary);
       if (melee) this.ammoCount.replaceChildren('∞');
       else this.ammoCount.replaceChildren(String(mag), h('small', { text: ` / ${reserve}` }));
+      if (capacity !== null) this.ammoCount.append(h('small', { class: 'ammo-capacity', text: `pente máx. ${capacity}` }));
       this.ammoCount.classList.toggle('empty', !melee && mag === 0);
       this.slotsEl.replaceChildren(...slots.map((s) => h('div', { class: `slot glass${s.active ? ' active' : ''}`, text: `${s.key} ${s.label}` })));
     });
@@ -658,11 +723,12 @@ export class Hud {
     if (!show) return;
     this.set('sb', JSON.stringify([rows, title, teams, unit]), () => {
       this.sbTitle.textContent = title;
+      this.sbScore.textContent = teams ? 'kills' : unit;
       const line = (r: ScoreRow, i: number) =>
         h('tr', { class: r.me ? 'me' : '' }, [
           h('td', { text: String(i + 1) }),
           h('td', {}, [h('span', { class: 'pdot', style: `background:${r.color}` }), r.name]),
-          h('td', { text: String(r.kills) }),
+          h('td', { text: String(r.points ?? r.kills) }),
           h('td', { text: String(r.deaths) }),
           h('td', { text: String(r.hs) }),
           h('td', { class: r.bot ? 'bot-tag' : '', text: r.bot ? 'bot' : String(r.ping) }),

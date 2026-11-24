@@ -52,6 +52,7 @@ const MACHINE_GUN: KickFeel = {
 
 export function kickFeelFor(id: WeaponId | -1): KickFeel {
   if (id === WEAPON.LMG) return MACHINE_GUN;
+  if (id === WEAPON.MGL) return jolt(1.8);
   if (id === WEAPON.SNIPER || id === WEAPON.SHOTGUN) return jolt(1.6);
   return jolt(0.7);
 }

@@ -26,10 +26,10 @@ describe('map and mode selection', () => {
     stubEnv('GAME_MODE', '');
     stubEnv('GAME_MAPS', '');
     const cfg = loadConfig();
-    assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse', 'almoco']);
+    assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']);
     const game = new Game({ ...base, modes: cfg.modes, maps: cfg.maps });
-    assert.equal((game.combos).length, 13); // hora de almoçar only on maps with a food court
-    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse', 'almoco']));
+    assert.equal((game.combos).length, 16); // hora de almoçar only on maps with a food court
+    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']));
     assert.deepEqual(cfg.maps, []);
   });
 
@@ -37,7 +37,7 @@ describe('map and mode selection', () => {
     assert.deepEqual(modeList('ffa, tdm', undefined), ['ffa', 'tdm']);
     assert.deepEqual(modeList(undefined, 'mixed'), ['tdm', 'ffa']); // older single setting still works
     assert.deepEqual(modeList(undefined, 'ffa'), ['ffa']);
-    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa', 'ctf', 'defuse', 'almoco']);
+    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']);
     assert.deepEqual(mapList('escritorio'), ['escritorio']);
     assert.deepEqual(mapList('forja,escritorio,forja'), ['forja', 'escritorio']);
     assert.throws(() => modeList('tdm,zombies', undefined), /Invalid game mode: zombies/);
@@ -188,5 +188,18 @@ it('configures the debug defusion round limit within 0..50', () => {
   for (const value of ['-1', '51', 'abc']) {
     stubEnv('DEFUSE_SCORE_LIMIT', value);
     assert.throws(() => loadConfig(), /DEFUSE_SCORE_LIMIT/);
+  }
+});
+
+it('validates the Carrapeta pickup timeout in seconds', () => {
+  stubEnv('CARRAPETA_PICKUP_TIMEOUT_SECONDS', '');
+  assert.equal(loadConfig().carrapetaPickupTimeoutSeconds, 20);
+  for (const value of [5, 300]) {
+    stubEnv('CARRAPETA_PICKUP_TIMEOUT_SECONDS', String(value));
+    assert.equal(loadConfig().carrapetaPickupTimeoutSeconds, value);
+  }
+  for (const value of ['4', '301', '5.5', 'soon']) {
+    stubEnv('CARRAPETA_PICKUP_TIMEOUT_SECONDS', value);
+    assert.throws(() => loadConfig(), /CARRAPETA_PICKUP_TIMEOUT_SECONDS/);
   }
 });

@@ -9,11 +9,13 @@ export interface GunPlacement {
 
 const HAMMER: GunPlacement = { position: [7.5, -5.5, -19.5], rotation: [0.12, -0.3, 0.25], scale: 0.5 };
 const PISTOL: GunPlacement = { position: [5.2, -5.6, -15], rotation: [0, 0.05, 0], scale: 0.62 };
+const MGL: GunPlacement = { position: [6.5, -7.6, -15.5], rotation: [0, 0.06, 0], scale: 0.62 };
 const LONG_GUN: GunPlacement = { position: [6, -6.4, -13], rotation: [0, 0.045, 0], scale: 0.62 };
 
 export function placementFor(id: WeaponId): GunPlacement {
   if (id === WEAPON.HAMMER) return HAMMER;
   if (id === WEAPON.PISTOL) return PISTOL;
+  if (id === WEAPON.MGL) return MGL;
   return LONG_GUN;
 }
 

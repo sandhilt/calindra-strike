@@ -47,6 +47,10 @@ export interface QualityProfile {
   lightRt: boolean;
   /** Blur outside the AWP lens. On for high only. */
   scopeBlur: boolean;
+  /** Carrapeta aura and dropped beam. On for high and low. */
+  carrapetaAura: boolean;
+  /** Full particle burst from the Azeitadora. On for high only. */
+  carrapetaBlastParticles: boolean;
   /**
    * Scenery that moves for looks only: vent fans, fountain water and jet. On for high and low,
    * off for performance, where they stand still. Ceiling fans are not part of this: they turn on every tier. Escalator steps are not part of this: they move on every tier.
@@ -74,6 +78,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     envMapPx: 256,
     lightRt: true,
     scopeBlur: true,
+    carrapetaAura: true,
+    carrapetaBlastParticles: true,
     ambientMotion: true,
     waterRipples: true,
     ventSmoke: true,
@@ -91,6 +97,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     envMapPx: 256,
     lightRt: false,
     scopeBlur: false,
+    carrapetaAura: true,
+    carrapetaBlastParticles: false,
     ambientMotion: true,
     waterRipples: true,
     ventSmoke: true,
@@ -108,6 +116,8 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     envMapPx: 64,
     lightRt: false,
     scopeBlur: false,
+    carrapetaAura: false,
+    carrapetaBlastParticles: false,
     ambientMotion: false,
     waterRipples: false,
     ventSmoke: false,

@@ -125,6 +125,8 @@ export class BotDriver {
     }));
     unpackState(snap.me, this.state);
     this.pending = this.pending.filter((cmd) => cmd.seq > snap.ack);
+    // the cab and the lift doors follow the server clock, so the replay runs the commands at the snapshot's tick
+    world.liftTick = Math.round(snap.time / TICK_MS);
     for (const cmd of this.pending) applyCmd(world, this.state, cmd, 1);
     const { x, y, z, dropping } = this.state;
     const self = { x, y, z, team, id, dropping, alive: true };

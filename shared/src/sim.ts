@@ -30,6 +30,7 @@ import {
   SPAWN_PROTECT_TICKS,
   SPRINT_OUT_TICKS,
   SPRINT_SPEED_MULT,
+  STAMINA_DRAIN_MIN_SPEED,
   STAMINA_DRAIN_PER_TICK,
   STAMINA_MAX,
   STAMINA_REGEN_PER_TICK,
@@ -488,8 +489,9 @@ function stepSprint(s: PlayerState, sprinting: boolean): void {
     s.resumeZoom = 0;
   }
   if (!sprinting && s.sprinting) endSprint(s);
+  const stalled = sprinting && s.sprinting && Math.hypot(s.vx, s.vz) < STAMINA_DRAIN_MIN_SPEED;
   s.sprinting = sprinting;
-  const delta = sprinting ? -STAMINA_DRAIN_PER_TICK : STAMINA_REGEN_PER_TICK;
+  const delta = stalled ? 0 : sprinting ? -STAMINA_DRAIN_PER_TICK : STAMINA_REGEN_PER_TICK;
   s.stamina = clamp(s.stamina + delta, 0, STAMINA_MAX);
   if (s.stamina <= 0) s.winded = true;
   else if (s.winded && s.stamina >= STAMINA_RESUME) s.winded = false;

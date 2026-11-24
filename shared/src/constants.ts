@@ -32,6 +32,8 @@ export const PRONE_SPEED_MULT = 0.15;
 export const SPRINT_SPEED_MULT = 1.35;
 export const STAMINA_MAX = 100;
 export const STAMINA_DRAIN_PER_TICK = STAMINA_MAX / (5 * TICK_RATE); // 5 s of sprint from full
+/** A sprint that was already running and is now slower than this (units/s, from the last tick) is stalled, a wall in front or standing still, so it costs no stamina. */
+export const STAMINA_DRAIN_MIN_SPEED = 20;
 export const STAMINA_REGEN_PER_TICK = STAMINA_MAX / (6 * TICK_RATE); // 6 s to refill from empty
 /** After the meter empties the player is winded and cannot sprint until it refills to this much. */
 export const STAMINA_RESUME = 25;

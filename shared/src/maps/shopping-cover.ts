@@ -142,16 +142,27 @@ function atrium(b: MapBuilder): void {
   ] as const) column(b, x, z, 52, COLUMN, brand);
 }
 
+const MENU_BOARD_HEIGHT = 140;
+const MENU_BOARD_TINT = 0xd9c7a3;
+/** The menu sign is a 2:1 panel that fits between the trim's rail and its dark head, so the trim never covers it. */
+const MENU_SIGN_BOTTOM = 70;
+const MENU_SIGN_HEIGHT = 54;
+
+/** A food court menu board: a tan slab long in z that wears the deck's trim like the walls and pillars, with its sign between rail and head. */
+function menuBoard(b: MapBuilder, x: number, z: number, length: number, brand: StoreBrand): void {
+  b.block(x, z, 20, length, MENU_BOARD_HEIGHT, 'white', DECK, { tint: MENU_BOARD_TINT });
+  trimSolid(b, x, z, 20, length, MENU_BOARD_HEIGHT);
+  const y1 = DECK + MENU_SIGN_BOTTOM;
+  adPanel(b, x - 10.6, y1, z - MENU_SIGN_HEIGHT, x + 10.6, y1 + MENU_SIGN_HEIGHT, z + MENU_SIGN_HEIGHT, brand);
+}
+
 function foodCourt(b: MapBuilder): void {
-  const menus: readonly (readonly [number, StoreBrand])[] = [
-    [-600, 'mania-picanha'], [600, 'mequi'],
-  ];
-  for (const [x, brand] of menus) board(b, x, -795, 120, DECK, 140, brand, 0xd9c7a3);
+  for (const [x, brand] of [[-600, 'mania-picanha'], [600, 'mequi']] as const) menuBoard(b, x, -795, 120, brand);
   for (const [x, z, brand] of [[-960, -1080, 'kfg'], [-384, -1232, 'outbaque'], [128, -992, 'bobis'], [784, -1224, 'madeiro']] as const) {
-    board(b, x, z, 156, DECK, 140, brand, 0xd9c7a3);
+    menuBoard(b, x, z, 156, brand);
   }
   for (const [x, z, brand] of [[-1170, -804, 'kfg'], [-750, -736, 'outbaque'], [690, -915, 'bobis'], [1220, -844, 'madeiro']] as const) {
-    board(b, x, z, 120, DECK, 140, brand, 0xd9c7a3);
+    menuBoard(b, x, z, 120, brand);
   }
   for (const [x, z] of [[-1120, -1240], [-464, -944], [240, -1216], [1056, -1032]] as const) {
     b.block(x, z, 192, 20, 112, 'white', DECK, { tint: PAINT });

@@ -17,6 +17,7 @@ const SIGHT_TOP_UNITS: Partial<Record<WeaponId, number>> = {
   [WEAPON.SMG]: 5.3,
   [WEAPON.SHOTGUN]: 3.5,
   [WEAPON.LMG]: 6.7,
+  [WEAPON.MGL]: 9.5,
 };
 const DEFAULT_SIGHT_TOP_UNITS = 5;
 /** Iron sights sit this far below the centre of the view, so they frame the target instead of covering it. A red dot sits on the centre. */

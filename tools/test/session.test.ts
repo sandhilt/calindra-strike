@@ -1360,7 +1360,7 @@ async function carrapetaMatch(omniscient = false) {
   return { ...ctx, self, snap, match };
 }
 
-test('Carrapeta state follows the snapshot and keeps frenzy bystanders subject to perception', async (t) => {
+test('Carrapeta state follows the snapshot and treats everyone as an enemy while nobody holds it', async (t) => {
   const { session, socket, self, snap, match } = await carrapetaMatch();
   t.after(() => session.close());
   socket.message({ t: 'score', s: [[1, 2, 1, 0, 0, 0, 17]], ts: [] });
@@ -1389,7 +1389,7 @@ test('Carrapeta state follows the snapshot and keeps frenzy bystanders subject t
   ] });
   const dropped = session.getState();
   assert.deepEqual(dropped.carrapeta?.dropped, { pos: [120, 0, 0], distance: 120, bearingDeg: 90, rerollSeconds: 20 });
-  assert.deepEqual(dropped.others.map(peer => [peer.id, peer.enemy]), [[2, false]]);
+  assert.deepEqual(dropped.others.map(peer => [peer.id, peer.enemy]), [[2, true]]);
   assert.ok(dropped.others.every(peer => peer.via !== 'team'));
   assert.equal(dropped.you.infiniteReserve, false);
   assert.equal(dropped.you.magCapacity, 6);

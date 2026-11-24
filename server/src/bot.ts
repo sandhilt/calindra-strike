@@ -1,5 +1,5 @@
 import {
-  carrapetaEnemies, type CarrapetaState, type FrenzyState,
+  carrapetaEnemies, type CarrapetaState,
   BOMB_SITE_RADIUS_UNITS,
   BTN,
   DEFUSE_RADIUS_UNITS,
@@ -51,7 +51,6 @@ export interface BotEnv {
   random: () => number;
   players: Iterable<BotAgent>;
   carrapeta?: CarrapetaState;
-  frenzy?: FrenzyState;
   flags?: readonly FlagState[];
   flagBases?: readonly FlagBase[];
   bomb?: BombState;
@@ -525,7 +524,7 @@ export class BotBrain {
 
   private isEnemy(self: BotAgent, q: BotAgent, env: BotEnv): boolean {
     if (q === self || !q.alive) return false;
-    if (env.mode === 'carrapeta') return carrapetaEnemies(env.frenzy ?? { kind: 'calm' }, env.carrapeta ?? { kind: 'none' }, self.id, q.id);
+    if (env.mode === 'carrapeta') return carrapetaEnemies(env.carrapeta ?? { kind: 'none' }, self.id, q.id);
     return env.mode === 'ffa' || q.team !== self.team;
   }
 

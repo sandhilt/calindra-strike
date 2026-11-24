@@ -117,7 +117,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'hunt',
-    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE, both bases on the Mirante in Shopping Sul Rio) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), and Carrapeta Dourada (walk over the dropped objective or chase its perceived holder, respecting frenzy combat rules). Otherwise roam toward airdrops, shop and room interiors or random nodes until an enemy is perceived, and walk to a full supply stand (Shopping Sul Rio, Mirante) when hurt or low on ammunition, riding escalators and the glass lift. Persists across respawns.',
+    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE, both bases on the Mirante in Shopping Sul Rio) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), and Carrapeta Dourada (walk over the dropped objective or chase its perceived holder, respecting the combat rule: while someone holds it only the holder and whoever shoots them can hurt each other). Otherwise roam toward airdrops, shop and room interiors or random nodes until an enemy is perceived, and walk to a full supply stand (Shopping Sul Rio, Mirante) when hurt or low on ammunition, riding escalators and the glass lift. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },

@@ -196,7 +196,7 @@ export type GameEvent =
   | { k: 'blast'; by: number; w: WeaponId; at: CarrapetaPosition }
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
-  | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
+  | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number; wait?: number } // wait: the victim's respawn delay in ms, only when it is longer than the mode's usual one
   | { k: 'drop'; id: number; x: number; z: number; w: number }
   | { k: 'loot'; id: number; drop: number; w: number }
   /** A player restocked at the supply stand with this index in `MapDef.supplies`. */

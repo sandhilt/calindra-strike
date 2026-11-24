@@ -42,6 +42,12 @@ export interface ReloadPose {
   beltLaid: number;
   /** The tray end of the belt, 0 over the tray .. 1 swung out to the left of the gun. */
   beltClear: number;
+  /** The launcher's drum spun while it is loaded: 0 .. 1 is one full turn. */
+  drumTurn: number;
+  /** How full the drum is while a reload loads it, 0 empty .. 1 full, -1 when the reload is not loading it. */
+  drumFill: number;
+  /** How far the rounds have fallen out of the open drum, 0 .. 1, -1 when it is not being emptied. */
+  drumDump: number;
 }
 
 export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
@@ -65,6 +71,9 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   cover: 0,
   beltLaid: 1,
   beltClear: 0,
+  drumTurn: 0,
+  drumFill: -1,
+  drumDump: -1,
 };
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
@@ -150,9 +159,20 @@ function exchangePose({ phase, t }: ReloadCursor, weapon: keyof typeof MAGAZINE_
 
 function launcherReloadPose({ phase, t }: ReloadCursor): ReloadPose {
   const pose = { ...RESTING_RELOAD_POSE };
-  if (phase === 'out') pose.cover = ramp(t, RELOAD_CUE_AT.out, 0.85);
-  if (phase === 'in') pose.cover = 1;
-  if (phase === 'bolt') pose.cover = 1 - ramp(t, RELOAD_CUE_AT.bolt, 0.45);
+  if (phase === 'out') {
+    pose.cover = ramp(t, RELOAD_CUE_AT.out, 0.85);
+    pose.drumDump = ramp(t, 0.45, 1);
+  }
+  if (phase === 'in') {
+    pose.cover = 1;
+    pose.drumFill = ramp(t, 0.1, 0.9);
+    pose.drumTurn = pose.drumFill;
+  }
+  if (phase === 'bolt') {
+    pose.cover = 1 - ramp(t, RELOAD_CUE_AT.bolt, 0.45);
+    pose.drumFill = 1;
+    pose.drumTurn = 1;
+  }
   pose.hand = phase === 'out' ? ramp(t, 0, RELOAD_CUE_AT.out)
     : phase === 'bolt' ? 1 - ramp(t, 0.45, 1) : 1;
   pose.tilt = pose.hand * 0.7;

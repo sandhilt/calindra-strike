@@ -29,6 +29,22 @@ test('the Azeitadora drum opens, stays open while loading and closes to lock', (
   assert.deepEqual(poseAt(outTicks + inTicks + boltTicks), RESTING_RELOAD_POSE);
 });
 
+test('the Azeitadora reload tips the rounds out of the open drum, then spins it while the fresh ones go in', () => {
+  const timing = weaponDef(WEAPON.MGL).reloadTiming;
+  assert.ok(timing?.kind === 'magazine');
+  const { outTicks, inTicks } = timing;
+  const poseAt = (ticks: number) => reloadPose(reloadCursor(timing, ticks, 0), WEAPON.MGL);
+  assert.equal(poseAt(0).drumDump, 0, 'nothing falls before the drum is open');
+  assert.equal(poseAt(outTicks * 0.99).drumDump > 0.9, true, 'every round has fallen by the end of the out phase');
+  assert.equal(poseAt(outTicks * 0.99).drumFill, -1);
+  const early = poseAt(outTicks + inTicks * 0.2);
+  const late = poseAt(outTicks + inTicks * 0.8);
+  assert.ok(early.drumFill < late.drumFill && late.drumFill < 1, 'the drum fills as it turns');
+  assert.ok(early.drumTurn < late.drumTurn, 'and keeps turning');
+  assert.equal(RESTING_RELOAD_POSE.drumFill, -1);
+  assert.equal(RESTING_RELOAD_POSE.drumDump, -1);
+});
+
 test('a shotgun reload sounds once per shell and pumps at the end', () => {
   const playback = new ReloadPlayback();
   const def = weaponDef(WEAPON.SHOTGUN);

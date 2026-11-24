@@ -15,6 +15,7 @@ import {
   type GameMode,
   INTERP_DELAY_MS,
   liftClockTick,
+  magCapacity,
   MODE_LABEL,
   type CarrapetaSnapshot,
   respawnTicksOf,
@@ -342,6 +343,8 @@ export class ClientGame {
   private lastBeep = -1;
 
   private deathAt = 0;
+  /** The respawn delay the server announced with the kill, when it is longer than the mode's usual one. */
+  private deathWaitMs: number | undefined;
   private deathPos = new THREE.Vector3();
   private killerId = -1;
   private scoreboardOpen = false;
@@ -985,6 +988,7 @@ export class ClientGame {
           this.alive = false;
           this.input.clearProne();
           this.deathAt = performance.now();
+          this.deathWaitMs = e.wait;
           this.deathPos.set(this.me.x, this.me.y, this.me.z);
           this.killerId = e.by;
           this.hud.setDeath({ killer: k.name, color: k.color, weapon: def.name, hs: e.hs === 1 });
@@ -1009,7 +1013,14 @@ export class ClientGame {
       }
       case 'loot': {
         const def = weaponDef(e.w);
-        if (e.id === this.myId) {
+        const holderLoot = this.carrapeta?.kind === 'held' && this.carrapeta.holder === e.id;
+        if (holderLoot) {
+          // The holder keeps the Azeitadora: the crate only refills health and armour.
+          if (e.id === this.myId) {
+            this.sfx.loot();
+            this.hud.announce('suprimento coletado', 'vida e colete repostos · você segue com a Azeitadora');
+          } else this.hud.info(`${this.nameOf(e.id).name} pegou um suprimento`);
+        } else if (e.id === this.myId) {
           this.sfx.loot();
           this.hud.announce(`${def.name.toLowerCase()} na mão`, def.zoomFov.length ? 'botão direito: mira 40° → 10° · fique parado pra acertar' : def.ads ? 'botão direito: mirar · arma lendária + armadura completa' : 'arma lendária + armadura completa');
           this.view.setWeapon(e.w as WeaponId);
@@ -1763,6 +1774,8 @@ export class ClientGame {
     const overlay = this.localOverlay(def);
     const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
     if (!this.spectator) {
+      // The server also hands out weapons outside the player's own commands (the Azeitadora on a Carrapeta pickup, and taking it away), which prediction never sees.
+      this.view.setWeapon(this.me.weapon);
       this.view.update({
         dt,
         speed: Math.hypot(this.me.vx, this.me.vz),
@@ -1776,6 +1789,7 @@ export class ClientGame {
         reloadElapsed: this.me.reload > 0 ? this.localReload.elapsed(this.me.tick) : -1,
         reloadShells: this.localReload.shells,
         deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
+        rounds: { mag: this.me.mag[this.me.weapon], capacity: magCapacity(def, this.me.halvedAmmo) },
         aim: this.aimT,
         lean: this.me.lean,
         hidden: !showView,
@@ -2070,7 +2084,7 @@ export class ClientGame {
     }
 
     if (!this.alive) {
-      const left = Math.max(0, (this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
+      const left = Math.max(0, (this.deathWaitMs ?? this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
       if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);

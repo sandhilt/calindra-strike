@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import {
-  CARRAPETA_AIRDROP_CHANCE, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
+  BATATA_PER_MATCH, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
-  dropCarrapeta, frenzyAtTick, setHalvedAmmo, stepCarrapeta, stepFrenzy,
+  dropCarrapeta, frenzyAtTicks, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
@@ -302,7 +302,10 @@ export class Game {
   private colleagues: Colleague[] = [];
   private carrapeta: CarrapetaState = { kind: 'none' };
   private frenzy: FrenzyState = { kind: 'calm' };
-  private frenzyAt?: number;
+  /** Frenzy starts still to come this match, earliest first. */
+  private frenzyQueue: number[] = [];
+  /** The player whose Carrapeta just ran out of time: left out of the redraw while anyone else is landed. */
+  private carrapetaSkip = -1;
   private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0, rush: false };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
@@ -405,7 +408,8 @@ export class Game {
     this.startLunchRound();
     this.carrapeta = { kind: 'none' };
     this.frenzy = { kind: 'calm' };
-    this.frenzyAt = undefined;
+    this.frenzyQueue = [];
+    this.carrapetaSkip = -1;
   }
 
   private updateCarrapeta(): void {
@@ -413,13 +417,20 @@ export class Game {
     const holder = this.carrapeta.kind === 'held' ? this.players.get(this.carrapeta.holder) : undefined;
     this.scoreCarrapetaTime();
     this.updateFrenzy(holder);
+    if (holder && holdExpired(this.carrapeta, this.tick)) {
+      this.carrapetaSkip = holder.id;
+      this.dropPlayerCarrapeta(holder, this.tick);
+    }
     if (this.carrapeta.kind === 'held') return;
-    const actors = [...this.players.values()].filter((p) => p.alive).map((p) => ({
+    const everyone = [...this.players.values()].filter((p) => p.alive).map((p) => ({
       id: p.id, x: p.state.x, y: p.state.y, z: p.state.z, landed: !p.state.dropping,
     }));
+    const others = everyone.filter((actor) => actor.id !== this.carrapetaSkip);
+    const actors = others.some((actor) => actor.landed) ? others : everyone;
     const result = stepCarrapeta(this.carrapeta, actors, this.tick, this.random);
     this.carrapeta = result.state;
     if (!result.event) return;
+    this.carrapetaSkip = -1;
     const player = this.players.get(result.event.by);
     if (!player) return;
     player.state.infiniteMgl = true;
@@ -429,10 +440,10 @@ export class Game {
   }
 
   private updateFrenzy(holder: ServerPlayer | undefined): void {
-    const next = stepFrenzy(this.frenzy, this.tick, this.frenzyAt);
+    const next = stepFrenzy(this.frenzy, this.tick, this.frenzyQueue[0]);
     if (next === this.frenzy) return;
+    if (next.kind === 'frenzy') this.frenzyQueue.shift();
     this.frenzy = next;
-    this.frenzyAt = undefined;
     if (holder) setHalvedAmmo(holder.state, next.kind === 'frenzy');
     this.emit(next.kind === 'frenzy'
       ? { k: 'frenzy', what: 'on', untilMs: this.msAt(next.untilTick) }
@@ -453,11 +464,11 @@ export class Game {
     this.scoreDirty = true;
   }
 
-  private dropPlayerCarrapeta(p: ServerPlayer): void {
+  /** The holder loses it; by default it is redrawn after the pickup timeout, a time-out passes `rerollAtTick` to redraw at once. */
+  private dropPlayerCarrapeta(p: ServerPlayer, rerollAtTick = this.tick + (this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS) * TICK_RATE): void {
     const s = p.state;
     const at = { x: s.x, y: this.groundY(s.x, s.y, s.z), z: s.z };
-    const timeout = this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS;
-    const result = dropCarrapeta(this.carrapeta, p.id, at, this.tick + timeout * TICK_RATE);
+    const result = dropCarrapeta(this.carrapeta, p.id, at, rerollAtTick);
     this.carrapeta = result.state;
     if (!result.event) return;
     setHalvedAmmo(s, false);
@@ -1054,7 +1065,6 @@ export class Game {
       players: list,
       airdrops: this.airdrops,
       carrapeta: this.carrapeta,
-      frenzy: this.frenzy,
       flags: this.flags,
       flagBases: this.flagBases(),
       bomb: this.bomb,
@@ -1239,7 +1249,7 @@ export class Game {
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);
     if (this.mode === 'carrapeta') {
-      this.frenzyAt = frenzyAtTick(this.tick, Math.floor(this.opts.matchMs / TICK_MS), this.random(), this.random());
+      this.frenzyQueue = frenzyAtTicks(this.tick, Math.floor(this.opts.matchMs / TICK_MS), Array.from({ length: BATATA_PER_MATCH }, () => this.random()));
       this.updateCarrapeta();
     }
     this.broadcastMatch();
@@ -1436,7 +1446,7 @@ export class Game {
     const shooterSafe = this.inCab(p.state);
     for (const q of this.players.values()) {
       if (shooterSafe || q === p || !q.alive || q.state.dropping || q.state.protect > 0 || this.inCab(q.state)) continue;
-      if (!carrapetaEnemies(this.frenzy, this.carrapeta, p.id, q.id)) continue;
+      if (!carrapetaEnemies(this.carrapeta, p.id, q.id)) continue;
       if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
@@ -1514,12 +1524,14 @@ export class Game {
     if (this.carrapeta.kind === 'held') {
       this.addCarrapetaPoints(killer, carrapetaKillPoints(this.frenzy, this.carrapeta.holder, killer.id, victim.id));
     }
+    const looseDeath = this.mode === 'carrapeta' && this.phase === 'live' && this.carrapeta.kind !== 'held';
+    const respawnTicks = this.respawnTicks() + (looseDeath ? CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS : 0);
     this.dropObjective(victim);
     victim.alive = false;
     victim.deaths++;
     victim.deathStreak++;
     victim.streak = 0;
-    victim.respawnAt = this.tick + this.respawnTicks();
+    victim.respawnAt = this.tick + respawnTicks;
     victim.state.health = 0;
     victim.queue.length = 0;
     const teamkill = killer !== victim && this.sameTeam(killer, victim);
@@ -1534,7 +1546,7 @@ export class Game {
       this.teamScores[killer.team]++;
       if (this.tdmLimit > 0 && this.teamScores[killer.team] >= this.tdmLimit) this.endPending = true;
     }
-    this.emit({ k: 'kill', by: killer.id, to: victim.id, w: weapon, hs: head ? 1 : 0, streak: killer.streak });
+    this.emit({ k: 'kill', by: killer.id, to: victim.id, w: weapon, hs: head ? 1 : 0, streak: killer.streak, ...(looseDeath ? { wait: respawnTicks * TICK_MS } : {}) });
     this.scoreDirty = true;
   }
 

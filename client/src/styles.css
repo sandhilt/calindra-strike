@@ -2807,10 +2807,19 @@ input:focus-visible {
   background: repeating-linear-gradient(135deg, #270a05 0 16px, #170502 16px 32px);
 }
 .carrapeta-symbol {
-  font-size: clamp(44px, 9vw, 82px);
   line-height: 1;
-  color: #ffd54f;
-  text-shadow: 0 0 24px #f29e29;
+  display: flex;
+  justify-content: center;
+}
+.carrapeta-symbol svg {
+  width: clamp(44px, 9vw, 82px);
+  height: clamp(44px, 9vw, 82px);
+  filter: drop-shadow(0 0 16px #f29e29);
+  animation: carrapeta-spin 1.6s ease-in-out infinite;
+}
+@keyframes carrapeta-spin {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
 }
 .carrapeta-banner.rush .lunch-name {
   font-size: clamp(24px, 5vw, 48px);

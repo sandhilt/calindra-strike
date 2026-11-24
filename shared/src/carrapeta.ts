@@ -1,7 +1,7 @@
 import {
-  BATATA_BOUNTY_POINTS, BATATA_CHANCE, BATATA_DOUBLE_EVERY_SECONDS, BATATA_DURATION_SECONDS,
+  BATATA_BOUNTY_POINTS, BATATA_DOUBLE_EVERY_SECONDS, BATATA_DURATION_SECONDS,
   BATATA_KILL_POINTS, BATATA_MAX_MULTIPLIER, BATATA_WINDOW_END, BATATA_WINDOW_START,
-  CTF_PICKUP_RADIUS_UNITS, TICK_RATE,
+  CARRAPETA_MAX_HOLD_SECONDS, CTF_PICKUP_RADIUS_UNITS, TICK_RATE,
 } from './constants.ts';
 
 export type CarrapetaPosition = { x: number; y: number; z: number };
@@ -48,14 +48,22 @@ export function dropCarrapeta(state: CarrapetaState, id: number, at: CarrapetaPo
   return { state: { kind: 'dropped', ...at, rerollAtTick }, event: { k: 'carrapeta', what: 'lose', by: id, at } };
 }
 
-/** Draw the single possible frenzy start from the live match clock. */
-export function frenzyAtTick(start: number, duration: number, chance: number, moment: number): number | undefined {
-  if (chance >= BATATA_CHANCE) return undefined;
-  const first = Math.max(1, Math.ceil(duration * BATATA_WINDOW_START));
+/** The frenzy starts of a match, one per roll: the window is cut into equal slices and each event starts somewhere in its own slice, early enough to end inside it when the slice is long enough. */
+export function frenzyAtTicks(start: number, duration: number, rolls: readonly number[]): number[] {
+  const windowStart = Math.max(1, Math.ceil(duration * BATATA_WINDOW_START));
   const windowEnd = Math.floor(duration * BATATA_WINDOW_END);
-  const fullEventEnd = duration - BATATA_DURATION_SECONDS * TICK_RATE;
-  const last = Math.max(first, fullEventEnd > first ? Math.min(windowEnd, fullEventEnd) : windowEnd);
-  return start + first + Math.floor(moment * (last - first + 1));
+  const slice = Math.floor((windowEnd - windowStart) / rolls.length);
+  const eventTicks = BATATA_DURATION_SECONDS * TICK_RATE;
+  return rolls.map((moment, i) => {
+    const first = windowStart + i * slice;
+    const last = Math.max(first, first + slice - eventTicks);
+    return start + first + Math.floor(moment * (last - first + 1));
+  });
+}
+
+/** Whether the holder has kept the Carrapeta as long as allowed, so it is redrawn among the others. */
+export function holdExpired(state: CarrapetaState, tick: number): boolean {
+  return state.kind === 'held' && tick - state.sinceTick >= CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE;
 }
 
 export function stepFrenzy(state: FrenzyState, tick: number, at?: number): FrenzyState {
@@ -75,7 +83,7 @@ export function carrapetaKillPoints(frenzy: FrenzyState, holder: number, killer:
   return killer === holder ? BATATA_KILL_POINTS : victim === holder ? BATATA_BOUNTY_POINTS : 0;
 }
 
-/** During frenzy, a pair can fight only when one of them holds the objective. */
-export function carrapetaEnemies(frenzy: FrenzyState, state: CarrapetaState, a: number, b: number): boolean {
-  return frenzy.kind === 'calm' || (state.kind === 'held' && (a === state.holder || b === state.holder));
+/** While somebody holds the objective everybody plays against the holder, so a pair can hurt each other only when one of them is the holder. With nobody holding it, everyone is fair game. */
+export function carrapetaEnemies(state: CarrapetaState, a: number, b: number): boolean {
+  return state.kind !== 'held' || a === state.holder || b === state.holder;
 }

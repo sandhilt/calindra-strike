@@ -119,20 +119,22 @@ export const WISP_LIFE_SECONDS = 4.5;
 /** Highest opacity a wisp reaches; it is meant to be barely there. */
 export const WISP_MAX_ALPHA = 0.22;
 export const WISP_REACH_UNITS = 46;
-export const WISP_RISE_UNITS = 22;
+/** How far a wisp has sunk by the end of its life: the air from a vent is cold, so it falls instead of climbing. */
+export const WISP_SINK_UNITS = 40;
 
 export interface WispPose {
   out: number;
-  up: number;
+  /** Units below the grille, growing; the wisp only starts to fall after it has left the grille. */
+  down: number;
   side: number;
   alpha: number;
 }
 
-/** Wisp `i` of a vent: it drifts out of the grille, climbs and fades in and out over its life. */
+/** Wisp `i` of a vent: it drifts out of the grille, then sinks faster as it goes, and fades in and out over its life. */
 export function wispPose(out: WispPose, i: number, seconds: number, ventSeed: number): void {
   const life = lifeFraction(seconds, WISP_LIFE_SECONDS, i / WISPS_PER_VENT + ventSeed);
   out.out = life * WISP_REACH_UNITS;
-  out.up = life * WISP_RISE_UNITS;
+  out.down = life * life * WISP_SINK_UNITS;
   out.side = Math.sin(life * Math.PI * 2 + i * 1.7 + ventSeed * 9) * 5 * life;
   out.alpha = WISP_MAX_ALPHA * Math.sin(life * Math.PI);
 }

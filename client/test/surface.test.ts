@@ -41,6 +41,10 @@ test('only the high tier sparkles', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].fx.sparkle), ['high']);
 });
 
+test('only high and low render kitchen flames', () => {
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].kitchenFire), ['high', 'low']);
+});
+
 test('only the high tier blurs the AWP scope surround', () => {
   assert.equal(QUALITY.high.scopeBlur, true);
   assert.equal(QUALITY.low.scopeBlur, false);

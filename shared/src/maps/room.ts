@@ -1,5 +1,5 @@
 import type { MapBuilder } from './builder.ts';
-import type { Mat, Outfit } from './types.ts';
+import type { CookVoice, Mat, Outfit } from './types.ts';
 
 /** Where a prop looks: toward the viewer who comes in (+z in a room), or at the back wall. */
 export type Gaze = 'front' | 'back' | 'left' | 'right';
@@ -44,6 +44,16 @@ export class Room {
 
   rack(x: number, z: number, gaze: Gaze, length: number, palette: readonly number[], y = 0): void {
     this.b.prop({ kind: 'clothesRack', x: this.ox + x, y: this.oy + y, z: this.oz + z, yaw: GAZE_YAW[gaze], length, palette });
+  }
+
+  /** A flame `size` units tall standing at (x, z) on height y. */
+  flame(x: number, z: number, y: number, size: number): void {
+    this.b.prop({ kind: 'flame', x: this.ox + x, y: this.oy + y, z: this.oz + z, size });
+  }
+
+  /** The spot a cooking sound comes from. */
+  cook(x: number, z: number, y: number, voice: CookVoice): void {
+    this.b.prop({ kind: 'cook', x: this.ox + x, y: this.oy + y, z: this.oz + z, voice });
   }
 
   /** A grille on a surface that faces `gaze`, centred at (x, y) on depth z. */

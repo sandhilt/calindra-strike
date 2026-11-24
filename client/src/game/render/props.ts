@@ -11,6 +11,7 @@ import {
   escalatorPhase,
   fanAngle,
   fillStepSlot,
+  flamePose,
   lifeFraction,
   nearestStop,
   newStepSlot,
@@ -19,6 +20,7 @@ import {
   TREAD_THICKNESS_UNITS,
   wispPose,
   type DropPose,
+  type FlamePose,
   type StepSlot,
   type WispPose,
 } from './prop-motion.ts';
@@ -411,6 +413,92 @@ function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGro
   };
 }
 
+const FLAME_RADIAL_SEGMENTS = 5;
+const FLAME_RADIUS_RATIO = 0.5;
+const FLAME_CORE_RADIUS_RATIO = 0.55;
+const FLAME_CORE_HEIGHT_RATIO = 0.62;
+
+function flameLayer(geometry: THREE.BufferGeometry, count: number, color: number, opacity: number) {
+  const material = new THREE.MeshBasicMaterial({
+    color, opacity, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function createFlames(items: readonly PropOf<'flame'>[]) {
+  const geometry = new THREE.ConeGeometry(FLAME_RADIUS_RATIO, 1, FLAME_RADIAL_SEGMENTS, 1, true);
+  geometry.translate(0, 0.5, 0);
+  const outer = flameLayer(geometry, items.length, 0xff640e, 0.72);
+  const core = flameLayer(geometry, items.length, 0xffdc46, 0.9);
+  const object = groupOf(outer, core);
+  const transform = new THREE.Object3D();
+  const pose: FlamePose = { height: 1, width: 1, swayRadians: 0 };
+  let seconds = 0;
+
+  function update(dt: number): void {
+    seconds += dt;
+    for (let i = 0; i < items.length; i++) {
+      const flame = items[i];
+      flamePose(pose, seconds, i);
+      const width = flame.size * pose.width;
+      const height = flame.size * pose.height;
+      transform.position.set(flame.x, flame.y, flame.z);
+      transform.rotation.z = pose.swayRadians;
+      transform.scale.set(width, height, width);
+      transform.updateMatrix();
+      outer.setMatrixAt(i, transform.matrix);
+      const coreWidth = width * FLAME_CORE_RADIUS_RATIO;
+      transform.scale.set(coreWidth, height * FLAME_CORE_HEIGHT_RATIO, coreWidth);
+      transform.updateMatrix();
+      core.setMatrixAt(i, transform.matrix);
+    }
+    outer.instanceMatrix.needsUpdate = true;
+    core.instanceMatrix.needsUpdate = true;
+  }
+
+  update(0);
+  return {
+    object,
+    update,
+    dispose() {
+      object.removeFromParent();
+      outer.dispose();
+      core.dispose();
+      outer.material.dispose();
+      core.material.dispose();
+      geometry.dispose();
+    },
+  };
+}
+
+function buildFlames(items: readonly PropOf<'flame'>[], ctx: PropContext): PropGroup {
+  const idle = still();
+  if (items.length === 0) return idle;
+  let flames: ReturnType<typeof createFlames> | null = null;
+
+  function setQuality(profile: QualityProfile): void {
+    if (profile.kitchenFire && !flames) {
+      flames = createFlames(items);
+      idle.object.add(flames.object);
+    } else if (!profile.kitchenFire && flames) {
+      flames.dispose();
+      flames = null;
+    }
+  }
+
+  setQuality(ctx.profile);
+  return {
+    object: idle.object,
+    update(dt) {
+      flames?.update(dt);
+    },
+    setQuality,
+  };
+}
+
 const LIFT_FRAME_COLOR = 0x2b2e33;
 const LIFT_CAB_COLOR = 0xaab1ba;
 /** Side of one tile of the mall floor texture (`tile` in textures.ts). */
@@ -536,6 +624,8 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   fountain: buildFountains,
   vent: buildVents,
   lift: buildLifts,
+  flame: buildFlames,
+  cook: still,
 };
 
 function isPropKind(kind: string): kind is PropKind {

@@ -506,6 +506,10 @@ const LIFT_TILE_UNITS = 96;
 const LIFT_LAMP_ON = 0x6dff7a;
 const LIFT_LAMP_OFF = 0x3a3f46;
 const LIFT_LAMP_WAIT = 0xff5a4e;
+/** Thickness of the shaft's glass walls, where the doorway panes stand (the same as `LIFT_WALL` in the map). */
+const LIFT_WALL_UNITS = 6;
+/** A fully open pane keeps a sliver, so its scale never reaches zero. */
+const MIN_PANE_SCALE = 0.02;
 
 interface Cab {
   readonly group: THREE.Group;
@@ -558,7 +562,16 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
       place.add(box(14, 3, 3.2, lamp, 0, y, z));
       return lamp;
     });
-    const schedule: Lift = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, stops: lift.stops.map((stop) => stop.y) };
+    /** The doorway of each stop is shut with glass panes that slide apart while the cab waits there, as the doors of the collision do. */
+    const stopDoors = lift.stops.map((stop) => {
+      const z = (stop.side === 'front' ? -1 : 1) * (half.z + LIFT_WALL_UNITS / 2);
+      return [-1, 1].map((side) => {
+        const pane = box(half.x + LIFT_WALL_UNITS, LIFT_DOOR_HEIGHT_UNITS, 1.5, doorMat, 0, stop.y + LIFT_DOOR_HEIGHT_UNITS / 2, z);
+        place.add(pane);
+        return { pane, side };
+      });
+    });
+    const schedule: Lift = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, stops: lift.stops.map((stop) => stop.y), doors: [] };
     const cabs: Cab[] = Array.from({ length: 1 }, () => {
       const group = new THREE.Group();
       group.add(box(lift.width - 4, 3, lift.depth - 4, floorMat, 0, -1, 0));
@@ -584,11 +597,19 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
       group.position.set(0, 0, 0);
       return { group, doors, lamps };
     });
-    return { lift, schedule, cabs, lintels };
+    return { lift, schedule, cabs, lintels, stopDoors };
   });
   const pose = (serverTick: number): void => {
-    for (const { lift, schedule, cabs, lintels } of shafts) {
+    for (const { lift, schedule, cabs, lintels, stopDoors } of shafts) {
       const { y } = liftCab(schedule, serverTick);
+      stopDoors.forEach((panes, k) => {
+        const shut = Math.max(1 - doorOpening(Math.abs(y - lift.stops[k].y)), MIN_PANE_SCALE);
+        const paneWidth = lift.width / 2 + LIFT_WALL_UNITS;
+        for (const { pane, side } of panes) {
+          pane.scale.x = shut;
+          pane.position.x = side * (paneWidth - (paneWidth * shut) / 2);
+        }
+      });
       const standing = new Set<number>();
       cabs.forEach((cab) => {
         cab.group.visible = true;

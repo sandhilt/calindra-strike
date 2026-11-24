@@ -15,6 +15,12 @@ test('the poster box keeps its 4:3 shape so the wordmark cut-out stays on the pr
   assert.match(rule, /radial-gradient\(ellipse/);
 });
 
+test('the poster is faded enough to leave the lobby words readable', () => {
+  const rule = css.slice(css.indexOf('.lobby-cover {'), css.indexOf('}', css.indexOf('.lobby-cover {')));
+  const opacity = Number(/opacity:\s*([\d.]+)/.exec(rule)?.[1]);
+  assert.ok(opacity > 0 && opacity <= 0.5, 'opacity ' + opacity);
+});
+
 test('the lobby has no icon grid any more', () => {
   assert.doesNotMatch(css, /\.tile-grid/);
 });

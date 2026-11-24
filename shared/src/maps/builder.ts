@@ -1,4 +1,4 @@
-import type { Lift } from '../lift.ts';
+import type { Lift, LiftDoor } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
 import { vec3 } from '../math.ts';
 import { STORE_BRANDS, type FoodBrand } from './brands.ts';
@@ -176,11 +176,18 @@ export class MapBuilder {
     this.restaurants.push({ x: ax, y, z: az, name: STORE_BRANDS[brand].name, brand });
   }
 
-  /** A lift shaft's inner footprint and the floors it serves, turned with the half being replayed. */
-  lift(minX: number, minZ: number, maxX: number, maxZ: number, stops: readonly number[]): void {
+  /** A lift shaft's inner footprint, the floors it serves and the wall slab of each doorway, turned with the half being replayed. */
+  lift(minX: number, minZ: number, maxX: number, maxZ: number, stops: readonly number[], doors: readonly LiftDoor[]): void {
     const [ax1, az1] = this.rotXZ(minX, minZ);
     const [ax2, az2] = this.rotXZ(maxX, maxZ);
-    this.lifts.push({ minX: Math.min(ax1, ax2), maxX: Math.max(ax1, ax2), minZ: Math.min(az1, az2), maxZ: Math.max(az1, az2), stops });
+    this.lifts.push({
+      minX: Math.min(ax1, ax2), maxX: Math.max(ax1, ax2), minZ: Math.min(az1, az2), maxZ: Math.max(az1, az2), stops,
+      doors: doors.map((d) => {
+        const [dx1, dz1] = this.rotXZ(d.minX, d.minZ);
+        const [dx2, dz2] = this.rotXZ(d.maxX, d.maxZ);
+        return { y: d.y, minX: Math.min(dx1, dx2), maxX: Math.max(dx1, dx2), minZ: Math.min(dz1, dz2), maxZ: Math.max(dz1, dz2) };
+      }),
+    });
   }
 
   /** A place inside a room that roaming bots visit, standing on a floor at `y`. */

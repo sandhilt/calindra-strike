@@ -197,6 +197,65 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     label(g, 'Livraria da', W / 2, 78, 48, '#efe6cf', SERIF, W - 60, 'italic');
     label(g, 'Travessura', W / 2, 158, 92, '#efe6cf', SERIF, W - 60, 'bold');
   },
+  samsong(g) {
+    panel(g, '#ffffff');
+    g.fillStyle = '#1428a0';
+    g.beginPath();
+    g.ellipse(W / 2, H / 2, 236, 96, 0, 0, Math.PI * 2);
+    g.fill();
+    g.save();
+    g.translate(W / 2, H / 2 + 4);
+    g.scale(1.25, 1);
+    label(g, 'SAMSONG', 0, 0, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 330);
+    g.restore();
+  },
+  'ray-bao'(g) {
+    panel(g, '#161616');
+    g.fillStyle = '#d71f26';
+    g.beginPath();
+    g.ellipse(W / 2, H / 2, 232, 92, 0, 0, Math.PI * 2);
+    g.fill();
+    label(g, 'Ray-Bão', W / 2, H / 2 + 4, 104, '#ffffff', 'Brush Script MT, ' + SERIF, 380, 'italic bold');
+  },
+  pandorga(g) {
+    panel(g, '#ffffff');
+    label(g, 'pandorga', W / 2, 112, 96, '#2b2b2b', SERIF, W - 80, 'bold');
+    g.fillStyle = '#e77aa6';
+    g.beginPath();
+    g.arc(W / 2 + 9, 52, 12, 0, Math.PI * 2);
+    g.fill();
+    label(g, 'JOIAS E CHARMS', W / 2, 192, 30, '#8d8d8d', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  sentauro(g) {
+    panel(g, '#e4002b');
+    g.fillStyle = '#161616';
+    g.fillRect(0, 186, W, 22);
+    label(g, 'SENTAURO', W / 2, 108, 100, '#ffffff', 'Arial Black, Arial, sans-serif', W - 50, 'italic');
+    label(g, 'ESPORTES', W / 2, 226, 26, '#ffffff', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  'brinco-center'(g) {
+    panel(g, '#ffd400');
+    const text = 'BRINCO';
+    const colors = ['#e4002b', '#1f6fd1', '#2f9e44', '#e4002b', '#1f6fd1', '#2f9e44'];
+    g.font = 'bold 116px Arial Black, Arial, sans-serif';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const widths = [...text].map((c) => g.measureText(c).width);
+    let x = (W - widths.reduce((a, b) => a + b, 0)) / 2;
+    [...text].forEach((c, i) => {
+      g.fillStyle = colors[i];
+      g.fillText(c, x, 100);
+      x += widths[i];
+    });
+    label(g, 'CENTER', W / 2, 200, 56, '#161616', 'Arial Black, Arial, sans-serif', W - 160);
+  },
+  loccitano(g) {
+    panel(g, '#f2c200');
+    label(g, "L'OCCITANO", W / 2, 100, 80, '#1c3a6b', SERIF, W - 50, 'bold');
+    g.fillStyle = '#1c3a6b';
+    g.fillRect(70, 152, W - 140, 4);
+    label(g, 'EM PROVENÇA', W / 2, 196, 34, '#1c3a6b', SERIF, W - 120, 'italic');
+  },
 };
 
 /** The sign drawn on a plain canvas, for the 2D logo of a banner. */

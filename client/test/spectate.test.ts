@@ -106,7 +106,7 @@ test('a wall pulls the chase camera in and never lets it cross', () => {
 
 test('chase camera reaches walls in the real collision world', () => {
   const box = { min: { x: -500, y: 0, z: 240 }, max: { x: 500, y: 300, z: 260 }, solid: true, shootThrough: false };
-  const world = new CollisionWorld({ boxes: [box] } as never);
+  const world = new CollisionWorld({ boxes: [box], lifts: [] } as never);
   const behindWall = chasePose({ ...player, z: 200 }, world);
   assert.ok(behindWall.z < 240, 'camera stays in front of the wall at z=240');
 });

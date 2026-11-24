@@ -55,6 +55,7 @@ import {
   ZONE_LEGS,
   absorbArmor,
   applyCmd,
+  inLiftCab,
   isActiveCommand,
   refillReserve,
   clamp,
@@ -1307,7 +1308,7 @@ export class Game {
         yaw: s.yaw,
         stance: s.stance,
         lean: s.lean,
-        hittable: p.alive && !s.dropping && s.protect === 0,
+        hittable: p.alive && !s.dropping && s.protect === 0 && !this.inCab(s),
       };
       if (p.history.length < HISTORY) p.history.push(e);
       else {
@@ -1317,13 +1318,19 @@ export class Game {
     }
   }
 
+  /** The cab is a safe room: nobody in it can be shot, and a shot fired from it hurts nobody, glass or not. */
+  private inCab(s: { x: number; y: number; z: number }): boolean {
+    return inLiftCab(this.map.lifts, s.x, s.y, s.z, this.tick);
+  }
+
   private handleShot(p: ServerPlayer, shot: ShotInfo, interp: number): void {
     const def = weaponDef(shot.weapon);
     const now = this.now();
     const t = clamp(interp, now - LAGCOMP_MAX_MS, now);
     const targets: { q: ServerPlayer; x: number; y: number; z: number; yaw: number; stance: Stance; lean: number }[] = [];
+    const shooterSafe = this.inCab(p.state);
     for (const q of this.players.values()) {
-      if (q === p || !q.alive || q.state.dropping || q.state.protect > 0) continue;
+      if (shooterSafe || q === p || !q.alive || q.state.dropping || q.state.protect > 0 || this.inCab(q.state)) continue;
       if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
@@ -1669,7 +1676,7 @@ export class Game {
         (s.slide > 0 ? RF_SLIDE : 0) |
         (s.dropping ? RF_DROP : 0) |
         RF_ALIVE |
-        (s.protect > 0 ? RF_PROTECT : 0) |
+        (s.protect > 0 || this.inCab(s) ? RF_PROTECT : 0) |
         (s.onGround ? RF_GROUND : 0) |
         (s.reload > 0 ? RF_RELOAD : 0) |
         (s.zoom > 0 ? RF_ZOOM : 0) |

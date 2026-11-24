@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES,
+  dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   SUPPLY_COOLDOWN_TICKS, inSupplyReach, needsSupply, resupply,
@@ -256,6 +256,7 @@ export interface GameOptions {
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
   friendlyFire?: boolean; // team modes only: bullets hurt teammates (off unless the operator turns it on)
+  objectiveRespawnMs?: number; // what a death costs in the objective modes (default RESPAWN_OBJECTIVE_SECONDS)
   plantTimeoutMs?: number; // time the attackers have to plant before the laptop goes to the other team (0 = no limit)
   tdmLimit?: number; // team kills to win a TDM match early (0 = timer only)
   airdropFirstMs?: number;
@@ -358,6 +359,7 @@ export class Game {
   get ctfLimit(): number { return this.opts.ctfLimit ?? 3; }
   get defuseLimit(): number { return this.opts.defuseLimit ?? 5; }
   get friendlyFire(): boolean { return this.opts.friendlyFire ?? false; }
+  private respawnTicks(): number { return respawnTicksOf(this.mode, this.opts.objectiveRespawnMs === undefined ? undefined : Math.round(this.opts.objectiveRespawnMs / TICK_MS)); }
   get plantTimeoutMs(): number { return this.opts.plantTimeoutMs ?? BOMB_PLANT_TIMEOUT_SECONDS * 1000; }
 
   private scoreLimit(): number {
@@ -1102,6 +1104,7 @@ export class Game {
       winner: podium ? this.winner : undefined,
       next: podium ? this.rotation[(this.rotationIndex + 1) % this.rotation.length] : undefined,
       vote: podium ? { options: this.voteOptions, counts: this.voteCounts() } : undefined,
+      respawnMs: this.respawnTicks() * TICK_MS,
     };
   }
 
@@ -1384,7 +1387,7 @@ export class Game {
     victim.deaths++;
     victim.deathStreak++;
     victim.streak = 0;
-    victim.respawnAt = this.tick + MODE_RULES[this.mode].respawnTicks;
+    victim.respawnAt = this.tick + this.respawnTicks();
     victim.state.health = 0;
     victim.queue.length = 0;
     const teamkill = killer !== victim && this.sameTeam(killer, victim);

@@ -16,7 +16,7 @@ import {
   INTERP_DELAY_MS,
   liftClockTick,
   MODE_LABEL,
-  MODE_RULES,
+  respawnTicksOf,
   type MapDef,
   defuseBases,
   type MatchInfo,
@@ -1974,7 +1974,7 @@ export class ClientGame {
     }
 
     if (!this.alive) {
-      const left = Math.max(0, MODE_RULES[this.match.mode].respawnTicks * TICK_MS - (performance.now() - this.deathAt));
+      const left = Math.max(0, (this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
       if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);

@@ -78,6 +78,18 @@ describe('Game', () => {
     assert.equal(b.state.health, 100);
   });
 
+  it('tells clients what a death costs: the operator wait in objective modes, 5 seconds in deathmatch', () => {
+    const welcomeFor = (modes: 'ctf' | 'tdm', objectiveRespawnMs?: number) => {
+      const game = new Game({ maxPlayers: 8, matchMs: 60_000, podiumMs: 5_000, warmupMinPlayers: 2, modes, objectiveRespawnMs });
+      let match: { respawnMs?: number } | undefined;
+      game.join('A', 0, WEAPON.RIFLE, (d) => { const msg = JSON.parse(d); if (msg.t === 'welcome') match = msg.match; });
+      return match?.respawnMs;
+    };
+    assert.equal(welcomeFor('ctf'), 12_000);
+    assert.equal(welcomeFor('ctf', 20_000), 20_000);
+    assert.equal(welcomeFor('tdm', 20_000), 5_000);
+  });
+
   it('respawns the dead after 5 seconds, dropping from the sky', () => {
     const { game, join } = setup();
     const a = join('A');

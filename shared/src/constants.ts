@@ -83,7 +83,8 @@ export const MAX_ARMOR = 100;
 /** Respawn wait in the kill modes, where a death costs only a few seconds (team and free-for-all deathmatch). */
 export const RESPAWN_TICKS = 5 * TICK_RATE;
 /** Respawn wait in the objective modes (capture the flag, debug defusion, lunch hour), so a death costs more than a detour (tuning value). */
-export const RESPAWN_OBJECTIVE_TICKS = 12 * TICK_RATE;
+export const RESPAWN_OBJECTIVE_SECONDS = 12;
+export const RESPAWN_OBJECTIVE_TICKS = RESPAWN_OBJECTIVE_SECONDS * TICK_RATE;
 export const LAGCOMP_MAX_MS = 250;
 export const INTERP_DELAY_MS = 100;
 
@@ -187,7 +188,7 @@ export const BLACK_FRIDAY_DISCOUNT_PERCENT = 50;
 export const BLACK_FRIDAY_FUSE_TICKS = (FUSE_TICKS * (100 - BLACK_FRIDAY_DISCOUNT_PERCENT)) / 100;
 export const BLACK_FRIDAY_FUSE_MS = (BLACK_FRIDAY_FUSE_TICKS * 1000) / TICK_RATE;
 /** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
-export const BOMB_PLANT_TIMEOUT_SECONDS = 30;
+export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.
 // Sized so a player pressed against any corner still reaches it: desk corner within DEFUSE_RADIUS_UNITS,
 // crate corner within CTF_PICKUP_RADIUS_UNITS (half size plus PLAYER_RADIUS, along both axes).

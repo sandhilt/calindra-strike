@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODE_RULES, RESPAWN_OBJECTIVE_TICKS, RESPAWN_TICKS, GAME_MODES, BTN, BTN_MASK, RF_AIM, RF_ALIVE, RF_DUCK, RF_GROUND, RF_PRONE, RF_SLIDE, RF_SPRINT, RF_ZOOM, STANCE, leanOfRow, parseClientMessage, sanitizeChat, sanitizeName, stanceFromFlags } from '../src/index.ts';
+import { MODE_RULES, respawnTicksOf, RESPAWN_OBJECTIVE_TICKS, RESPAWN_TICKS, GAME_MODES, BTN, BTN_MASK, RF_AIM, RF_ALIVE, RF_DUCK, RF_GROUND, RF_PRONE, RF_SLIDE, RF_SPRINT, RF_ZOOM, STANCE, leanOfRow, parseClientMessage, sanitizeChat, sanitizeName, stanceFromFlags } from '../src/index.ts';
 
 describe('parseClientMessage', () => {
   it('accepts a valid hello and input packet', () => {
@@ -107,9 +107,16 @@ describe('remote player rows', () => {
 
 describe('respawn time by mode', () => {
   it('keeps the quick respawn in the deathmatches and waits longer in every objective mode', () => {
-    assert.equal(MODE_RULES.ffa.respawnTicks, RESPAWN_TICKS);
-    assert.equal(MODE_RULES.tdm.respawnTicks, RESPAWN_TICKS);
-    for (const mode of GAME_MODES.filter((m) => m !== 'ffa' && m !== 'tdm')) assert.equal(MODE_RULES[mode].respawnTicks, RESPAWN_OBJECTIVE_TICKS, mode);
+    assert.equal(respawnTicksOf('ffa'), RESPAWN_TICKS);
+    assert.equal(respawnTicksOf('tdm'), RESPAWN_TICKS);
+    for (const mode of GAME_MODES.filter((m) => m !== 'ffa' && m !== 'tdm')) assert.equal(respawnTicksOf(mode), RESPAWN_OBJECTIVE_TICKS, mode);
     assert.ok(RESPAWN_OBJECTIVE_TICKS > RESPAWN_TICKS);
+  });
+
+  it('lets the operator change only the objective modes wait', () => {
+    assert.equal(respawnTicksOf('ctf', 7), 7);
+    assert.equal(respawnTicksOf('almoco', 7), 7);
+    assert.equal(respawnTicksOf('tdm', 7), RESPAWN_TICKS);
+    assert.equal(respawnTicksOf('ffa', 7), RESPAWN_TICKS);
   });
 });

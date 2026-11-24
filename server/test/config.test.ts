@@ -144,9 +144,23 @@ it('configures the radio spam guard', () => {
   }
 });
 
+it('configures the objective modes respawn wait in seconds within 1..60', () => {
+  stubEnv('RESPAWN_OBJECTIVE_SECONDS', '');
+  assert.equal(loadConfig().objectiveRespawnMs, 12_000);
+  for (const [value, ms] of [['1', 1_000], ['20', 20_000], ['60', 60_000]] as const) {
+    stubEnv('RESPAWN_OBJECTIVE_SECONDS', value);
+    assert.equal(loadConfig().objectiveRespawnMs, ms);
+  }
+  for (const value of ['0', '61', 'abc']) {
+    stubEnv('RESPAWN_OBJECTIVE_SECONDS', value);
+    assert.throws(() => loadConfig(), /RESPAWN_OBJECTIVE_SECONDS/);
+  }
+  stubEnv('RESPAWN_OBJECTIVE_SECONDS', '');
+});
+
 it('configures the debug defusion plant timeout in seconds within 0..3600 and lets the operator turn it off', () => {
   stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', '');
-  assert.equal(loadConfig().plantTimeoutMs, 30_000);
+  assert.equal(loadConfig().plantTimeoutMs, 60_000);
   for (const [value, ms] of [['0', 0], ['90', 90_000], ['3600', 3_600_000]] as const) {
     stubEnv('DEFUSE_PLANT_TIMEOUT_SECONDS', value);
     assert.equal(loadConfig().plantTimeoutMs, ms);

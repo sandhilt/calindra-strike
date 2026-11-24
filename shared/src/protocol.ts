@@ -135,13 +135,15 @@ export const MODE_LABEL: Record<GameMode, string> = {
 };
 
 export const MODE_RULES = {
-  ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false, respawnTicks: RESPAWN_TICKS },
-  tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true, respawnTicks: RESPAWN_TICKS },
-  ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
-  defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
-  almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false, respawnTicks: RESPAWN_OBJECTIVE_TICKS },
+  ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false, objective: false },
+  tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true, objective: false },
+  ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false, objective: true },
+  defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false, objective: true },
+  almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false, objective: true },
 } as const;
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
+/** Ticks a death costs: the objective modes wait longer, and an operator can tune that wait (`RESPAWN_OBJECTIVE_SECONDS`). */
+export function respawnTicksOf(mode: GameMode, objectiveTicks: number = RESPAWN_OBJECTIVE_TICKS): number { return MODE_RULES[mode].objective ? objectiveTicks : RESPAWN_TICKS; }
 
 export interface ResultRow {
   id: number;
@@ -166,6 +168,7 @@ export interface MatchInfo {
   winner?: number; // TDM: winning team, -1 draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
   vote?: VoteInfo; // podium: map vote for the next match
+  respawnMs?: number; // what a death costs in this mode on this server (older servers omit it)
 }
 
 export interface VoteOption {

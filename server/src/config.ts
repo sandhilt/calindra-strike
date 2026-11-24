@@ -1,4 +1,4 @@
-import { BOMB_PLANT_TIMEOUT_SECONDS, IDLE_KICK_SECONDS, IDLE_KICK_WARMUP_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { BOMB_PLANT_TIMEOUT_SECONDS, RESPAWN_OBJECTIVE_SECONDS, IDLE_KICK_SECONDS, IDLE_KICK_WARMUP_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -15,6 +15,7 @@ export interface Config {
   ctfLimit: number;
   defuseLimit: number;
   plantTimeoutMs: number;
+  objectiveRespawnMs: number;
   tdmLimit: number;
   airdropFirstMs: number;
   botFill: number;
@@ -113,6 +114,7 @@ export function loadConfig(): Config {
     ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
     defuseLimit: int('DEFUSE_SCORE_LIMIT', 5, 0, 50),
     plantTimeoutMs: flag('DEFUSE_PLANT_TIMEOUT', true) ? int('DEFUSE_PLANT_TIMEOUT_SECONDS', BOMB_PLANT_TIMEOUT_SECONDS, 0, 3600) * 1000 : 0,
+    objectiveRespawnMs: int('RESPAWN_OBJECTIVE_SECONDS', RESPAWN_OBJECTIVE_SECONDS, 1, 60) * 1000,
     tdmLimit: int('TDM_SCORE_LIMIT', 50, 0, 1000),
     airdropFirstMs: int('AIRDROP_FIRST_SECONDS', 25, 1, 600) * 1000,
     botFill: int('BOT_FILL', 0, 0, 64),

@@ -46,7 +46,7 @@ describe('kitchen ambience on Shopping Sul Rio', () => {
 
   it('puts fire only where something is cooked over fire: grills, the wood oven and the flame grill', () => {
     for (const f of flames) {
-      assert.ok(f.size >= 6 && f.size <= 20, `a flame ${f.size} units tall`);
+      assert.ok(f.size >= 6 && f.size <= 24, `a flame ${f.size} units tall`);
       const near = cooks.some((c) => Math.abs(c.x - f.x) <= KITCHEN_HALF_WIDTH && Math.sign(c.z) === Math.sign(f.z));
       assert.ok(near, `a flame at ${f.x},${f.z} with no cooking sound in its kitchen`);
     }

@@ -1,5 +1,7 @@
 # Calindra Strike
 
+![Calindra Strike, pôster tático](client/public/brand/cover.jpg)
+
 > Tiro tático com alma de CS 1.6, direto no navegador. Salte do céu, pouse onde quiser e dispute o pódio.
 
 An original browser FPS with Counter-Strike 1.6 style gameplay, made for the Calindra office:

@@ -1286,3 +1286,51 @@ test('move_to resolves a height near a floor to the height the pilot will actual
   const { intent } = JSON.parse(JSON.stringify(session.setIntent({ kind: 'moveTo', x: 0, z: 800, y: 232 }))) as { intent: { y: number } };
   assert.equal(intent.y, 192);
 });
+
+test('cycle_weapon steps the wheel from the weapon in hand and returns the weapon it lands on', async () => {
+  for (const [held, direction, request, target] of [
+    [WEAPON.RIFLE, 'next', 2, WEAPON.PISTOL],
+    [WEAPON.RIFLE, 'previous', 3, WEAPON.HAMMER],
+    [WEAPON.PISTOL, 'next', 3, WEAPON.HAMMER],
+    [WEAPON.HAMMER, 'next', 1, WEAPON.RIFLE],
+    [WEAPON.HAMMER, 'previous', 2, WEAPON.PISTOL],
+  ] as const) {
+    const { call, tickButtons, socket, session } = await playing(held);
+    const response = await call('cycle_weapon', { direction });
+    assert.equal(response.isError, undefined, `${held} ${direction}`);
+    assert.partialDeepStrictEqual(JSON.parse(response.content[0].text), { ...noActions, weapon: weaponDef(target).name });
+    tickButtons();
+    assert.deepEqual((JSON.parse(socket.sent.at(-1)!).c as number[][]).map((c) => c[4]), [request, 0], `${held} ${direction}`);
+    session.close();
+  }
+});
+
+test('cycle_weapon rejects an unknown direction and a dead player', async () => {
+  const { call, socket, session } = await playing(WEAPON.RIFLE);
+  for (const a of [{ direction: 'sideways' }, { direction: 'toString' }, {}]) {
+    assert.equal((await call('cycle_weapon', a)).isError, true, JSON.stringify(a));
+  }
+  const dead = createPlayerState();
+  dead.health = 0;
+  socket.message({ t: 'snap', time: 300, me: packState(dead), ps: [], ad: [] });
+  assert.equal((await call('cycle_weapon', { direction: 'next' })).isError, true);
+  session.close();
+});
+
+test('spray sends the spray message once per call and refuses when dead', async () => {
+  const { call, socket, session } = await playing(WEAPON.RIFLE);
+  const sprays = () => socket.sent.filter((m) => m === JSON.stringify({ t: 'spray' })).length;
+  assert.equal(sprays(), 0);
+  const response = await call('spray');
+  assert.equal(response.isError, undefined);
+  assert.equal(JSON.parse(response.content[0].text).requested, true);
+  assert.equal(sprays(), 1);
+  await call('spray');
+  assert.equal(sprays(), 2);
+  const dead = createPlayerState();
+  dead.health = 0;
+  socket.message({ t: 'snap', time: 300, me: packState(dead), ps: [], ad: [] });
+  assert.equal((await call('spray')).isError, true);
+  assert.equal(sprays(), 2);
+  session.close();
+});

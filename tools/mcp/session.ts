@@ -21,6 +21,8 @@ import {
   type GameEvent,
   type ClientMsg,
   weaponDef,
+  cycleWeaponSlot,
+  type WeaponCycleDirection,
   type PlayerState,
   type WeaponId,
   LUNCH_COLLEAGUES,
@@ -576,6 +578,21 @@ export class GameSession {
     if (target === null) throw new Error('No previous weapon');
     this.actions.requestWeapon(WEAPON_SLOT_REQUEST[slot]);
     return { ...this.actionState(), weapon: weaponDef(target).name };
+  }
+  /** The mouse wheel: steps from the weapon in hand through primary, pistol and hammer, wrapping around. */
+  cycleWeapon(direction: WeaponCycleDirection): object {
+    const self = this.livingSelf();
+    const slot = cycleWeaponSlot(self, direction);
+    const slots = weaponSlots(self);
+    const target = slot === 1 ? slots.primary : slot === 2 ? slots.pistol : slots.hammer;
+    this.actions.requestWeapon(slot);
+    return { ...this.actionState(), weapon: weaponDef(target).name };
+  }
+  /** Sends the spray key. The server places it only on a wall in reach, so the reply says what to check next. */
+  spray(): object {
+    this.livingSelf();
+    this.send({ t: 'spray' });
+    return { requested: true, check: 'get_state scene.facing.spray or scene.sprays shows whether it landed' };
   }
   setZoom(level: number): object {
     const def = weaponDef(this.livingSelf().weapon);

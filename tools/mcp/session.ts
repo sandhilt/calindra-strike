@@ -590,7 +590,7 @@ export class GameSession {
   }
   /** Sends the spray key. The server places it only on a wall in reach, so the reply says what to check next. */
   spray(): object {
-    this.livingSelf();
+    if (this.livingSelf().dropping) throw new Error('Player is dropping');
     this.send({ t: 'spray' });
     return { requested: true, check: 'get_state scene.facing.spray or scene.sprays shows whether it landed' };
   }

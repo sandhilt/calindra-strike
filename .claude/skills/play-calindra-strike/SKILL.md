@@ -120,7 +120,7 @@ Things you can play with:
 
 - `timeOfDay` is the map's light (`phase` `day` | `afternoon` | `night`, `next`, `blend` 0..1 into the next phase). The cycle is a look only: night does not change what you perceive or how far you see, and it does not affect tactics.
 
-- `scene` (null while dead or dropping): `facing` is the crosshair surface (null for sky), `cover` lists nearby visible walls, boxes, windows and platforms (needs line of sight), `doors` includes openings and stairs, `landmarks` gives named places (map knowledge, no line of sight), `sprays` shows decals and authors. Lists are capped and nearest-first. The `spray` tool places one (`G`, 10 per spawn, 2 s apart, a wall within 128 units ahead of the crosshair; the server drops it silently otherwise, so check `scene.facing.spray`).
+- `scene` (null while dead or dropping): `facing` is the crosshair surface (null for sky), `cover` lists nearby visible walls, boxes, windows and platforms (needs line of sight), `doors` includes openings and stairs, `landmarks` gives named places (map knowledge, no line of sight), `sprays` shows decals and authors. Lists are capped and nearest-first. The `spray` tool places one (`G`, 10 per spawn, 2 s apart, a wall or floor within 128 units ahead of the crosshair; the server drops it silently otherwise, so check `scene.facing.spray`).
 
 ## Connection and protocol
 

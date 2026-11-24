@@ -1334,3 +1334,13 @@ test('spray sends the spray message once per call and refuses when dead', async 
   assert.equal(sprays(), 2);
   session.close();
 });
+
+test('spray refuses while dropping', async () => {
+  const { call, live, socket, session } = await playing(WEAPON.RIFLE);
+  live(WEAPON.RIFLE, false, true);
+  const response = await call('spray');
+  assert.equal(response.isError, true);
+  assert.match(JSON.stringify(response), /dropping/);
+  assert.equal(socket.sent.filter((m) => m === JSON.stringify({ t: 'spray' })).length, 0);
+  session.close();
+});

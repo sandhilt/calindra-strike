@@ -233,7 +233,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'spray',
-    description: 'Spray paint the wall in front of you (G), a decal with your colour. You get 10 per spawn, 2 s apart, and the wall must be within 128 units ahead of your crosshair; the server drops it silently otherwise. get_state scene.facing.spray and scene.sprays show whether it landed.',
+    description: 'Spray paint the surface in front of you (G), a decal with your colour, on a wall or the floor. You get 10 per spawn, 2 s apart, and the surface must be within 128 units ahead of your crosshair; the server drops it silently otherwise. get_state scene.facing.spray and scene.sprays show whether it landed.',
     properties: {},
     run: (s) => s.spray(),
   },

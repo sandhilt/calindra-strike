@@ -70,3 +70,21 @@ for (const map of getMaps()) {
     });
   });
 }
+
+for (const map of getMaps()) {
+  describe(`outside the walls of ${map.id}`, () => {
+    it('has no floor a player can stand on beyond the outermost wall', () => {
+      const world = new CollisionWorld(map);
+      const standable: string[] = [];
+      for (const axis of ['x', 'z'] as const) for (const sign of [-1, 1]) for (let reach = 0; reach <= 160; reach += 4) {
+        const edge = Math.max(...map.boxes.filter((b) => b.solid && b.mat !== 'clip' && b.max.y >= 200).map((b) => (axis === 'x' ? b.max.x : b.max.z)));
+        const p = sign * (edge + reach);
+        const x = axis === 'x' ? p : 0;
+        const z = axis === 'z' ? p : 0;
+        const ground = world.groundBelow(x, map.dropHeight, z, PLAYER_HALF_UNITS);
+        if (ground > -50 && !world.hullOverlaps(x, ground, z, STAND_HEIGHT)) standable.push(`${axis}=${p}`);
+      }
+      assert.deepEqual(standable.slice(0, 6), [], `${standable.length} standing spots outside the walls`);
+    });
+  });
+}

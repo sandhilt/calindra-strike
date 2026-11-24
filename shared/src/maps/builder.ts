@@ -4,6 +4,9 @@ import { vec3 } from '../math.ts';
 import { STORE_BRANDS, type FoodBrand } from './brands.ts';
 import type { Box, EscalatorTravel, MapFeature, MapLight, MapProp, Mat } from './types.ts';
 
+/** Top of the invisible columns that keep gliders inside a map, above the drop height (units). */
+const CLIP_TOP = 3200;
+
 export interface BoxOpts {
   solid?: boolean;
   shoot?: boolean;
@@ -63,6 +66,21 @@ export class MapBuilder {
       ax = nx;
     }
     return [ax, az];
+  }
+
+  /**
+   * An invisible solid ring just outside a perimeter wall of thickness `wall` around a floor of half sizes `x` and `z`.
+   * The floor slab and the clip column over the wall stop there, so without it a glider steered past a wall lands on the
+   * strip of floor beyond it, outside the map, or falls into the void.
+   */
+  sealOutside(x: number, z: number, wall = 32, reach = 256): void {
+    const ox = x + wall;
+    const oz = z + wall;
+    const opts = { visible: false, shoot: true };
+    this.add(-ox - reach, -64, -oz - reach, ox + reach, CLIP_TOP, -oz, 'clip', opts);
+    this.add(-ox - reach, -64, oz, ox + reach, CLIP_TOP, oz + reach, 'clip', opts);
+    this.add(ox, -64, -oz, ox + reach, CLIP_TOP, oz, 'clip', opts);
+    this.add(-ox - reach, -64, -oz, -ox, CLIP_TOP, oz, 'clip', opts);
   }
 
   add(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, mat: Mat, o: BoxOpts = {}): void {

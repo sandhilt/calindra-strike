@@ -22,6 +22,7 @@ export function buildEscritorio(): MapDef {
   b.add(-X - 32, WALL, Z, X + 32, 3200, Z + 32, 'clip', { visible: false, shoot: true });
   b.add(X, WALL, -Z, X + 32, 3200, Z, 'clip', { visible: false, shoot: true });
   b.add(-X - 32, WALL, -Z, -X, 3200, Z, 'clip', { visible: false, shoot: true });
+  b.sealOutside(X, Z);
   // neon baseboard + top band
   b.deco(-X, 0, -Z, X, 6, -Z + 3);
   b.deco(-X, 0, Z - 3, X, 6, Z);

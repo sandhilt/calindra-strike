@@ -155,6 +155,7 @@ export function buildShopping(): MapDef {
   b.add(-X - 32, WALL, Z, X + 32, 3200, Z + 32, 'clip', { visible: false, shoot: true });
   b.add(X, WALL, -Z, X + 32, 3200, Z, 'clip', { visible: false, shoot: true });
   b.add(-X - 32, WALL, -Z, -X, 3200, Z, 'clip', { visible: false, shoot: true });
+  b.sealOutside(X, Z);
 
   fountain(b);
 

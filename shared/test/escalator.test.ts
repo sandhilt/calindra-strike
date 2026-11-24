@@ -40,6 +40,15 @@ describe('escalator', () => {
     });
   }
 
+  for (const e of escalators.filter((p) => p.travel === 'down')) {
+    it(`sets an idle rider down on the landing at the foot of the descending one at ${e.x},${e.z}`, () => {
+      const s = standAt(e.x + e.dirX * (e.length - 40), e.z + e.dirZ * (e.length - 40), e.y + e.height + 40);
+      idleFor(s, 40 * TICK_RATE);
+      assert.equal(s.onGround, true);
+      assert.ok(Math.abs(s.y - e.y) < 1, `ended ${s.y.toFixed(1)} units up, the landing is at ${e.y}`);
+    });
+  }
+
   it('does not move a player standing on the open floor', () => {
     const s = standAt(0, -200, 100);
     const [x, z] = [s.x, s.z];

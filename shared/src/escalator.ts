@@ -63,7 +63,9 @@ export function escalatorDrift(map: MapDef, s: Pick<PlayerState, 'x' | 'y' | 'z'
     const dx = s.x - e.x;
     const dz = s.z - e.z;
     const along = dx * e.dirX + dz * e.dirZ;
-    if (along < 0 || along >= e.length) continue;
+    // A descending belt keeps carrying until the hull has cleared the first tread, not just the centre, or a rider stops on its edge above the landing.
+    const start = e.sign < 0 ? -PLAYER_RADIUS : 0;
+    if (along < start || along >= e.length) continue;
     if (Math.abs(dx * e.dirZ - dz * e.dirX) > e.halfWidth) continue;
     const low = treadAt(e, along - PLAYER_RADIUS);
     const high = treadAt(e, along + PLAYER_RADIUS);

@@ -160,7 +160,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'zoom',
-    description: 'For pistol, rifle, SMG, shotgun and LMG, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer and the Azeitadora reject zoom.',
+    description: 'For pistol, rifle, SMG, shotgun, LMG and the Azeitadora, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer rejects zoom.',
     properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
     required: ['level'],
     run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),

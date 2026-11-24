@@ -9,7 +9,9 @@ import {
   JET_DROP,
   CASCADE_DROP,
   WISPS_PER_VENT,
+  WISP_LIFE_SECONDS,
   WISP_MAX_ALPHA,
+  WISP_SINK_UNITS,
   dropPose,
   escalatorPhase,
   fillStepSlot,
@@ -96,18 +98,37 @@ test('fountain drops fly out and fall, ending below where they started', () => {
 });
 
 test('a vent wisp fades in and out and never gets denser than the faint maximum', () => {
-  const pose: WispPose = { out: 0, up: 0, side: 0, alpha: 0 };
+  const pose: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
   let peak = 0;
   for (let s = 0; s < 12; s += 0.1) {
     for (let i = 0; i < WISPS_PER_VENT; i++) {
       wispPose(pose, i, s, 0.3);
       assert.ok(pose.alpha >= 0 && pose.alpha <= WISP_MAX_ALPHA + 1e-9);
-      assert.ok(pose.out >= 0 && pose.up >= 0);
+      assert.ok(pose.out >= 0 && pose.down >= 0);
       peak = Math.max(peak, pose.alpha);
     }
   }
   assert.ok(peak > WISP_MAX_ALPHA * 0.9);
   assert.ok(WISP_MAX_ALPHA <= 0.25, 'meant to be barely visible');
+});
+
+test('a vent wisp sinks and never climbs, because the air from a vent is cold', () => {
+  const pose: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
+  let deepest = 0;
+  for (let s = 0; s < 12; s += 0.05) {
+    for (let i = 0; i < WISPS_PER_VENT; i++) {
+      wispPose(pose, i, s, 0.3);
+      assert.ok(pose.down >= 0, 'never above the grille');
+      assert.ok(pose.down <= WISP_SINK_UNITS + 1e-9);
+      deepest = Math.max(deepest, pose.down);
+    }
+  }
+  assert.ok(deepest > WISP_SINK_UNITS * 0.9, 'it does sink most of the way');
+  const early: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
+  const late: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
+  wispPose(early, 0, 0.3 * WISP_LIFE_SECONDS, 0);
+  wispPose(late, 0, 0.9 * WISP_LIFE_SECONDS, 0);
+  assert.ok(late.down - early.down > early.down, 'it falls faster as it goes');
 });
 
 test('only the nearest vents within earshot hum', () => {

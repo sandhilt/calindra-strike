@@ -314,7 +314,7 @@ class VentSmoke {
   private readonly material: THREE.PointsMaterial;
   private readonly positions: Float32Array;
   private readonly colors: Float32Array;
-  private readonly wisp: WispPose = { out: 0, up: 0, side: 0, alpha: 0 };
+  private readonly wisp: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
   private seconds = 0;
 
   constructor(private readonly vents: readonly PropOf<'vent'>[]) {
@@ -346,7 +346,7 @@ class VentSmoke {
         wispPose(this.wisp, i, this.seconds, seed);
         const k = n * WISPS_PER_VENT + i;
         this.positions[k * 3] = v.x + outX * (this.wisp.out + 2) - outZ * this.wisp.side;
-        this.positions[k * 3 + 1] = v.y + this.wisp.up;
+        this.positions[k * 3 + 1] = v.y - this.wisp.down;
         this.positions[k * 3 + 2] = v.z + outZ * (this.wisp.out + 2) + outX * this.wisp.side;
         this.colors[k * 4 + 3] = this.wisp.alpha;
       }

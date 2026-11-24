@@ -23,17 +23,6 @@ interface Status {
 /** The lobby has no login, so password managers must not offer to fill its fields: Bitwarden, LastPass and 1Password each read their own opt-out. */
 const NO_PASSWORD_MANAGER = { 'data-bwignore': 'true', 'data-lpignore': 'true', 'data-1p-ignore': 'true' } as const;
 
-const TILE_ICONS = [
-  ICONS.crate,
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>',
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l7-7M14 4l6 6-5 5-6-6zM9 9l-2 2"/></svg>',
-  ICONS.shield,
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 6H21l-5 4 2 7-6-4-6 4 2-7-5-4h6.5z"/></svg>',
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12a7 7 0 0 1 14 0M12 12v8M8 20h8M12 5V3"/></svg>',
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12h6M12 9v6"/></svg>',
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
-];
-
 function fmt(ms: number): string {
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -45,13 +34,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   let disposed = false;
   let closeBenchmark: (() => void) | undefined;
 
-  const tiles = h('div', { class: 'tile-grid', 'aria-hidden': 'true' });
-  for (let i = 0; i < 160; i++) {
-    const t = h('span');
-    if (i % 3 !== 1) t.append(svg(TILE_ICONS[(i * 7) % TILE_ICONS.length]));
-    tiles.append(t);
-  }
-
+  const cover = h('div', { class: 'lobby-cover', 'aria-hidden': 'true' });
   const dot = h('span', { class: 'dot' });
   const sTitle = h('div', { class: 'title', text: 'Procurando servidor…' });
   const sSub = h('div', { class: 'sub', text: 'arena da Calindra' });
@@ -179,6 +162,25 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     onPlay(settings, e.submitter === watch);
   });
 
+  const controlsButton = h('button', { class: 'btn controls-open', type: 'button', title: 'Ver e trocar as teclas do jogo', onclick: () => showControls(true) }, [svg(ICONS.controls), 'controles']);
+  const controlsBack = h('button', { class: 'btn controls-back', type: 'button', text: 'voltar', onclick: () => showControls(false) });
+  const controlsView = h('section', { class: 'lobby-controls', hidden: true, 'aria-label': 'Controles' }, [
+    h('header', {}, [
+      h('h2', { text: 'controles' }),
+      h('p', { class: 'sub', text: 'Clique numa tecla para trocar. O menu do jogo (Esc) mostra a mesma lista.' }),
+      controlsBack,
+    ]),
+    controlsList(settings.bindings, (bindings) => {
+      settings.bindings = bindings;
+      saveSettings(settings);
+    }),
+  ]);
+  controlsView.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    e.preventDefault();
+    showControls(false);
+  });
+
   const modeChipText = h('span', { text: 'TDM · todos contra todos' });
   const hero = h('section', { class: 'hero' }, [
     h('div', { class: 'top' }, [
@@ -202,13 +204,21 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
       h('span', { class: 'chip' }, [svg(ICONS.podium), 'Pódio dos 3 melhores']),
       h('span', { class: 'chip' }, [svg(ICONS.jump), 'Bunny hop liberado']),
     ]),
-    controlsList(settings.bindings),
     h('div', { class: 'hero-links' }, [
+      controlsButton,
       h('a', { class: 'github-link', href: GITHUB_URL, target: '_blank', rel: 'noopener noreferrer', title: 'Ver o código no GitHub', 'aria-label': 'Código do jogo no GitHub' }, [svg(ICONS.github)]),
     ]),
   ]);
 
-  const lobby = h('div', { class: 'lobby' }, [tiles, h('div', { class: 'lobby-inner' }, [hero, form])]);
+  const showControls = (open: boolean) => {
+    hero.hidden = open;
+    form.hidden = open;
+    controlsView.hidden = !open;
+    lobby.scrollTop = 0;
+    (open ? controlsBack : controlsButton).focus();
+  };
+
+  const lobby = h('div', { class: 'lobby' }, [cover, h('div', { class: 'lobby-inner' }, [hero, form, controlsView])]);
   app.replaceChildren(lobby);
   if (!settings.name) nameInput.focus();
 

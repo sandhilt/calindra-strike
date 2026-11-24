@@ -394,7 +394,7 @@ function floorOf(v: WorldView, s: PlayerState): { index: number; name: string; y
 }
 
 const LIFT_RULES =
-  'One cab per shaft that everybody shares, with no buttons: it keeps going up and down and stops about 1.5 seconds at every floor. Walk into the shaft and wait on the landing until the cab arrives, then step out through your floor\'s doorway while it waits there (jumping is off inside). secondsToTop is an average that counts the wait for the cab. The ground floor doorway faces the atrium; the others open onto their floor across the edge. move_to (give y for the floor) and hunt ride it for you.';
+  'One cab per shaft that everybody shares, with no buttons: it keeps going up and down and stops about 1.5 seconds at every floor. Wait at your floor\'s doorway: it is shut except while the cab waits there, so nobody steps into an empty shaft. When the cab arrives walk in, and step out through a doorway while it waits at that floor (jumping is off inside). secondsToTop is an average that counts the wait for the cab. The ground floor doorway faces the atrium; the others open onto their floor across the edge. move_to (give y for the floor) and hunt ride it for you.';
 
 function describeLifts(v: WorldView, describeRelative: Relative): object[] {
   const map = getMap(v.match.map);

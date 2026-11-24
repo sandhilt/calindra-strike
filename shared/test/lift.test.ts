@@ -2,10 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BTN, CollisionWorld, LIFT_CARRY_UNITS, LIFT_CLOCK_SLACK_TICKS, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, TICK_MS, WEAPON,
-  applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
+  applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftDoorOpen, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
-const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384] };
+const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384], doors: [] };
 
 /** A floor, a shaft with a doorway on its -z side at each upper stop, and a deck outside the door at every stop. */
 function shaftWorld(): CollisionWorld {
@@ -71,13 +71,24 @@ describe('the lift cab', () => {
     }
   });
 
-  it('carries a rider whose feet are just behind the cab floor in its direction of travel, and nobody else', () => {
+  it('carries a rider whose feet are on the cab floor, or just behind it in its direction of travel, and nobody else', () => {
     assert.equal(carriedBy({ y: 200, moving: 1 }, 195), true);
     assert.equal(carriedBy({ y: 200, moving: 1 }, 200 + 1), false, 'cab below the rider going up: the floor holds them');
     assert.equal(carriedBy({ y: 200, moving: 1 }, 200 - LIFT_CARRY_UNITS - 1), false, 'far below');
     assert.equal(carriedBy({ y: 200, moving: -1 }, 205), true);
     assert.equal(carriedBy({ y: 200, moving: -1 }, 195), false, 'cab above the rider going down');
-    assert.equal(carriedBy({ y: 192, moving: 0 }, 192), false, 'waiting: nobody is carried');
+    assert.equal(carriedBy({ y: 192, moving: 0 }, 192), true, 'waiting: the floor is under them, with no landing to stand on');
+    assert.equal(carriedBy({ y: 192, moving: 0 }, 192 - LIFT_CARRY_UNITS - 1), false, 'waiting on another floor');
+  });
+
+  it('opens a doorway only while the cab waits at its stop', () => {
+    const door = { y: 192, minX: -62, maxX: 62, minZ: 94, maxZ: 100 };
+    const open = [...Array(2 * PERIOD_TICKS).keys()].filter((tick) => liftDoorOpen(LIFT, door, tick));
+    assert.ok(open.length > 0);
+    for (const tick of open) assert.deepEqual(liftCab(LIFT, tick), { y: 192, moving: 0 });
+    assert.equal(liftDoorOpen(LIFT, door, 0), false, 'the cab waits on the ground floor');
+    assert.equal(liftDoorOpen(LIFT, door, LIFT_STOP_WAIT_TICKS + 30), false, 'the cab is passing');
+    assert.equal(liftDoorOpen(LIFT, door, LIFT_STOP_WAIT_TICKS + TICKS_UP + 1), true);
   });
 
   it('runs on the command clock when it is close to the server clock, and on the server clock when it is not', () => {
@@ -266,6 +277,24 @@ describe('the Shopping Sul Rio lifts', () => {
       go(60, BTN.FWD);
       assert.ok(Math.abs(s.z) > 690, 'out on the deck, z=' + s.z);
       assert.ok(Math.abs(s.y - 192) < 1, 'level with the deck, y=' + s.y);
+    });
+
+    it(`has no floor of its own at the upper stops, and a deck doorway stays shut until the cab waits there (${side < 0 ? 'north' : 'south'} half)`, () => {
+      for (const stop of [192, 384]) assert.equal(world.groundBelow(0, stop + 8, doorZ(616), 16), 0, 'nothing to stand on at ' + stop);
+      const s = rider(world, 0, 192, doorZ(780));
+      let t = 0;
+      const go = (ticks: number) => {
+        for (let i = 0; i < ticks; i++) {
+          world.liftTick = t++;
+          step(world, s, BTN.FWD, yaw + Math.PI);
+        }
+      };
+      go(LIFT_STOP_WAIT_TICKS - 5);
+      assert.ok(Math.abs(s.z) > 690, 'held at the shut door, z=' + s.z);
+      assert.ok(Math.abs(s.y - 192) < 1, 'still on the deck');
+      for (let i = 0; i < 60 * 30 && Math.abs(s.z) > 660; i++) go(1);
+      assert.ok(Math.abs(s.z) < 660, 'went in once the cab waited, z=' + s.z);
+      assert.equal(s.y, 192, 'standing on the cab');
     });
 
     it(`takes a rider all the way to the Mirante and back down by itself (${side < 0 ? 'north' : 'south'} half)`, () => {

@@ -15,8 +15,6 @@ import type { EscalatorTravel } from './types.ts';
 
 /** Doorway in the front rail for the lift: the shaft walls stand just outside it. */
 export const LIFT_GAP_HALF = 62;
-/** Landing under the cab's floor at each upper stop (the cab's floor tops out half a unit above the stop, so the two never share a surface). */
-const LANDING_THICKNESS = 4;
 const HOPPABLE_HEDGE = 10;
 const LOW_HEDGE = 22;
 const BOARD = 104;
@@ -151,9 +149,13 @@ function liftShaft(b: MapBuilder): void {
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK + doorTop, DECK3);
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK3 + doorTop, ROOF);
   b.deco(x0 - 2, ROOF, zFront - 2, x1 + 2, ROOF + 4, zBack + 2, 'charcoal');
-  // A solid landing at each upper stop, so the doorway never opens onto an empty shaft while the cab is elsewhere. The cab carries riders through it.
-  for (const stop of [DECK, DECK3]) b.add(LIFT_MIN_X, stop - LANDING_THICKNESS, LIFT_MIN_Z, LIFT_MAX_X, stop, LIFT_MAX_Z, 'tile');
-  b.lift(LIFT_MIN_X, LIFT_MIN_Z, LIFT_MAX_X, LIFT_MAX_Z, [0, DECK, DECK3]);
+  // The shaft has no floor at the upper stops: each doorway is shut across (see LiftDoor) unless the cab waits there.
+  const door = (y: number, minZ: number, maxZ: number) => ({ y, minX: x0, maxX: x1, minZ, maxZ });
+  b.lift(LIFT_MIN_X, LIFT_MIN_Z, LIFT_MAX_X, LIFT_MAX_Z, [0, DECK, DECK3], [
+    door(0, LIFT_MAX_Z, zBack),
+    door(DECK, zFront, LIFT_MIN_Z),
+    door(DECK3, zFront, LIFT_MIN_Z),
+  ]);
   b.prop({
     kind: 'lift', x: (LIFT_MIN_X + LIFT_MAX_X) / 2, z: (LIFT_MIN_Z + LIFT_MAX_Z) / 2, yaw: 0,
     width: LIFT_MAX_X - LIFT_MIN_X, depth: LIFT_MAX_Z - LIFT_MIN_Z, height: ROOF,

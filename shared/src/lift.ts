@@ -3,9 +3,20 @@ import { TICK_MS, TICK_RATE } from './constants.ts';
  * Glass lifts: one cab per shaft that everybody shares. Where it is depends only on the server clock, so the
  * server, every client's prediction and the drawn cab agree without any state to send. It goes up through every
  * stop and back down, waits at each one long enough to walk out through that floor's doorway, and nobody
- * presses anything. A player whose centre is in the footprint and whose feet are just behind the cab's floor
- * in its direction of travel rides with it.
+ * presses anything. A player whose centre is in the footprint and whose feet are on the cab's floor, or just
+ * behind it in its direction of travel, rides with it. The shaft has no floor of its own at the upper stops, so
+ * each doorway is shut (solid) except while the cab waits at it.
  */
+/** A doorway of the shaft: the wall slab across it, `LIFT_DOOR_HEIGHT_UNITS` high from the stop's floor. */
+export interface LiftDoor {
+  /** The stop whose cab opens it. */
+  y: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 export interface Lift {
   /** Inner footprint of the shaft (world units): a player is carried while their centre is inside it. */
   minX: number;
@@ -14,6 +25,7 @@ export interface Lift {
   maxZ: number;
   /** Floor heights the shaft serves, ascending. The first and last are where the cab holds. */
   stops: readonly number[];
+  doors: readonly LiftDoor[];
 }
 
 /** Ticks the cab stands still at every stop (1.5 s, a tuning value). */
@@ -90,7 +102,6 @@ export function liftCab(lift: Lift, tick: number): LiftCab {
   return { y: legs[0].from, moving: 0 };
 }
 
-/** Whether the cab carries a rider standing with feet at `y`: it moves, and its floor is just ahead of them. */
 /**
  * Whether a player stands in the cab: their centre is in the shaft and their feet are on the cab floor, moving or waiting
  * at a stop. Someone in the shaft with the cab on another floor is not in it.
@@ -100,9 +111,17 @@ export function inLiftCab(lifts: readonly Lift[], x: number, y: number, z: numbe
   return shaft !== undefined && Math.abs(liftCab(shaft, tick).y - y) <= LIFT_CARRY_UNITS;
 }
 
+/** Whether the cab carries a rider standing with feet at `y`: its floor is under them, or it moves and its floor is just ahead of them. */
 export function carriedBy(cab: LiftCab, y: number): boolean {
+  if (cab.moving === 0) return Math.abs(cab.y - y) <= LIFT_CARRY_UNITS;
   const ahead = (cab.y - y) * cab.moving;
-  return cab.moving !== 0 && ahead >= 0 && ahead <= LIFT_CARRY_UNITS;
+  return ahead >= 0 && ahead <= LIFT_CARRY_UNITS;
+}
+
+/** A doorway is open only while the cab waits at its stop; everywhere else it is shut. */
+export function liftDoorOpen(lift: Lift, door: LiftDoor, tick: number): boolean {
+  const cab = liftCab(lift, tick);
+  return cab.moving === 0 && Math.abs(cab.y - door.y) < 1;
 }
 
 /**

@@ -64,7 +64,19 @@ export class NavGrid {
     this.nx = Math.floor((b.maxX - 24 - this.minX) / CELL) + 1;
     this.nz = Math.floor((b.maxZ - 24 - this.minZ) / CELL) + 1;
     this.columns = Array.from({ length: this.nx * this.nz }, () => []);
+    // a lift doorway is shut except while the cab waits, but the grid maps where a rider can walk, so it is built with the doors open
+    world.withDoorsOpen(() => this.build(map));
 
+    const n = this.nodes.length;
+    this.g = new Float64Array(n);
+    this.f = new Float64Array(n);
+    this.from = new Int32Array(n);
+    this.seen = new Uint32Array(n);
+    this.closed = new Uint32Array(n);
+  }
+
+  private build(map: MapDef): void {
+    const world = this.world;
     const solids = map.boxes.filter((bx) => bx.solid && bx.max.y < MAX_SURFACE);
     const cabNodes = new Map<number, Lift>();
     for (let i = 0; i < this.nx; i++) {
@@ -121,13 +133,6 @@ export class NavGrid {
         n.edges.push({ to: other, cost: liftRideSeconds(lift, n.y, m.y) * MAX_SPEED, jump: false, lift: true });
       }
     }
-
-    const n = this.nodes.length;
-    this.g = new Float64Array(n);
-    this.f = new Float64Array(n);
-    this.from = new Int32Array(n);
-    this.seen = new Uint32Array(n);
-    this.closed = new Uint32Array(n);
   }
 
   /**
@@ -191,8 +196,11 @@ export class NavGrid {
     return this.nodes[Math.floor(random() * this.nodes.length)];
   }
 
-  /** A* over the grid. Returns the node sequence (excluding the start) or null. */
-  findPath(start: NavNode, goal: NavNode, maxExpand = 6000): NavNode[] | null {
+  /**
+   * A* over the grid. Returns the node sequence (excluding the start) or null. The search may expand every node once, so
+   * a route across a bigger map (a long climb through a lift) is never cut short by a fixed limit.
+   */
+  findPath(start: NavNode, goal: NavNode, maxExpand = this.nodes.length): NavNode[] | null {
     if (start === goal) return [];
     const gen = ++this.gen;
     const open: number[] = [start.id];

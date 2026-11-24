@@ -1,4 +1,5 @@
 import { PLAYER_RADIUS } from './constants.ts';
+import { LIFT_DOOR_HEIGHT_UNITS, liftDoorOpen, type Lift, type LiftDoor } from './lift.ts';
 import { rayAabb } from './math.ts';
 import type { Mat, MapDef } from './maps/types.ts';
 
@@ -22,6 +23,16 @@ export interface TraceHit {
 
 const PROP_MAT: Mat = 'crate';
 
+/** Where an open door's slot parks its box: far from any play space, so it never overlaps a hull or a ground query. */
+const PARKED = [1e9, 1e9, 1e9, 1e9 + 1, 1e9 + 1, 1e9 + 1] as const;
+
+interface DoorSlot {
+  lift: Lift;
+  door: LiftDoor;
+  /** Offset of the slot's six numbers in the solids array. */
+  at: number;
+}
+
 /**
  * Static collision world built from the map's boxes. Solids block movement;
  * bullet blockers stop hitscan (glass and foliage are see/shoot-through).
@@ -35,14 +46,17 @@ export class CollisionWorld {
   private readonly mapBulletMats: readonly Mat[];
   private bulletMats: readonly Mat[];
   readonly map: MapDef;
-  /** The server tick the next command runs at, for the lift cab: set by whoever applies the command (see `liftClockTick`). */
-  liftTick = 0;
+  private readonly doors: readonly DoorSlot[];
+  private tick = 0;
+  private doorsHeldOpen = false;
 
   constructor(map: MapDef) {
     this.map = map;
     const solid = map.boxes.filter((b) => b.solid);
     const bullet = map.boxes.filter((b) => !b.shootThrough);
-    this.mapSolids = new Float64Array(solid.length * 6);
+    const doorways = map.lifts.flatMap((lift) => lift.doors.map((door) => ({ lift, door })));
+    this.doors = doorways.map((d, i) => ({ ...d, at: (solid.length + i) * 6 }));
+    this.mapSolids = new Float64Array((solid.length + doorways.length) * 6);
     this.mapBullets = new Float64Array(bullet.length * 6);
     solid.forEach((b, i) => this.mapSolids.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
     this.solids = this.mapSolids;
@@ -50,6 +64,41 @@ export class CollisionWorld {
     this.bullets = this.mapBullets;
     this.mapBulletMats = bullet.map((b) => b.mat);
     this.bulletMats = this.mapBulletMats;
+    this.syncDoors();
+  }
+
+  /**
+   * The server tick the next command runs at, for the lift cab: set by whoever applies the command (see `liftClockTick`).
+   * Setting it also shuts or opens the doorways, so every query after it sees the doors of that tick.
+   */
+  get liftTick(): number {
+    return this.tick;
+  }
+
+  set liftTick(tick: number) {
+    this.tick = tick;
+    this.syncDoors();
+  }
+
+  /** Runs `build` with every doorway open, for code that maps the walkable space (the bots' grid) rather than moving in it. */
+  withDoorsOpen<T>(build: () => T): T {
+    this.doorsHeldOpen = true;
+    this.syncDoors();
+    try {
+      return build();
+    } finally {
+      this.doorsHeldOpen = false;
+      this.syncDoors();
+    }
+  }
+
+  private syncDoors(): void {
+    for (const { lift, door, at } of this.doors) {
+      const open = this.doorsHeldOpen || liftDoorOpen(lift, door, this.tick);
+      const bounds = open ? PARKED : [door.minX, door.y, door.minZ, door.maxX, door.y + LIFT_DOOR_HEIGHT_UNITS, door.maxZ];
+      this.mapSolids.set(bounds, at);
+      if (this.solids !== this.mapSolids) this.solids.set(bounds, at);
+    }
   }
 
   /**

@@ -58,6 +58,8 @@ Headshots multiply damage (4 times for most guns, see `calindra-strike-combat`) 
 | Ragnarök | 33 | LMG from air drops. |
 | Martelo do Eitri | 55 | Melee. Run speed bonus. |
 
+In Carrapeta Dourada, read `get_state.carrapeta`. Use `hunt` to pursue the perceived holder or collect the dropped objective by walking over it. If you hold it, prioritize staying alive and watch your points. Time spent in the glass lift earns no points. During Batata Quente, damage only applies to fights involving the holder. The Azeitadora has infinite reserve while you hold the Carrapeta and still needs to reload. Check `you.magCapacity` and `you.infiniteReserve` (six rounds ordinarily, three during the frenzy). In other modes the Azeitadora can appear in an airdrop with a finite reserve.
+
 Air drops parachute in with legendary weapons and full armour. They appear in `airdrops` with distance and bearing. Grab one when nobody is shooting at you.
 
 ## Tactics that matter

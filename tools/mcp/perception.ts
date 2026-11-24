@@ -19,6 +19,7 @@ export function perceive(
   previous: ReadonlyMap<number, LastSeen>,
   time: number,
   omniscient = false,
+  teamMode = true,
 ): { peers: PerceivedPeer[]; lastSeen: Map<number, LastSeen> } {
   const lastSeen = new Map(previous);
   const enemies = new Set(raw.filter((p) => p.enemy && p.alive).map((p) => p.id));
@@ -27,7 +28,7 @@ export function perceive(
   }
   const peers: PerceivedPeer[] = [];
   for (const peer of raw) {
-    if (!peer.enemy) {
+    if (teamMode && !peer.enemy) {
       peers.push({ ...peer, via: 'team' });
       continue;
     }

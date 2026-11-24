@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GameSession, type SocketLike, type Clock } from '../mcp/session.ts';
 import { createTools } from '../mcp/tools.ts';
 import type { Log } from '../mcp/log.ts';
-import { KICK_CLOSE_CODE, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, STANCE, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type WeaponId } from '../../shared/src/index.ts';
+import { KICK_CLOSE_CODE, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, BOMB_DESK_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_CRATE_HEIGHT_UNITS, BTN, PROTOCOL_VERSION, WEAPON, getMap, radioLineAt, radioMenuById, packState, CollisionWorld, surfaceOf, TICK_MS, STANCE, dirFromAngles, eyeHeight, createPlayerState, RF_ALIVE, weaponDef, type CarrapetaSnapshot, type WeaponId } from '../../shared/src/index.ts';
 class Socket implements SocketLike {
   readyState = 1;
   sent: string[] = [];
@@ -102,7 +102,7 @@ test('session hello, snapshot layout, event bounds, cadence and closed tools', a
   assert.deepEqual(state.timeOfDay, { phase: 'day', next: 'afternoon', blend: 0 });
   assert.equal(state.others[0].distance, 100);
   assert.equal(state.others[0].bearingDeg, 90);
-  assert.deepEqual(state.airdrops[0], { x: 60, z: 70, distance: 86, bearingDeg: 144 });
+  assert.deepEqual(state.airdrops[0], { x: 60, z: 70, weapon: weaponDef(2).name, landed: true, distance: 86, bearingDeg: 144 });
   assert.equal(state.events.length, 20);
   assert.equal(state.events[0].byName, 'enemy');
   assert.equal(state.chat.length, 10);
@@ -1343,4 +1343,97 @@ test('spray refuses while dropping', async () => {
   assert.match(JSON.stringify(response), /dropping/);
   assert.equal(socket.sent.filter((m) => m === JSON.stringify({ t: 'spray' })).length, 0);
   session.close();
+});
+
+async function carrapetaMatch(omniscient = false) {
+  const ctx = setup(omniscient);
+  const joined = ctx.session.join(args);
+  const match = { ...welcome.match, mode: 'carrapeta' };
+  ctx.socket.message({ ...welcome, match, roster: [...welcome.roster, [3, 'challenger', 2, 1, 0]] });
+  await joined;
+  const self = createPlayerState();
+  const snap = (ca?: CarrapetaSnapshot, time = 1000) => ctx.socket.message({
+    t: 'snap', time, ack: 0, me: packState(self),
+    ps: [[2, 100, 0, 0, 0, 0, RF_ALIVE, WEAPON.RIFLE], [3, -3000, 0, 0, 0, 0, RF_ALIVE, WEAPON.RIFLE]],
+    ad: [], ca,
+  });
+  return { ...ctx, self, snap, match };
+}
+
+test('Carrapeta state follows the snapshot and keeps frenzy bystanders subject to perception', async (t) => {
+  const { session, socket, self, snap, match } = await carrapetaMatch();
+  t.after(() => session.close());
+  socket.message({ t: 'score', s: [[1, 2, 1, 0, 0, 0, 17]], ts: [] });
+  snap({ kind: 'held', holder: 2, sinceMs: 500, frenzyUntilMs: 9000 });
+  const hunting = session.getState();
+  assert.deepEqual(hunting.carrapeta, {
+    state: 'held', holderId: 2, holderName: 'enemy', youHoldIt: false, dropped: null,
+    frenzy: true, frenzySecondsLeft: 8, points: 17,
+  });
+  assert.deepEqual(hunting.others.map(peer => [peer.id, peer.enemy]), [[2, true]]);
+
+  self.primary = self.weapon = WEAPON.MGL;
+  self.infiniteMgl = self.halvedAmmo = true;
+  snap({ kind: 'held', holder: 1, sinceMs: 1100, frenzyUntilMs: 9000 }, 1200);
+  const holding = session.getState();
+  assert.equal(holding.carrapeta?.youHoldIt, true);
+  assert.partialDeepStrictEqual(holding.you, { weapon: 'Azeitadora', magCapacity: 3, infiniteReserve: true, halvedAmmo: true });
+
+  const at = { x: 120, y: 0, z: 0 };
+  self.infiniteMgl = self.halvedAmmo = false;
+  snap({ kind: 'dropped', ...at, rerollAtMs: 22_000, frenzyUntilMs: 9000 }, 2000);
+  socket.message({ t: 'ev', e: [
+    { k: 'carrapeta', what: 'lose', by: 1, at },
+    { k: 'frenzy', what: 'off' },
+    { k: 'blast', by: 1, w: WEAPON.MGL, at },
+  ] });
+  const dropped = session.getState();
+  assert.deepEqual(dropped.carrapeta?.dropped, { pos: [120, 0, 0], distance: 120, bearingDeg: 90, rerollSeconds: 20 });
+  assert.deepEqual(dropped.others.map(peer => [peer.id, peer.enemy]), [[2, false]]);
+  assert.ok(dropped.others.every(peer => peer.via !== 'team'));
+  assert.equal(dropped.you.infiniteReserve, false);
+  assert.equal(dropped.you.magCapacity, 6);
+  assert.deepEqual(dropped.events.map(event => event.k), ['carrapeta', 'frenzy', 'blast']);
+
+  snap({ kind: 'dropped', ...at, rerollAtMs: 22_000, frenzyUntilMs: 9000 }, 22_100);
+  assert.equal(session.getState().carrapeta?.frenzy, false);
+  assert.equal(session.getState().carrapeta?.dropped?.rerollSeconds, 0);
+  socket.message({ t: 'match', match: { ...match, mode: 'ffa' } });
+  assert.equal(session.getState().carrapeta, null);
+});
+
+test('hunt glides toward the dropped Carrapeta and reloads an empty infinite Azeitadora', async (t) => {
+  const { session, socket, self, snap, advance } = await carrapetaMatch();
+  t.after(() => session.close());
+  self.dropping = true;
+  self.y = 1000;
+  snap({ kind: 'dropped', x: 0, y: 0, z: -800, rerollAtMs: 21000, frenzyUntilMs: 9000 });
+  session.setIntent({ kind: 'hunt' });
+  advance(34);
+  const glide = JSON.parse(socket.sent.at(-1) ?? '{}');
+  assert.ok(glide.c.every((cmd: number[]) => cmd[1] & BTN.FWD));
+
+  self.dropping = false;
+  Object.assign(self, getMap(0).flagBases[0], { y: 0 });
+  self.primary = self.weapon = WEAPON.MGL;
+  self.infiniteMgl = self.halvedAmmo = true;
+  self.mag[WEAPON.MGL] = self.reserve[WEAPON.MGL] = 0;
+  snap({ kind: 'held', holder: 1, sinceMs: 1000, frenzyUntilMs: 9000 }, 1100);
+  session.setIntent({ kind: 'moveTo', x: self.x, y: self.y, z: self.z });
+  advance(34);
+  const reload = JSON.parse(socket.sent.at(-1) ?? '{}');
+  assert.ok(reload.c.some((cmd: number[]) => cmd[1] & BTN.RELOAD));
+  assert.ok(reload.c.every((cmd: number[]) => cmd[4] === 0));
+});
+
+test('hunt steers toward the perceived Carrapeta holder over a closer challenger', async (t) => {
+  const { session, socket, self, snap, advance } = await carrapetaMatch(true);
+  t.after(() => session.close());
+  self.dropping = true;
+  self.y = 1000;
+  snap({ kind: 'held', holder: 3, sinceMs: 500, frenzyUntilMs: 0 });
+  session.setIntent({ kind: 'hunt' });
+  advance(34);
+  const glide = JSON.parse(socket.sent.at(-1) ?? '{}');
+  assert.ok(glide.c.every((cmd: number[]) => cmd[2] > 0));
 });

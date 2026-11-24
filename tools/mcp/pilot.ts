@@ -10,7 +10,7 @@ import {
 } from '../../shared/src/index.ts';
 import { BotBrain, type BotAgent } from '../../server/src/bot.ts';
 import type { NavGrid } from '../../server/src/nav.ts';
-import { bombState, bombPlaces, flagStates, lunchColleagues, type WorldView } from './view.ts';
+import { bombState, bombPlaces, flagStates, carrapetaState, frenzyState, lunchColleagues, type WorldView } from './view.ts';
 
 export type Intent =
   | { kind: 'idle' }
@@ -104,6 +104,8 @@ export class Pilot {
       random: this.random,
       players,
       airdrops: view.airdrops,
+      carrapeta: carrapetaState(view),
+      frenzy: frenzyState(view),
       flags: flagStates(view),
       bomb: bombState(view),
       bombPlaces: view.bomb.length ? bombPlaces(view, world) : undefined,

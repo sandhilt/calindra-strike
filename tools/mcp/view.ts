@@ -2,6 +2,13 @@ import { scene } from './scene.ts';
 import { NO_ACTIONS, weaponSlots, type ActionEcho } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
+  BATATA_DURATION_SECONDS,
+  carrapetaEnemies,
+  magCapacity,
+  WEAPON,
+  type CarrapetaSnapshot,
+  type CarrapetaState,
+  type FrenzyState,
   createPlayerState,
   CollisionWorld,
   type MapDef,
@@ -69,6 +76,8 @@ export type ViewEvent =
   | (Extract<GameEvent, { k: 'kill' }> & { byName?: string; toName?: string })
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
   | (Extract<GameEvent, { k: 'flag' | 'bomb' }> & { byName?: string })
+  | (Extract<GameEvent, { k: 'carrapeta' | 'blast' }> & { byName?: string })
+  | Extract<GameEvent, { k: 'frenzy' }>
   | (LunchEvent & { byName?: string; colleague?: string })
   | (Extract<GameEvent, { k: 'supply' }> & { name?: string })
   | { k: 'intent'; reason: string; id: number };
@@ -113,6 +122,7 @@ export interface WorldView {
   /** Hora de almoçar header `[attackers, endsAt]` and one row per colleague, empty in other modes. */
   lunch: number[];
   colleagues: number[][];
+  carrapeta?: CarrapetaSnapshot;
   scores: number[][];
   events: ViewEvent[];
   sounds: ViewSound[];
@@ -152,6 +162,9 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
       v.self.pitch = row[5];
     }
   }
+  v.carrapeta = m.ca;
+  const carrapeta = carrapetaState(v);
+  const frenzy = frenzyState(v);
   const team = v.roster.find((r) => r[0] === v.id)?.[3];
   const peers = m.ps
     .filter((p) => p[0] !== v.id)
@@ -161,7 +174,9 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
         id: p[0],
         name: r?.[1] ?? String(p[0]),
         team: r?.[3] ?? -1,
-        enemy: v.match.mode === 'ffa' || r?.[3] !== team,
+        enemy: v.match.mode === 'carrapeta'
+          ? carrapetaEnemies(frenzy, carrapeta, v.id, p[0])
+          : v.match.mode === 'ffa' || r?.[3] !== team,
         alive: !!(p[6] & RF_ALIVE),
         x: p[1],
         y: p[2],
@@ -224,7 +239,7 @@ export function renderView(
   intent: Intent,
   actions: ActionEcho = NO_ACTIONS,
   world?: CollisionWorld,
-): object {
+) {
   const s = v.self;
   const equipped = s && weaponDef(s.weapon);
   const slots = s ? weaponSlots(s) : null;
@@ -287,6 +302,9 @@ export function renderView(
       } : null,
       mag: s?.mag[s.weapon],
       reserve: s?.reserve[s.weapon],
+      infiniteReserve: s?.weapon === WEAPON.MGL && s.infiniteMgl,
+      halvedAmmo: s?.halvedAmmo ?? false,
+      magCapacity: equipped && s ? magCapacity(equipped, s.halvedAmmo) : null,
       reloading: s ? s.reload > 0 : false,
       ducked: s ? isLowered(s.stance) : false,
       stance: STANCE_NAMES[s?.stance ?? STANCE.STAND],
@@ -315,11 +333,12 @@ export function renderView(
         pos: [p.x, p.y, p.z],
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)),
-    airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, ...describeRelative(p) })),
+    airdrops: v.airdrops.map((p) => ({ x: p.x, z: p.z, weapon: weaponDef(p.weapon).name, landed: p.landed, ...describeRelative(p) })),
     lifts: describeLifts(v, describeRelative),
     supplies: describeSupplies(v, describeRelative),
     bomb: describeBomb(v, world),
     lunch: describeLunch(v, describeRelative),
+    carrapeta: describeCarrapeta(v, describeRelative),
     flags: v.flags.map((row, team) => ({
       team,
       state: row[0] === 0 ? 'at_base' : row[0] === 1 ? 'carried' : 'dropped',
@@ -335,6 +354,45 @@ export function renderView(
     events: v.events.splice(0),
     sounds: heardSounds(v.sounds.splice(0), describeRelative, !!s && s.health > 0),
     chat: v.chat.splice(0),
+  };
+}
+
+export function carrapetaState(v: WorldView): CarrapetaState {
+  const state = v.carrapeta;
+  if (state?.kind === 'held') return { kind: 'held', holder: state.holder, sinceTick: state.sinceMs / TICK_MS };
+  if (state?.kind === 'dropped') {
+    const { kind, x, y, z, rerollAtMs } = state;
+    return { kind, x, y, z, rerollAtTick: rerollAtMs / TICK_MS };
+  }
+  return { kind: 'none' };
+}
+
+export function frenzyState(v: WorldView): FrenzyState {
+  const deadline = v.carrapeta?.frenzyUntilMs ?? 0;
+  return deadline > v.time
+    ? { kind: 'frenzy', sinceTick: (deadline - BATATA_DURATION_SECONDS * 1000) / TICK_MS, untilTick: deadline / TICK_MS }
+    : { kind: 'calm' };
+}
+
+function describeCarrapeta(v: WorldView, describeRelative: Relative) {
+  if (v.match.mode !== 'carrapeta' || v.match.phase === 'podium') return null;
+  const state = v.carrapeta;
+  const holderId = state?.kind === 'held' ? state.holder : null;
+  const dropped = state?.kind === 'dropped' ? state : null;
+  const frenzyMsLeft = Math.max(0, (state?.frenzyUntilMs ?? 0) - v.time);
+  return {
+    state: state?.kind ?? 'none',
+    holderId,
+    holderName: holderId === null ? null : v.roster.find(r => r[0] === holderId)?.[1] ?? String(holderId),
+    youHoldIt: holderId === v.id,
+    dropped: dropped ? {
+      pos: [dropped.x, dropped.y, dropped.z],
+      ...describeRelative(dropped),
+      rerollSeconds: Math.max(0, (dropped.rerollAtMs - v.time) / 1000),
+    } : null,
+    frenzy: frenzyMsLeft > 0,
+    frenzySecondsLeft: frenzyMsLeft / 1000,
+    points: v.scores.find(row => row[0] === v.id)?.[6] ?? 0,
   };
 }
 

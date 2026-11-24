@@ -70,3 +70,41 @@ for (const map of getMaps()) {
     });
   });
 }
+
+/** How far past the outermost tall wall a point is, 0 when it is inside. */
+function outsideBy(map: ReturnType<typeof getMaps>[number], x: number, z: number): number {
+  const walls = map.boxes.filter((b) => b.solid && b.mat !== 'clip' && b.max.y >= 200);
+  const edgeX = Math.max(...walls.map((b) => b.max.x));
+  const edgeZ = Math.max(...walls.map((b) => b.max.z));
+  return Math.max(Math.abs(x) - edgeX, Math.abs(z) - edgeZ, 0);
+}
+
+for (const map of getMaps()) {
+  describe(`outside the walls of ${map.id}`, () => {
+    it('has no floor a player can stand on beyond the outermost wall', () => {
+      const world = new CollisionWorld(map);
+      const standable: string[] = [];
+      for (const axis of ['x', 'z'] as const) for (const sign of [-1, 1]) for (let reach = 0; reach <= 160; reach += 4) {
+        const edge = Math.max(...map.boxes.filter((b) => b.solid && b.mat !== 'clip' && b.max.y >= 200).map((b) => (axis === 'x' ? b.max.x : b.max.z)));
+        const p = sign * (edge + reach);
+        const x = axis === 'x' ? p : 0;
+        const z = axis === 'z' ? p : 0;
+        const ground = world.groundBelow(x, map.dropHeight, z, PLAYER_HALF_UNITS);
+        if (ground > -50 && !world.hullOverlaps(x, ground, z, STAND_HEIGHT)) standable.push(`${axis}=${p}`);
+      }
+      assert.deepEqual(standable.slice(0, 6), [], `${standable.length} standing spots outside the walls`);
+    });
+
+    it('keeps a glider steered at each wall inside the map', () => {
+      const world = new CollisionWorld(map);
+      for (const yaw of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+        const glider = createPlayerState();
+        const near = Math.min(map.bounds.maxX, map.bounds.maxZ) - 160;
+        spawnState(glider, 0, map.dropHeight, 0, yaw, WEAPON.RIFLE);
+        glider.x = Math.sin(yaw) === 0 ? 0 : -Math.sign(Math.sin(yaw)) * 0;
+        for (let i = 0; i < 60 * 40; i++) applyCmd(world, glider, { seq: i, buttons: BTN.FWD, yaw, pitch: 0, weapon: 0, interp: 0 }, 1);
+        assert.equal(outsideBy(map, glider.x, glider.z), 0, `a glider steered at yaw ${yaw.toFixed(2)} ended outside at ${Math.round(glider.x)},${Math.round(glider.z)} (floor ${near})`);
+      }
+    });
+  });
+}

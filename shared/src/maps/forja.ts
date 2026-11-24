@@ -16,6 +16,7 @@ export function buildForja(): MapDef {
 
   // ground
   b.add(-H - 64, -32, -H - 64, H + 64, 0, H + 64, 'ground');
+  b.sealOutside(H, H);
 
   // perimeter, tiled so the four copies never overlap
   b.rotated(() => {

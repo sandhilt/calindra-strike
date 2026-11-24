@@ -8,7 +8,7 @@ import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
 import type { ScopeOverlay } from '../game/render/ads-view.ts';
-import { RULER_STOPS_METERS, rangeLabel, rulerFraction, type RangeReading } from '../game/scope-range.ts';
+import { RULER_STOPS_METERS, rulerFraction, type RangeReading } from '../game/scope-range.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STANCE, type Stance } from '@calindra-strike/shared';
@@ -138,9 +138,7 @@ export class Hud {
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
   private readonly votePanel = h('div', { class: 'vote-live glass hidden' });
-  private readonly scopeRangeText = h('b');
   private readonly scopeMarker = h('i', { class: 'scope-marker' });
-  private readonly scopeRange = h('div', { class: 'scope-range' }, [this.scopeRangeText]);
   private readonly scopeRuler = h('div', { class: 'scope-ruler' }, [
     ...RULER_STOPS_METERS.map((m) => h('span', { class: 'scope-tick', style: `top:${(rulerFraction(m) * 100).toFixed(1)}%`, text: String(m) })),
     this.scopeMarker,
@@ -149,7 +147,6 @@ export class Hud {
     h('div', { class: 'scope-glass' }),
     h('div', { class: 'scope-glare' }),
     this.scopeRuler,
-    this.scopeRange,
     svg(`<svg class="scope-reticle" viewBox="-100 -100 200 200">
       <path d="M-100 0H100 M0 -100V100" fill="none" stroke="black" stroke-width=".35"/>
       ${[0, 90, 180, 270].map((angle) => `
@@ -657,10 +654,6 @@ export class Hud {
     this.protect.style.opacity = on ? '1' : '0';
   }
 
-  setScopeBlur(enabled: boolean): void {
-    this.scope.classList.toggle('scope-blur', enabled);
-  }
-
   /** Next-match vote during the first minutes of a round: one row per option with its key, the votes so far and the seconds left. `null` hides it. */
   setVote(panel: VotePanel | null, onPick: (option: number) => void): void {
     const key = panel ? `${panel.secondsLeft}|${panel.rows.map((r) => `${r.map}${r.mode}${r.count}${r.mine}`).join(',')}` : 'off';
@@ -684,14 +677,11 @@ export class Hud {
     this.scope.classList.toggle('on', overlay !== 'none');
   }
 
-  /** The range inside the AWP scope: the ruler marker and the readout. `null` when the scope is down. */
+  /** The AWP scope ruler marker. `null` when the scope is down. */
   setScopeRange(reading: RangeReading | null): void {
-    const key = reading ? `${reading.meters === null ? '-' : Math.round(reading.meters)}|${reading.onEnemy}` : 'off';
+    const key = reading?.meters == null ? 'off' : String(Math.round(reading.meters));
     this.set('scopeRange', key, () => {
-      const label = reading ? rangeLabel(reading) : '';
-      this.scope.classList.toggle('on-target', !!reading?.onEnemy);
       this.scope.classList.toggle('ranged', reading?.meters != null);
-      this.scopeRangeText.textContent = label;
       if (reading?.meters != null) this.scopeMarker.style.top = `${(rulerFraction(reading.meters) * 100).toFixed(1)}%`;
     });
   }

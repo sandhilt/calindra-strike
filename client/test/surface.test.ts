@@ -50,12 +50,6 @@ test('only high and low render kitchen flames', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].kitchenFire), ['high', 'low']);
 });
 
-test('only the high tier blurs the AWP scope surround', () => {
-  assert.equal(QUALITY.high.scopeBlur, true);
-  assert.equal(QUALITY.low.scopeBlur, false);
-  assert.equal(QUALITY.performance.scopeBlur, false);
-});
-
 test('on performance the ambient motion and the vent smoke are off, and elsewhere they are on', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].ambientMotion), ['high', 'low']);
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].ventSmoke), ['high', 'low']);

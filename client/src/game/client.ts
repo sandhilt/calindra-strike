@@ -539,7 +539,6 @@ export class ClientGame {
     this.renderer.setPixelRatio(renderPixelRatio(profile, window.devicePixelRatio));
     this.applyLightRt(this.wantedRtLevel());
     this.effects.setQuality(quality);
-    this.hud.setScopeBlur(profile.scopeBlur);
     if (!profile.carrapetaAura) {
       this.carrapetaView?.dispose();
       this.carrapetaView = undefined;
@@ -1573,25 +1572,21 @@ export class ClientGame {
     this.aimView.blend = this.aimT;
   }
 
-  /** Distance to what the camera points at, and whether an enemy is there: the nearest of the world and a visible, living, non-teammate player. */
+  /** Distance from the camera to the nearest wall or eligible enemy hitbox along the aim ray. */
   private aimRange(): RangeReading {
     const dir = this.camera.getWorldDirection(v3);
     const o = this.camera.position;
     const wall = this.collision.trace(o.x, o.y, o.z, dir.x, dir.y, dir.z, RANGE_MAX_UNITS);
     let dist = wall ? wall.t : RANGE_MAX_UNITS;
-    let onEnemy = false;
     const renderT = this.serverNow() - INTERP_DELAY_MS;
     for (const r of this.remotes.values()) {
       if (!r.visible || this.isTeammate(r.id)) continue;
       const s = this.sample(r, renderT);
       if (!s || !(s.flags & RF_ALIVE) || s.flags & (RF_DROP | RF_PROTECT)) continue;
       const h = rayHitbox(o.x, o.y, o.z, dir.x, dir.y, dir.z, s.x, s.y, s.z, stanceFromFlags(s.flags), s.lean, s.yaw, dist);
-      if (h) {
-        dist = h.t;
-        onEnemy = true;
-      }
+      if (h) dist = h.t;
     }
-    return dist >= RANGE_MAX_UNITS ? NO_RANGE : rangeReading(dist, onEnemy);
+    return dist >= RANGE_MAX_UNITS ? NO_RANGE : rangeReading(dist);
   }
 
   /** Which scope overlay the player's own screen shows. */

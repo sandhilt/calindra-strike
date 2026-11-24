@@ -1,18 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { NO_RANGE, RANGE_MAX_METERS, RULER_STOPS_METERS, METERS_PER_UNIT, rangeLabel, rangeReading, rulerFraction } from '../src/game/scope-range.ts';
+import { NO_RANGE, RANGE_MAX_METERS, RULER_STOPS_METERS, METERS_PER_UNIT, rangeReading, rulerFraction } from '../src/game/scope-range.ts';
 
-test('units become metres and the label rounds them', () => {
-  const r = rangeReading(1000, true);
+test('units become metres', () => {
+  const r = rangeReading(1000);
   assert.equal(r.meters, 1000 * METERS_PER_UNIT);
-  assert.equal(r.onEnemy, true);
-  assert.equal(rangeLabel(r), '25 m');
 });
 
 test('no hit and a hit beyond the ruler both read as out of range', () => {
-  assert.deepEqual(rangeReading(null, true), NO_RANGE);
-  assert.deepEqual(rangeReading((RANGE_MAX_METERS + 1) / METERS_PER_UNIT, false), NO_RANGE);
-  assert.equal(rangeLabel(NO_RANGE), '— m');
+  assert.deepEqual(rangeReading(null), NO_RANGE);
+  assert.deepEqual(rangeReading((RANGE_MAX_METERS + 1) / METERS_PER_UNIT), NO_RANGE);
 });
 
 test('the ruler grows with the range, stays inside 0..1 and every mark fits', () => {

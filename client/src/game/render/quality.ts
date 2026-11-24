@@ -45,8 +45,6 @@ export interface QualityProfile {
   envMapPx: number;
   /** Light ray-marched lighting, on only where the graphics card supports it. */
   lightRt: boolean;
-  /** Blur outside the AWP lens. On for high only. */
-  scopeBlur: boolean;
   /** Carrapeta aura and dropped beam. On for high and low. */
   carrapetaAura: boolean;
   /** Full particle burst from the Azeitadora. On for high only. */
@@ -77,7 +75,6 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 2048,
     envMapPx: 256,
     lightRt: true,
-    scopeBlur: true,
     carrapetaAura: true,
     carrapetaBlastParticles: true,
     ambientMotion: true,
@@ -96,7 +93,6 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 256,
     lightRt: false,
-    scopeBlur: false,
     carrapetaAura: true,
     carrapetaBlastParticles: false,
     ambientMotion: true,
@@ -115,7 +111,6 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     shadowMapPx: 1024,
     envMapPx: 64,
     lightRt: false,
-    scopeBlur: false,
     carrapetaAura: false,
     carrapetaBlastParticles: false,
     ambientMotion: false,

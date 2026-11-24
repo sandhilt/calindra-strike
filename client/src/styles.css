@@ -1207,28 +1207,6 @@ input:focus-visible {
 }
 .scope.on { opacity: 1; transform: scale(1); }
 
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  /* Keep the scope out of an opacity group so the blur can sample the canvas behind the HUD. */
-  .scope.scope-blur {
-    transition: none;
-    transform: none;
-  }
-
-  .scope.scope-blur.on {
-    background: none;
-  }
-
-  .scope.scope-blur.on::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    -webkit-mask-image: radial-gradient(circle, transparent calc(var(--r) - 1px), #000 calc(var(--r) + 1px));
-    mask-image: radial-gradient(circle, transparent calc(var(--r) - 1px), #000 calc(var(--r) + 1px));
-  }
-}
-
 .scope-glass,
 .scope-reticle {
   position: absolute;
@@ -1249,7 +1227,7 @@ input:focus-visible {
   filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.85));
 }
 
-/* A light sweep crossing the lens, and a reticle that turns red over an enemy. The aim point itself never moves. */
+/* A light sweep crossing the lens. */
 .scope-glare {
   position: absolute;
   left: 50%;
@@ -1268,13 +1246,6 @@ input:focus-visible {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   transform: skewX(-18deg);
   animation: scope-glare 5.5s ease-in-out infinite;
-}
-.scope-glare::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle, transparent 62%, rgba(10, 20, 30, 0.35) 100%);
 }
 @keyframes scope-glare {
   0%, 55% { left: -40%; opacity: 0; }
@@ -1320,20 +1291,6 @@ input:focus-visible {
   opacity: 0;
 }
 .scope.ranged .scope-marker { opacity: 1; }
-.scope-range {
-  position: absolute;
-  left: 50%;
-  top: calc(50% + var(--r) * 0.58);
-  transform: translateX(-50%);
-  padding: 2px 10px;
-  font: 700 clamp(14px, 2.4vh, 22px)/1.2 var(--mono, monospace);
-  color: #ffd23f;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 210, 63, 0.5);
-  border-radius: 3px;
-}
-.scope.on-target .scope-range { color: #ff5a4d; border-color: rgba(255, 90, 77, 0.8); }
-.scope.on-target .scope-reticle { fill: #e0261b; filter: drop-shadow(0 0 2px rgba(255, 90, 77, 0.9)); }
 
 /* Next-match vote shown over the first minutes of a round; keys F1 to F3 or a click. */
 .vote-live {

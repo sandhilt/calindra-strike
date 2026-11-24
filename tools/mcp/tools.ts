@@ -221,6 +221,23 @@ export const toolDefinitions: Definition[] = [
     },
   },
   {
+    name: 'cycle_weapon',
+    description: 'Step the mouse wheel once: next (wheel down) or previous (wheel up) through primary, pistol and hammer, wrapping around. Same effect as switch_weapon with the slot that comes next, without needing to know which weapon you hold. Switching clears the ADS request.',
+    properties: { direction: { type: 'string', enum: ['next', 'previous'] } },
+    required: ['direction'],
+    run: (s, a) => {
+      const direction = string(a, 'direction', Infinity);
+      if (direction !== 'next' && direction !== 'previous') throw new Error('Invalid direction');
+      return s.cycleWeapon(direction);
+    },
+  },
+  {
+    name: 'spray',
+    description: 'Spray paint the surface in front of you (G), a decal with your colour, on a wall or the floor. You get 10 per spawn, 2 s apart, and the surface must be within 128 units ahead of your crosshair; the server drops it silently otherwise. get_state scene.facing.spray and scene.sprays show whether it landed.',
+    properties: {},
+    run: (s) => s.spray(),
+  },
+  {
     name: 'choose_loadout',
     description: 'Choose rifle, smg or shotgun for the next spawn.',
     properties: { primary: primarySchema },

@@ -49,6 +49,7 @@ import {
   type DayPhase,
   dayCycleAt,
   dayCycleTarget,
+  cycleWeaponSlot,
   TICK_MS,
   TICK_RATE,
   WEAPON,
@@ -1322,10 +1323,7 @@ export class ClientGame {
 
   private resolveWeaponRequest(req: number): number {
     if (req !== 5 && req !== 6) return req;
-    const order = [this.me.primary, WEAPON.PISTOL, WEAPON.HAMMER];
-    const idx = Math.max(0, order.indexOf(this.me.weapon));
-    const next = (idx + (req === 5 ? 1 : 2)) % 3;
-    return next + 1;
+    return cycleWeaponSlot(this.me, req === 5 ? 'next' : 'previous');
   }
 
   // ------------------------------------------------------------------ simulation

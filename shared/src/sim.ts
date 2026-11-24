@@ -704,6 +704,17 @@ export function slotWeapon(s: PlayerState, req: number): WeaponId | -1 {
   }
 }
 
+/** Wheel order, the same as the number keys: primary, pistol, hammer. */
+export type WeaponCycleDirection = 'next' | 'previous';
+
+/** The slot request (1 to 3) that steps the wheel from the weapon in hand, wrapping around. */
+export function cycleWeaponSlot(s: Pick<PlayerState, 'primary' | 'weapon'>, direction: WeaponCycleDirection): 1 | 2 | 3 {
+  const order = [s.primary, WEAPON.PISTOL, WEAPON.HAMMER];
+  const here = Math.max(0, order.indexOf(s.weapon));
+  const to = (here + (direction === 'next' ? 1 : 2)) % 3;
+  return to === 0 ? 1 : to === 1 ? 2 : 3;
+}
+
 function switchWeapon(s: PlayerState, req: number): void {
   const target = slotWeapon(s, req);
   if (target === -1 || target === s.weapon) return;

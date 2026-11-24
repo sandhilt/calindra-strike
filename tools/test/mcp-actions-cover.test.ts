@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BTN } from '../../shared/src/index.ts';
 import { toolDefinitions } from '../mcp/tools.ts';
+import { ACTIONS, type ActionId } from '../../client/src/game/bindings.ts';
 
 /**
  * Every input bit a player can press, and how an MCP agent presses it. A new BTN bit fails the typecheck
@@ -40,5 +41,50 @@ test('every covering tool exists in the MCP tool list and says why', () => {
   for (const [key, { by, why }] of Object.entries(COVER)) {
     assert.ok(by === 'brain' || names.has(by), `BTN.${key} names the tool "${by}", which tools/mcp/tools.ts does not define`);
     assert.ok(why.trim().length > 0, `BTN.${key} needs a reason`);
+  }
+});
+
+/**
+ * Every remappable key, including the ones that are not a BTN bit (spray, the wheel, scoreboard, chat).
+ * A new ActionId fails the typecheck and this test until it names a tool, so a key cannot ship browser-only.
+ */
+const KEY_COVER: Record<ActionId, { by: string; why: string }> = {
+  forward: { by: 'brain', why: 'move_to, attack and hunt walk the pilot along its route' },
+  back: { by: 'brain', why: 'the pilot backs off while it fights' },
+  left: { by: 'brain', why: 'the pilot strafes while it fights' },
+  right: { by: 'brain', why: 'the pilot strafes while it fights' },
+  jump: { by: 'jump', why: 'one jump on the ground' },
+  crouch: { by: 'crouch', why: 'latched crouch; slide also presses it' },
+  sprint: { by: 'sprint', why: 'latched sprint' },
+  walk: { by: 'walk', why: 'latched silent walk' },
+  leanLeft: { by: 'lean', why: 'latched lean, side left' },
+  leanRight: { by: 'lean', why: 'latched lean, side right' },
+  prone: { by: 'prone', why: 'latched prone' },
+  fire: { by: 'fire', why: 'timed trigger hold' },
+  aim: { by: 'zoom', why: 'held ADS or AWP scope press' },
+  reload: { by: 'reload', why: 'one reload' },
+  use: { by: 'use', why: 'hold to plant, defuse or call colleagues' },
+  primary: { by: 'switch_weapon', why: 'slot primary' },
+  secondary: { by: 'switch_weapon', why: 'slot pistol' },
+  melee: { by: 'switch_weapon', why: 'slot hammer' },
+  lastWeapon: { by: 'switch_weapon', why: 'slot last' },
+  nextWeapon: { by: 'cycle_weapon', why: 'direction next, the wheel down' },
+  previousWeapon: { by: 'cycle_weapon', why: 'direction previous, the wheel up' },
+  spray: { by: 'spray', why: 'places the decal on the wall ahead' },
+  scoreboard: { by: 'get_state', why: 'scores in get_state' },
+  chat: { by: 'say', why: 'chat line; radio sends the prepared lines' },
+};
+
+test('every remappable key is covered by an MCP tool or the pilot', () => {
+  const missing = Object.keys(ACTIONS).filter((id) => !Object.hasOwn(KEY_COVER, id));
+  assert.deepEqual(missing, [], 'keys with no MCP coverage: add each to KEY_COVER in this file and build its tool in tools/mcp/tools.ts');
+  assert.deepEqual(Object.keys(KEY_COVER).filter((id) => !Object.hasOwn(ACTIONS, id)), []);
+});
+
+test('every key-covering tool exists in the MCP tool list and says why', () => {
+  const names = new Set(toolDefinitions.map((d) => d.name));
+  for (const [id, { by, why }] of Object.entries(KEY_COVER)) {
+    assert.ok(by === 'brain' || names.has(by), `${id} names the tool "${by}", which tools/mcp/tools.ts does not define`);
+    assert.ok(why.trim().length > 0, `${id} needs a reason`);
   }
 });

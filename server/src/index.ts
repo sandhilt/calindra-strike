@@ -18,6 +18,7 @@ const game = new Game({
   maps: cfg.maps,
   tdmLimit: cfg.tdmLimit,
   ctfLimit: cfg.ctfLimit,
+  carrapetaPickupTimeoutSeconds: cfg.carrapetaPickupTimeoutSeconds,
   defuseLimit: cfg.defuseLimit,
   plantTimeoutMs: cfg.plantTimeoutMs,
   objectiveRespawnMs: cfg.objectiveRespawnMs,

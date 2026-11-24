@@ -1,4 +1,5 @@
 import {
+  carrapetaEnemies, type CarrapetaState, type FrenzyState,
   BOMB_SITE_RADIUS_UNITS,
   BTN,
   DEFUSE_RADIUS_UNITS,
@@ -48,6 +49,8 @@ export interface BotEnv {
   mode: GameMode;
   random: () => number;
   players: Iterable<BotAgent>;
+  carrapeta?: CarrapetaState;
+  frenzy?: FrenzyState;
   flags?: readonly FlagState[];
   flagBases?: readonly FlagBase[];
   bomb?: BombState;
@@ -60,6 +63,17 @@ export interface BotEnv {
   /** Places in shops and rooms that roaming bots now and then walk to. */
   interiors?: readonly { x: number; y: number; z: number }[];
   airdrops: { x: number; y: number; z: number; landed: boolean }[];
+}
+
+function pickCarrapetaGoal(self: BotAgent, env: BotEnv): FlagBase | null {
+  const state = env.carrapeta;
+  if (state?.kind === 'dropped') return state;
+  if (state?.kind === 'held' && state.holder !== self.id) {
+    for (const player of env.players) {
+      if (player.id === state.holder && player.alive && !player.state.dropping) return player.state;
+    }
+  }
+  return null;
 }
 
 /** Team-local id order keeps both roles on each team even with alternating team ids. */
@@ -508,8 +522,10 @@ export class BotBrain {
     this.pitch += clamp(pitch - this.pitch, -max, max);
   }
 
-  private isEnemy(self: BotAgent, q: BotAgent, mode: GameMode): boolean {
-    return q !== self && q.alive && (mode === 'ffa' || q.team !== self.team);
+  private isEnemy(self: BotAgent, q: BotAgent, env: BotEnv): boolean {
+    if (q === self || !q.alive) return false;
+    if (env.mode === 'carrapeta') return carrapetaEnemies(env.frenzy ?? { kind: 'calm' }, env.carrapeta ?? { kind: 'none' }, self.id, q.id);
+    return env.mode === 'ffa' || q.team !== self.team;
   }
 
   private scan(self: BotAgent, env: BotEnv): BotAgent | null {
@@ -521,7 +537,7 @@ export class BotBrain {
     let bestD = Infinity;
     for (const q of env.players) {
       if (this.directive?.kind === 'engage' && q.id !== this.directive.targetId) continue;
-      if (!this.isEnemy(self, q, env.mode) || q.state.dropping) continue;
+      if (!this.isEnemy(self, q, env) || q.state.dropping) continue;
       const d = Math.hypot(q.state.x - ex, q.state.z - ez);
       if (d > this.aim.sightUnits) continue;
       // field of view ~140 degrees, but close enemies are heard anyway
@@ -529,6 +545,7 @@ export class BotBrain {
       if (d > HEAR_RANGE && Math.abs(wrapAngle(yaw - this.yaw)) > 70 * DEG) continue;
       if (!hasLineOfSight(env.world, ex, ey, ez, q.state, sightHeights(q.state.stance))) continue;
       // prefer the current target slightly so bots don't flick between people
+      if (env.carrapeta?.kind === 'held' && q.id === env.carrapeta.holder) return q;
       const score = d * (q.id === this.targetId ? 0.7 : 1);
       if (score < bestD) {
         bestD = score;
@@ -542,7 +559,8 @@ export class BotBrain {
     let best: BotAgent | null = null;
     let bestD = Infinity;
     for (const q of env.players) {
-      if (!this.isEnemy(self, q, env.mode) || q.state.dropping) continue;
+      if (!this.isEnemy(self, q, env) || q.state.dropping) continue;
+      if (env.carrapeta?.kind === 'held' && q.id === env.carrapeta.holder) return q;
       const d = Math.hypot(q.state.x - self.state.x, q.state.z - self.state.z);
       if (d < bestD) {
         bestD = d;
@@ -572,7 +590,7 @@ export class BotBrain {
         return;
       }
     }
-    const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
+    const objective = pickCarrapetaGoal(self, env) ?? pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
     const carrying = env.mode === 'ctf' ? ctfRole(self, env) === 'carrier' : bombRole(self, env) === 'carrier';
     const restock = carrying ? null : pickSupplyGoal(self, env, objective !== null);
     if (restock) {
@@ -636,7 +654,7 @@ export class BotBrain {
     if (this.directive?.kind === 'engage') {
       const id = this.directive.targetId;
       const target = [...env.players].find(p => p.id === id);
-      if (!target || !this.isEnemy(self, target, env.mode) || target.state.dropping) {
+      if (!target || !this.isEnemy(self, target, env) || target.state.dropping) {
         this.setDirective(null);
         this.ended = true;
       }
@@ -658,7 +676,7 @@ export class BotBrain {
     if (s.dropping) {
       // glide toward the action and dive once roughly above it
       const enemy = this.nearestEnemy(self, env);
-      const objective = pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
+      const objective = pickCarrapetaGoal(self, env) ?? pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
       const tx = objective?.x ?? (enemy ? enemy.state.x : 0);
       const tz = objective?.z ?? (enemy ? enemy.state.z : 0);
       const d = Math.hypot(tx - s.x, tz - s.z);
@@ -692,7 +710,7 @@ export class BotBrain {
     let target: BotAgent | null = null;
     if (this.targetId >= 0) {
       for (const q of env.players) if (q.id === this.targetId) target = q;
-      if (!target || !this.isEnemy(self, target, env.mode) || target.state.dropping) {
+      if (!target || !this.isEnemy(self, target, env) || target.state.dropping) {
         this.targetId = -1;
         target = null;
       }

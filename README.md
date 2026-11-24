@@ -79,9 +79,10 @@ Serve `client/dist` as static files and start the game server with `node --run s
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GAME_MODES` | `tdm,ffa,ctf,defuse,almoco` | Rotation and vote modes: `tdm`, `ffa`, `ctf`, `defuse`, `almoco`, or `all`. `almoco` only pairs with maps that have a food court (`shopping`) |
+| `GAME_MODES` | `tdm,ffa,ctf,defuse,almoco,carrapeta` | Rotation and vote modes: `tdm`, `ffa`, `ctf`, `defuse`, `almoco`, `carrapeta`, or `all`. `almoco` only pairs with maps that have a food court (`shopping`) |
 | `GAME_MAPS` | all | Map IDs: `forja`, `escritorio`, `shopping` |
 | `CTF_CAPTURE_LIMIT` | `3` | Captures to win; `0` uses the timer only |
+| `CARRAPETA_PICKUP_TIMEOUT_SECONDS` | `20` | Seconds before reassigning a dropped Carrapeta Dourada (5–300) |
 | `DEFUSE_SCORE_LIMIT` | `5` | Rounds to win debug defusion; `0` uses the timer only |
 | `FRIENDLY_FIRE` | `0` | `1` lets bullets hurt teammates in team modes (a teamkill earns no kill or score); only this setting turns it on |
 | `READY_KICK` / `READY_KICK_SECONDS` | `1` / `180` | Players wait on the "pronto" screen, out of the map and untouchable, when they join and again when each new match starts after the podium (the click that grabs the mouse back confirms it, and so do Enter and Space; the weapon box on that screen ends with a lime `↵ Jogar` row). With `1`, whoever has not confirmed after `READY_KICK_SECONDS` (5-600), or when the match ends, goes back to the lobby; `0` never kicks |

@@ -1,4 +1,4 @@
-import { BOMB_PLANT_TIMEOUT_SECONDS, RESPAWN_OBJECTIVE_SECONDS, IDLE_KICK_SECONDS, IDLE_KICK_WARMUP_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
+import { CARRAPETA_PICKUP_TIMEOUT_SECONDS, BOMB_PLANT_TIMEOUT_SECONDS, RESPAWN_OBJECTIVE_SECONDS, IDLE_KICK_SECONDS, IDLE_KICK_WARMUP_SECONDS, READY_KICK_SECONDS, RADIO_COOLDOWN_MS, RADIO_MAX_PER_WINDOW, RADIO_WINDOW_MS, type GameMode, GAME_MODES, getMaps } from '@calindra-strike/shared';
 
 export interface Config {
   port: number;
@@ -13,6 +13,7 @@ export interface Config {
   modes: GameMode[];
   maps: string[]; // empty = every map
   ctfLimit: number;
+  carrapetaPickupTimeoutSeconds: number;
   defuseLimit: number;
   plantTimeoutMs: number;
   objectiveRespawnMs: number;
@@ -111,6 +112,7 @@ export function loadConfig(): Config {
     warmupMinPlayers: int('WARMUP_MIN_PLAYERS', 2, 1, 64),
     modes: modeList(process.env.GAME_MODES, process.env.GAME_MODE),
     maps: mapList(process.env.GAME_MAPS),
+    carrapetaPickupTimeoutSeconds: int('CARRAPETA_PICKUP_TIMEOUT_SECONDS', CARRAPETA_PICKUP_TIMEOUT_SECONDS, 5, 300),
     ctfLimit: int('CTF_CAPTURE_LIMIT', 3, 0, 50),
     defuseLimit: int('DEFUSE_SCORE_LIMIT', 5, 0, 50),
     plantTimeoutMs: flag('DEFUSE_PLANT_TIMEOUT', true) ? int('DEFUSE_PLANT_TIMEOUT_SECONDS', BOMB_PLANT_TIMEOUT_SECONDS, 0, 3600) * 1000 : 0,

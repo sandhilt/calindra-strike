@@ -57,13 +57,60 @@ function fridge(r: Room, x: number, accent: Hex): void {
 
 function fryer(r: Room, x: number): void {
   r.box(x, 17, 24, 32, 34, 0, 'white', STEEL);
-  r.box(x, 17, 20, 26, 1, 34, 'charcoal', IRON);
+  r.box(x, 17, 20, 26, 1, 34, 'white', 0xa26228);
   r.box(x, 31.5, 22, 2.4, 7, 28, 'charcoal', IRON);
-  for (const side of [-5, 5]) {
-    r.box(x + side, 8, 1.4, 14, 1.4, 35, 'charcoal', IRON);
-    r.box(x + side, 1.5, 6, 6, 5, 35, 'white', STEEL_DARK);
+  for (const side of [-1, 1]) {
+    r.box(x + side * 8, 17, 1.4, 17, 4, 35, 'white', STEEL_DARK);
+    r.box(x, 17 + side * 8.5, 14.6, 1.4, 4, 35.2, 'white', STEEL);
   }
-  r.box(x, 3.5, 22, 4, 12, 34, 'white', STEEL_DARK);
+  for (const dx of [-5, 0, 5]) r.box(x + dx, 17, 1, 14, 1, 35, 'white', STEEL);
+  r.box(x, 30, 2, 11, 2, 38, 'white', STEEL);
+  r.box(x, 38, 4, 7, 3, 37.5, 'charcoal');
+}
+
+
+/** A shallow pan with an inset cooking surface and a handle facing the serving window. */
+function pan(r: Room, x: number, z: number, y: number): void {
+  r.box(x, z, 14, 14, 2, y, 'charcoal', IRON);
+  for (const side of [-1, 1]) {
+    r.box(x + side * 7, z, 2, 13, 3, y + 1, 'charcoal', IRON);
+    r.box(x, z + side * 7, 13, 2, 3.2, y + 1, 'charcoal', IRON);
+  }
+  r.box(x, z + 12, 3, 10, 2, y + 2, 'charcoal');
+}
+
+type Pot = 'pressure' | 'stock';
+
+/** Three adjoining strips bevel the corners of a round pot in the static box mesh. */
+function potLayer(r: Room, x: number, z: number, y: number, size: number, height: number, tint: Hex): void {
+  const middleDepth = size * 0.6;
+  const endDepth = (size - middleDepth) / 2;
+  r.box(x, z, size, middleDepth, height, y, 'white', tint);
+  for (const side of [-1, 1]) {
+    r.box(x, z + side * (middleDepth + endDepth) / 2, size * 0.72, endDepth, height, y, 'white', tint);
+  }
+}
+
+/** A lidded pot over a raised gas ring. The pressure regulator is the source of the steam. */
+function burnerPot(r: Room, x: number, z: number, y: number, style: Pot): void {
+  const height = style === 'pressure' ? 10 : 14;
+  const base = y + 6;
+  const lid = base + height;
+  r.box(x, z, 22, 22, 2, y, 'charcoal', IRON);
+  for (const side of [-1, 1]) r.box(x + side * 8, z, 2, 15, 4, y + 2, 'charcoal');
+  r.flame(x, z, y + 2, 6, 'burner');
+  potLayer(r, x, z, base, 16, height, STEEL);
+  potLayer(r, x, z, lid, 17, 2, STEEL_DARK);
+  for (const side of [-1, 1]) r.box(x + side * 10, z, 5, 4, 2, lid - 3, 'charcoal');
+  r.box(x, z, 3, 3, 2, lid + 2, 'charcoal');
+  if (style === 'pressure') r.box(x, z, 4.5, 4.5, 1.8, lid + 4, 'white', STEEL_DARK);
+  r.steam(x, z, lid + (style === 'pressure' ? 5.8 : 4));
+  r.cook(x, z, lid, 'boil');
+}
+
+function range(r: Room, x: number, style: Pot): void {
+  r.box(x, 22, 28, 34, 34, 0, 'white', STEEL);
+  burnerPot(r, x, 24, 34, style);
 }
 
 function griddle(r: Room, x: number, width: number): void {
@@ -72,7 +119,10 @@ function griddle(r: Room, x: number, width: number): void {
   r.box(x, 17, width - 2, 28, 1.6, 34, 'charcoal', 0x1b1b1b);
   r.box(x, 33.5, width, 3, 4, 34, 'white', STEEL_DARK);
   r.box(x - width / 4, 13, 8, 5, 4, 36, 'wood', 0x5a2a1a);
-  r.box(x + width / 5, 22, 8, 5, 4, 36, 'wood', 0x5a2a1a);
+  const panX = x + width / 5;
+  r.flame(panX, 22, 35.6, 6, 'burner');
+  for (const side of [-1, 1]) r.box(panX + side * 6, 22, 2, 12, 3.9, 35.6, 'charcoal', IRON);
+  pan(r, panX, 22, 39.5);
 }
 
 function hood(r: Room, x: number, width: number): void {
@@ -178,10 +228,10 @@ function softServe(r: Room, x: number, color: Hex): void {
 type Kitchen = { kind: 'fast'; spec: FastSpec } | { kind: 'grill'; spec: GrillSpec };
 
 const FAST_SPECS = {
-  kfg: { accent: 0xc8102e, fryers: 4, griddle: false, extras: (r: Room) => { bucketStack(r, 110); warmerCabinet(r, -118); } },
-  'burguer-rei': { accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true, extras: (r: Room) => { toasterRack(r, 100); r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a); } },
-  mequi: { accent: 0xda291c, fryers: 2, griddle: true, extras: (r: Room) => { drinks(r, 100, 0xda291c); softServe(r, 128, 0xffc72c); } },
-  bobis: { accent: 0xe30613, fryers: 2, griddle: false, extras: (r: Room) => { softServe(r, -118, 0xe30613); drinks(r, 108, 0x1f5fbf); griddle(r, 60, 56); } },
+  kfg: { accent: 0xc8102e, fryers: 4, griddle: false, extras: (r: Room) => { bucketStack(r, 110); warmerCabinet(r, -118); range(r, 43, 'stock'); } },
+  'burguer-rei': { accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true, extras: (r: Room) => { toasterRack(r, 100); range(r, 18, 'stock'); r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a); } },
+  mequi: { accent: 0xda291c, fryers: 2, griddle: true, extras: (r: Room) => { drinks(r, 100, 0xda291c); softServe(r, 128, 0xffc72c); range(r, 43, 'stock'); } },
+  bobis: { accent: 0xe30613, fryers: 2, griddle: false, extras: (r: Room) => { softServe(r, -118, 0xe30613); drinks(r, 108, 0x1f5fbf); griddle(r, 60, 56); range(r, -28, 'pressure'); } },
 } satisfies Record<string, FastSpec>;
 
 /** Flames along the coal bed of a brick grill, under the skewers. */
@@ -189,9 +239,12 @@ const GRILL_FLAMES = 6;
 
 function brickGrill(r: Room, x: number, width: number): void {
   r.cook(x, 18, 40, 'charcoal');
-  for (let i = 0; i < GRILL_FLAMES; i++) r.flame(x - width / 2 + 14 + (i * (width - 28)) / (GRILL_FLAMES - 1), 18, 33, 17 + (i % 2) * 5);
+  const panX = x - width / 2 + 14;
+  for (let i = 1; i < GRILL_FLAMES; i++) r.flame(panX + (i * (width - 28)) / (GRILL_FLAMES - 1), 18, 33, 17 + (i % 2) * 5);
+  r.flame(panX, 19, 33, 6);
   r.box(x, 18, width, 34, 30, 0, 'brick', 0x7a3f2e);
   r.box(x, 18, width - 6, 26, 3, 30, 'brick', 0xff6a2a);
+  pan(r, panX, 19, 34.4);
   for (let i = 0; i < 9; i++) r.box(x - width / 2 + 6 + i * ((width - 12) / 8), 18, 1.4, 28, 1.4, 33, 'charcoal', IRON);
   for (let i = 0; i < 6; i++) {
     const sx = x - width / 2 + 10 + i * ((width - 20) / 5);
@@ -252,10 +305,10 @@ function grillKitchen(r: Room, spec: GrillSpec): void {
 }
 
 const GRILL_SPECS = {
-  'mania-picanha': { accent: 0xe0261b, extras: (r: Room) => { brickGrill(r, -20, 100); doubleOven(r, 118); potRail(r, 100, 70); } },
-  parrilha: { accent: 0x5a3a22, extras: (r: Room) => { brickGrill(r, -22, 112); doubleOven(r, 122); potRail(r, 96, 60); } },
-  outbaque: { accent: 0x7a2a1a, extras: (r: Room) => { brickGrill(r, -26, 84); doubleOven(r, 120); wineRack(r, 70); } },
-  madeiro: { accent: 0x1b1b1b, extras: (r: Room) => { woodOven(r, -24); doubleOven(r, 120); potRail(r, 92, 60); } },
+  'mania-picanha': { accent: 0xe0261b, extras: (r: Room) => { brickGrill(r, -20, 100); range(r, 51, 'pressure'); doubleOven(r, 118); potRail(r, 100, 70); } },
+  parrilha: { accent: 0x5a3a22, extras: (r: Room) => { brickGrill(r, -22, 112); range(r, 52, 'stock'); doubleOven(r, 122); potRail(r, 96, 60); } },
+  outbaque: { accent: 0x7a2a1a, extras: (r: Room) => { brickGrill(r, -26, 84); range(r, 32, 'stock'); doubleOven(r, 120); wineRack(r, 70); } },
+  madeiro: { accent: 0x1b1b1b, extras: (r: Room) => { woodOven(r, -24); range(r, 23, 'pressure'); doubleOven(r, 120); potRail(r, 92, 60); } },
 } satisfies Record<string, GrillSpec>;
 
 /** One entry per food brand: a brand added to STORE_BRANDS without a kitchen fails the typecheck. */

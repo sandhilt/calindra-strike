@@ -129,6 +129,7 @@ export class MapBuilder {
       case 'lift':
         return { ...p, x, z, yaw: p.yaw - turn };
       case 'flame':
+      case 'steam':
       case 'cook':
         return { ...p, x, z };
       case 'escalator': {

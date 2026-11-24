@@ -310,8 +310,8 @@ function softBlob(): THREE.CanvasTexture {
   }, false);
 }
 
-/** Vapour wisps of every vent as one point cloud: a single draw call, and not built at all when the tier has no smoke. */
-class VentSmoke {
+/** Batched vapour wisps with shared motion and opposite rise directions for vents and pots. */
+class Vapour {
   readonly points: THREE.Points;
   private readonly material: THREE.PointsMaterial;
   private readonly positions: Float32Array;
@@ -319,8 +319,11 @@ class VentSmoke {
   private readonly wisp: WispPose = { out: 0, down: 0, side: 0, alpha: 0 };
   private seconds = 0;
 
-  constructor(private readonly vents: readonly PropOf<'vent'>[]) {
-    const count = vents.length * WISPS_PER_VENT;
+  private readonly sources: readonly (PropOf<'vent'> | PropOf<'steam'>)[];
+
+  constructor(sources: readonly (PropOf<'vent'> | PropOf<'steam'>)[]) {
+    this.sources = sources;
+    const count = sources.length * WISPS_PER_VENT;
     this.positions = new Float32Array(count * 3);
     this.colors = new Float32Array(count * 4);
     for (let i = 0; i < count; i++) this.colors.set([0.86, 0.9, 0.93, 0], i * 4);
@@ -340,16 +343,17 @@ class VentSmoke {
   }
 
   private pose(): void {
-    this.vents.forEach((v, n) => {
-      const outX = -Math.sin(v.yaw);
-      const outZ = -Math.cos(v.yaw);
+    this.sources.forEach((v, n) => {
+      const steam = v.kind === 'steam';
+      const outX = steam ? 0 : -Math.sin(v.yaw);
+      const outZ = steam ? 0 : -Math.cos(v.yaw);
       const seed = seedOf(v.x, v.z);
       for (let i = 0; i < WISPS_PER_VENT; i++) {
         wispPose(this.wisp, i, this.seconds, seed);
         const k = n * WISPS_PER_VENT + i;
-        this.positions[k * 3] = v.x + outX * (this.wisp.out + 2) - outZ * this.wisp.side;
-        this.positions[k * 3 + 1] = v.y - this.wisp.down;
-        this.positions[k * 3 + 2] = v.z + outZ * (this.wisp.out + 2) + outX * this.wisp.side;
+        this.positions[k * 3] = v.x + (steam ? this.wisp.side : outX * (this.wisp.out + 2) - outZ * this.wisp.side);
+        this.positions[k * 3 + 1] = v.y + (steam ? this.wisp.out * 0.6 : -this.wisp.down);
+        this.positions[k * 3 + 2] = v.z + (steam ? 0 : outZ * (this.wisp.out + 2) + outX * this.wisp.side);
         this.colors[k * 4 + 3] = this.wisp.alpha;
       }
     });
@@ -389,10 +393,10 @@ function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGro
   const spinners = new Spinners(geometry, newPropMaterial(), slots, VENT_FAN_RAD_PER_S);
   const clock = new MotionClock(ctx.profile);
   const root = groupOf(spinners.mesh);
-  let smoke: VentSmoke | null = null;
+  let smoke: Vapour | null = null;
   const setSmoke = (wanted: boolean): void => {
     if (wanted && !smoke) {
-      smoke = new VentSmoke(items);
+      smoke = new Vapour(items);
       root.add(smoke.points);
     } else if (!wanted && smoke) {
       smoke.dispose();
@@ -413,14 +417,31 @@ function buildVents(items: readonly PropOf<'vent'>[], ctx: PropContext): PropGro
   };
 }
 
+function buildSteam(items: readonly PropOf<'steam'>[], ctx: PropContext): PropGroup {
+  const root = still();
+  if (items.length === 0) return root;
+  let steam: Vapour | null = null;
+  function setQuality(profile: QualityProfile): void {
+    if (profile.ventSmoke && !steam) {
+      steam = new Vapour(items);
+      root.object.add(steam.points);
+    } else if (!profile.ventSmoke && steam) {
+      steam.dispose();
+      steam = null;
+    }
+  }
+  setQuality(ctx.profile);
+  return { object: root.object, update: (dt) => steam?.update(dt), setQuality };
+}
+
 const FLAME_RADIAL_SEGMENTS = 5;
 const FLAME_RADIUS_RATIO = 0.5;
 const FLAME_CORE_RADIUS_RATIO = 0.55;
 const FLAME_CORE_HEIGHT_RATIO = 0.62;
 
-function flameLayer(geometry: THREE.BufferGeometry, count: number, color: number, opacity: number) {
+function flameLayer(geometry: THREE.BufferGeometry, count: number, opacity: number) {
   const material = new THREE.MeshBasicMaterial({
-    color, opacity, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    opacity, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   });
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -431,8 +452,13 @@ function flameLayer(geometry: THREE.BufferGeometry, count: number, color: number
 function createFlames(items: readonly PropOf<'flame'>[]) {
   const geometry = new THREE.ConeGeometry(FLAME_RADIUS_RATIO, 1, FLAME_RADIAL_SEGMENTS, 1, true);
   geometry.translate(0, 0.5, 0);
-  const outer = flameLayer(geometry, items.length, 0xff640e, 0.72);
-  const core = flameLayer(geometry, items.length, 0xffdc46, 0.9);
+  const outer = flameLayer(geometry, items.length, 0.72);
+  const core = flameLayer(geometry, items.length, 0.9);
+  const color = new THREE.Color();
+  items.forEach(({ burner }, i) => {
+    outer.setColorAt(i, color.setHex(burner ? 0x326aff : 0xff640e));
+    core.setColorAt(i, color.setHex(burner ? 0xff9a3a : 0xffdc46));
+  });
   const object = groupOf(outer, core);
   const transform = new THREE.Object3D();
   const pose: FlamePose = { height: 1, width: 1, swayRadians: 0 };
@@ -625,6 +651,7 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   vent: buildVents,
   lift: buildLifts,
   flame: buildFlames,
+  steam: buildSteam,
   cook: still,
 };
 

@@ -59,7 +59,7 @@ export interface Outfit {
 }
 
 /** What a cooking sound is made of; the client has one synthesis per voice. */
-export type CookVoice = 'fryer' | 'griddle' | 'charcoal' | 'wood';
+export type CookVoice = 'fryer' | 'griddle' | 'charcoal' | 'wood' | 'boil';
 
 export type EscalatorTravel = 'up' | 'down';
 
@@ -85,7 +85,8 @@ export type MapProp =
   /** A wall grille with a fan behind it, a hum nearby and a faint wisp of vapour. It faces local -z. */
   | { kind: 'vent'; x: number; y: number; z: number; yaw: number; width: number; height: number }
   /** A flickering flame of `size` units tall standing on its base point: coals, a wood oven mouth, a flame grill. Look only. */
-  | { kind: 'flame'; x: number; y: number; z: number; size: number }
+  | { kind: 'flame'; x: number; y: number; z: number; size: number; burner?: true }
+  | { kind: 'steam'; x: number; y: number; z: number }
   /** Where a kitchen cooks: a point the sound of `voice` comes from, heard within a few hundred units. Sound only. */
   | { kind: 'cook'; x: number; y: number; z: number; voice: CookVoice }
   /** The glass cab and frame of a lift shaft, centred on its footprint. The cabs follow whoever rides (the field is `MapDef.lifts`). */

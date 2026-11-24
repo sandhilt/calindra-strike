@@ -9,7 +9,7 @@ You are a normal player on an authoritative server. The MCP tools steer a pilot 
 
 ## Before you start
 
-The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`, `use`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
+The tools are `join`, `get_state`, `move_to`, `attack`, `hunt`, `stop`, `jump`, `crouch`, `zoom`, `walk`, `reload`, `switch_weapon`, `cycle_weapon`, `spray`, `use`, `wait`, `choose_loadout`, `say`, `vote`, `switch_team` and `leave`. A server must be running and reachable. If `join` fails, read its error verbatim and use the `host-calindra-strike` skill. Do not retry a wrong access code in a loop.
 
 ## The loop
 

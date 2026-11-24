@@ -474,9 +474,9 @@ export class Hud {
     this.carrapetaBannerKind = kind;
     clearTimeout(this.carrapetaBannerTimer);
     this.carrapetaBanner.classList.add('hidden');
-    const { title, text, durationMs } = CARRAPETA_BANNERS[kind];
+    const { icon, title, text, durationMs } = CARRAPETA_BANNERS[kind];
     this.carrapetaBanner.replaceChildren(
-      h('strong', { class: 'carrapeta-symbol', 'aria-hidden': 'true' }, [svg(ICONS.carrapeta)]),
+      h('strong', { class: 'carrapeta-symbol', 'aria-hidden': 'true' }, [svg(ICONS[icon])]),
       h('b', { class: 'lunch-name', text: title }),
       h('span', { text }),
     );

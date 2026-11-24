@@ -4,9 +4,9 @@ export const CARRAPETA_GOLD = '#ffd54f';
 export const CARRAPETA_SYMBOL = '◆';
 
 export const CARRAPETA_BANNERS = {
-  take: { title: 'Está tudo azeitado', text: 'Você tem a Carrapeta Dourada. Só você pode ferir os outros, e todos só ferem você. Use a Azeitadora, fuja e sobreviva para pontuar.', durationMs: 4500 },
-  on: { title: 'Batata quente!', text: `Todos contra o portador, como já era. A cada ${BATATA_DOUBLE_EVERY_SECONDS} s com a Carrapeta, os pontos por segundo dobram. O pente do portador fica pela metade.`, durationMs: 4500 },
-  off: { title: 'Fim da batata quente', text: 'A caça à Carrapeta continua.', durationMs: 2300 },
+  take: { icon: 'carrapeta', title: 'Está tudo azeitado', text: 'Você tem a Carrapeta Dourada. Só você pode ferir os outros, e todos só ferem você. Use a Azeitadora, fuja e sobreviva para pontuar.', durationMs: 4500 },
+  on: { icon: 'batata', title: 'Batata quente!', text: `Todos contra o portador, como já era. A cada ${BATATA_DOUBLE_EVERY_SECONDS} s com a Carrapeta, os pontos por segundo dobram. O pente do portador fica pela metade.`, durationMs: 4500 },
+  off: { icon: 'batata', title: 'Fim da batata quente', text: 'A caça à Carrapeta continua.', durationMs: 2300 },
 } as const;
 
 export type CarrapetaBanner = keyof typeof CARRAPETA_BANNERS;

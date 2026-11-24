@@ -1,3 +1,5 @@
+import { CARRAPETA_BANNERS } from '../src/game/carrapeta.ts';
+import { ICONS } from '../src/ui/icons.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { WEAPON, weaponDef } from '@calindra-strike/shared';
@@ -44,4 +46,11 @@ test('Carrapeta standings rank by points and preserve kill order for modes witho
   const holder = { id: 2, points: 10, kills: 0, deaths: 1 };
   assert.deepEqual([hunter, holder].sort(compareScoreRows), [holder, hunter]);
   assert.ok(compareScoreRows({ ...hunter, points: undefined }, { ...holder, points: undefined }) < 0);
+});
+
+test('the Batata Quente banners show the potato and the others keep the golden top', () => {
+  assert.equal(CARRAPETA_BANNERS.on.icon, 'batata');
+  assert.equal(CARRAPETA_BANNERS.off.icon, 'batata');
+  assert.equal(CARRAPETA_BANNERS.take.icon, 'carrapeta');
+  for (const banner of Object.values(CARRAPETA_BANNERS)) assert.match(ICONS[banner.icon], /^<svg viewBox="0 0 64 64"/);
 });

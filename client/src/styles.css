@@ -2940,6 +2940,10 @@ input:focus-visible {
   0%, 100% { transform: rotate(-8deg); }
   50% { transform: rotate(8deg); }
 }
+.carrapeta-banner.rush .carrapeta-symbol svg {
+  filter: drop-shadow(0 0 16px #ff5a1a);
+  animation-duration: 0.5s;
+}
 .carrapeta-banner.rush .lunch-name {
   font-size: clamp(24px, 5vw, 48px);
   text-transform: uppercase;

@@ -1,8 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { LUNCH_RUSH_TAG, followersOf, followersText, lunchAnnouncement, lunchMessage, lunchStatus, lunchView } from '../src/game/lunch.ts';
+import { LUNCH_RUSH_TAG, followersOf, followersText, lunchAnnouncement, lunchMessage, lunchRole, lunchStatus, lunchView } from '../src/game/lunch.ts';
 
 describe('hora de almoçar HUD', () => {
+  it('shows each team its objective, with a rush call for attackers', () => {
+    assert.deepEqual(lunchRole(0, 0, false), { side: 'attack', label: 'ataque', goal: 'leve os colegas ao restaurante' });
+    assert.deepEqual(lunchRole(1, 1, true), { side: 'attack', label: 'ataque', goal: 'corra, é hora do rush' });
+    assert.deepEqual(lunchRole(1, 0, false), { side: 'defend', label: 'defesa', goal: 'impeça o almoço' });
+    assert.deepEqual(lunchRole(0, 1, true), { side: 'defend', label: 'defesa', goal: 'impeça o almoço' });
+    assert.equal(lunchRole(0, -1, false), null);
+    assert.equal(lunchRole(1, 2, true), null);
+  });
+
   it('reads the snapshot rows into named colleagues', () => {
     const view = lunchView([1, 30_000], [[0, -1, 10, 0, 20, 0.5], [1, 7, 30, 96, 40, 0], [2, -1, 50, 192, 60, 0]]);
     assert.partialDeepStrictEqual(view, {

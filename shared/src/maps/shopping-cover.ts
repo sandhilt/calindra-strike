@@ -1,5 +1,6 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
+import { trimSolid } from './shopping-deck-walls.ts';
 import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, X } from './shopping-levels.ts';
 
 /**
@@ -144,6 +145,7 @@ function foodCourt(b: MapBuilder): void {
   }
   for (const [x, z] of [[-1120, -1240], [-464, -944], [240, -1216], [1056, -1032]] as const) {
     b.block(x, z, 192, 20, 112, 'white', DECK, { tint: PAINT });
+    trimSolid(b, x, z, 192, 20, 112);
   }
   // nothing stands outside the lift doorway at x = 0
   for (const x of [-1000, -320, 320, 1000]) planter(b, x, -704, 160, 28, DECK);

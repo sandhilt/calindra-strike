@@ -4,6 +4,7 @@ import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
 import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { dressDeckWalls } from './shopping-deck-walls.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
@@ -19,6 +20,8 @@ const ESCALATORS = [
   { x1: -576, x2: -480, travel: 'down', name: 'Escada rolante que desce' },
 ] satisfies readonly { x1: number; x2: number; travel: EscalatorTravel; name: string }[];
 const ESCALATOR_FOOT_Z = -352;
+const PILLAR_XS = [-760, -200, 200, 760];
+const PILLAR_Z = -696;
 /** Escalator sides rise higher still: a step two cells up must not reach the top of a lower panel with a jump. */
 const ESCALATOR_SIDE = 80;
 
@@ -136,6 +139,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
   const duct = new Room(b, 0, DECK, -Z);
   duct.box(0, 16, 2 * (X - 28), 32, 36, 126, 'white', 0xc9ced6);
   for (const x of [-X + 96, ...STORE_PARTITIONS, X - 96]) duct.vent(x, 144, 32, 'front');
+  dressDeckWalls(b, { kitchenXs: STORE_XS, boothXs: STORE_PARTITIONS, pillars: PILLAR_XS.map((x) => [x, PILLAR_Z] as const), brands });
 }
 
 /**
@@ -176,9 +180,9 @@ export function buildShopping(): MapDef {
     b.add(-X, ROOF, -Z, X, ROOF + SLAB, GALLERY_Z, 'white');
     // the roof top is outside the mall and nobody can walk there from the floor, so a glider hits the side of this column instead of landing
     b.add(-X, ROOF + SLAB, -Z, X, DROP_HEIGHT + ROOF_CLIP_MARGIN, GALLERY_Z, 'clip', { visible: false, shoot: true });
-    for (const px of [-760, -200, 200, 760]) {
-      b.block(px, -696, 40, 40, DECK - SLAB, 'white');
-      b.block(px, -696, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
+    for (const px of PILLAR_XS) {
+      b.block(px, PILLAR_Z, 40, 40, DECK - SLAB, 'white');
+      b.block(px, PILLAR_Z, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
     topFloor(b, MIRANTE_PHARMACIES[half]);
 

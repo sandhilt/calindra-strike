@@ -118,10 +118,19 @@ export function carriedBy(cab: LiftCab, y: number): boolean {
   return ahead >= 0 && ahead <= LIFT_CARRY_UNITS;
 }
 
-/** A doorway is open only while the cab waits at its stop; everywhere else it is shut. */
+/**
+ * The doors shut this many ticks before the cab leaves (0.2 s, a tuning value), so whoever is mid-doorway at that moment
+ * is already inside on the cab floor when it sets off, and nobody can slip in behind a departed cab.
+ */
+export const LIFT_DOOR_CLOSE_TICKS = 12;
+
+/** A doorway is open only while the cab waits at its stop, until just before it leaves; everywhere else it is shut. */
 export function liftDoorOpen(lift: Lift, door: LiftDoor, tick: number): boolean {
-  const cab = liftCab(lift, tick);
-  return cab.moving === 0 && Math.abs(cab.y - door.y) < 1;
+  const waitsAt = (t: number): boolean => {
+    const cab = liftCab(lift, t);
+    return cab.moving === 0 && Math.abs(cab.y - door.y) < 1;
+  };
+  return waitsAt(tick) && waitsAt(tick + LIFT_DOOR_CLOSE_TICKS);
 }
 
 /**

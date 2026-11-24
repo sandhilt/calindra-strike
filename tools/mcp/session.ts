@@ -418,7 +418,9 @@ export class GameSession {
         throw new Error('Target unreachable on navigation grid');
       if (intent.y !== undefined && Math.abs(end.y - intent.y) > MOVE_TO_FLOOR_SLACK_UNITS)
         throw new Error('No floor near y=' + intent.y + ' at that x,z (the nearest is at y=' + end.y + ')');
-      if (world.hullOverlaps(intent.x, end.y + 0.1, intent.z, STAND_HEIGHT))
+      // a lift doorway is only shut for now: the target is judged with the doors open, like the grid
+      const { x: targetX, z: targetZ } = intent;
+      if (world.withDoorsOpen(() => world.hullOverlaps(targetX, end.y + 0.1, targetZ, STAND_HEIGHT)))
         throw new Error('Target intersects solid map geometry');
       // the pilot arrives at a walkable height, so a floor the agent asked for is the one the grid has there
       if (intent.y !== undefined) intent = { ...intent, y: end.y };

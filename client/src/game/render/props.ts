@@ -1,4 +1,4 @@
-import { LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
+import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import {
   CASCADE_DROP,
@@ -602,8 +602,11 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
   const pose = (serverTick: number): void => {
     for (const { lift, schedule, cabs, lintels, stopDoors } of shafts) {
       const { y } = liftCab(schedule, serverTick);
+      /** The collision shuts the doors before the cab leaves, so the drawn doors are open only while the cab is at the stop now and still will be then. */
+      const departing = liftCab(schedule, serverTick + LIFT_DOOR_CLOSE_TICKS).y;
+      const opening = (stopY: number): number => Math.min(doorOpening(Math.abs(y - stopY)), doorOpening(Math.abs(departing - stopY)));
       stopDoors.forEach((panes, k) => {
-        const shut = Math.max(1 - doorOpening(Math.abs(y - lift.stops[k].y)), MIN_PANE_SCALE);
+        const shut = Math.max(1 - opening(lift.stops[k].y), MIN_PANE_SCALE);
         const paneWidth = lift.width / 2 + LIFT_WALL_UNITS;
         for (const { pane, side } of panes) {
           pane.scale.x = shut;
@@ -615,7 +618,7 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
         cab.group.visible = true;
         cab.group.position.y = y;
         const near = nearestStop(lift.stops, y);
-        const open = doorOpening(near.distance);
+        const open = opening(lift.stops[near.index].y);
         if (open > 0.5) standing.add(near.index);
         for (const side of ['front', 'back'] as const) {
           const mine = lift.stops[near.index].side === side ? open : 0;

@@ -15,13 +15,14 @@ import {
   dropPose,
   escalatorPhase,
   fillStepSlot,
+  flamePose,
   newStepSlot,
   stepGeometry,
   wispPose,
   type DropPose,
+  type FlamePose,
   type WispPose,
 } from '../src/game/render/prop-motion.ts';
-import { MAX_VENT_HUMS, VentHum, nearestVents } from '../src/game/vent-hum.ts';
 
 const SHAPE = { length: 320, height: 192 };
 
@@ -131,26 +132,27 @@ test('a vent wisp sinks and never climbs, because the air from a vent is cold', 
   assert.ok(late.down - early.down > early.down, 'it falls faster as it goes');
 });
 
-test('only the nearest vents within earshot hum', () => {
-  const vents = [0, 100, 200, 300, 900].map((x) => ({ x, y: 0, z: 0 }));
-  assert.deepEqual(nearestVents(vents, { x: 90, y: 0, z: 0 }, 3, 420), [1, 0, 2]);
-  assert.deepEqual(nearestVents(vents, { x: 5000, y: 0, z: 0 }, 3, 420), []);
+test('flame poses stay within their flicker bounds for a minute', () => {
+  const pose: FlamePose = { height: 0, width: 0, swayRadians: 0 };
+  const samplesPerSecond = 60;
+  for (const seed of [0, 1, 2, 17, 33]) {
+    for (let frame = 0; frame <= 60 * samplesPerSecond; frame++) {
+      flamePose(pose, frame / samplesPerSecond, seed);
+      assert.ok(pose.height >= 0.75 && pose.height <= 1.25);
+      assert.ok(pose.width >= 0.82 - 1e-9 && pose.width <= 1.18 + 1e-9);
+      assert.ok(Math.abs(pose.swayRadians) <= 0.17);
+    }
+  }
 });
 
-test('hums start near a vent, stop when the listener leaves, and all stop on dispose', () => {
-  const vents = [0, 100, 200, 300, 1000].map((x) => ({ x, y: 0, z: 0 }));
-  const live = new Set<number>();
-  const hum = new VentHum(vents, (at) => {
-    live.add(at.x);
-    return { stop: () => live.delete(at.x) };
-  });
-  hum.update(1, { x: 0, y: 0, z: 0 });
-  assert.deepEqual([...live].toSorted((a, b) => a - b), [0, 100, 200]);
-  assert.ok(live.size <= MAX_VENT_HUMS);
-  hum.update(1, { x: 1000, y: 0, z: 0 });
-  assert.deepEqual([...live], [1000]);
-  hum.dispose();
-  assert.equal(live.size, 0);
+test('flame poses repeat for the same time and seed and differ by seed', () => {
+  const first: FlamePose = { height: 0, width: 0, swayRadians: 0 };
+  const second = { ...first };
+  flamePose(first, 3.4, 1);
+  flamePose(second, 3.4, 2);
+  assert.notDeepEqual(first, second);
+  flamePose(second, 3.4, 1);
+  assert.deepEqual(first, second);
 });
 
 const LIFT_SHAPE = {

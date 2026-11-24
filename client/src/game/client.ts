@@ -79,7 +79,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
-import { VentHum } from './vent-hum.ts';
+import { NearbyLoops, ambientEmitters } from './nearby-loops.ts';
 import { radioMenuKey, type OpenRadioMenu, type RadioKeyResult } from './radio-menu.ts';
 import { RADIO_VOICE, createSpeaker } from './speech.ts';
 import type { StreakSound } from './sound-packs/types.ts';
@@ -240,7 +240,7 @@ export class ClientGame {
   private readonly podium = new PodiumScene();
   private readonly muzzleLight = new THREE.PointLight('#ffcf8a', 0, 420, 0);
   private world: WorldView | null = null;
-  private ventHum: VentHum | null = null;
+  private nearbyLoops: NearbyLoops | null = null;
   private collision!: CollisionWorld;
   private map!: MapDef;
   private mapIndex = -1;
@@ -682,8 +682,8 @@ export class ClientGame {
     this.spectatorPose = overviewPose(this.map.bounds);
     this.world?.dispose();
     this.world = buildWorld(this.map, this.scene, QUALITY[this.settings.quality]);
-    this.ventHum?.dispose();
-    this.ventHum = new VentHum(this.map.props.filter((p) => p.kind === 'vent'), (at) => this.sfx.airLoop(at));
+    this.nearbyLoops?.dispose();
+    this.nearbyLoops = new NearbyLoops(ambientEmitters(this.map.props), (at) => this.sfx.ambientLoop(at.voice, at));
     this.dayLooks = buildLooks(this.map.theme);
     this.dayLit = false;
     for (const a of this.airdrops.values()) {
@@ -1693,7 +1693,7 @@ export class ClientGame {
     this.updateHud(overlay);
     const f = v3.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
     this.sfx.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, f.x, f.y, f.z);
-    this.ventHum?.update(dt, this.camera.position);
+    this.nearbyLoops?.update(dt, this.camera.position);
   };
 
   /** Holds the followed player's weapon in the viewmodel; false when there is nothing to draw. */
@@ -2112,7 +2112,7 @@ export class ClientGame {
     this.bombRenderer?.dispose();
     this.suppliesView?.dispose();
     this.world?.dispose();
-    this.ventHum?.dispose();
+    this.nearbyLoops?.dispose();
     this.lightRt?.dispose();
     this.effects.water.setEnabled(false);
     this.renderer.dispose();

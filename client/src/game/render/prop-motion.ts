@@ -139,6 +139,30 @@ export function wispPose(out: WispPose, i: number, seconds: number, ventSeed: nu
   out.alpha = WISP_MAX_ALPHA * Math.sin(life * Math.PI);
 }
 
+export interface FlamePose {
+  height: number;
+  width: number;
+  swayRadians: number;
+}
+
+const FLAME_SEED_PHASE_RAD = 2.399;
+const FLAME_RISE_RAD_PER_S = 11.3;
+const FLAME_FLICKER_RAD_PER_S = 19.7;
+const FLAME_SWAY_RAD_PER_S = 7.9;
+const FLAME_RISE_AMPLITUDE = 0.16;
+const FLAME_FLICKER_AMPLITUDE = 0.09;
+const FLAME_WIDTH_AMPLITUDE = 0.18;
+const FLAME_SWAY_AMPLITUDE_RAD = 0.17;
+
+export function flamePose(out: FlamePose, seconds: number, seed: number): void {
+  const phase = seed * FLAME_SEED_PHASE_RAD;
+  const flicker = Math.sin(seconds * FLAME_FLICKER_RAD_PER_S - phase);
+  out.height = 1 + FLAME_RISE_AMPLITUDE * Math.sin(seconds * FLAME_RISE_RAD_PER_S + phase)
+    + FLAME_FLICKER_AMPLITUDE * flicker;
+  out.width = 1 + FLAME_WIDTH_AMPLITUDE * flicker;
+  out.swayRadians = FLAME_SWAY_AMPLITUDE_RAD * Math.sin(seconds * FLAME_SWAY_RAD_PER_S + phase);
+}
+
 /** Spin of a fan in radians after `seconds`; each fan starts at its own angle so they never move in step. */
 export function fanAngle(seconds: number, radiansPerSecond: number, seed: number): number {
   return (seconds * radiansPerSecond + seed * 2.399) % (Math.PI * 2);

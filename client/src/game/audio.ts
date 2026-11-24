@@ -1,5 +1,5 @@
 import { flagVoice } from './sound-packs/classic.ts';
-import { SPRAY_EMPTY_BURSTS, WEAPON, type ReloadCue, type WeaponId } from '@calindra-strike/shared';
+import { SPRAY_EMPTY_BURSTS, WEAPON, type CookVoice, type ReloadCue, type WeaponId } from '@calindra-strike/shared';
 
 import { playReloadCue } from './reload-sounds.ts';
 import { announceStreak, browserSpeaker } from './sound-packs/announcer.ts';
@@ -18,14 +18,56 @@ const IMPACT_GAP_SECONDS = 0.02;
 
 /** Length of the shared noise buffer, in seconds. */
 const NOISE_BUFFER_SEC = 4;
-/** Within this distance of a vent the hum is at full level. */
-const AIR_FULL_LEVEL_UNITS = 40;
-/** Level of one vent hum at its loudest: much quieter than any shot. */
-const AIR_GAIN = 0.07;
-/** Band of the moving-air noise: a soft rush with no hiss. */
-const AIR_BAND_HZ = 380;
-const AIR_LOWPASS_HZ = 1100;
-const AIR_FADE_SECONDS = 0.25;
+const AMBIENT_FULL_LEVEL_UNITS = 40;
+const AMBIENT_FADE_SECONDS = 0.25;
+const NOISE_OFFSET_MARGIN_SECONDS = 0.5;
+const COOK_AUDIBLE_UNITS = 380;
+
+export type AmbientVoice = 'air' | 'water' | CookVoice;
+
+type AmbientFilter =
+  | { type: 'bandpass'; hz: number; q: number }
+  | { type: 'lowpass' | 'highpass'; hz: number };
+
+interface VoiceSpec {
+  filters: readonly [AmbientFilter, AmbientFilter];
+  gain: number;
+  fadeSeconds: number;
+  audibleUnits: number;
+  lfo?: { hz: number; depth: number };
+}
+
+export const AMBIENT_VOICES: Record<AmbientVoice, VoiceSpec> = {
+  air: {
+    filters: [{ type: 'bandpass', hz: 380, q: 0.5 }, { type: 'lowpass', hz: 1100 }],
+    gain: 0.07, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: AIR_AUDIBLE_UNITS,
+  },
+  water: {
+    filters: [{ type: 'bandpass', hz: 1600, q: 0.5 }, { type: 'lowpass', hz: 5000 }],
+    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: 640,
+    lfo: { hz: 0.7, depth: 0.15 },
+  },
+  fryer: {
+    filters: [{ type: 'highpass', hz: 3000 }, { type: 'bandpass', hz: 6000, q: 0.8 }],
+    gain: 0.11, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    lfo: { hz: 13, depth: 0.4 },
+  },
+  griddle: {
+    filters: [{ type: 'highpass', hz: 2200 }, { type: 'bandpass', hz: 8000, q: 0.7 }],
+    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    lfo: { hz: 7, depth: 0.3 },
+  },
+  charcoal: {
+    filters: [{ type: 'bandpass', hz: 900, q: 0.6 }, { type: 'lowpass', hz: 2500 }],
+    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    lfo: { hz: 9, depth: 0.5 },
+  },
+  wood: {
+    filters: [{ type: 'lowpass', hz: 1200 }, { type: 'bandpass', hz: 500, q: 0.5 }],
+    gain: 0.09, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    lfo: { hz: 4.5, depth: 0.5 },
+  },
+};
 
 /** A looping sound that keeps running until stopped. */
 export interface AmbientLoop {
@@ -454,45 +496,72 @@ export class Sfx {
     this.wind.filter.frequency.setTargetAtTime(400 + level * 900, t, 0.1);
   }
 
-  /**
-   * A quiet looping rush of air at `pos`: filtered noise through a positional node, audible within
-   * `AIR_AUDIBLE_UNITS`. Each loop starts at its own spot in the noise so two vents never sound in step.
-   */
-  airLoop(pos: { x: number; y: number; z: number }): AmbientLoop {
+  private ambientFilter(spec: AmbientFilter): BiquadFilterNode {
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = spec.type;
+    filter.frequency.value = spec.hz;
+    if (spec.type === 'bandpass') filter.Q.value = spec.q;
+    return filter;
+  }
+
+  private ambientModulation(input: AudioNode, output: AudioNode, spec: VoiceSpec['lfo']): AmbientLoop | undefined {
+    if (!spec) {
+      input.connect(output);
+      return;
+    }
+    // Keep modulation upstream of the fade so it falls silent with the loop.
+    const gain = this.ctx.createGain();
+    const depth = this.ctx.createGain();
+    depth.gain.value = spec.depth;
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = spec.hz;
+    lfo.connect(depth).connect(gain.gain);
+    input.connect(gain).connect(output);
+    lfo.start();
+    return {
+      stop: () => {
+        lfo.stop();
+        lfo.disconnect();
+        depth.disconnect();
+        gain.disconnect();
+      },
+    };
+  }
+
+  ambientLoop(voice: AmbientVoice, pos: NonNullable<Pos>): AmbientLoop {
+    const spec = AMBIENT_VOICES[voice];
     const src = this.ctx.createBufferSource();
     src.buffer = this.noise;
     src.loop = true;
-    const band = this.ctx.createBiquadFilter();
-    band.type = 'bandpass';
-    band.frequency.value = AIR_BAND_HZ;
-    band.Q.value = 0.5;
-    const soft = this.ctx.createBiquadFilter();
-    soft.type = 'lowpass';
-    soft.frequency.value = AIR_LOWPASS_HZ;
+    const first = this.ambientFilter(spec.filters[0]);
+    const second = this.ambientFilter(spec.filters[1]);
     const gain = this.ctx.createGain();
     gain.gain.value = 0;
     const panner = this.ctx.createPanner();
     panner.panningModel = 'HRTF';
     panner.distanceModel = 'linear';
-    panner.refDistance = AIR_FULL_LEVEL_UNITS;
-    panner.maxDistance = AIR_AUDIBLE_UNITS;
+    panner.refDistance = AMBIENT_FULL_LEVEL_UNITS;
+    panner.maxDistance = spec.audibleUnits;
     panner.rolloffFactor = 1;
     panner.positionX.value = pos.x;
     panner.positionY.value = pos.y;
     panner.positionZ.value = pos.z;
-    src.connect(band).connect(soft).connect(gain).connect(panner).connect(this.master);
-    src.start(0, Math.random() * (NOISE_BUFFER_SEC - 0.5));
-    gain.gain.setTargetAtTime(AIR_GAIN, this.ctx.currentTime, AIR_FADE_SECONDS / 3);
+    src.connect(first).connect(second);
+    const modulation = this.ambientModulation(second, gain, spec.lfo);
+    gain.connect(panner).connect(this.master);
+    src.start(0, Math.random() * (NOISE_BUFFER_SEC - NOISE_OFFSET_MARGIN_SECONDS));
+    gain.gain.setTargetAtTime(spec.gain, this.ctx.currentTime, spec.fadeSeconds / 3);
     let stopped = false;
     return {
       stop: () => {
         if (stopped) return;
         stopped = true;
-        gain.gain.setTargetAtTime(0, this.ctx.currentTime, AIR_FADE_SECONDS / 3);
+        gain.gain.setTargetAtTime(0, this.ctx.currentTime, spec.fadeSeconds / 3);
         setTimeout(() => {
           src.stop();
-          for (const n of [src, band, soft, gain, panner]) n.disconnect();
-        }, AIR_FADE_SECONDS * 1000 * 2);
+          modulation?.stop();
+          for (const node of [src, first, second, gain, panner]) node.disconnect();
+        }, spec.fadeSeconds * 1000 * 2);
       },
     };
   }

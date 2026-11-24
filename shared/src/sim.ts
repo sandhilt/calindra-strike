@@ -419,6 +419,12 @@ function rideLift(w: CollisionWorld, s: PlayerState, cab: LiftCab): void {
     s.onGround = checkGround(w, s);
     return;
   }
+  // a rider at the doorway edge stands partly on the floor slab: the cab leaving must not drag them down into it
+  if (cab.y < s.y && w.hullOverlaps(s.x, cab.y, s.z, hullHeight(s))) {
+    s.vy = 0;
+    s.onGround = checkGround(w, s);
+    return;
+  }
   s.y = cab.y;
   s.vy = 0;
   s.onGround = true;

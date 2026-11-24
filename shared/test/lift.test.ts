@@ -2,17 +2,16 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BTN, CollisionWorld, LIFT_CARRY_UNITS, LIFT_CLOCK_SLACK_TICKS, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, TICK_MS, WEAPON,
-  applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftDoorOpen, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
+  applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftDoorOpen, LIFT_DOOR_CLOSE_TICKS, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
 const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384], doors: [] };
 
-/** A floor, a shaft with a doorway on its -z side at each upper stop, and a deck outside the door at every stop. */
+/** A floor, a shaft with a doorway on its -z side at each upper stop (no floor of its own there), and a deck outside the door at every stop. */
 function shaftWorld(): CollisionWorld {
   const b = new MapBuilder();
   b.add(-2000, -32, -2000, 2000, 0, 2000, 'ground');
   for (const stop of [192, 384]) b.add(-300, stop - 16, -300, 300, stop, 100, 'tile');
-  for (const stop of [192, 384]) b.add(-56, stop - 4, 100, 56, stop, 212, 'tile');
   b.add(-62, 0, 94, 62, 192, 100, 'glass');
   b.add(-62, 288, 94, 62, 384, 100, 'glass');
   b.add(-62, 480, 94, 62, 600, 100, 'glass');
@@ -89,6 +88,10 @@ describe('the lift cab', () => {
     assert.equal(liftDoorOpen(LIFT, door, 0), false, 'the cab waits on the ground floor');
     assert.equal(liftDoorOpen(LIFT, door, LIFT_STOP_WAIT_TICKS + 30), false, 'the cab is passing');
     assert.equal(liftDoorOpen(LIFT, door, LIFT_STOP_WAIT_TICKS + TICKS_UP + 1), true);
+    const departs = 2 * LIFT_STOP_WAIT_TICKS + TICKS_UP;
+    assert.equal(liftDoorOpen(LIFT, door, departs - LIFT_DOOR_CLOSE_TICKS - 1), true);
+    assert.equal(liftDoorOpen(LIFT, door, departs - LIFT_DOOR_CLOSE_TICKS), false, 'shut before the cab sets off');
+    assert.equal(liftDoorOpen(LIFT, door, departs - 1), false);
   });
 
   it('runs on the command clock when it is close to the server clock, and on the server clock when it is not', () => {
@@ -160,19 +163,11 @@ describe('riding a lift', () => {
     }
   });
 
-  it('a rider who steps in at a floor while the cab is away stands on the landing and is picked up when it comes', () => {
+  it('a rider who is in the shaft at a floor while the cab is away has nothing to stand on and falls to the ground', () => {
     const w = shaftWorld();
     const s = rider(w, 0, 192, 150);
-    let t = 0;
-    t = run(w, s, t, 10);
-    assert.equal(Math.round(s.y), 192, 'waits on the landing, does not fall down the shaft');
-    let reachedWithCab = false;
-    for (let i = 0; i < PERIOD_TICKS; i++) {
-      w.liftTick = t++;
-      step(w, s, 0);
-      if (liftCab(LIFT, t - 1).y > 230 && s.y > 230) reachedWithCab = true;
-    }
-    assert.ok(reachedWithCab, 'went up with the cab');
+    run(w, s, 0, 70);
+    assert.equal(s.y, 0, 'fell down the shaft, y=' + s.y);
   });
 
   it('ignores crouch and jump: nothing a rider presses changes where the cab goes', () => {
@@ -318,6 +313,57 @@ describe('the Shopping Sul Rio lifts', () => {
       assert.ok(Math.abs(s.z) < 550, 'walked out into the atrium, z=' + s.z);
     });
   }
+});
+
+describe('the Mirante doorway when the cab leaves', () => {
+  const shopping = getMaps().find((m) => m.id === 'shopping');
+  assert.ok(shopping);
+  const world = new CollisionWorld(shopping);
+  const lift = shopping.lifts[0];
+  const doorZ = lift.minZ;
+  /** The tick the cab arrives at the Mirante, and the tick its doors shut ahead of departure. */
+  const arrives = [...Array(4000).keys()].find((t) => liftCab(lift, t).y === 384 && liftCab(lift, t).moving === 0 && liftCab(lift, t - 1).moving !== 0) ?? -1;
+  const shuts = arrives + LIFT_STOP_WAIT_TICKS - LIFT_DOOR_CLOSE_TICKS;
+
+  function walker(z: number, fromTick: number) {
+    world.liftTick = fromTick;
+    const s = rider(world, 0, 384, z);
+    return { s, run: (ticks: number, buttons: number, yaw: number) => {
+      for (let i = 0; i < ticks; i++) {
+        world.liftTick = fromTick + i;
+        step(world, s, buttons, yaw);
+      }
+      fromTick += ticks;
+    } };
+  }
+
+  it('finds the arrival tick', () => {
+    assert.ok(arrives > 0);
+  });
+
+  it('keeps out someone who reaches the doorway only after it shut, instead of letting them in behind a departed cab', () => {
+    const { s, run } = walker(doorZ - 30, shuts + 2);
+    run(120, BTN.BACK, 0);
+    assert.ok(s.z < doorZ, 'stayed outside the shaft, z=' + s.z);
+    assert.ok(Math.abs(s.y - 384) < 1, 'still on the Mirante, y=' + s.y);
+  });
+
+  it('takes along someone who is already in the doorway when it shuts: they ride the cab, they do not fall past it', () => {
+    const { s, run } = walker(doorZ - 8, shuts - 1);
+    run(60, BTN.BACK, 0);
+    assert.ok(s.z > doorZ, 'inside the shaft, z=' + s.z);
+    assert.ok(s.onGround, 'standing on the cab');
+    assert.ok(Math.abs(s.y - liftCab(lift, shuts + 59).y) <= LIFT_CARRY_UNITS, 'level with the cab, y=' + s.y);
+  });
+
+  it('does not drag a rider at the doorway edge down into the floor slab when the cab leaves, and lets them walk out', () => {
+    const { s, run } = walker(doorZ + 8, arrives + LIFT_STOP_WAIT_TICKS - 4);
+    run(40, 0, 0);
+    assert.ok(s.y > 383, 'did not sink into the slab, y=' + s.y);
+    run(40, BTN.FWD, 0);
+    assert.ok(s.z < doorZ - 20, 'walked out onto the Mirante, z=' + s.z);
+    assert.ok(Math.abs(s.y - 384) < 1, 'level with the Mirante, y=' + s.y);
+  });
 });
 
 describe('inLiftCab', () => {

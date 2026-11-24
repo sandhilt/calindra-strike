@@ -25,6 +25,8 @@ const LINTEL_TRIM = 6;
 const COUNTER_Z = 52;
 const LAMP_Y = 160;
 const CEILING = SHOP_WALL_HEIGHT;
+/** The back wall paint stands in front of the lounge's trim along the outer wall (3 deep), so the two never share a plane. */
+const BACK_WALL_DEPTH = 4;
 
 type Hex = number;
 
@@ -170,7 +172,7 @@ const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
 /** Shell of the room: paint, floor, baseboard, a lamp and a ceiling slab that hides the roof gap. */
 function shell(r: Room, half: number, spec: Boutique): void {
   r.box(0, SHOP_DEPTH / 2, 2 * half, SHOP_DEPTH - 8, 0.5, 0, 'tile', spec.floor);
-  r.box(0, 1.5, 2 * half, 3, CEILING - 6, 0, 'white', spec.paint);
+  r.box(0, BACK_WALL_DEPTH / 2, 2 * half, BACK_WALL_DEPTH, CEILING - 6, 0, 'white', spec.paint);
   r.box(0, 2, 2 * half, 3.4, 8, 0, 'white', spec.trim);
   r.box(0, SHOP_DEPTH / 2, 2 * half, SHOP_DEPTH - 8, 3, CEILING - 3, 'white', spec.paint);
   for (const x of [-half / 2, half / 2]) r.box(x, 150, 60, 6, 1.4, CEILING - 4.4, 'lamp');

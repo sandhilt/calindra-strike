@@ -47,6 +47,8 @@ import { STANCE, STANCES, isLowered, type BodyBox, type Stance } from './stance.
 import {
   WEAPON,
   WEAPON_COUNT,
+  magCapacity,
+  reserveCapacity,
   type ShellReloadTiming,
   type WeaponDef,
   type WeaponId,
@@ -58,6 +60,8 @@ import {
 } from './weapons.ts';
 
 export interface PlayerState {
+  halvedAmmo: boolean;
+  infiniteMgl: boolean;
   x: number;
   y: number;
   z: number;
@@ -148,6 +152,8 @@ export function createPlayerState(): PlayerState {
     weapon: WEAPON.RIFLE,
     lastWeapon: WEAPON.PISTOL,
     primary: WEAPON.RIFLE,
+    halvedAmmo: false,
+    infiniteMgl: false,
     mag: new Array(WEAPON_COUNT).fill(0),
     reserve: new Array(WEAPON_COUNT).fill(0),
     tick: 0,
@@ -186,13 +192,13 @@ export function eyePosition(s: { x: number; y: number; z: number; yaw: number; l
 
 function fillAmmo(s: PlayerState, id: WeaponId): void {
   const d = weaponDef(id);
-  s.mag[id] = d.mag;
-  s.reserve[id] = d.reserve;
+  s.mag[id] = magCapacity(d, s.halvedAmmo);
+  s.reserve[id] = reserveCapacity(d, s.halvedAmmo);
 }
 
 /** Warmup ammo: the reserve of the guns the player holds never runs out; magazines still empty and need reloading. */
 export function refillReserve(s: PlayerState): void {
-  for (const id of [s.primary, WEAPON.PISTOL]) s.reserve[id] = weaponDef(id).reserve;
+  for (const id of [s.primary, WEAPON.PISTOL]) s.reserve[id] = reserveCapacity(weaponDef(id), s.halvedAmmo);
 }
 
 /** Puts a freshly (re)spawned player in the sky above (x, z). */
@@ -218,6 +224,8 @@ export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw:
   s.dropping = true;
   s.health = MAX_HEALTH;
   s.armor = 0;
+  s.halvedAmmo = false;
+  s.infiniteMgl = false;
   s.mag.fill(0);
   s.reserve.fill(0);
   s.primary = primary;
@@ -245,6 +253,18 @@ export function giveWeapon(s: PlayerState, id: WeaponId): void {
   s.zoom = 0;
   s.resumeZoom = 0;
   s.aiming = false;
+}
+
+/** Convert carried ammo once on activation; restoring capacities keeps the remaining rounds. */
+export function setHalvedAmmo(s: PlayerState, halved: boolean): void {
+  if (s.halvedAmmo === halved) return;
+  s.halvedAmmo = halved;
+  s.reload = 0;
+  if (!halved) return;
+  for (const id of [s.primary, WEAPON.PISTOL]) {
+    s.mag[id] = Math.ceil(s.mag[id] / 2);
+    s.reserve[id] = Math.ceil(s.reserve[id] / 2);
+  }
 }
 
 // ---------------------------------------------------------------- movement
@@ -653,10 +673,14 @@ export function computeSpread(s: PlayerState, def: WeaponDef = weaponDef(s.weapo
  * counts one shell step at a time instead: `s.reload` is the ticks left in the
  * current step and every shell lands in the magazine as soon as it is loaded.
  */
+function reloadReserve(s: PlayerState, def: WeaponDef): number {
+  return def.id === WEAPON.MGL && s.infiniteMgl ? magCapacity(def, s.halvedAmmo) : s.reserve[def.id];
+}
+
 function startReload(s: PlayerState, def: WeaponDef): void {
   const timing = def.reloadTiming;
   if (!timing || s.reload > 0) return;
-  const shells = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
+  const shells = shellsToLoad(def, s.mag[def.id], reloadReserve(s, def), s.halvedAmmo);
   if (shells <= 0) return;
   s.reload = timing.kind === 'shells' ? timing.startTicks + shellStepTicks(timing, shells) : def.reloadTicks;
   s.zoom = 0;
@@ -665,14 +689,14 @@ function startReload(s: PlayerState, def: WeaponDef): void {
 }
 
 function finishMagazineReload(s: PlayerState, def: WeaponDef): void {
-  const take = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
+  const take = shellsToLoad(def, s.mag[def.id], reloadReserve(s, def), s.halvedAmmo);
   s.mag[def.id] += take;
-  s.reserve[def.id] -= take;
+  if (def.id !== WEAPON.MGL || !s.infiniteMgl) s.reserve[def.id] -= take;
 }
 
 /** The shell goes in where its step ends, or before the pump when it is the last one. */
 function loadShell(s: PlayerState, def: WeaponDef, timing: ShellReloadTiming): void {
-  const left = shellsToLoad(def, s.mag[def.id], s.reserve[def.id]);
+  const left = shellsToLoad(def, s.mag[def.id], reloadReserve(s, def), s.halvedAmmo);
   if (left <= 0) return;
   const insertAt = left === 1 ? timing.pumpTicks : 0;
   if (s.reload > insertAt) return;

@@ -7,6 +7,7 @@ type Family = 'pistol' | 'rifle' | 'smg' | 'sniper' | 'lmg' | 'shotgun';
 
 const FAMILY_OF: Readonly<Record<WeaponId, Family | null>> = {
   [WEAPON.HAMMER]: null,
+  [WEAPON.MGL]: 'rifle',
   [WEAPON.PISTOL]: 'pistol',
   [WEAPON.RIFLE]: 'rifle',
   [WEAPON.SMG]: 'smg',

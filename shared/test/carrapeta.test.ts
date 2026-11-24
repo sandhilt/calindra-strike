@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { it } from 'node:test';
+import {
+  BATATA_BOUNTY_POINTS, BATATA_CHANCE, BATATA_DOUBLE_EVERY_SECONDS, BATATA_DURATION_SECONDS,
+  BATATA_KILL_POINTS, BATATA_MAX_MULTIPLIER, CARRAPETA_BLAST_RADIUS_UNITS, CARRAPETA_SELF_DAMAGE_SCALE,
+  CollisionWorld, MapBuilder, TICK_RATE, blastDamage, carrapetaEnemies, carrapetaKillPoints,
+  carrapetaPointsPerSecond, dropCarrapeta, frenzyAtTick, getMaps, stepCarrapeta, stepFrenzy,
+  type FrenzyState,
+} from '../src/index.ts';
+
+it('draws a holder, drops on loss, picks the nearest landed player, and rerolls at the deadline', () => {
+  const at = { x: 0, y: 0, z: 0 };
+  const players = [
+    { ...at, id: 1, landed: false },
+    { ...at, id: 2, landed: true, x: 12 },
+    { ...at, id: 3, landed: true, x: 6 },
+  ];
+  const draw = stepCarrapeta({ kind: 'none' }, players, 0, () => 0);
+  assert.deepEqual(draw.event, { k: 'carrapeta', what: 'take', by: 1 });
+  const drop = dropCarrapeta(draw.state, 1, at, 100);
+  assert.deepEqual(drop.event, { k: 'carrapeta', what: 'lose', by: 1, at });
+  assert.equal(dropCarrapeta(draw.state, 2, at, 100).state, draw.state);
+  assert.equal(stepCarrapeta(drop.state, players.slice(0, 1), 99, () => 0).state, drop.state);
+  assert.equal(stepCarrapeta(drop.state, [], 100, () => 0).state, drop.state);
+  assert.deepEqual(stepCarrapeta(drop.state, players, 99, () => 0).event, { k: 'carrapeta', what: 'take', by: 3 });
+  assert.deepEqual(stepCarrapeta(drop.state, players, 100, () => 0.5).event, { k: 'carrapeta', what: 'reroll', by: 2 });
+});
+
+it('activates frenzy inside the match, doubles the streak rate with a cap, and expires', () => {
+  const calm: FrenzyState = { kind: 'calm' };
+  const duration = 300 * TICK_RATE;
+  assert.equal(frenzyAtTick(0, duration, BATATA_CHANCE, 0.5), undefined);
+  const at = frenzyAtTick(0, duration, 0, 0.5);
+  assert.ok(at !== undefined && at > 0 && at < duration);
+  assert.equal(stepFrenzy(calm, at - 1, at), calm);
+  const frenzy = stepFrenzy(calm, at, at);
+  const untilTick = at + BATATA_DURATION_SECONDS * TICK_RATE;
+  assert.deepEqual(frenzy, { kind: 'frenzy', sinceTick: at, untilTick });
+  assert.equal(stepFrenzy(frenzy, untilTick - 1), frenzy);
+  assert.deepEqual(stepFrenzy(frenzy, untilTick), calm);
+  assert.equal(stepFrenzy(calm, untilTick + 1), calm);
+  const interval = BATATA_DOUBLE_EVERY_SECONDS * TICK_RATE;
+  assert.equal(carrapetaPointsPerSecond(2 * interval, calm), 1);
+  assert.equal(carrapetaPointsPerSecond(interval - 1, frenzy), 1);
+  assert.equal(carrapetaPointsPerSecond(interval, frenzy), 2);
+  assert.equal(carrapetaPointsPerSecond(2 * interval, frenzy), 4);
+  assert.equal(carrapetaPointsPerSecond(100 * interval, frenzy), BATATA_MAX_MULTIPLIER);
+  assert.equal(carrapetaKillPoints(calm, 1, 1, 2), 0);
+  assert.equal(carrapetaKillPoints(frenzy, 1, 1, 2), BATATA_KILL_POINTS);
+  assert.equal(carrapetaKillPoints(frenzy, 1, 2, 1), BATATA_BOUNTY_POINTS);
+  assert.equal(carrapetaKillPoints(frenzy, 1, 1, 1), 0);
+  const held = { kind: 'held', holder: 1, sinceTick: 0 } as const;
+  assert.equal(carrapetaEnemies(frenzy, held, 2, 3), false);
+  assert.equal(carrapetaEnemies(frenzy, held, 2, 1), true);
+  assert.equal(carrapetaEnemies(frenzy, { kind: 'none' }, 2, 3), false);
+});
+
+it('applies linear falloff, reduced self damage and wall shielding', () => {
+  const b = new MapBuilder();
+  b.add(-40, -10, -15, -30, 10, 15, 'concrete');
+  const world = new CollisionWorld({ ...getMaps()[0], boxes: b.boxes });
+  const origin = { x: 0, y: 0, z: 0 };
+  const halfway = { ...origin, x: CARRAPETA_BLAST_RADIUS_UNITS / 2 };
+  assert.equal(blastDamage(world, origin, origin, 100, true), 100 * CARRAPETA_SELF_DAMAGE_SCALE);
+  assert.equal(blastDamage(world, origin, halfway, 100, false), 50);
+  assert.equal(blastDamage(world, origin, { ...origin, x: CARRAPETA_BLAST_RADIUS_UNITS }, 100, false), 0);
+  assert.equal(blastDamage(world, origin, { ...halfway, x: -halfway.x }, 100, false), 0);
+});

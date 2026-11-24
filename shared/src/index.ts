@@ -22,3 +22,5 @@ export * from './lift.ts';
 export * from './escalator.ts';
 export * from './supply.ts';
 export * from './idle.ts';
+export * from './carrapeta.ts';
+export * from './blast.ts';

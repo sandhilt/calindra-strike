@@ -1,3 +1,4 @@
+import type { CarrapetaEvent, CarrapetaPosition, FrenzyEvent } from './carrapeta.ts';
 import type { FlagEvent } from './ctf.ts';
 import type { BombEvent } from './defuse.ts';
 import type { LunchEvent } from './lunch.ts';
@@ -123,8 +124,8 @@ export function encodeCmd(c: Cmd): number[] {
 // ------------------------------------------------------------ server -> client
 
 export type MatchPhase = 'warmup' | 'live' | 'podium';
-export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse' | 'almoco';
-export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', 'almoco'];
+export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse' | 'almoco' | 'carrapeta';
+export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta'];
 
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
@@ -132,6 +133,7 @@ export const MODE_LABEL: Record<GameMode, string> = {
   ctf: 'capture a bandeira',
   defuse: 'debug defusion',
   almoco: 'hora de almoçar',
+  carrapeta: 'Carrapeta Dourada',
 };
 
 export const MODE_RULES = {
@@ -139,6 +141,7 @@ export const MODE_RULES = {
   tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true, objective: false },
   ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false, objective: true },
   defuse: { label: MODE_LABEL.defuse, teams: true, killScore: false, objective: true },
+  carrapeta: { label: MODE_LABEL.carrapeta, teams: false, killScore: false, objective: true },
   almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false, objective: true },
 } as const;
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
@@ -150,6 +153,8 @@ export interface ResultRow {
   name: string;
   color: number;
   kills: number;
+  /** Carrapeta match points, including frenzy bonuses. */
+  points?: number;
   deaths: number;
   hs: number;
   best: number; // best streak
@@ -165,7 +170,7 @@ export interface MatchInfo {
   teams: number[]; // team scores [bulldogs, martelos] (TDM kills, CTF captures or debug defusion rounds)
   limit: number; // TDM kill, CTF capture or defusion round limit, 0 = timer only
   results?: ResultRow[];
-  winner?: number; // TDM: winning team, -1 draw
+  winner?: number; // winning team, or winning player ID in Carrapeta; -1 for a draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
   vote?: VoteInfo; // podium: map vote for the next match
   respawnMs?: number; // what a death costs in this mode on this server (older servers omit it)
@@ -186,6 +191,9 @@ export type GameEvent =
   | FlagEvent
   | BombEvent
   | LunchEvent
+  | CarrapetaEvent
+  | FrenzyEvent
+  | { k: 'blast'; by: number; w: WeaponId; at: CarrapetaPosition }
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
   | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
@@ -200,6 +208,13 @@ export type GameEvent =
 export type SpectatorInfo =
   | { kind: 'choosing'; pickEndsAt: number }
   | { kind: 'watching'; team: number };
+
+/** Carrapeta objective on the wire, with deadlines on the snapshot's server clock. */
+export type CarrapetaSnapshot = (
+  | { kind: 'none' }
+  | { kind: 'held'; holder: number; sinceMs: number }
+  | ({ kind: 'dropped'; rerollAtMs: number } & CarrapetaPosition)
+) & { frenzyUntilMs: number };
 
 export type ServerMsg =
   | { t: 'spectate'; state: SpectatorInfo }
@@ -217,9 +232,10 @@ export type ServerMsg =
   // ps rows: [id, x, y, z, yaw, pitch, flags (RF_*), weapon, lean]. lean (-1 left .. 1 right, 0.01 steps) is absent on older rows, read it with leanOfRow.
   // The stance is in the flags: RF_PRONE, else RF_DUCK (crouch), else standing; read it with stanceFromFlags. RF_SPRINT and RF_SLIDE mark the run and the slide, RF_AIM the held aim (RF_ZOOM is the AWP scope).
   // su: one entry per supply stand of the map, 0 while it is full or the server ms when it fills again.
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][]; su: number[] }
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][]; su: number[]; ca?: CarrapetaSnapshot }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
+  // Score rows end in Carrapeta points when playing Carrapeta Dourada.
   | { t: 'score'; s: number[][]; ts: number[] }
   | { t: 'match'; match: MatchInfo }
   | { t: 'pong'; c: number; s: number }
@@ -251,6 +267,8 @@ const F_SPRINT = 128;
 const F_WINDED = 256;
 const F_DUCKHELD = 512;
 const F_AIM = 1024;
+const F_HALVED_AMMO = 2048;
+const F_INFINITE_MGL = 4096;
 
 export function packState(s: PlayerState): number[] {
   const flags =
@@ -264,7 +282,9 @@ export function packState(s: PlayerState): number[] {
     (s.dropping ? F_DROP : 0) |
     (s.attackHeld ? F_ATK : 0) |
     (s.attack2Held ? F_ATK2 : 0) |
-    (s.aiming ? F_AIM : 0);
+    (s.aiming ? F_AIM : 0) |
+    (s.halvedAmmo ? F_HALVED_AMMO : 0) |
+    (s.infiniteMgl ? F_INFINITE_MGL : 0);
   return [
     round(s.x, 1e3),
     round(s.y, 1e3),
@@ -317,6 +337,8 @@ export function unpackState(a: number[], s: PlayerState): void {
   s.attackHeld = (f & F_ATK) !== 0;
   s.attack2Held = (f & F_ATK2) !== 0;
   s.aiming = (f & F_AIM) !== 0;
+  s.halvedAmmo = (f & F_HALVED_AMMO) !== 0;
+  s.infiniteMgl = (f & F_INFINITE_MGL) !== 0;
   s.health = a[7];
   s.armor = a[8];
   s.weapon = a[9] as WeaponId;

@@ -13,6 +13,8 @@ import {
   cloneState,
   createPlayerState,
   getMaps,
+  giveWeapon,
+  setHalvedAmmo,
   packState,
   reloadCues,
   reloadCursor,
@@ -69,6 +71,7 @@ describe('reload timing table', () => {
       [WEAPON.SHOTGUN]: 180,
       [WEAPON.SNIPER]: 150,
       [WEAPON.LMG]: 280,
+      [WEAPON.MGL]: 155,
     });
   });
 
@@ -258,4 +261,41 @@ describe('shotgun shell reload', () => {
     assert.equal(b.reload, c.reload);
     assert.equal(b.reload, 0);
   });
+});
+
+it('predicts halved Azeitadora reloads with infinite reserve and restores capacity without refilling', () => {
+  const s = ready(WEAPON.RIFLE);
+  giveWeapon(s, WEAPON.MGL);
+  s.infiniteMgl = true;
+  setHalvedAmmo(s, true);
+  assert.equal(s.mag[WEAPON.MGL], 3);
+  assert.equal(s.reserve[WEAPON.MGL], 3);
+  assert.equal(s.mag[WEAPON.PISTOL], Math.ceil(weaponDef(WEAPON.PISTOL).mag / 2));
+
+  const predicted = createPlayerState();
+  s.mag[WEAPON.MGL] = 0;
+  unpackState(packState(s), predicted);
+  idle(predicted, predicted.deploy + 1);
+  step(predicted, BTN.RELOAD);
+  idle(predicted, weaponDef(WEAPON.MGL).reloadTicks);
+  assert.equal(predicted.mag[WEAPON.MGL], 3);
+  assert.equal(predicted.reserve[WEAPON.MGL], 3);
+
+  setHalvedAmmo(predicted, false);
+  assert.equal(predicted.mag[WEAPON.MGL], 3);
+  step(predicted, BTN.RELOAD);
+  idle(predicted, weaponDef(WEAPON.MGL).reloadTicks);
+  assert.equal(predicted.mag[WEAPON.MGL], 6);
+  assert.equal(predicted.reserve[WEAPON.MGL], 3);
+});
+
+it('depletes the Azeitadora reserve when it comes from an airdrop', () => {
+  const s = ready(WEAPON.RIFLE);
+  giveWeapon(s, WEAPON.MGL);
+  idle(s, s.deploy + 1);
+  s.mag[WEAPON.MGL] = 0;
+  step(s, BTN.RELOAD);
+  idle(s, weaponDef(WEAPON.MGL).reloadTicks);
+  assert.equal(s.mag[WEAPON.MGL], 6);
+  assert.equal(s.reserve[WEAPON.MGL], 0);
 });

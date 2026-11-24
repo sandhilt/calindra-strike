@@ -75,6 +75,7 @@ export const MAGAZINE_COLOR = '#474d55';
 /** Casing look per weapon, as a variant and a scale on the base model. */
 export const CASING_BY_WEAPON: Readonly<Record<WeaponId, { variant: number; scale: number } | null>> = {
   [WEAPON.HAMMER]: null,
+  [WEAPON.MGL]: null,
   [WEAPON.PISTOL]: { variant: CASING_BRASS.variant, scale: 1 },
   [WEAPON.RIFLE]: { variant: CASING_BRASS.variant, scale: 1.3 },
   [WEAPON.SMG]: { variant: CASING_BRASS.variant, scale: 1.1 },
@@ -191,6 +192,7 @@ export const IMPACT_DUST = {
 
 export const SMOKE_BY_WEAPON: Readonly<Record<WeaponId, { heatPerShot: number; sizeScale: number } | null>> = {
   [WEAPON.HAMMER]: null,
+  [WEAPON.MGL]: null,
   [WEAPON.PISTOL]: { heatPerShot: 0.3, sizeScale: 1 },
   [WEAPON.RIFLE]: { heatPerShot: 0.22, sizeScale: 1.2 },
   [WEAPON.SMG]: { heatPerShot: 0.2, sizeScale: 1.1 },
@@ -252,6 +254,7 @@ const SINGLE_TRACER: ProjectilePattern = { pelletsPerShot: 1, style: TRACER, aim
 
 export const TRACER_RULES: Readonly<Record<WeaponId, ProjectileRule>> = {
   [WEAPON.HAMMER]: { standard: { ...SINGLE_TRACER, pelletsPerShot: 0 } },
+  [WEAPON.MGL]: { standard: SINGLE_TRACER },
   [WEAPON.PISTOL]: { standard: SINGLE_TRACER },
   [WEAPON.RIFLE]: { standard: SINGLE_TRACER },
   [WEAPON.SMG]: { standard: SINGLE_TRACER },

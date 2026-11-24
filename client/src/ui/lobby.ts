@@ -176,7 +176,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     }),
   ]);
   controlsView.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (e.key !== 'Escape' || e.defaultPrevented || e.repeat) return;
     e.preventDefault();
     showControls(false);
   });

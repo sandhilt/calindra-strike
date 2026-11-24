@@ -91,6 +91,15 @@ export function liftCab(lift: Lift, tick: number): LiftCab {
 }
 
 /** Whether the cab carries a rider standing with feet at `y`: it moves, and its floor is just ahead of them. */
+/**
+ * Whether a player stands in the cab: their centre is in the shaft and their feet are on the cab floor, moving or waiting
+ * at a stop. Someone in the shaft with the cab on another floor is not in it.
+ */
+export function inLiftCab(lifts: readonly Lift[], x: number, y: number, z: number, tick: number): boolean {
+  const shaft = liftAt(lifts, x, y, z);
+  return shaft !== undefined && Math.abs(liftCab(shaft, tick).y - y) <= LIFT_CARRY_UNITS;
+}
+
 export function carriedBy(cab: LiftCab, y: number): boolean {
   const ahead = (cab.y - y) * cab.moving;
   return cab.moving !== 0 && ahead >= 0 && ahead <= LIFT_CARRY_UNITS;

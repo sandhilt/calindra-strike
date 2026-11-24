@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BTN, CollisionWorld, LIFT_CARRY_UNITS, LIFT_CLOCK_SLACK_TICKS, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, TICK_MS, WEAPON,
-  applyCmd, carriedBy, createPlayerState, getMaps, liftAt, liftCab, liftClockTick, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
+  applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
 const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384] };
@@ -289,4 +289,33 @@ describe('the Shopping Sul Rio lifts', () => {
       assert.ok(Math.abs(s.z) < 550, 'walked out into the atrium, z=' + s.z);
     });
   }
+});
+
+describe('inLiftCab', () => {
+  const lifts = [LIFT];
+  const waiting = 2;
+  const away = LIFT_STOP_WAIT_TICKS + 120;
+
+  it('is true on the cab floor, waiting at a stop or moving', () => {
+    assert.equal(inLiftCab(lifts, 0, liftCab(LIFT, waiting).y + 0.05, 150, waiting), true);
+    const moving = LIFT_STOP_WAIT_TICKS + 30;
+    const cab = liftCab(LIFT, moving);
+    assert.notEqual(cab.moving, 0);
+    assert.equal(inLiftCab(lifts, 0, cab.y + 1, 150, moving), true);
+  });
+
+  it('is false in the shaft while the cab is on another floor', () => {
+    const cab = liftCab(LIFT, away);
+    assert.ok(Math.abs(cab.y) > LIFT_CARRY_UNITS * 4);
+    assert.equal(inLiftCab(lifts, 0, 0.05, 150, away), false);
+  });
+
+  it('is false outside the shaft, even level with the cab', () => {
+    assert.equal(inLiftCab(lifts, 200, liftCab(LIFT, waiting).y, 150, waiting), false);
+    assert.equal(inLiftCab(lifts, 0, liftCab(LIFT, waiting).y, 400, waiting), false);
+  });
+
+  it('is false on a map with no lifts', () => {
+    assert.equal(inLiftCab([], 0, 0, 150, waiting), false);
+  });
 });

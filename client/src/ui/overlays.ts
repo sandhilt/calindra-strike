@@ -175,7 +175,7 @@ export class Overlays {
   private readonly podiumTitle = h('h2', { text: 'pódio' });
   private readonly podiumScore = h('div', { class: 'podium-score hidden' });
   private readonly menuTabs = new Map<MenuTabId, HTMLButtonElement>();
-  private readonly menuBody = h('div', { class: 'menu-body' });
+  private readonly menuBody = h('div', { class: 'menu-body menu-pages' });
   private readonly menuPanels = new Map<MenuTabId, HTMLElement>();
   private readonly teamRow = h('div', { class: 'team-switch hidden' });
   private readonly menuTitle = h('h2', { text: 'pausado' });
@@ -280,10 +280,9 @@ export class Overlays {
     ]);
   }
 
-  /** One tab is selected at a time. The others stay built but hidden and out of the tab order, so their rows keep their state. */
+  /** One tab is selected at a time. The others stay built but hidden and out of the tab order, so their rows and their scroll place keep their state. */
   private selectMenuTab(id: MenuTabId): void {
     lastMenuTab = id;
-    this.menuBody.scrollTop = 0;
     for (const [tabId, tab] of this.menuTabs) {
       const selected = tabId === id;
       tab.setAttribute('aria-selected', String(selected));

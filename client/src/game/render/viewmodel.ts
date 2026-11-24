@@ -2,6 +2,7 @@ import { STANCE, type Stance, TICK_MS, WEAPON, type WeaponId, reloadCursor, weap
 import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { aimOffset, bobKeep } from './ads-view.ts';
+import { DrumView, type DrumRounds } from './drum-view.ts';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
 import { QUALITY, type Quality } from './quality.ts';
@@ -93,6 +94,8 @@ export interface ViewPose {
   hidden: boolean;
   /** -1 (left) to 1 (right): the gun is pushed out to that side, past where the eye goes. */
   lean?: number;
+  /** Rounds left in the equipped magazine and what it holds, for the Azeitadora's drum. */
+  rounds?: DrumRounds;
 }
 
 /** First-person weapon rendered in its own scene on top of the world. */
@@ -144,6 +147,9 @@ export class ViewModel {
   private aimShift: readonly [number, number, number] = [0, 0, 0];
   private beltLinks: number;
   private readonly baseRot = new THREE.Euler();
+  private readonly drumView = new DrumView();
+  private rounds: DrumRounds = { mag: 6, capacity: 6 };
+  private frameDt = 0;
   private readonly basePos = new THREE.Vector3();
   private readonly sleeve: THREE.MeshStandardMaterial;
   private readonly hemi: THREE.HemisphereLight;
@@ -292,6 +298,7 @@ export class ViewModel {
     this.weaponId = id;
     this.kickFeel = kickFeelFor(id);
     this.swing.stop();
+    this.drumView.reset();
     this.boltCycle = -1;
     this.pistolShotSeconds = Infinity;
     this.flashT = 0;
@@ -352,6 +359,7 @@ export class ViewModel {
     }
     if (this.weaponId === WEAPON.SNIPER) this.boltCycle = 0;
     if (this.weaponId === WEAPON.LMG) this.belt.burst = BELT_BURST_S;
+    if (this.weaponId === WEAPON.MGL) this.drumView.eject();
     if (this.weaponId === WEAPON.PISTOL) this.pistolShotSeconds = 0;
     else fireKick(this.kick, this.kickFeel);
     this.flashT = 0.045;
@@ -363,6 +371,8 @@ export class ViewModel {
 
   update(p: ViewPose): void {
     const dt = p.dt;
+    this.frameDt = dt;
+    if (p.rounds) this.rounds = p.rounds;
     this.holder.visible = !p.hidden;
     this.fireRecovery = Math.max(0, this.fireRecovery - dt);
     const aim = this.aimedWeapon() ? smoothBlend(p.aim) : 0;
@@ -497,6 +507,7 @@ export class ViewModel {
       }
     }
     poseFeed(rig, pose, this.belt.feed, MAG_FALL_UNITS);
+    if (rig.drum) this.drumView.update(rig.drum, pose, this.rounds, this.frameDt);
     if (rig.casing) this.poseCasing(rig.casing, pose.casing);
     if (rig.shell) {
       rig.shell.visible = pose.shellVisible;

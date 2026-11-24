@@ -2,13 +2,11 @@ import { scene } from './scene.ts';
 import { NO_ACTIONS, weaponSlots, type ActionEcho } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
-  BATATA_DURATION_SECONDS,
   carrapetaEnemies,
   magCapacity,
   WEAPON,
   type CarrapetaSnapshot,
   type CarrapetaState,
-  type FrenzyState,
   createPlayerState,
   CollisionWorld,
   type MapDef,
@@ -164,7 +162,6 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
   }
   v.carrapeta = m.ca;
   const carrapeta = carrapetaState(v);
-  const frenzy = frenzyState(v);
   const team = v.roster.find((r) => r[0] === v.id)?.[3];
   const peers = m.ps
     .filter((p) => p[0] !== v.id)
@@ -175,7 +172,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
         name: r?.[1] ?? String(p[0]),
         team: r?.[3] ?? -1,
         enemy: v.match.mode === 'carrapeta'
-          ? carrapetaEnemies(frenzy, carrapeta, v.id, p[0])
+          ? carrapetaEnemies(carrapeta, v.id, p[0])
           : v.match.mode === 'ffa' || r?.[3] !== team,
         alive: !!(p[6] & RF_ALIVE),
         x: p[1],
@@ -365,13 +362,6 @@ export function carrapetaState(v: WorldView): CarrapetaState {
     return { kind, x, y, z, rerollAtTick: rerollAtMs / TICK_MS };
   }
   return { kind: 'none' };
-}
-
-export function frenzyState(v: WorldView): FrenzyState {
-  const deadline = v.carrapeta?.frenzyUntilMs ?? 0;
-  return deadline > v.time
-    ? { kind: 'frenzy', sinceTick: (deadline - BATATA_DURATION_SECONDS * 1000) / TICK_MS, untilTick: deadline / TICK_MS }
-    : { kind: 'calm' };
 }
 
 function describeCarrapeta(v: WorldView, describeRelative: Relative) {

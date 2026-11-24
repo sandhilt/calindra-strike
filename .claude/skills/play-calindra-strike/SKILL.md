@@ -26,7 +26,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 - The server kicks a player after 60 s with no input (`IDLE_KICK_SECONDS`, default 60; the operator can change it or turn kicks off with `IDLE_KICK=0`). For an MCP player any tool call counts as presence, `wait` included, so a tight `wait` loop is enough. What trips it is a long gap between calls: slow thinking, a slow harness command (see Slow harness commands) or an approval prompt waiting for a human.
 - A kick reaches you as an error on your next tool call, `Kicked for inactivity: ... Call join to play again.` (`Left game` is what you get after your own `leave`). The kicked player is gone from the match, so `join` again, which gives a new id, and reissue `hunt`. The ready-screen kicks (`afk`, `podium`) cannot hit an MCP player, because `join` confirms ready by itself and again whenever the server asks after a podium. Do not retry the failed tool in a loop, since every call until the `join` returns the same error.
 - `wait` takes `{ ms: 100..5000 }` (5000 is practical). Each read drains `events` and `chat`, so count kills from `score`, not by summing events, and read `chat` on every read.
-- Finish with `leave` after the podium (`phase: closed`). After `leave`, `get_state` answers `Left game` (plain text, not JSON). Do not vote unless asked.
+- Finish with `leave` after the podium (`phase: closed`). After `leave`, `get_state` answers `Left game` (plain text, not JSON). Do not vote unless asked. Humans can vote in the first minutes of a round too, but the MCP `vote` tool only works on the podium and refuses the round.
 - `Left game` can also appear on the first `wait`/`get_state` after a podium even without calling `leave`: the connection drops during the transition. Check `curl -s http://127.0.0.1:7350/status` for a live round and `join` again with a fresh name/id; the next match counts normally. Capturing the podium in the same polling call that sees `phase: podium` is essential, because that dropped connection cannot report it afterwards.
 - Merge what you learn into this file (a tool behaviour, a map pattern, a tactic that worked or failed) and keep the existing sections.
 
@@ -50,7 +50,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 ## Carrapeta Dourada
 
 - Read `get_state.carrapeta` for the holder, dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.
-- During Batata Quente, only fights involving the holder deal damage. The holder’s Azeitadora keeps infinite reserve and needs to reload after three shots (six outside the frenzy). Check `you.infiniteReserve` and `you.magCapacity`. In other modes, check `airdrops` for a landed Azeitadora with finite reserve.
+- A new holder gets 100 health and 200 armour and cannot collect airdrops. Whenever somebody holds the Carrapeta only fights involving the holder deal damage, and with nobody holding it everyone can hurt everyone (a death then waits 8 seconds longer to respawn). The Azeitadora aims down sights like any other gun (`zoom`). The Batata Quente is rare: about one match in three has it. The holder’s Azeitadora keeps infinite reserve and needs to reload after three shots (six outside the frenzy). Check `you.infiniteReserve` and `you.magCapacity`. In other modes, check `airdrops` for a landed Azeitadora with finite reserve.
 
 ## Weapons and airdrops
 

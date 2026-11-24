@@ -1249,8 +1249,127 @@ input:focus-visible {
   filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.85));
 }
 
+/* A light sweep crossing the lens, and a reticle that turns red over an enemy. The aim point itself never moves. */
+.scope-glare {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--r) * 2);
+  height: calc(var(--r) * 2);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.scope-glare::before {
+  content: '';
+  position: absolute;
+  inset: -20% auto -20% -40%;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: skewX(-18deg);
+  animation: scope-glare 5.5s ease-in-out infinite;
+}
+.scope-glare::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 62%, rgba(10, 20, 30, 0.35) 100%);
+}
+@keyframes scope-glare {
+  0%, 55% { left: -40%; opacity: 0; }
+  65% { opacity: 1; }
+  100% { left: 120%; opacity: 0; }
+}
+
+.scope-ruler {
+  position: absolute;
+  left: calc(50% + var(--r) * 0.68);
+  top: calc(50% - var(--r) * 0.5);
+  width: calc(var(--r) * 0.16);
+  height: var(--r);
+  border-left: 1px solid rgba(255, 255, 255, 0.55);
+  font: 600 10px/1 var(--mono, monospace);
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 0 2px #000;
+}
+.scope-tick {
+  position: absolute;
+  left: 0;
+  padding-left: 7px;
+  transform: translateY(-50%);
+}
+.scope-tick::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+}
+.scope-marker {
+  position: absolute;
+  left: -6px;
+  top: 0;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+  border-left-color: #ffd23f;
+  transform: translateY(-5px);
+  transition: top 0.12s linear;
+  opacity: 0;
+}
+.scope.ranged .scope-marker { opacity: 1; }
+.scope-range {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--r) * 0.58);
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  font: 700 clamp(14px, 2.4vh, 22px)/1.2 var(--mono, monospace);
+  color: #ffd23f;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 210, 63, 0.5);
+  border-radius: 3px;
+}
+.scope.on-target .scope-range { color: #ff5a4d; border-color: rgba(255, 90, 77, 0.8); }
+.scope.on-target .scope-reticle { fill: #e0261b; filter: drop-shadow(0 0 2px rgba(255, 90, 77, 0.9)); }
+
+/* Next-match vote shown over the first minutes of a round; keys F1 to F3 or a click. */
+.vote-live {
+  position: absolute;
+  left: 16px;
+  top: 38%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 190px;
+  font-size: 13px;
+}
+.vote-live .label { font-size: 11px; opacity: 0.85; }
+.vote-live-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  pointer-events: auto;
+}
+.vote-live-row.mine { border-color: #ffd23f; background: rgba(255, 210, 63, 0.16); }
+.vote-live-row .vote-text { display: flex; flex-direction: column; flex: 1; line-height: 1.15; }
+.vote-live-row small { opacity: 0.7; }
+.vote-live-row .vote-count { font-weight: 700; }
+
 @media (prefers-reduced-motion: reduce) {
   .scope { transition: none; transform: none; }
+  .scope-glare::before { animation: none; }
+  .scope-marker { transition: none; }
 }
 
 /* center announcements */
@@ -2807,10 +2926,19 @@ input:focus-visible {
   background: repeating-linear-gradient(135deg, #270a05 0 16px, #170502 16px 32px);
 }
 .carrapeta-symbol {
-  font-size: clamp(44px, 9vw, 82px);
   line-height: 1;
-  color: #ffd54f;
-  text-shadow: 0 0 24px #f29e29;
+  display: flex;
+  justify-content: center;
+}
+.carrapeta-symbol svg {
+  width: clamp(44px, 9vw, 82px);
+  height: clamp(44px, 9vw, 82px);
+  filter: drop-shadow(0 0 16px #f29e29);
+  animation: carrapeta-spin 1.6s ease-in-out infinite;
+}
+@keyframes carrapeta-spin {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
 }
 .carrapeta-banner.rush .lunch-name {
   font-size: clamp(24px, 5vw, 48px);

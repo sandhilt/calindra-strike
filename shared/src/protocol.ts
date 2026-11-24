@@ -172,7 +172,7 @@ export interface MatchInfo {
   results?: ResultRow[];
   winner?: number; // winning team, or winning player ID in Carrapeta; -1 for a draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
-  vote?: VoteInfo; // podium: map vote for the next match
+  vote?: VoteInfo; // live (first minutes) and podium: map and mode vote for the next match
   respawnMs?: number; // what a death costs in this mode on this server (older servers omit it)
 }
 
@@ -184,6 +184,7 @@ export interface VoteOption {
 export interface VoteInfo {
   options: VoteOption[];
   counts: number[];
+  closesAt?: number; // live: server ms when the in-round vote closes; absent on the podium, which keeps it open
 }
 
 export type GameEvent =
@@ -196,7 +197,7 @@ export type GameEvent =
   | { k: 'blast'; by: number; w: WeaponId; at: CarrapetaPosition }
   | { k: 'shot'; id: number; w: number; o: number[]; e: number[]; h: number }
   | { k: 'hit'; by: number; to: number; dmg: number; zone: number; hp: number; from: number[] }
-  | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number }
+  | { k: 'kill'; by: number; to: number; w: number; hs: number; streak: number; wait?: number } // wait: the victim's respawn delay in ms, only when it is longer than the mode's usual one
   | { k: 'drop'; id: number; x: number; z: number; w: number }
   | { k: 'loot'; id: number; drop: number; w: number }
   /** A player restocked at the supply stand with this index in `MapDef.supplies`. */

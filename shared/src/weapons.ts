@@ -360,6 +360,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     speed: 220,
     scopedSpeed: 220,
     zoomFov: [],
+    ads: { kind: 'sights', fov: 72, speed: 150, spreadMult: 0.6 },
     spread: { base: 0.003, move: 0.01, air: 0.04, duckMult: 0.75, perShot: 0, perShotMax: 0 },
     recoil: { climb: 2, maxPitch: 4, sway: 0, swayPeriod: 1, swayStart: 0, recovery: 5 },
   }),

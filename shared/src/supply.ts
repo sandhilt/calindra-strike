@@ -39,7 +39,7 @@ export function inSupplyReach(s: { x: number; y: number; z: number }, p: SupplyP
 export function resupply(s: PlayerState): void {
   s.reload = 0;
   s.health = MAX_HEALTH;
-  s.armor = MAX_ARMOR;
+  s.armor = Math.max(s.armor, MAX_ARMOR);
   for (const id of stocked(s)) {
     const def = weaponDef(id);
     s.mag[id] = magCapacity(def, s.halvedAmmo);

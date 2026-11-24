@@ -117,7 +117,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'hunt',
-    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE, both bases on the Mirante in Shopping Sul Rio) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), and Carrapeta Dourada (walk over the dropped objective or chase its perceived holder, respecting frenzy combat rules). Otherwise roam toward airdrops, shop and room interiors or random nodes until an enemy is perceived, and walk to a full supply stand (Shopping Sul Rio, Mirante) when hurt or low on ammunition, riding escalators and the glass lift. Persists across respawns.',
+    description: 'Hunt perceived enemies; pursue CTF flags, debug defusion objectives (pick up, plant and defuse with USE, both bases on the Mirante in Shopping Sul Rio) and hora de almoçar by team role (attackers call colleagues with USE and lead them to a restaurant, defenders chase the leader), and Carrapeta Dourada (walk over the dropped objective or chase its perceived holder, respecting the combat rule: while someone holds it only the holder and whoever shoots them can hurt each other). Otherwise roam toward airdrops, shop and room interiors or random nodes until an enemy is perceived, and walk to a full supply stand (Shopping Sul Rio, Mirante) when hurt or low on ammunition, riding escalators and the glass lift. Persists across respawns.',
     properties: {},
     run: (s) => s.setIntent({ kind: 'hunt' }),
   },
@@ -160,7 +160,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'zoom',
-    description: 'For pistol, rifle, SMG, shotgun and LMG, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer and the Azeitadora reject zoom.',
+    description: 'For pistol, rifle, SMG, shotgun, LMG and the Azeitadora, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer rejects zoom.',
     properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
     required: ['level'],
     run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),
@@ -275,7 +275,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'vote',
-    description: 'Vote for a next-match option index during podium.',
+    description: 'Vote for a next-match option index during podium. Voting during the round is for human players only; this tool refuses it.',
     properties: { option: { type: 'integer', minimum: 0, maximum: 7 } },
     required: ['option'],
     run: (s, a) => {

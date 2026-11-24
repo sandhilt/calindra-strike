@@ -15,6 +15,7 @@ import {
   type GameMode,
   INTERP_DELAY_MS,
   liftClockTick,
+  magCapacity,
   MODE_LABEL,
   type CarrapetaSnapshot,
   respawnTicksOf,
@@ -121,6 +122,8 @@ import { ViewModel } from './render/viewmodel.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
+import { liveVotePanel } from './vote.ts';
+import { NO_RANGE, RANGE_MAX_UNITS, rangeReading, type RangeReading } from './scope-range.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
@@ -342,6 +345,8 @@ export class ClientGame {
   private lastBeep = -1;
 
   private deathAt = 0;
+  /** The respawn delay the server announced with the kill, when it is longer than the mode's usual one. */
+  private deathWaitMs: number | undefined;
   private deathPos = new THREE.Vector3();
   private killerId = -1;
   private scoreboardOpen = false;
@@ -985,6 +990,7 @@ export class ClientGame {
           this.alive = false;
           this.input.clearProne();
           this.deathAt = performance.now();
+          this.deathWaitMs = e.wait;
           this.deathPos.set(this.me.x, this.me.y, this.me.z);
           this.killerId = e.by;
           this.hud.setDeath({ killer: k.name, color: k.color, weapon: def.name, hs: e.hs === 1 });
@@ -1231,6 +1237,7 @@ export class ClientGame {
       this.dropAllAvatars();
       this.view.setSleeveColor(this.nameOf(this.myId).color);
     }
+    if (before.phase !== 'live' && info.phase === 'live') this.myVote = -1;
     if (info.map !== this.mapIndex) this.loadMap(info.map);
     if (info.phase === 'podium') {
       this.enterPodium(info);
@@ -1263,7 +1270,6 @@ export class ClientGame {
     this.sfx.fanfare();
     this.sfx.setWind(0);
     const next = info.next ? `${getMap(info.next.map).name} · ${MODE_LABEL[info.next.mode]}` : '';
-    this.myVote = -1;
     this.voteCounts = info.vote?.counts ?? [];
     // free the mouse so people can click a map in the vote
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1273,13 +1279,27 @@ export class ClientGame {
     this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: this.spectator ? null : info.vote ?? null }, next);
   }
 
-  /** Map vote on the podium (keys 1-3 or click). */
+  /** Map vote, open for the first minutes of a round (F1-F3 or click) and on the podium (keys 1-3 or click). */
   vote(option: number): void {
-    if (this.spectator || !this.podiumActive || !this.match.vote || option < 0 || option >= this.match.vote.options.length) return;
+    const vote = this.match.vote;
+    if (this.spectator || !vote || option < 0 || option >= vote.options.length) return;
+    if (!this.podiumActive && !(this.match.phase === 'live' && this.voteOpenInRound())) return;
     this.myVote = option;
     this.net.send({ t: 'vote', option });
     this.ui.updateVotes(this.voteCounts, this.myVote);
+    this.hud.setVote(this.votePanel(), (i) => this.vote(i));
     this.sfx.click();
+  }
+
+  private voteOpenInRound(): boolean {
+    const closesAt = this.match.vote?.closesAt;
+    return closesAt !== undefined && this.serverNow() < closesAt;
+  }
+
+  private votePanel() {
+    const vote = this.match.vote;
+    if (this.spectator || this.podiumActive || this.match.phase !== 'live' || !vote || !this.voteOpenInRound()) return null;
+    return liveVotePanel(vote, this.voteCounts, this.myVote, this.serverNow());
   }
 
   private exitPodium(): void {
@@ -1299,6 +1319,11 @@ export class ClientGame {
     if (this.spectator) return this.onSpectatorKey(code, down, e);
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
+      return true;
+    }
+    if (!this.podiumActive && /^F[1-3]$/.test(code) && this.voteOpenInRound()) {
+      e.preventDefault();
+      if (down && !e.repeat) this.vote(Number(code.slice(-1)) - 1);
       return true;
     }
     if (down) {
@@ -1548,6 +1573,27 @@ export class ClientGame {
     this.aimView.blend = this.aimT;
   }
 
+  /** Distance to what the camera points at, and whether an enemy is there: the nearest of the world and a visible, living, non-teammate player. */
+  private aimRange(): RangeReading {
+    const dir = this.camera.getWorldDirection(v3);
+    const o = this.camera.position;
+    const wall = this.collision.trace(o.x, o.y, o.z, dir.x, dir.y, dir.z, RANGE_MAX_UNITS);
+    let dist = wall ? wall.t : RANGE_MAX_UNITS;
+    let onEnemy = false;
+    const renderT = this.serverNow() - INTERP_DELAY_MS;
+    for (const r of this.remotes.values()) {
+      if (!r.visible || this.isTeammate(r.id)) continue;
+      const s = this.sample(r, renderT);
+      if (!s || !(s.flags & RF_ALIVE) || s.flags & (RF_DROP | RF_PROTECT)) continue;
+      const h = rayHitbox(o.x, o.y, o.z, dir.x, dir.y, dir.z, s.x, s.y, s.z, stanceFromFlags(s.flags), s.lean, s.yaw, dist);
+      if (h) {
+        dist = h.t;
+        onEnemy = true;
+      }
+    }
+    return dist >= RANGE_MAX_UNITS ? NO_RANGE : rangeReading(dist, onEnemy);
+  }
+
   /** Which scope overlay the player's own screen shows. */
   private localOverlay(def: WeaponDef): ScopeOverlay {
     return this.alive && !this.spectator ? scopeOverlay(def, this.aimView) : 'none';
@@ -1763,6 +1809,8 @@ export class ClientGame {
     const overlay = this.localOverlay(def);
     const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
     if (!this.spectator) {
+      // The server also hands out weapons outside the player's own commands (the Azeitadora on a Carrapeta pickup, and taking it away), which prediction never sees.
+      this.view.setWeapon(this.me.weapon);
       this.view.update({
         dt,
         speed: Math.hypot(this.me.vx, this.me.vz),
@@ -1776,6 +1824,7 @@ export class ClientGame {
         reloadElapsed: this.me.reload > 0 ? this.localReload.elapsed(this.me.tick) : -1,
         reloadShells: this.localReload.shells,
         deployFrac: this.me.deploy > 0 ? 1 - this.me.deploy / def.deployTicks : -1,
+        rounds: { mag: this.me.mag[this.me.weapon], capacity: magCapacity(def, this.me.halvedAmmo) },
         aim: this.aimT,
         lean: this.me.lean,
         hidden: !showView,
@@ -2048,6 +2097,7 @@ export class ClientGame {
     hud.showScoreboard(this.spectator ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
+    hud.setVote(this.votePanel(), (i) => this.vote(i));
     hud.setCarrapetaStatus(this.carrapeta ? carrapetaStatus(this.carrapeta, now, id => id === this.myId ? 'você está com ela' : this.nameOf(id).name) : null);
     const following = this.lunch && !this.spectator && this.alive ? followersOf(this.lunch, this.myId) : 0;
     hud.setLunchFollowers(following, this.lunch?.colleagues.length ?? 0, followersText(following, this.lunch?.colleagues.length ?? 0));
@@ -2059,7 +2109,7 @@ export class ClientGame {
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
-      const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0, target.w === WEAPON.SNIPER).visible;
+      const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0).visible;
       hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
       hud.setDrop(null);
       hud.setScope('none');
@@ -2070,7 +2120,7 @@ export class ClientGame {
     }
 
     if (!this.alive) {
-      const left = Math.max(0, (this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
+      const left = Math.max(0, (this.deathWaitMs ?? this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
       if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);
@@ -2091,10 +2141,11 @@ export class ClientGame {
     hud.setWeapon(def.name, def.tag, mag, reserve, def.legendary, def.slot === 3, slots, capacity);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
     hud.setScope(overlay);
+    hud.setScopeRange(overlay !== 'none' ? this.aimRange() : null);
     hud.setProtect(s.protect > 0 || s.dropping);
 
     // dynamic crosshair: gap follows the real spread used by the simulation
-    const crosshair = crosshairFor(def, this.aimView, s.dropping, def.id === WEAPON.SNIPER);
+    const crosshair = crosshairFor(def, this.aimView, s.dropping);
     let gap = this.settings.crosshairGap;
     if (this.settings.dynamicCrosshair && def.slot !== 3) {
       const spread = computeSpread(s, def);

@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import {
-  CARRAPETA_AIRDROP_CHANCE, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
+  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, VOTE_WINDOW_SECONDS, ZONE_BODY,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
-  dropCarrapeta, frenzyAtTick, setHalvedAmmo, stepCarrapeta, stepFrenzy,
+  dropCarrapeta, frenzyAtTicks, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
@@ -261,6 +261,7 @@ export interface GameOptions {
   modes?: ModeSetting | GameMode[];
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
   carrapetaPickupTimeoutSeconds?: number;
+  voteWindowMs?: number; // how long into a live match the next map and mode can be voted (default VOTE_WINDOW_SECONDS, 0 = podium only)
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
   friendlyFire?: boolean; // team modes only: bullets hurt teammates (off unless the operator turns it on)
@@ -302,7 +303,10 @@ export class Game {
   private colleagues: Colleague[] = [];
   private carrapeta: CarrapetaState = { kind: 'none' };
   private frenzy: FrenzyState = { kind: 'calm' };
-  private frenzyAt?: number;
+  /** Frenzy starts still to come this match, earliest first. */
+  private frenzyQueue: number[] = [];
+  /** The player whose Carrapeta just ran out of time: left out of the redraw while anyone else is landed. */
+  private carrapetaSkip = -1;
   private lunchRound: LunchRound = { attackers: 0, endsAtTick: 0, target: 0, rush: false };
   private matchRounds = 0;
   private matchHadBlackFriday = false;
@@ -313,6 +317,8 @@ export class Game {
   private readonly ghosts = new Map<string, Ghost>();
   private voteOptions: VoteOption[] = [];
   private readonly votes = new Map<number, number>();
+  /** Server ms when the in-round vote closes, 0 outside a live vote. */
+  private voteClosesAt = 0;
   private botName = 0;
   private readonly rotation: { map: number; mode: GameMode }[];
   /** Every map/mode pair this server plays (rotation order). */
@@ -405,7 +411,8 @@ export class Game {
     this.startLunchRound();
     this.carrapeta = { kind: 'none' };
     this.frenzy = { kind: 'calm' };
-    this.frenzyAt = undefined;
+    this.frenzyQueue = [];
+    this.carrapetaSkip = -1;
   }
 
   private updateCarrapeta(): void {
@@ -413,26 +420,39 @@ export class Game {
     const holder = this.carrapeta.kind === 'held' ? this.players.get(this.carrapeta.holder) : undefined;
     this.scoreCarrapetaTime();
     this.updateFrenzy(holder);
+    if (holder && holdExpired(this.carrapeta, this.tick)) {
+      this.carrapetaSkip = holder.id;
+      this.dropPlayerCarrapeta(holder, this.tick);
+    }
     if (this.carrapeta.kind === 'held') return;
-    const actors = [...this.players.values()].filter((p) => p.alive).map((p) => ({
+    const everyone = [...this.players.values()].filter((p) => p.alive).map((p) => ({
       id: p.id, x: p.state.x, y: p.state.y, z: p.state.z, landed: !p.state.dropping,
     }));
+    const others = everyone.filter((actor) => actor.id !== this.carrapetaSkip);
+    const actors = others.some((actor) => actor.landed) ? others : everyone;
     const result = stepCarrapeta(this.carrapeta, actors, this.tick, this.random);
     this.carrapeta = result.state;
     if (!result.event) return;
+    this.carrapetaSkip = -1;
     const player = this.players.get(result.event.by);
     if (!player) return;
     player.state.infiniteMgl = true;
+    player.state.health = MAX_HEALTH;
+    player.state.armor = CARRAPETA_ARMOR;
     setHalvedAmmo(player.state, this.frenzy.kind === 'frenzy');
     giveWeapon(player.state, WEAPON.MGL);
     this.emit(result.event);
   }
 
+  private holdsCarrapeta(p: ServerPlayer): boolean {
+    return this.carrapeta.kind === 'held' && this.carrapeta.holder === p.id;
+  }
+
   private updateFrenzy(holder: ServerPlayer | undefined): void {
-    const next = stepFrenzy(this.frenzy, this.tick, this.frenzyAt);
+    const next = stepFrenzy(this.frenzy, this.tick, this.frenzyQueue[0]);
     if (next === this.frenzy) return;
+    if (next.kind === 'frenzy') this.frenzyQueue.shift();
     this.frenzy = next;
-    this.frenzyAt = undefined;
     if (holder) setHalvedAmmo(holder.state, next.kind === 'frenzy');
     this.emit(next.kind === 'frenzy'
       ? { k: 'frenzy', what: 'on', untilMs: this.msAt(next.untilTick) }
@@ -453,14 +473,15 @@ export class Game {
     this.scoreDirty = true;
   }
 
-  private dropPlayerCarrapeta(p: ServerPlayer): void {
+  /** The holder loses it; by default it is redrawn after the pickup timeout, a time-out passes `rerollAtTick` to redraw at once. */
+  private dropPlayerCarrapeta(p: ServerPlayer, rerollAtTick = this.tick + (this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS) * TICK_RATE): void {
     const s = p.state;
     const at = { x: s.x, y: this.groundY(s.x, s.y, s.z), z: s.z };
-    const timeout = this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS;
-    const result = dropCarrapeta(this.carrapeta, p.id, at, this.tick + timeout * TICK_RATE);
+    const result = dropCarrapeta(this.carrapeta, p.id, at, rerollAtTick);
     this.carrapeta = result.state;
     if (!result.event) return;
     setHalvedAmmo(s, false);
+    s.armor = Math.min(s.armor, MAX_ARMOR);
     s.infiniteMgl = false;
     s.mag[WEAPON.MGL] = 0;
     s.reserve[WEAPON.MGL] = 0;
@@ -1054,7 +1075,6 @@ export class Game {
       players: list,
       airdrops: this.airdrops,
       carrapeta: this.carrapeta,
-      frenzy: this.frenzy,
       flags: this.flags,
       flagBases: this.flagBases(),
       bomb: this.bomb,
@@ -1084,16 +1104,40 @@ export class Game {
     this.votes.clear();
   }
 
+  /** Opens the in-round vote for the match that just went live. A window of 0 leaves the vote to the podium. */
+  private openVote(): void {
+    const windowMs = Math.min(this.opts.voteWindowMs ?? VOTE_WINDOW_SECONDS * 1000, this.opts.matchMs);
+    this.voteOptions = [];
+    this.votes.clear();
+    this.voteClosesAt = 0;
+    if (windowMs <= 0) return;
+    this.buildVote();
+    this.voteClosesAt = this.now() + windowMs;
+  }
+
+  /** Ends the in-round vote: the panel goes away, the votes cast stay for the podium. */
+  private closeVote(): void {
+    this.voteClosesAt = 0;
+    if (this.phase === 'live') this.broadcastMatch();
+  }
+
   private voteCounts(): number[] {
     const counts = this.voteOptions.map(() => 0);
     for (const [id, o] of this.votes) if (this.players.has(id) && counts[o] !== undefined) counts[o]++;
     return counts;
   }
 
-  /** Records the vote and returns the option voted for, or null when it was ignored (not the podium, a server bot, a bad option or a repeat). */
+  /** The vote is open for the first minutes of a live match, and again on the podium, with the votes cast so far kept. */
+  private voteOpen(): boolean {
+    if (this.voteOptions.length === 0) return false;
+    if (this.phase === 'podium') return true;
+    return this.phase === 'live' && this.voteClosesAt > 0 && this.now() < this.voteClosesAt;
+  }
+
+  /** Records the vote and returns the option voted for, or null when it was ignored (the vote is closed, a server bot, a bad option or a repeat). */
   vote(p: ServerPlayer, option: number): VoteOption | null {
     const chosen = this.voteOptions[option];
-    if (this.phase !== 'podium' || p.brain || isPending(p) || !chosen) return null;
+    if (!this.voteOpen() || p.brain || isPending(p) || !chosen) return null;
     if (this.votes.get(p.id) === option) return null;
     this.votes.set(p.id, option);
     const msg = JSON.stringify({ t: 'votes', counts: this.voteCounts() });
@@ -1197,7 +1241,7 @@ export class Game {
       results: podium ? this.results : undefined,
       winner: podium ? this.winner : undefined,
       next: podium ? this.rotation[(this.rotationIndex + 1) % this.rotation.length] : undefined,
-      vote: podium ? { options: this.voteOptions, counts: this.voteCounts() } : undefined,
+      vote: this.voteOpen() ? { options: this.voteOptions, counts: this.voteCounts(), ...(podium ? {} : { closesAt: this.voteClosesAt }) } : undefined,
       respawnMs: this.respawnTicks() * TICK_MS,
     };
   }
@@ -1228,6 +1272,7 @@ export class Game {
     this.matchId++;
     this.phase = 'live';
     this.phaseEnds = this.now() + this.opts.matchMs;
+    this.openVote();
     this.airdrops = [];
     this.supplyReadyAt = this.map.supplies.map(() => 0);
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
@@ -1239,7 +1284,7 @@ export class Game {
     this.broadcastRoster();
     for (const p of this.players.values()) this.spawn(p);
     if (this.mode === 'carrapeta') {
-      this.frenzyAt = frenzyAtTick(this.tick, Math.floor(this.opts.matchMs / TICK_MS), this.random(), this.random());
+      this.frenzyQueue = frenzyAtTicks(this.tick, Math.floor(this.opts.matchMs / TICK_MS), Array.from({ length: BATATA_PER_MATCH }, () => this.random()));
       this.updateCarrapeta();
     }
     this.broadcastMatch();
@@ -1280,7 +1325,8 @@ export class Game {
       if (first && first.points !== second?.points) this.winner = first.id;
     }
     this.airdrops = [];
-    this.buildVote();
+    this.voteClosesAt = 0;
+    if (this.voteOptions.length === 0) this.buildVote();
     this.broadcastMatch();
     // After the results: a kick refills bots, and those must not show up on a podium they never played.
     this.kickUnready('podium', () => true); // only players with a kick deadline: the ready kick is on
@@ -1436,7 +1482,7 @@ export class Game {
     const shooterSafe = this.inCab(p.state);
     for (const q of this.players.values()) {
       if (shooterSafe || q === p || !q.alive || q.state.dropping || q.state.protect > 0 || this.inCab(q.state)) continue;
-      if (!carrapetaEnemies(this.frenzy, this.carrapeta, p.id, q.id)) continue;
+      if (!carrapetaEnemies(this.carrapeta, p.id, q.id)) continue;
       if (!this.friendlyFire && this.sameTeam(p, q)) continue; // bullets pass through teammates unless friendly fire is on
       const h = this.historyAt(q, t);
       if (h && !h.hittable) continue;
@@ -1514,12 +1560,14 @@ export class Game {
     if (this.carrapeta.kind === 'held') {
       this.addCarrapetaPoints(killer, carrapetaKillPoints(this.frenzy, this.carrapeta.holder, killer.id, victim.id));
     }
+    const looseDeath = this.mode === 'carrapeta' && this.phase === 'live' && this.carrapeta.kind !== 'held';
+    const respawnTicks = this.respawnTicks() + (looseDeath ? CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS : 0);
     this.dropObjective(victim);
     victim.alive = false;
     victim.deaths++;
     victim.deathStreak++;
     victim.streak = 0;
-    victim.respawnAt = this.tick + this.respawnTicks();
+    victim.respawnAt = this.tick + respawnTicks;
     victim.state.health = 0;
     victim.queue.length = 0;
     const teamkill = killer !== victim && this.sameTeam(killer, victim);
@@ -1534,7 +1582,7 @@ export class Game {
       this.teamScores[killer.team]++;
       if (this.tdmLimit > 0 && this.teamScores[killer.team] >= this.tdmLimit) this.endPending = true;
     }
-    this.emit({ k: 'kill', by: killer.id, to: victim.id, w: weapon, hs: head ? 1 : 0, streak: killer.streak });
+    this.emit({ k: 'kill', by: killer.id, to: victim.id, w: weapon, hs: head ? 1 : 0, streak: killer.streak, ...(looseDeath ? { wait: respawnTicks * TICK_MS } : {}) });
     this.scoreDirty = true;
   }
 
@@ -1573,7 +1621,7 @@ export class Game {
     for (let i = this.airdrops.length - 1; i >= 0; i--) {
       const d = this.airdrops[i];
       for (const p of this.players.values()) {
-        if (!p.alive || p.state.dropping) continue;
+        if (!p.alive || p.state.dropping || this.holdsCarrapeta(p)) continue;
         const s = p.state;
         // claim from the ground next to it, or by standing on top
         const near = Math.hypot(s.x - d.x, s.z - d.z) < AIRDROP_PICKUP_RADIUS;
@@ -1627,6 +1675,8 @@ export class Game {
 
     this.kickUnready('afk', (kickAt) => now >= kickAt);
     this.kickIdle(now);
+
+    if (this.voteClosesAt > 0 && (this.phase !== 'live' || now >= this.voteClosesAt)) this.closeVote();
 
     // phase transitions
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();

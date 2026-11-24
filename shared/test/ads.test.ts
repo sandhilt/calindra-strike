@@ -29,7 +29,7 @@ import {
   weaponDef,
 } from '../src/index.ts';
 
-const ADS_WEAPONS: readonly WeaponId[] = [WEAPON.PISTOL, WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN, WEAPON.LMG];
+const ADS_WEAPONS: readonly WeaponId[] = [WEAPON.PISTOL, WEAPON.RIFLE, WEAPON.SMG, WEAPON.SHOTGUN, WEAPON.LMG, WEAPON.MGL];
 
 function flatWorld(): CollisionWorld {
   const b = new MapBuilder();

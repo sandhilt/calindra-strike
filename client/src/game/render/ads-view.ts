@@ -17,6 +17,7 @@ const SIGHT_TOP_UNITS: Partial<Record<WeaponId, number>> = {
   [WEAPON.SMG]: 5.3,
   [WEAPON.SHOTGUN]: 3.5,
   [WEAPON.LMG]: 6.7,
+  [WEAPON.MGL]: 9.5,
 };
 const DEFAULT_SIGHT_TOP_UNITS = 5;
 /** Iron sights sit this far below the centre of the view, so they frame the target instead of covering it. A red dot sits on the centre. */
@@ -43,9 +44,9 @@ export function gunHidden(def: WeaponDef, s: AimState, dropping: boolean): boole
   return dropping || scopeOverlay(def, s) !== 'none';
 }
 
-/** Ground truth for the crosshair: drawn for everything but a scope overlay, the AWP and the parachute; smaller with iron sights, gone behind a red dot. */
-export function crosshairFor(def: WeaponDef, s: AimState, dropping: boolean, isSniper: boolean): { visible: boolean; scale: number } {
-  if (dropping || isSniper || scopeOverlay(def, s) !== 'none') return { visible: false, scale: 1 };
+/** Ground truth for the crosshair: drawn for everything but a scope overlay and the parachute (the AWP shows it until the scope is raised); smaller with iron sights, gone behind a red dot. */
+export function crosshairFor(def: WeaponDef, s: AimState, dropping: boolean): { visible: boolean; scale: number } {
+  if (dropping || scopeOverlay(def, s) !== 'none') return { visible: false, scale: 1 };
   if (def.ads?.kind === 'dot' && s.aiming && s.blend >= DOT_IN_BLEND) return { visible: false, scale: 1 };
   const shrink = def.ads !== undefined && s.aiming ? 1 - (1 - ADS_CROSSHAIR_SCALE) * s.blend : 1;
   return { visible: true, scale: shrink };

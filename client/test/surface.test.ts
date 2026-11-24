@@ -41,6 +41,11 @@ test('only the high tier sparkles', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].fx.sparkle), ['high']);
 });
 
+test('Carrapeta keeps its aura on high and low and the full blast on high only', () => {
+  assert.deepEqual(Object.values(QUALITY).map((profile) => profile.carrapetaAura), [true, true, false]);
+  assert.deepEqual(Object.values(QUALITY).map((profile) => profile.carrapetaBlastParticles), [true, false, false]);
+});
+
 test('only high and low render kitchen flames', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].kitchenFire), ['high', 'low']);
 });

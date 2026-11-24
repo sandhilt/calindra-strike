@@ -36,7 +36,7 @@ export interface ReloadPose {
   shellVisible: boolean;
   /** Supporting hand reaches for the magazine or the loading port, 0..1. */
   hand: number;
-  /** Feed cover over the receiver, 0 shut .. 1 wide open. Only the machine gun has one. */
+  /** Feed cover or launcher drum, 0 shut .. 1 wide open. */
   cover: number;
   /** The ammo belt on the feed tray, 0 lifted off it .. 1 laid in. */
   beltLaid: number;
@@ -148,8 +148,21 @@ function exchangePose({ phase, t }: ReloadCursor, weapon: keyof typeof MAGAZINE_
   return pose;
 }
 
+function launcherReloadPose({ phase, t }: ReloadCursor): ReloadPose {
+  const pose = { ...RESTING_RELOAD_POSE };
+  if (phase === 'out') pose.cover = ramp(t, RELOAD_CUE_AT.out, 0.85);
+  if (phase === 'in') pose.cover = 1;
+  if (phase === 'bolt') pose.cover = 1 - ramp(t, RELOAD_CUE_AT.bolt, 0.45);
+  pose.hand = phase === 'out' ? ramp(t, 0, RELOAD_CUE_AT.out)
+    : phase === 'bolt' ? 1 - ramp(t, 0.45, 1) : 1;
+  pose.tilt = pose.hand * 0.7;
+  pose.dip = pose.tilt * 0.5;
+  return pose;
+}
+
 export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId): ReloadPose {
   if (!cursor) return RESTING_RELOAD_POSE;
+  if (weapon === WEAPON.MGL) return launcherReloadPose(cursor);
   if (weapon === WEAPON.PISTOL || weapon === WEAPON.RIFLE) return exchangePose(cursor, weapon);
   const { phase, t } = cursor;
   const pose: ReloadPose = { ...RESTING_RELOAD_POSE };

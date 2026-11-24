@@ -17,6 +17,18 @@ test('a rifle reload fires clip out, clip in and bolt once each, in order', () =
   assert.deepEqual(playback.due(5000), []);
 });
 
+test('the Azeitadora drum opens, stays open while loading and closes to lock', () => {
+  const timing = weaponDef(WEAPON.MGL).reloadTiming;
+  assert.ok(timing?.kind === 'magazine');
+  const { outTicks, inTicks, boltTicks } = timing;
+  const poseAt = (ticks: number) => reloadPose(reloadCursor(timing, ticks, 0), WEAPON.MGL);
+  assert.equal(poseAt(0).cover, 0);
+  assert.equal(poseAt(outTicks * 0.9).cover, 1);
+  assert.equal(poseAt(outTicks + inTicks / 2).cover, 1);
+  assert.equal(poseAt(outTicks + inTicks + boltTicks / 2).cover, 0);
+  assert.deepEqual(poseAt(outTicks + inTicks + boltTicks), RESTING_RELOAD_POSE);
+});
+
 test('a shotgun reload sounds once per shell and pumps at the end', () => {
   const playback = new ReloadPlayback();
   const def = weaponDef(WEAPON.SHOTGUN);

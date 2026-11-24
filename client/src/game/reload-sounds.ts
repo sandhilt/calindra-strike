@@ -3,11 +3,11 @@ import type { Pos, SoundKit } from './sound-packs/types.ts';
 
 /** Reload sounds, synthesized with WebAudio like every other sound (no sampled assets). */
 
-type Family = 'pistol' | 'rifle' | 'smg' | 'sniper' | 'lmg' | 'shotgun';
+type Family = 'pistol' | 'rifle' | 'smg' | 'sniper' | 'lmg' | 'shotgun' | 'launcher';
 
 const FAMILY_OF: Readonly<Record<WeaponId, Family | null>> = {
   [WEAPON.HAMMER]: null,
-  [WEAPON.MGL]: 'rifle',
+  [WEAPON.MGL]: 'launcher',
   [WEAPON.PISTOL]: 'pistol',
   [WEAPON.RIFLE]: 'rifle',
   [WEAPON.SMG]: 'smg',
@@ -35,6 +35,7 @@ const FLAVOUR: Readonly<Record<Family, Flavour>> = {
   smg: { clickHz: 3400, bodyHz: 135, weight: 0.85, slideSeconds: 0.08, rackSeconds: 0.19 },
   sniper: { clickHz: 2500, bodyHz: 100, weight: 1.15, slideSeconds: 0.14, rackSeconds: 0.3 },
   lmg: { clickHz: 2100, bodyHz: 75, weight: 1.4, slideSeconds: 0.2, rackSeconds: 0.25 },
+  launcher: { clickHz: 1850, bodyHz: 85, weight: 1.25, slideSeconds: 0.16, rackSeconds: 0.12 },
   shotgun: { clickHz: 2700, bodyHz: 105, weight: 1.1, slideSeconds: 0.1, rackSeconds: 0.17 },
 };
 
@@ -73,6 +74,9 @@ function magazineOut(kit: SoundKit, out: AudioNode, family: Family, f: Flavour, 
 function magazineIn(kit: SoundKit, out: AudioNode, family: Family, f: Flavour, t: number, g: number): void {
   clack(kit, out, t, f, g);
   click(kit, out, t + 0.06, f.clickHz * 0.8, g * 0.5);
+  if (family === 'launcher') {
+    for (let round = 0; round < 3; round++) click(kit, out, t + 0.11 + round * 0.07, f.clickHz + round * 150, g * 0.6);
+  }
   if (family !== 'lmg') return;
   // belt box: the lid slams shut
   clack(kit, out, t + 0.14, f, g * 0.8);

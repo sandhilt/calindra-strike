@@ -17,5 +17,6 @@ export const VOICES: Record<number, ShotVoice> = {
   [WEAPON.SMG]: { noiseFreq: 2100, noiseQ: 0.8, decay: 0.08, thump: 120, thumpDecay: 0.05, tail: 0.3, gain: 0.55, crack: 3000 },
   [WEAPON.SHOTGUN]: { noiseFreq: 900, noiseQ: 0.5, decay: 0.22, thump: 70, thumpDecay: 0.16, tail: 0.6, gain: 0.95, crack: 1800 },
   [WEAPON.SNIPER]: { noiseFreq: 1100, noiseQ: 0.6, decay: 0.25, thump: 60, thumpDecay: 0.2, tail: 1.1, gain: 1.0, crack: 4200 },
+  [WEAPON.MGL]: { noiseFreq: 530, noiseQ: 0.65, decay: 0.13, thump: 62, thumpDecay: 0.16, tail: 0.36, gain: 0.85, crack: 1700 },
   [WEAPON.LMG]: { noiseFreq: 1300, noiseQ: 0.7, decay: 0.12, thump: 85, thumpDecay: 0.1, tail: 0.5, gain: 0.75, crack: 2400 },
 };

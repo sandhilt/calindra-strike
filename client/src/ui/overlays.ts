@@ -155,11 +155,15 @@ export class Overlays {
   private readonly podium: HTMLElement;
   private readonly podiumCards = h('div', { class: 'podium-cards' });
   private readonly finalRows = h('tbody');
+  private readonly finalScore = h('th', { scope: 'col', text: 'kills' });
   private readonly finalCount = h('span', { class: 'label' });
   private readonly finalScroll = h('div', { class: 'final-scroll', tabindex: 0, 'aria-label': 'Resultados de todos os jogadores' }, [
     h('table', {}, [
       h('caption', { class: 'sr-only', text: 'Placar completo da partida' }),
-      h('thead', {}, [h('tr', {}, ['#', 'jogador', 'kills', 'mortes', 'hs'].map((text) => h('th', { scope: 'col', text })))]),
+      h('thead', {}, [h('tr', {}, [
+        h('th', { scope: 'col', text: '#' }), h('th', { scope: 'col', text: 'jogador' }), this.finalScore,
+        h('th', { scope: 'col', text: 'mortes' }), h('th', { scope: 'col', text: 'hs' }),
+      ])]),
       this.finalRows,
     ]),
   ]);
@@ -369,6 +373,9 @@ export class Overlays {
     this.nextMap = next;
     this.lastSeconds = -1;
     const tdm = isTeamMode(data.mode);
+    const carrapeta = data.mode === 'carrapeta';
+    const unit = carrapeta ? 'pontos' : 'kills';
+    this.finalScore.textContent = unit;
     this.podiumScore.classList.toggle('hidden', !tdm);
     if (tdm) {
       const w = data.winner;
@@ -380,6 +387,11 @@ export class Overlays {
         h('b', { text: `${data.teams[0] ?? 0} × ${data.teams[1] ?? 0}` }),
         h('span', { style: `color:${TEAMS[1].color}`, text: TEAMS[1].name }),
       );
+    } else if (carrapeta) {
+      const winner = data.results.find((r) => r.id === data.winner);
+      this.podiumLabel.textContent = MODE_LABEL.carrapeta;
+      this.podiumTitle.textContent = winner ? `${winner.name} venceu` : 'empate';
+      this.podiumTitle.style.color = winner ? data.colorFor(winner) : '';
     } else {
       this.podiumLabel.textContent = 'fim de partida';
       this.podiumTitle.textContent = 'pódio';
@@ -395,7 +407,7 @@ export class Overlays {
         return h('div', { class: `pcard glass ${cls[i]}` }, [
           h('div', { class: 'place', text: place[i] }),
           h('div', { class: 'pname', style: `color:${data.colorFor(r)}`, text: r.name }),
-          h('div', { class: 'stats', text: `${r.kills} kills · ${r.deaths} mortes · ${r.hs} hs` }),
+          h('div', { class: 'stats', text: `${carrapeta ? r.points ?? 0 : r.kills} ${unit} · ${r.deaths} mortes · ${r.hs} hs` }),
         ]);
       }),
     );
@@ -408,7 +420,7 @@ export class Overlays {
             h('b', { style: `color:${data.colorFor(r)}`, text: r.name }),
             h('small', { text: [tdm && r.team >= 0 ? TEAMS[r.team].name : '', r.bot ? 'bot' : '', r.id === data.myId ? 'você' : ''].filter(Boolean).join(' · ') }),
           ]),
-          h('td', { class: 'final-kills', text: String(r.kills) }),
+          h('td', { class: 'final-kills', text: String(carrapeta ? r.points ?? 0 : r.kills) }),
           h('td', { text: String(r.deaths) }),
           h('td', { text: String(r.hs) }),
         ]),

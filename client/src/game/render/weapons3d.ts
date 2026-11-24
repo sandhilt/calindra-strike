@@ -90,7 +90,7 @@ export interface ReloadRig {
   handTarget: THREE.Vector3;
   /** Where the supporting hand goes instead of the magazine, on a gun whose reload is worked at the cover and the belt. */
   supportHandReach: THREE.Vector3 | null;
-  /** Feed cover over the receiver, hinged on its right edge and opened by rotating about Z by `coverOpenRad`, so it swings out of the way of the sights. */
+  /** Hinged feed cover or launcher drum, opened by rotating about Z by `coverOpenRad`. */
   cover: THREE.Object3D | null;
   coverOpenRad: number;
   /** The ammo belt: its rounds move along the belt path, which bends to follow the box while it is out. Null without a belt. */
@@ -184,6 +184,35 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
     belt: null,
   };
   switch (id) {
+    case WEAPON.MGL: {
+      bx(g, 4.5, 5.5, 5, mats.gun, 0, 1.6, -2);
+      bx(g, 2.5, 5.2, 3, mats.poly, 0, -2.2, 0.3, -0.25);
+      bx(g, 3, 2, 11, mats.gun2, 0, 2.5, 5);
+      bx(g, 3.5, 6.5, 1.8, mats.poly, 0, 0.8, 10);
+      bx(g, 3.6, 1.4, 16, mats.gun2, 0, 7, -9.5);
+      bx(g, 0.8, 1.2, 0.8, mats.lime, 0, 8.1, -16.5);
+      cyl(g, 2, 12, mats.gun, 0, 4.6, -19);
+      cyl(g, 2.45, 2, mats.gun2, 0, 4.6, -24);
+      cyl(g, 1.45, 0.05, mats.poly, 0, 4.6, -25.01);
+      bx(g, 4, 2.4, 6, mats.poly, 0, 1.4, -17);
+
+      const hinge = part(g, -4.5, 0.4, -8.5);
+      cyl(hinge, 5.4, 9, mats.gun2, 4.5, 0.4, 0);
+      cyl(hinge, 5.5, 1.1, mats.brass, 4.5, 0.4, -4.4);
+      cyl(hinge, 5.5, 1.1, mats.gun, 4.5, 0.4, 4.4);
+      for (let chamber = 0; chamber < 6; chamber++) {
+        const angle = chamber * Math.PI / 3;
+        const x = 4.5 + 3.65 * Math.sin(angle);
+        const y = 0.4 + 3.65 * Math.cos(angle);
+        cyl(hinge, 1.38, 9.5, mats.gun, x, y, 0);
+        cyl(hinge, 0.96, 0.55, mats.brass, x, y, 4.85);
+      }
+      rig.cover = hinge;
+      rig.coverOpenRad = -1.65;
+      rig.supportHandReach = new THREE.Vector3(-6, -4, -8.5);
+      muzzle.position.set(0, 4.6, -25);
+      break;
+    }
     case WEAPON.PISTOL:
       const slide = part(g, 0, 0, 0);
       bx(slide, 1.6, 1.8, 8, mats.gun, 0, 2, -2.5);

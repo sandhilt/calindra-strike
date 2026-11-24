@@ -1,4 +1,5 @@
 import { LUNCH_COLLEAGUES, LUNCH_KINDS, LUNCH_RUSH_SPEED, TEAMS, type LunchEvent } from '@calindra-strike/shared';
+import type { BombRole } from './bomb.ts';
 
 export interface ColleagueView {
   name: string;
@@ -20,6 +21,14 @@ export function lunchView(header: readonly number[], rows: readonly number[][]):
     leader, x, y, z, yaw,
   }));
   return { attackers, endsAt, target, rush: rush === 1, colleagues };
+}
+
+export function lunchRole(attackers: number, viewerTeam: number, rush: boolean): BombRole | null {
+  if (viewerTeam !== 0 && viewerTeam !== 1) return null;
+  if (viewerTeam === attackers) {
+    return { side: 'attack', label: 'ataque', goal: rush ? 'corra, é hora do rush' : 'leve os colegas ao restaurante' };
+  }
+  return { side: 'defend', label: 'defesa', goal: 'impeça o almoço' };
 }
 
 /** One status line per team for the objective panel. */

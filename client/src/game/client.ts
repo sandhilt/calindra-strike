@@ -93,7 +93,7 @@ import { BombRenderer, type CarrierPose } from './render/bomb.ts';
 import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
 import { signCanvas } from './render/store-signs.ts';
-import { followersOf, followersText, lunchAnnouncement, LUNCH_RUSH_PITCH, LUNCH_RUSH_TAG, lunchMessage, lunchStatus, lunchView, type LunchView } from './lunch.ts';
+import { followersOf, followersText, lunchAnnouncement, LUNCH_RUSH_PITCH, LUNCH_RUSH_TAG, lunchMessage, lunchRole, lunchStatus, lunchView, type LunchView } from './lunch.ts';
 import { LunchTargetView } from './render/lunch-target.ts';
 import { AirdropView } from './render/airdrop.ts';
 import { SuppliesView } from './render/supply.ts';
@@ -1066,7 +1066,9 @@ export class ClientGame {
   private updateBombHud(hud: Hud, now: number): void {
     const bomb = this.bomb;
     if (!bomb) {
-      hud.setBomb({ text: null, plant: -1, role: null, blackFriday: false, carry: null, activity: null });
+      const lunch = this.lunch;
+      const role = lunch && !this.spectator ? lunchRole(lunch.attackers, this.myTeam, lunch.rush) : null;
+      hud.setBomb({ text: null, plant: -1, role, blackFriday: false, carry: null, activity: null });
       hud.setDefuse(defuseBannerScene(this.defuseBanner, now));
       return;
     }

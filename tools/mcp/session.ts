@@ -399,6 +399,7 @@ export class GameSession {
       throw new Error('Socket closed');
     }
     if (msg.t === 'vote') {
+      if (view.match.phase !== 'podium') throw new Error('Voting is only open on the podium');
       const chosen = view.match.vote?.options[msg.option];
       this.log('vote', `option=${msg.option}`, `map=${chosen?.map}`, `mode=${chosen?.mode}`);
     }

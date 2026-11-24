@@ -275,7 +275,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'vote',
-    description: 'Vote for a next-match option index during podium.',
+    description: 'Vote for a next-match option index during podium. Voting during the round is for human players only; this tool refuses it.',
     properties: { option: { type: 'integer', minimum: 0, maximum: 7 } },
     required: ['option'],
     run: (s, a) => {

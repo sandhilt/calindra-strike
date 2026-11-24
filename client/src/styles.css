@@ -1249,6 +1249,37 @@ input:focus-visible {
   filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.85));
 }
 
+/* Next-match vote shown over the first minutes of a round; keys F1 to F3 or a click. */
+.vote-live {
+  position: absolute;
+  left: 16px;
+  top: 38%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 190px;
+  font-size: 13px;
+}
+.vote-live .label { font-size: 11px; opacity: 0.85; }
+.vote-live-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  pointer-events: auto;
+}
+.vote-live-row.mine { border-color: #ffd23f; background: rgba(255, 210, 63, 0.16); }
+.vote-live-row .vote-text { display: flex; flex-direction: column; flex: 1; line-height: 1.15; }
+.vote-live-row small { opacity: 0.7; }
+.vote-live-row .vote-count { font-weight: 700; }
+
 @media (prefers-reduced-motion: reduce) {
   .scope { transition: none; transform: none; }
 }

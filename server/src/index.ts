@@ -19,6 +19,7 @@ const game = new Game({
   tdmLimit: cfg.tdmLimit,
   ctfLimit: cfg.ctfLimit,
   carrapetaPickupTimeoutSeconds: cfg.carrapetaPickupTimeoutSeconds,
+  voteWindowMs: cfg.voteWindowSeconds * 1000,
   defuseLimit: cfg.defuseLimit,
   plantTimeoutMs: cfg.plantTimeoutMs,
   objectiveRespawnMs: cfg.objectiveRespawnMs,

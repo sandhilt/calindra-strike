@@ -173,6 +173,83 @@ const PHARMACY_X = -730;
 const PHARMACY_HEIGHT = 176;
 const PHARMACY_LAMP_Y = 160;
 
+const PHARMACY_WHITE = 0xeef2f6;
+const PHARMACY_BLUE = 0x1f4fa8;
+const PHARMACY_GREEN = 0x2f9e44;
+const SIGN_WIDTH = 180;
+/** Height of the doorway under the lintel; the full shop width stays walkable below it. */
+const DOORWAY_HEIGHT = 132;
+const LINTEL_TRIM = 14;
+const COUNTER_DEPTH = 142;
+const COUNTER_HEIGHT = 56;
+const WALL_FACE = STORE_HALF_WIDTH - 6;
+const POSTER_DEPTHS = [44, 178, 236] as const;
+
+/** A green cross of three adjoining rectangles (so no two faces share a plane), on a plane facing +z at `z` (centred on x, y). */
+function crossFacingFront(b: MapBuilder, x: number, y: number, z: number, arm: number): void {
+  const bar = arm / 3;
+  b.deco(x - bar / 2, y + bar / 2, z, x + bar / 2, y + arm / 2, z + 1, 'white', PHARMACY_GREEN);
+  b.deco(x - arm / 2, y - bar / 2, z, x + arm / 2, y + bar / 2, z + 1, 'white', PHARMACY_GREEN);
+  b.deco(x - bar / 2, y - arm / 2, z, x + bar / 2, y - bar / 2, z + 1, 'white', PHARMACY_GREEN);
+}
+
+/** The same cross on a side wall, facing the shop's middle. */
+function crossFacingMiddle(b: MapBuilder, x1: number, x2: number, y: number, z: number, arm: number): void {
+  const bar = arm / 3;
+  b.deco(x1, y + bar / 2, z - bar / 2, x2, y + arm / 2, z + bar / 2, 'white', PHARMACY_GREEN);
+  b.deco(x1, y - bar / 2, z - arm / 2, x2, y + bar / 2, z + arm / 2, 'white', PHARMACY_GREEN);
+  b.deco(x1, y - arm / 2, z - bar / 2, x2, y - bar / 2, z + bar / 2, 'white', PHARMACY_GREEN);
+}
+
+/** Brand sign on a lintel across the open entrance, clear of the doorway below it. */
+function pharmacyFacade(b: MapBuilder, cx: number, brand: ShopBrand): void {
+  const z = FACADE_Z + 8;
+  const half = STORE_HALF_WIDTH + 8;
+  const signBottom = DECK3 + DOORWAY_HEIGHT + 10;
+  b.deco(cx - half, DECK3 + DOORWAY_HEIGHT, z, cx + half, signBottom + SIGN_WIDTH / 2 + LINTEL_TRIM, z + 2, 'white', PHARMACY_WHITE);
+  b.deco(cx - half, DECK3 + DOORWAY_HEIGHT, z + 2, cx + half, DECK3 + DOORWAY_HEIGHT + 6, z + 3, 'white', PHARMACY_BLUE);
+  b.deco(cx - SIGN_WIDTH / 2, signBottom, z + 2, cx + SIGN_WIDTH / 2, signBottom + SIGN_WIDTH / 2, z + 4, brandMat(brand));
+  for (const side of [-1, 1]) crossFacingFront(b, cx + side * 140, signBottom + SIGN_WIDTH / 4, z + 2, 44);
+}
+
+/** A dispensing counter with a worktop, a front panel in the brand colour and a cross, instead of one flat slab. */
+function pharmacyCounter(b: MapBuilder, x: number, brand: ShopBrand): void {
+  const z = -Z + COUNTER_DEPTH;
+  const width = 120;
+  b.block(x, z, width, 24, COUNTER_HEIGHT, 'white', DECK3, { tint: PHARMACY_WHITE });
+  const frontZ = z + 12;
+  const top = DECK3 + COUNTER_HEIGHT;
+  b.deco(x - width / 2 - 2, top, z - 14, x + width / 2 + 2, top + 3, frontZ + 3, 'white', 0xcfd6de);
+  b.deco(x - width / 2 + 6, DECK3 + 8, frontZ, x + width / 2 - 6, top - 8, frontZ + 1, 'white', storeAccent(brand));
+  crossFacingFront(b, x, DECK3 + COUNTER_HEIGHT / 2, frontZ + 1, 26);
+}
+
+/** Posters, a tinted band and a baseboard along both side walls. */
+function pharmacySideWalls(b: MapBuilder, cx: number): void {
+  const poster = { width: 44, bottom: 96, height: 62 };
+  for (const side of [-1, 1]) {
+    const inner = cx + side * WALL_FACE;
+    const outer = inner + side * 3;
+    const lo = Math.min(inner, outer);
+    const hi = Math.max(inner, outer);
+    b.deco(lo, DECK3, -Z + 8, hi, DECK3 + 10, FACADE_Z - 8, 'white', PHARMACY_BLUE);
+    b.deco(lo, DECK3 + 78, -Z + 8, hi, DECK3 + 90, FACADE_Z - 8, 'white', PHARMACY_BLUE);
+    for (const depth of POSTER_DEPTHS) {
+      const z = -Z + depth;
+      b.deco(lo, DECK3 + poster.bottom, z - poster.width / 2, hi, DECK3 + poster.bottom + poster.height, z + poster.width / 2, 'white', PHARMACY_WHITE);
+      crossFacingMiddle(b, inner - side * 1, inner, DECK3 + poster.bottom + poster.height / 2, z, 30);
+    }
+  }
+}
+
+/** A rug and a stripe leading from the entrance to the counters. */
+function pharmacyFloor(b: MapBuilder, cx: number): void {
+  b.deco(cx - 120, DECK3 + 1, -Z + 168, cx + 120, DECK3 + 2, -Z + 258, 'white', 0x9fb4cf);
+  b.deco(cx - 110, DECK3 + 2, -Z + 176, cx + 110, DECK3 + 3, -Z + 250, 'white', PHARMACY_BLUE);
+  b.deco(cx - 100, DECK3 + 3, -Z + 184, cx + 100, DECK3 + 4, -Z + 242, 'white', 0xdfe8f2);
+  b.deco(cx - 14, DECK3 + 1, -Z + 70, cx + 14, DECK3 + 2, -Z + 168, 'white', 0x9fb4cf);
+}
+
 /** An open storefront with short returns framing the pharmacy displays. */
 function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   const cx = PHARMACY_X;
@@ -182,12 +259,14 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
     const wallX = cx + side * edge;
     b.wallZ(-Z, FACADE_Z, wallX, 16, PHARMACY_HEIGHT, 'white', [], DECK3);
     b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, PHARMACY_HEIGHT, 'white', DECK3);
-    b.block(cx + side * 150, -Z + 142, 120, 24, 56, 'white', DECK3, { tint: storeAccent(brand) });
+    pharmacyCounter(b, cx + side * 150, brand);
   }
-  b.deco(cx - 60, DECK3 + 114, -Z + 4, cx + 60, DECK3 + 174, -Z + 6, brandMat(brand));
   b.block(cx, -Z + 52, 140, 36, 40, 'desk', DECK3);
   dressStore(new Room(b, cx, DECK3, -Z), brand);
-  for (const lampZ of [60, 190]) b.light(cx, DECK3 + PHARMACY_LAMP_Y, -Z + lampZ, '#ffe9bd');
+  pharmacyFacade(b, cx, brand);
+  pharmacySideWalls(b, cx);
+  pharmacyFloor(b, cx);
+  b.light(cx - 250, DECK3 + PHARMACY_LAMP_Y, -Z + 220, '#ffe9bd');
   b.interior(cx, DECK3, -Z + 142);
   b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }

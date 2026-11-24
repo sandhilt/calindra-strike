@@ -3,15 +3,17 @@ import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
-import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { dressDeckWalls } from './shopping-deck-walls.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
-const ROOF_CLIP_MARGIN = 256;
 /** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
 const STORE_LAMP_Y = 160;
+/** The skydive start stays this far from the end walls, clear of the roof high columns at the ends of the atrium and the invisible blocks over them. */
+const END_COLUMN_CLEARANCE = 208;
 const STORE_XS = [-3, -1, 1, 3].map((bay) => bay * X / 4);
 const STORE_PARTITIONS = [-X / 2, 0, X / 2];
 const ESCALATORS = [
@@ -19,6 +21,8 @@ const ESCALATORS = [
   { x1: -576, x2: -480, travel: 'down', name: 'Escada rolante que desce' },
 ] satisfies readonly { x1: number; x2: number; travel: EscalatorTravel; name: string }[];
 const ESCALATOR_FOOT_Z = -352;
+const PILLAR_XS = [-760, -200, 200, 760];
+const PILLAR_Z = -696;
 /** Escalator sides rise higher still: a step two cells up must not reach the top of a lower panel with a jump. */
 const ESCALATOR_SIDE = 80;
 
@@ -136,6 +140,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
   const duct = new Room(b, 0, DECK, -Z);
   duct.box(0, 16, 2 * (X - 28), 32, 36, 126, 'white', 0xc9ced6);
   for (const x of [-X + 96, ...STORE_PARTITIONS, X - 96]) duct.vent(x, 144, 32, 'front');
+  dressDeckWalls(b, { kitchenXs: STORE_XS, boothXs: STORE_PARTITIONS, pillars: PILLAR_XS.map((x) => [x, PILLAR_Z] as const), brands });
 }
 
 /**
@@ -176,9 +181,9 @@ export function buildShopping(): MapDef {
     b.add(-X, ROOF, -Z, X, ROOF + SLAB, GALLERY_Z, 'white');
     // the roof top is outside the mall and nobody can walk there from the floor, so a glider hits the side of this column instead of landing
     b.add(-X, ROOF + SLAB, -Z, X, DROP_HEIGHT + ROOF_CLIP_MARGIN, GALLERY_Z, 'clip', { visible: false, shoot: true });
-    for (const px of [-760, -200, 200, 760]) {
-      b.block(px, -696, 40, 40, DECK - SLAB, 'white');
-      b.block(px, -696, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
+    for (const px of PILLAR_XS) {
+      b.block(px, PILLAR_Z, 40, 40, DECK - SLAB, 'white');
+      b.block(px, PILLAR_Z, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
     topFloor(b, MIRANTE_PHARMACIES[half]);
 
@@ -223,7 +228,7 @@ export function buildShopping(): MapDef {
     name: 'Shopping Sul Rio',
     subtitle: 'escada rolante, chafariz e praça de alimentação',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
-    dropArea: { minX: -X + 108, maxX: X - 108, minZ: -600, maxZ: 600 },
+    dropArea: { minX: -X + END_COLUMN_CLEARANCE, maxX: X - END_COLUMN_CLEARANCE, minZ: -600, maxZ: 600 },
     defuseBases: [{ x: -1090, y: DECK3, z: -1020 }, { x: 1090, y: DECK3, z: 1020 }],
     flagBases: [{ x: -1000, z: -480 }, { x: 1000, z: 480 }],
     dropHeight: DROP_HEIGHT,

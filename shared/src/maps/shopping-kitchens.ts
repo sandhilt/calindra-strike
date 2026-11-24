@@ -36,6 +36,8 @@ interface FastSpec {
   accent: Hex;
   fryers: number;
   griddle: boolean;
+  /** Flame grilled: the griddle has flames under its patties. */
+  flameGrilled?: boolean;
   extras: (r: Room) => void;
 }
 
@@ -65,6 +67,7 @@ function fryer(r: Room, x: number): void {
 }
 
 function griddle(r: Room, x: number, width: number): void {
+  r.cook(x, 17, 36, 'griddle');
   r.box(x, 17, width, 32, 34, 0, 'white', STEEL);
   r.box(x, 17, width - 2, 28, 1.6, 34, 'charcoal', 0x1b1b1b);
   r.box(x, 33.5, width, 3, 4, 34, 'white', STEEL_DARK);
@@ -120,14 +123,24 @@ function shell(r: Room, accent: Hex): void {
   r.box(0, SHELL_DEPTH - 3, SHELL_SPAN, 6, 4, FASCIA_BOTTOM - 4, 'white', STEEL_DARK);
 }
 
+/** Distance between two fryers along the kitchen. */
+const FRYER_PITCH = 28;
+
+/** Low flames licking up under the patties of a flame grilled griddle. */
+function flameGrill(r: Room, x: number): void {
+  for (const dx of [-14, 14]) r.flame(x + dx, 17, 35, 9);
+}
+
 function fastKitchen(r: Room, spec: FastSpec): void {
   shell(r, spec.accent);
   fridge(r, -138, spec.accent);
   fridge(r, 138, spec.accent);
   let x = -92;
-  for (let i = 0; i < spec.fryers; i++, x += 28) fryer(r, x);
+  if (spec.fryers > 0) r.cook(x + ((spec.fryers - 1) * FRYER_PITCH) / 2, 17, 34, 'fryer');
+  for (let i = 0; i < spec.fryers; i++, x += FRYER_PITCH) fryer(r, x);
   if (spec.griddle) {
     griddle(r, x + 22, 60);
+    if (spec.flameGrilled) flameGrill(r, x + 22);
     x += 64;
   }
   hood(r, (-92 + x - 28) / 2, Math.max(70, x + 92 - 8));
@@ -166,12 +179,17 @@ type Kitchen = { kind: 'fast'; spec: FastSpec } | { kind: 'grill'; spec: GrillSp
 
 const FAST_SPECS = {
   kfg: { accent: 0xc8102e, fryers: 4, griddle: false, extras: (r: Room) => { bucketStack(r, 110); warmerCabinet(r, -118); } },
-  'burguer-rei': { accent: 0xd62300, fryers: 1, griddle: true, extras: (r: Room) => { toasterRack(r, 100); r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a); } },
+  'burguer-rei': { accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true, extras: (r: Room) => { toasterRack(r, 100); r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a); } },
   mequi: { accent: 0xda291c, fryers: 2, griddle: true, extras: (r: Room) => { drinks(r, 100, 0xda291c); softServe(r, 128, 0xffc72c); } },
   bobis: { accent: 0xe30613, fryers: 2, griddle: false, extras: (r: Room) => { softServe(r, -118, 0xe30613); drinks(r, 108, 0x1f5fbf); griddle(r, 60, 56); } },
 } satisfies Record<string, FastSpec>;
 
+/** Flames along the coal bed of a brick grill, under the skewers. */
+const GRILL_FLAMES = 4;
+
 function brickGrill(r: Room, x: number, width: number): void {
+  r.cook(x, 18, 40, 'charcoal');
+  for (let i = 0; i < GRILL_FLAMES; i++) r.flame(x - width / 2 + 14 + (i * (width - 28)) / (GRILL_FLAMES - 1), 18, 33, 11 + (i % 2) * 3);
   r.box(x, 18, width, 34, 30, 0, 'brick', 0x7a3f2e);
   r.box(x, 18, width - 6, 26, 3, 30, 'brick', 0xff6a2a);
   for (let i = 0; i < 9; i++) r.box(x - width / 2 + 6 + i * ((width - 12) / 8), 18, 1.4, 28, 1.4, 33, 'charcoal', IRON);
@@ -192,6 +210,10 @@ function doubleOven(r: Room, x: number): void {
 }
 
 function woodOven(r: Room, x: number): void {
+  r.cook(x, 30, 20, 'wood');
+  r.flame(x, 37, 11, 14);
+  r.flame(x - 6, 37, 11, 9);
+  r.flame(x + 6, 37, 11, 9);
   r.box(x, 20, 56, 38, 24, 0, 'brick', 0x8a4b36);
   r.box(x, 20, 46, 32, 16, 24, 'brick', 0x8a4b36);
   r.box(x, 20, 34, 26, 12, 40, 'brick', 0x8a4b36);

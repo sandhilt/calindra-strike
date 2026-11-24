@@ -536,6 +536,8 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   fountain: buildFountains,
   vent: buildVents,
   lift: buildLifts,
+  flame: still,
+  cook: still,
 };
 
 function isPropKind(kind: string): kind is PropKind {

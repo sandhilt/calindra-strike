@@ -1694,6 +1694,19 @@ input:focus-visible {
 
 .menu-panel.active { visibility: visible; }
 
+/* The pause menu's pages scroll on their own. The body only gives them a row as tall as the tallest tab (or the room the menu has),
+   and each page scrolls inside it, so a short tab has no scrollbar and every tab keeps the place it was left at. */
+.menu-body.menu-pages {
+  overflow: hidden;
+  padding: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.menu-pages .menu-panel {
+  overflow: auto;
+  padding: 6px 30px 14px;
+}
+
 .menu-rows { max-width: 640px; padding-top: 8px; }
 
 .menu-col {
@@ -1877,6 +1890,7 @@ input:focus-visible {
   .menu-head,
   .menu-tabs,
   .menu-body,
+  .menu-pages .menu-panel,
   .menu .actions {
     padding-left: 20px;
     padding-right: 20px;

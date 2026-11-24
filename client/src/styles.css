@@ -2701,6 +2701,10 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 .flag-status { top: 94px; display: flex; gap: 16px; font-size: 12px; }
+.lunch-row { display: flex; flex-direction: column; align-items: center; gap: 3px; white-space: nowrap; }
+.lunch-row-big { font-family: var(--mono); font-size: 30px; line-height: 1; letter-spacing: -0.02em; color: #fff; }
+.lunch-row small { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lunch-row-tag { font-size: 11px; letter-spacing: 0.1em; color: #ff7a5c; animation: pulse 0.8s ease-in-out infinite; }
 .flag-banner { top: 144px; color: var(--lime, #a5fa00); font-weight: 700; }
 @media (max-width: 600px) {
   .flag-status { top: 82px; flex-direction: column; gap: 3px; width: max-content; }

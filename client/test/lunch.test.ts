@@ -27,9 +27,9 @@ describe('hora de almoçar HUD', () => {
     assert.ok(view);
     const [attack, defend] = lunchStatus(view, 20_000, 'KFG');
     assert.equal(attack.team, 0);
-    assert.match(attack.text, /KFG · 1\/2 sentados/);
+    assert.deepEqual([attack.big, attack.unit], ['1/2', 'sentados']);
     assert.equal(defend.team, 1);
-    assert.match(defend.text, /10 s/);
+    assert.deepEqual([defend.big, defend.unit], ['10 s', 'pro KFG lotar']);
   });
 
   it('announces the full food court, with a point only in a live match', () => {
@@ -53,8 +53,8 @@ describe('hora do rush', () => {
     assert.equal(lunchAnnouncement(calm, 'KFG').destination, 'Destino do almoço: KFG');
     assert.equal(lunchAnnouncement(calm, 'KFG').rush, null);
     assert.match(lunchAnnouncement(rush, 'KFG').rush ?? '', /HORA DO RUSH/);
-    assert.ok(lunchStatus(rush, 0, 'KFG').every((row) => row.text.startsWith(LUNCH_RUSH_TAG)));
-    assert.ok(lunchStatus(calm, 0, 'KFG').every((row) => !row.text.includes(LUNCH_RUSH_TAG)));
+    assert.ok(lunchStatus(rush, 0, 'KFG').every((row) => row.tag === LUNCH_RUSH_TAG));
+    assert.ok(lunchStatus(calm, 0, 'KFG').every((row) => row.tag === null));
   });
 
   it('counts only the colleagues following this player', () => {

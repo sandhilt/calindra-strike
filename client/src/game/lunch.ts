@@ -31,14 +31,16 @@ export function lunchRole(attackers: number, viewerTeam: number, rush: boolean):
   return { side: 'defend', label: 'defesa', goal: 'impeça o almoço' };
 }
 
-/** One status line per team for the objective panel. */
-export function lunchStatus(view: LunchView, now: number, restaurant: string): { team: number; text: string }[] {
+export interface LunchRow { team: number; text: string; big: string; unit: string; tag: string | null }
+
+/** One status row per team: what it is doing, the number that matters to it in large type (attackers: seated, defenders: seconds left) and the rush call. */
+export function lunchStatus(view: LunchView, now: number, restaurant: string): LunchRow[] {
   const seated = view.colleagues.filter((c) => c.kind === 'seated').length;
   const secs = Math.max(0, Math.ceil((view.endsAt - now) / 1000));
-  const rush = view.rush ? `${LUNCH_RUSH_TAG} · ` : '';
+  const tag = view.rush ? LUNCH_RUSH_TAG : null;
   return [
-    { team: view.attackers, text: `${rush}levando o time pro ${restaurant} · ${seated}/${view.colleagues.length} sentados` },
-    { team: 1 - view.attackers, text: `${rush}segurando no escritório · ${secs} s pro ${restaurant} lotar` },
+    { team: view.attackers, text: `levando o time pro ${restaurant}`, big: `${seated}/${view.colleagues.length}`, unit: 'sentados', tag },
+    { team: 1 - view.attackers, text: `segurando no escritório`, big: `${secs} s`, unit: `pro ${restaurant} lotar`, tag },
   ];
 }
 

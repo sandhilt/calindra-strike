@@ -2,6 +2,7 @@ import { BLACK_FRIDAY_DISCOUNT_PERCENT, TEAMS, type RadioMenu } from '@calindra-
 import { type ActionId, type Bindings, actionBindingLabel } from '../game/bindings.ts';
 import { BLACK_FRIDAY_PITCH, type BombRole, type CarryNotice } from '../game/bomb.ts';
 import { CARRAPETA_BANNERS, CARRAPETA_SYMBOL, type CarrapetaBanner } from '../game/carrapeta.ts';
+import type { LunchRow } from '../game/lunch.ts';
 import { drawLaptop } from '../game/laptop/draw.ts';
 import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
@@ -309,11 +310,20 @@ export class Hud {
     });
   }
 
-  setFlags(flags: { team: number; text: string }[], carrying: boolean): void {
+  setFlags(flags: (LunchRow | { team: number; text: string })[], carrying: boolean): void {
     this.set('flags', JSON.stringify([flags, carrying]), () => {
       this.flagStatus.classList.toggle('hidden', !flags.length);
       this.flagBanner.classList.toggle('hidden', !carrying);
-      this.flagStatus.replaceChildren(...flags.map(flag => h('span', { style: 'color:' + TEAMS[flag.team].color, text: TEAMS[flag.team].name + ': ' + flag.text })));
+      this.flagStatus.replaceChildren(...flags.map(flag => {
+        const label = h('span', { text: TEAMS[flag.team].name + ': ' + flag.text });
+        if (!('big' in flag)) return h('span', { style: 'color:' + TEAMS[flag.team].color }, [label]);
+        return h('span', { class: 'lunch-row', style: 'color:' + TEAMS[flag.team].color }, [
+          ...(flag.tag ? [h('strong', { class: 'lunch-row-tag', text: flag.tag })] : []),
+          label,
+          h('b', { class: 'lunch-row-big', text: flag.big }),
+          h('small', { text: flag.unit }),
+        ]);
+      }));
     });
   }
 

@@ -25,6 +25,15 @@ test('the five nearest audible emitters qualify by their individual radii', () =
   assert.deepEqual(nearestEmitters([...emitters, ...airEmitters([400])], origin), [5, 4, 3, 7, 2]);
 });
 
+test('a kitchen is heard on its own floor only, the fountain across floors', () => {
+  const kitchen: Emitter = { x: 0, y: 248, z: 0, voice: 'fryer', within: 380, sameFloor: true };
+  const fountain: Emitter = { x: 0, y: 108, z: 0, voice: 'water', within: 640 };
+  assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 248, z: 0 }), [0], 'on the deck');
+  assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 56, z: 0 }), [], 'in the shop below');
+  assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 440, z: 0 }), [], 'on the Mirante above');
+  assert.deepEqual(nearestEmitters([fountain], { x: 100, y: 440, z: 0 }), [0], 'the fountain carries up the open atrium');
+});
+
 test('loops start nearby, refresh on schedule, and stop on dispose', () => {
   const emitters = airEmitters([0, 100, 200, 300, 350, 400, 1000]);
   const live = new Set<number>();
@@ -58,7 +67,7 @@ test('Shopping emits air, fountain water, and each authored cooking voice at its
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'water'),
     fountains.map(({ x, y, z }) => ({ x, y, z, voice: 'water', within: 640 })));
   assert.deepEqual(emitters.filter(({ voice }) => voice !== 'air' && voice !== 'water'),
-    cooks.map(({ x, y, z, voice }) => ({ x, y, z, voice, within: 380 })));
+    cooks.map(({ x, y, z, voice }) => ({ x, y, z, voice, within: 380, sameFloor: true })));
 });
 
 test('a map without ambient props has no emitters', () => {

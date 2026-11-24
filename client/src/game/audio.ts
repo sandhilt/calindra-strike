@@ -34,6 +34,8 @@ interface VoiceSpec {
   gain: number;
   fadeSeconds: number;
   audibleUnits: number;
+  /** Heard only from the floor it sounds on: a kitchen is not heard through the slab by the shop below it. */
+  sameFloor?: boolean;
   lfo?: { hz: number; depth: number };
 }
 
@@ -49,22 +51,22 @@ export const AMBIENT_VOICES: Record<AmbientVoice, VoiceSpec> = {
   },
   fryer: {
     filters: [{ type: 'highpass', hz: 3000 }, { type: 'bandpass', hz: 6000, q: 0.8 }],
-    gain: 0.11, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    gain: 0.11, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 13, depth: 0.4 },
   },
   griddle: {
     filters: [{ type: 'highpass', hz: 2200 }, { type: 'bandpass', hz: 8000, q: 0.7 }],
-    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 7, depth: 0.3 },
   },
   charcoal: {
     filters: [{ type: 'bandpass', hz: 900, q: 0.6 }, { type: 'lowpass', hz: 2500 }],
-    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    gain: 0.10, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 9, depth: 0.5 },
   },
   wood: {
     filters: [{ type: 'lowpass', hz: 1200 }, { type: 'bandpass', hz: 500, q: 0.5 }],
-    gain: 0.09, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS,
+    gain: 0.09, fadeSeconds: AMBIENT_FADE_SECONDS, audibleUnits: COOK_AUDIBLE_UNITS, sameFloor: true,
     lfo: { hz: 4.5, depth: 0.5 },
   },
 };
@@ -556,12 +558,14 @@ export class Sfx {
       stop: () => {
         if (stopped) return;
         stopped = true;
-        gain.gain.setTargetAtTime(0, this.ctx.currentTime, spec.fadeSeconds / 3);
-        setTimeout(() => {
-          src.stop();
+        const now = this.ctx.currentTime;
+        gain.gain.setTargetAtTime(0, now, spec.fadeSeconds / 3);
+        // Retired on the audio clock, so a suspended context cannot cut the fade short.
+        src.stop(now + spec.fadeSeconds * 2);
+        src.addEventListener('ended', () => {
           modulation?.stop();
           for (const node of [src, first, second, gain, panner]) node.disconnect();
-        }, spec.fadeSeconds * 1000 * 2);
+        });
       },
     };
   }

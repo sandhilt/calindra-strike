@@ -7,9 +7,13 @@ const REFRESH_SECONDS = 0.25;
 
 type Point = NonNullable<Pos>;
 
+/** Eye heights on two floors of a mall differ by about this much (units); closer than it is the same floor. */
+export const SAME_FLOOR_UNITS = 120;
+
 export interface Emitter extends Point {
   voice: AmbientVoice;
   within: number;
+  sameFloor?: boolean;
 }
 
 export function ambientEmitters(props: readonly MapProp[]): Emitter[] {
@@ -22,16 +26,17 @@ export function ambientEmitters(props: readonly MapProp[]): Emitter[] {
       default: return [];
     }
     const { x, y, z } = prop;
-    return [{ x, y, z, voice, within: AMBIENT_VOICES[voice].audibleUnits }];
+    const { audibleUnits, sameFloor } = AMBIENT_VOICES[voice];
+    return [{ x, y, z, voice, within: audibleUnits, ...(sameFloor ? { sameFloor } : {}) }];
   });
 }
 
 export function nearestEmitters(emitters: readonly Emitter[], from: Point): number[] {
   return emitters
-    .map(({ x, y, z, within }, index) => ({
-      index, within, distance: Math.hypot(x - from.x, y - from.y, z - from.z),
+    .map(({ x, y, z, within, sameFloor }, index) => ({
+      index, within, sameFloor, distance: Math.hypot(x - from.x, y - from.y, z - from.z), rise: Math.abs(y - from.y),
     }))
-    .filter(({ distance, within }) => distance <= within)
+    .filter(({ distance, within, sameFloor, rise }) => distance <= within && !(sameFloor && rise > SAME_FLOOR_UNITS))
     .toSorted((a, b) => a.distance - b.distance)
     .slice(0, MAX_AMBIENT_LOOPS)
     .map(({ index }) => index);

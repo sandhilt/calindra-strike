@@ -129,8 +129,8 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
   });
   const tables = [
     ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -Z + 248] as const),
-    ...[-1136, -720, -352, 96, 496, 912].map((x) => [x, -1136] as const),
-    ...[-1150, -880, -200, 200, 880, 1150].map((x) => [x, -800] as const),
+    ...[-1136, -720, -280, 96, 496, 912].map((x) => [x, -1136] as const),
+    ...[-1060, -880, -200, 200, 880, 1060].map((x) => [x, -800] as const),
   ];
   tables.forEach(([tx, tz], i) => {
     b.block(tx, tz, 64, 64, 30, 'wood', DECK);

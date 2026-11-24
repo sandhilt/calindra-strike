@@ -172,7 +172,7 @@ export interface MatchInfo {
   results?: ResultRow[];
   winner?: number; // winning team, or winning player ID in Carrapeta; -1 for a draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
-  vote?: VoteInfo; // live (first minutes) and podium: map and mode vote for the next match
+  vote?: VoteInfo; // podium: map vote for the next match
   respawnMs?: number; // what a death costs in this mode on this server (older servers omit it)
 }
 
@@ -184,7 +184,6 @@ export interface VoteOption {
 export interface VoteInfo {
   options: VoteOption[];
   counts: number[];
-  closesAt?: number; // live: server ms when the in-round vote closes; absent on the podium, which keeps it open
 }
 
 export type GameEvent =

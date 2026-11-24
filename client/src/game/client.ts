@@ -122,7 +122,6 @@ import { ViewModel } from './render/viewmodel.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
-import { liveVotePanel } from './vote.ts';
 import { NO_RANGE, RANGE_MAX_UNITS, rangeReading, type RangeReading } from './scope-range.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
@@ -1236,7 +1235,6 @@ export class ClientGame {
       this.dropAllAvatars();
       this.view.setSleeveColor(this.nameOf(this.myId).color);
     }
-    if (before.phase !== 'live' && info.phase === 'live') this.myVote = -1;
     if (info.map !== this.mapIndex) this.loadMap(info.map);
     if (info.phase === 'podium') {
       this.enterPodium(info);
@@ -1269,6 +1267,7 @@ export class ClientGame {
     this.sfx.fanfare();
     this.sfx.setWind(0);
     const next = info.next ? `${getMap(info.next.map).name} · ${MODE_LABEL[info.next.mode]}` : '';
+    this.myVote = -1;
     this.voteCounts = info.vote?.counts ?? [];
     // free the mouse so people can click a map in the vote
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1278,27 +1277,13 @@ export class ClientGame {
     this.ui.showPodium({ mode: info.mode, featured, results, myId: this.myId, winner, teams: info.teams ?? [0, 0], myTeam: this.myTeam, colorFor, vote: this.spectator ? null : info.vote ?? null }, next);
   }
 
-  /** Map vote, open for the first minutes of a round (F1-F3 or click) and on the podium (keys 1-3 or click). */
+  /** Map vote on the podium (keys 1-3 or click). */
   vote(option: number): void {
-    const vote = this.match.vote;
-    if (this.spectator || !vote || option < 0 || option >= vote.options.length) return;
-    if (!this.podiumActive && !(this.match.phase === 'live' && this.voteOpenInRound())) return;
+    if (this.spectator || !this.podiumActive || !this.match.vote || option < 0 || option >= this.match.vote.options.length) return;
     this.myVote = option;
     this.net.send({ t: 'vote', option });
     this.ui.updateVotes(this.voteCounts, this.myVote);
-    this.hud.setVote(this.votePanel(), (i) => this.vote(i));
     this.sfx.click();
-  }
-
-  private voteOpenInRound(): boolean {
-    const closesAt = this.match.vote?.closesAt;
-    return closesAt !== undefined && this.serverNow() < closesAt;
-  }
-
-  private votePanel() {
-    const vote = this.match.vote;
-    if (this.spectator || this.podiumActive || this.match.phase !== 'live' || !vote || !this.voteOpenInRound()) return null;
-    return liveVotePanel(vote, this.voteCounts, this.myVote, this.serverNow());
   }
 
   private exitPodium(): void {
@@ -1318,11 +1303,6 @@ export class ClientGame {
     if (this.spectator) return this.onSpectatorKey(code, down, e);
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
-      return true;
-    }
-    if (!this.podiumActive && /^F[1-3]$/.test(code) && this.voteOpenInRound()) {
-      e.preventDefault();
-      if (down && !e.repeat) this.vote(Number(code.slice(-1)) - 1);
       return true;
     }
     if (down) {
@@ -2092,7 +2072,6 @@ export class ClientGame {
     hud.showScoreboard(this.spectator ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
-    hud.setVote(this.votePanel(), (i) => this.vote(i));
     hud.setCarrapetaStatus(this.carrapeta ? carrapetaStatus(this.carrapeta, now, id => id === this.myId ? 'você está com ela' : this.nameOf(id).name) : null);
     const following = this.lunch && !this.spectator && this.alive ? followersOf(this.lunch, this.myId) : 0;
     hud.setLunchFollowers(following, this.lunch?.colleagues.length ?? 0, followersText(following, this.lunch?.colleagues.length ?? 0));

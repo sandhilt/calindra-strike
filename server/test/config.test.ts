@@ -203,16 +203,3 @@ it('validates the Carrapeta pickup timeout in seconds', () => {
     assert.throws(() => loadConfig(), /CARRAPETA_PICKUP_TIMEOUT_SECONDS/);
   }
 });
-
-it('validates the in-round vote window in seconds, where 0 turns it off', () => {
-  stubEnv('VOTE_WINDOW_SECONDS', '');
-  assert.equal(loadConfig().voteWindowSeconds, 120);
-  for (const value of [0, 90, 600]) {
-    stubEnv('VOTE_WINDOW_SECONDS', String(value));
-    assert.equal(loadConfig().voteWindowSeconds, value);
-  }
-  for (const value of ['-1', '601', '1.5', 'later']) {
-    stubEnv('VOTE_WINDOW_SECONDS', value);
-    assert.throws(() => loadConfig(), /VOTE_WINDOW_SECONDS/);
-  }
-});

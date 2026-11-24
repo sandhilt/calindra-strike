@@ -22,7 +22,6 @@ export function controlRows(bindings: Bindings, group: ControlGroup): { keys: st
     { keys: '1–9 / 0', label: 'escolher / fechar no rádio aberto (fixo)' },
     { keys: 'Enter / Esc', label: 'enviar / fechar no chat aberto (fixo)' },
     { keys: '1–3', label: 'escolher arma em «pronto?» / votar no pódio (fixo)' },
-    { keys: 'F1–F3', label: 'votar no próximo mapa nos primeiros minutos da partida (fixo)' },
     { keys: 'Enter / Espaço', label: 'jogar em «pronto?» (fixo)' },
     { keys: '← → / Home / End', label: 'navegar na barra de abas (fixo)' },
     { keys: 'WASD / Shift / E / Q / C', label: 'voar com a câmera livre (fixo)' },

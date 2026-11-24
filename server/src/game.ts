@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, VOTE_WINDOW_SECONDS, ZONE_BODY,
+  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
   dropCarrapeta, frenzyAtTicks, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
@@ -261,7 +261,6 @@ export interface GameOptions {
   modes?: ModeSetting | GameMode[];
   maps?: string[]; // map ids allowed in the rotation and the vote (empty = all)
   carrapetaPickupTimeoutSeconds?: number;
-  voteWindowMs?: number; // how long into a live match the next map and mode can be voted (default VOTE_WINDOW_SECONDS, 0 = podium only)
   ctfLimit?: number; // captures to win CTF early (0 = timer only)
   defuseLimit?: number; // rounds to win debug defusion early (0 = timer only)
   friendlyFire?: boolean; // team modes only: bullets hurt teammates (off unless the operator turns it on)
@@ -317,8 +316,6 @@ export class Game {
   private readonly ghosts = new Map<string, Ghost>();
   private voteOptions: VoteOption[] = [];
   private readonly votes = new Map<number, number>();
-  /** Server ms when the in-round vote closes, 0 outside a live vote. */
-  private voteClosesAt = 0;
   private botName = 0;
   private readonly rotation: { map: number; mode: GameMode }[];
   /** Every map/mode pair this server plays (rotation order). */
@@ -1104,40 +1101,16 @@ export class Game {
     this.votes.clear();
   }
 
-  /** Opens the in-round vote for the match that just went live. A window of 0 leaves the vote to the podium. */
-  private openVote(): void {
-    const windowMs = Math.min(this.opts.voteWindowMs ?? VOTE_WINDOW_SECONDS * 1000, this.opts.matchMs);
-    this.voteOptions = [];
-    this.votes.clear();
-    this.voteClosesAt = 0;
-    if (windowMs <= 0) return;
-    this.buildVote();
-    this.voteClosesAt = this.now() + windowMs;
-  }
-
-  /** Ends the in-round vote: the panel goes away, the votes cast stay for the podium. */
-  private closeVote(): void {
-    this.voteClosesAt = 0;
-    if (this.phase === 'live') this.broadcastMatch();
-  }
-
   private voteCounts(): number[] {
     const counts = this.voteOptions.map(() => 0);
     for (const [id, o] of this.votes) if (this.players.has(id) && counts[o] !== undefined) counts[o]++;
     return counts;
   }
 
-  /** The vote is open for the first minutes of a live match, and again on the podium, with the votes cast so far kept. */
-  private voteOpen(): boolean {
-    if (this.voteOptions.length === 0) return false;
-    if (this.phase === 'podium') return true;
-    return this.phase === 'live' && this.voteClosesAt > 0 && this.now() < this.voteClosesAt;
-  }
-
-  /** Records the vote and returns the option voted for, or null when it was ignored (the vote is closed, a server bot, a bad option or a repeat). */
+  /** Records the vote and returns the option voted for, or null when it was ignored (not the podium, a server bot, a bad option or a repeat). */
   vote(p: ServerPlayer, option: number): VoteOption | null {
     const chosen = this.voteOptions[option];
-    if (!this.voteOpen() || p.brain || isPending(p) || !chosen) return null;
+    if (this.phase !== 'podium' || p.brain || isPending(p) || !chosen) return null;
     if (this.votes.get(p.id) === option) return null;
     this.votes.set(p.id, option);
     const msg = JSON.stringify({ t: 'votes', counts: this.voteCounts() });
@@ -1241,7 +1214,7 @@ export class Game {
       results: podium ? this.results : undefined,
       winner: podium ? this.winner : undefined,
       next: podium ? this.rotation[(this.rotationIndex + 1) % this.rotation.length] : undefined,
-      vote: this.voteOpen() ? { options: this.voteOptions, counts: this.voteCounts(), ...(podium ? {} : { closesAt: this.voteClosesAt }) } : undefined,
+      vote: podium ? { options: this.voteOptions, counts: this.voteCounts() } : undefined,
       respawnMs: this.respawnTicks() * TICK_MS,
     };
   }
@@ -1272,7 +1245,6 @@ export class Game {
     this.matchId++;
     this.phase = 'live';
     this.phaseEnds = this.now() + this.opts.matchMs;
-    this.openVote();
     this.airdrops = [];
     this.supplyReadyAt = this.map.supplies.map(() => 0);
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
@@ -1325,8 +1297,7 @@ export class Game {
       if (first && first.points !== second?.points) this.winner = first.id;
     }
     this.airdrops = [];
-    this.voteClosesAt = 0;
-    if (this.voteOptions.length === 0) this.buildVote();
+    this.buildVote();
     this.broadcastMatch();
     // After the results: a kick refills bots, and those must not show up on a podium they never played.
     this.kickUnready('podium', () => true); // only players with a kick deadline: the ready kick is on
@@ -1675,8 +1646,6 @@ export class Game {
 
     this.kickUnready('afk', (kickAt) => now >= kickAt);
     this.kickIdle(now);
-
-    if (this.voteClosesAt > 0 && (this.phase !== 'live' || now >= this.voteClosesAt)) this.closeVote();
 
     // phase transitions
     if (this.phase === 'live' && (now >= this.phaseEnds || this.endPending)) this.endMatch();

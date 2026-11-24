@@ -15,9 +15,6 @@ import { STANCE, type Stance } from '@calindra-strike/shared';
 import { STANCE_VIEWS, leanTilt } from './stance-view.ts';
 import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
-export interface VoteRow { key: string; map: string; mode: string; count: number; mine: boolean }
-export interface VotePanel { rows: VoteRow[]; secondsLeft: number }
-
 export interface LeaderRow {
   name: string;
   color: string;
@@ -137,7 +134,6 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly votePanel = h('div', { class: 'vote-live glass hidden' });
   private readonly scopeMarker = h('i', { class: 'scope-marker' });
   private readonly scopeRuler = h('div', { class: 'scope-ruler' }, [
     ...RULER_STOPS_METERS.map((m) => h('span', { class: 'scope-tick', style: `top:${(rulerFraction(m) * 100).toFixed(1)}%`, text: String(m) })),
@@ -242,7 +238,6 @@ export class Hud {
       this.vignette,
       this.protect,
       this.scope,
-      this.votePanel,
       this.markersEl,
       h('div', { class: 'topbar' }, [this.leadersLeft, this.timer, this.leadersRight]),
       this.feed,
@@ -652,25 +647,6 @@ export class Hud {
 
   setProtect(on: boolean): void {
     this.protect.style.opacity = on ? '1' : '0';
-  }
-
-  /** Next-match vote during the first minutes of a round: one row per option with its key, the votes so far and the seconds left. `null` hides it. */
-  setVote(panel: VotePanel | null, onPick: (option: number) => void): void {
-    const key = panel ? `${panel.secondsLeft}|${panel.rows.map((r) => `${r.map}${r.mode}${r.count}${r.mine}`).join(',')}` : 'off';
-    this.set('vote', key, () => {
-      this.votePanel.classList.toggle('hidden', !panel);
-      if (!panel) return;
-      this.votePanel.replaceChildren(
-        h('div', { class: 'label', text: `próxima partida · vote · ${panel.secondsLeft}s` }),
-        ...panel.rows.map((r, i) =>
-          h('button', { class: `vote-live-row${r.mine ? ' mine' : ''}`, type: 'button', 'aria-pressed': String(r.mine), onclick: () => onPick(i) }, [
-            h('span', { class: 'kbd', text: r.key }),
-            h('span', { class: 'vote-text' }, [h('b', { text: r.map }), h('small', { text: r.mode })]),
-            h('span', { class: 'vote-count', text: String(r.count) }),
-          ]),
-        ),
-      );
-    });
   }
 
   setScope(overlay: ScopeOverlay): void {

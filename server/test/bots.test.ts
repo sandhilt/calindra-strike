@@ -123,10 +123,10 @@ describe('map vote', () => {
     assert.deepEqual({ map: game.mapIndex, mode: game.mode }, { map: 1, mode: 'ffa' });
   });
 
-  it('ignores votes from bots, in the round and on the podium', () => {
+  it('ignores votes outside the podium and from bots', () => {
     const { game, join, bots } = setup({ botFill: 4 });
-    join('A');
-    assert.equal(game.vote(bots()[0], 0), null);
+    const a = join('A');
+    assert.equal(game.vote(a, 0), null);
     assert.equal((game as any).votes.size, 0);
     (game as any).phaseEnds = game.now();
     game.update();

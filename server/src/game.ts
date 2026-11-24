@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import {
-  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, TICK_RATE, ZONE_BODY,
+  BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, CARRAPETA_REDRAW_WAIT_SECONDS, TICK_RATE, ZONE_BODY,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
-  dropCarrapeta, frenzyAtTicks, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
+  dropCarrapeta, frenzyAtTicks, halveVitals, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
   BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
@@ -419,14 +419,15 @@ export class Game {
     this.updateFrenzy(holder);
     if (holder && holdExpired(this.carrapeta, this.tick)) {
       this.carrapetaSkip = holder.id;
-      this.dropPlayerCarrapeta(holder, this.tick);
+      this.dropPlayerCarrapeta(holder, this.tick + CARRAPETA_REDRAW_WAIT_SECONDS * TICK_RATE);
     }
     if (this.carrapeta.kind === 'held') return;
     const everyone = [...this.players.values()].filter((p) => p.alive).map((p) => ({
       id: p.id, x: p.state.x, y: p.state.y, z: p.state.z, landed: !p.state.dropping,
     }));
     const others = everyone.filter((actor) => actor.id !== this.carrapetaSkip);
-    const actors = others.some((actor) => actor.landed) ? others : everyone;
+    const redrawDue = this.carrapeta.kind === 'dropped' && this.tick >= this.carrapeta.rerollAtTick;
+    const actors = redrawDue && !others.some((actor) => actor.landed) ? everyone : others;
     const result = stepCarrapeta(this.carrapeta, actors, this.tick, this.random);
     this.carrapeta = result.state;
     if (!result.event) return;
@@ -437,6 +438,7 @@ export class Game {
     player.state.health = MAX_HEALTH;
     player.state.armor = CARRAPETA_ARMOR;
     setHalvedAmmo(player.state, this.frenzy.kind === 'frenzy');
+    if (this.frenzy.kind === 'frenzy') halveVitals(player.state);
     giveWeapon(player.state, WEAPON.MGL);
     this.emit(result.event);
   }
@@ -451,6 +453,7 @@ export class Game {
     if (next.kind === 'frenzy') this.frenzyQueue.shift();
     this.frenzy = next;
     if (holder) setHalvedAmmo(holder.state, next.kind === 'frenzy');
+    if (holder && next.kind === 'frenzy') halveVitals(holder.state);
     this.emit(next.kind === 'frenzy'
       ? { k: 'frenzy', what: 'on', untilMs: this.msAt(next.untilTick) }
       : { k: 'frenzy', what: 'off' });
@@ -470,7 +473,7 @@ export class Game {
     this.scoreDirty = true;
   }
 
-  /** The holder loses it; by default it is redrawn after the pickup timeout, a time-out passes `rerollAtTick` to redraw at once. */
+  /** The drop uses the pickup timeout by default. Hold expiry supplies its own redraw deadline. */
   private dropPlayerCarrapeta(p: ServerPlayer, rerollAtTick = this.tick + (this.opts.carrapetaPickupTimeoutSeconds ?? CARRAPETA_PICKUP_TIMEOUT_SECONDS) * TICK_RATE): void {
     const s = p.state;
     const at = { x: s.x, y: this.groundY(s.x, s.y, s.z), z: s.z };
@@ -1614,7 +1617,7 @@ export class Game {
     this.map.supplies.forEach((stand, at) => {
       if (this.supplyReadyAt[at] > this.tick) return;
       for (const p of this.players.values()) {
-        if (!p.alive || p.state.dropping || !inSupplyReach(p.state, stand) || !needsSupply(p.state)) continue;
+        if (!p.alive || p.state.dropping || this.holdsCarrapeta(p) || !inSupplyReach(p.state, stand) || !needsSupply(p.state)) continue;
         resupply(p.state);
         this.supplyReadyAt[at] = this.tick + SUPPLY_COOLDOWN_TICKS;
         this.emit({ k: 'supply', id: p.id, at });

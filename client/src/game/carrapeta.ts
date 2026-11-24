@@ -1,11 +1,11 @@
-import { BATATA_DOUBLE_EVERY_SECONDS, magCapacity, WEAPON, type CarrapetaEvent, type CarrapetaSnapshot, type PlayerState, type WeaponDef } from '@calindra-strike/shared';
+import { BATATA_DOUBLE_EVERY_SECONDS, holdDeadlineMs, magCapacity, WEAPON, type CarrapetaEvent, type CarrapetaSnapshot, type PlayerState, type WeaponDef } from '@calindra-strike/shared';
 
 export const CARRAPETA_GOLD = '#ffd54f';
 export const CARRAPETA_SYMBOL = '◆';
 
 export const CARRAPETA_BANNERS = {
   take: { icon: 'carrapeta', title: 'Está tudo azeitado', text: 'Você tem a Carrapeta Dourada. Só você pode ferir os outros, e todos só ferem você. Use a Azeitadora, fuja e sobreviva para pontuar.', durationMs: 4500 },
-  on: { icon: 'batata', title: 'Batata quente!', text: `Todos contra o portador, como já era. A cada ${BATATA_DOUBLE_EVERY_SECONDS} s com a Carrapeta, os pontos por segundo dobram. O pente do portador fica pela metade.`, durationMs: 4500 },
+  on: { icon: 'batata', title: 'Batata quente!', text: `Todos contra o portador, como já era. A cada ${BATATA_DOUBLE_EVERY_SECONDS} s com a Carrapeta, os pontos por segundo dobram. O pente, a vida e o escudo do portador ficam pela metade.`, durationMs: 4500 },
   off: { icon: 'batata', title: 'Fim da batata quente', text: 'A caça à Carrapeta continua.', durationMs: 2300 },
 } as const;
 
@@ -20,7 +20,8 @@ function secondsLeft(deadline: number, now: number): number {
 }
 
 export function carrapetaStatus(state: CarrapetaSnapshot, now: number, holderName: (id: number) => string): string {
-  const objective = state.kind === 'held' ? holderName(state.holder)
+  const objective = state.kind === 'held'
+    ? `${holderName(state.holder)} · avinagra em ${secondsLeft(holdDeadlineMs(state.sinceMs), now)} s`
     : state.kind === 'dropped' ? `no chão · sorteio em ${secondsLeft(state.rerollAtMs, now)} s`
       : 'aguardando sorteio';
   const frenzy = secondsLeft(state.frenzyUntilMs, now);

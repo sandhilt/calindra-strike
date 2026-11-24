@@ -1,12 +1,13 @@
 import {
   BTN, CollisionWorld, DEG, TICK_MS, applyCmd, clamp, wrapAngle, PLAYER_RADIUS, RF_ALIVE, RF_DROP, WEAPON, stanceFromFlags, type Stance,
   createPlayerState, defuseBases, eyeHeight, getMap, unpackState,
-  type BombPoint, type Cmd, type ServerMsg,
+  carrapetaEnemies, isTeamMode, type BombPoint, type Cmd, type GameMode, type ServerMsg,
 } from '../shared/src/index.ts';
 import {
   REACH_MAX_HEIGHT_UNITS, aimSkill, aimTolerance, crouchesToShoot, gauss, hasLineOfSight, aimHeight, sightHeights, readyToJump, restingSway, stepSway, waypointReached, type AimSkill,
 } from '../server/src/bot.ts';
 import { NavGrid, type NavNode } from '../server/src/nav.ts';
+import { carrapetaState } from './carrapeta-goals.ts';
 import { checkProgress, reachedPatrolPoint, type BotPlayer, type Goal, type ProgressSample } from './drive-goals.ts';
 
 export type Snap = Extract<ServerMsg, { t: 'snap' }>;
@@ -113,7 +114,7 @@ export class BotDriver {
     this.random = random;
   }
 
-  drive(snap: Snap, map: number, id: number, teams: ReadonlyMap<number, number>, tick: number): DriveInput {
+  drive(snap: Snap, map: number, id: number, teams: ReadonlyMap<number, number>, tick: number, mode: GameMode = 'tdm'): DriveInput {
     const team = teams.get(id);
     if (!snap.me || team === undefined) return this.idle();
 
@@ -132,11 +133,15 @@ export class BotDriver {
     const self = { x, y, z, team, id, dropping, alive: true };
     const eyeY = y + eyeHeight(this.state);
 
+    const teamMode = isTeamMode(mode);
+    const carrapeta = mode === 'carrapeta' ? carrapetaState(snap.ca) : null;
     let enemy: (BombPoint & { id: number; stance: Stance }) | null = null;
     let enemyDistance = this.aim.sightUnits;
     for (const player of dropping ? [] : players) {
       // A dead enemy stays in snapshots until respawn; treating the body as a threat kept bots from ever finishing the objective.
-      if (player.team === team || player.team < 0 || player.dropping || !player.alive) continue;
+      if (player.id === id || player.dropping || !player.alive) continue;
+      if (teamMode && (player.team === team || player.team < 0)) continue;
+      if (carrapeta && !carrapetaEnemies(carrapeta, id, player.id)) continue;
       const distance = Math.hypot(player.x - x, player.y - y, player.z - z);
       if (distance >= enemyDistance) continue;
       const stance = stanceFromFlags(player.flags);
@@ -210,7 +215,7 @@ export class BotDriver {
     }
 
     const onTarget = this.aimAt(enemy, self, eyeY, moveYaw, snap.time);
-    if (this.crouching) {
+    if (this.crouching && !goal.keepMoving) {
       buttons |= BTN.DUCK;
       settled = true;
     }

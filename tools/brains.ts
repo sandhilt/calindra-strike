@@ -1,5 +1,6 @@
 import { bombStandBox } from '../shared/src/index.ts';
 import type { Brain } from './bot-driver.ts';
+import { carrapetaGoal } from './carrapeta-goals.ts';
 import { ctfGoal, readFlags } from './ctf-goals.ts';
 import { defuseGoal, readBombRow } from './defuse-goals.ts';
 
@@ -24,9 +25,12 @@ export const ctfBrain: Brain = {
   },
 };
 
+export const carrapetaBrain: Brain = { decide: carrapetaGoal };
+
 /** Modes without an objective brain keep the plain strafe-and-shoot loop in `bots.ts`. */
 export function brainFor(mode: string): Brain | null {
   if (mode === 'defuse') return defuseBrain;
   if (mode === 'ctf') return ctfBrain;
+  if (mode === 'carrapeta') return carrapetaBrain;
   return null;
 }

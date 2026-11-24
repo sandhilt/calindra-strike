@@ -8,7 +8,6 @@ import type { BombActivity } from '../game/spectate/activity.ts';
 import { CAMERA_MODE_LABEL, type CameraMode } from '../game/spectate/camera.ts';
 import type { SpectatorAction } from '../game/spectate/controls.ts';
 import type { ScopeOverlay } from '../game/render/ads-view.ts';
-import { RULER_STOPS_METERS, rulerFraction, type RangeReading } from '../game/scope-range.ts';
 import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STANCE, type Stance } from '@calindra-strike/shared';
@@ -134,15 +133,8 @@ export class Hud {
   private readonly dmgRing = h('div', { class: 'dmg-ring' });
   private readonly vignette = h('div', { class: 'vignette' });
   private readonly protect = h('div', { class: 'protect-vignette' });
-  private readonly scopeMarker = h('i', { class: 'scope-marker' });
-  private readonly scopeRuler = h('div', { class: 'scope-ruler' }, [
-    ...RULER_STOPS_METERS.map((m) => h('span', { class: 'scope-tick', style: `top:${(rulerFraction(m) * 100).toFixed(1)}%`, text: String(m) })),
-    this.scopeMarker,
-  ]);
   private readonly scope = h('div', { class: 'scope', 'aria-hidden': 'true' }, [
     h('div', { class: 'scope-glass' }),
-    h('div', { class: 'scope-glare' }),
-    this.scopeRuler,
     svg(`<svg class="scope-reticle" viewBox="-100 -100 200 200">
       <path d="M-100 0H100 M0 -100V100" fill="none" stroke="black" stroke-width=".35"/>
       ${[0, 90, 180, 270].map((angle) => `
@@ -651,15 +643,6 @@ export class Hud {
 
   setScope(overlay: ScopeOverlay): void {
     this.scope.classList.toggle('on', overlay !== 'none');
-  }
-
-  /** The AWP scope ruler marker. `null` when the scope is down. */
-  setScopeRange(reading: RangeReading | null): void {
-    const key = reading?.meters == null ? 'off' : String(Math.round(reading.meters));
-    this.set('scopeRange', key, () => {
-      this.scope.classList.toggle('ranged', reading?.meters != null);
-      if (reading?.meters != null) this.scopeMarker.style.top = `${(rulerFraction(reading.meters) * 100).toFixed(1)}%`;
-    });
   }
 
   announce(text: string, sub?: string, white = false): void {

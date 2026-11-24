@@ -4,6 +4,12 @@ import {
   CARRAPETA_MAX_HOLD_SECONDS, CTF_PICKUP_RADIUS_UNITS, TICK_RATE,
 } from './constants.ts';
 
+/** Batata Quente halves what the holder carries (rounded up, so a sliver never reads as zero); losing the frenzy does not give it back. */
+export function halveVitals(s: { health: number; armor: number }): void {
+  s.health = Math.ceil(s.health / 2);
+  s.armor = Math.ceil(s.armor / 2);
+}
+
 export type CarrapetaPosition = { x: number; y: number; z: number };
 export type CarrapetaState =
   | { kind: 'none' }
@@ -59,6 +65,10 @@ export function frenzyAtTicks(start: number, duration: number, rolls: readonly n
     const last = Math.max(first, first + slice - eventTicks);
     return start + first + Math.floor(moment * (last - first + 1));
   });
+}
+
+export function holdDeadlineMs(sinceMs: number): number {
+  return sinceMs + CARRAPETA_MAX_HOLD_SECONDS * 1000;
 }
 
 /** Whether the holder has kept the Carrapeta as long as allowed, so it is redrawn among the others. */

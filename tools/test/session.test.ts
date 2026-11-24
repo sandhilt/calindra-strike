@@ -1367,7 +1367,7 @@ test('Carrapeta state follows the snapshot and treats everyone as an enemy while
   snap({ kind: 'held', holder: 2, sinceMs: 500, frenzyUntilMs: 9000 });
   const hunting = session.getState();
   assert.deepEqual(hunting.carrapeta, {
-    state: 'held', holderId: 2, holderName: 'enemy', youHoldIt: false, dropped: null,
+    state: 'held', holderId: 2, holderName: 'enemy', youHoldIt: false, holdSecondsLeft: 44.5, dropped: null,
     frenzy: true, frenzySecondsLeft: 8, points: 17,
   });
   assert.deepEqual(hunting.others.map(peer => [peer.id, peer.enemy]), [[2, true]]);
@@ -1388,6 +1388,7 @@ test('Carrapeta state follows the snapshot and treats everyone as an enemy while
     { k: 'blast', by: 1, w: WEAPON.MGL, at },
   ] });
   const dropped = session.getState();
+  assert.equal(dropped.carrapeta?.holdSecondsLeft, null);
   assert.deepEqual(dropped.carrapeta?.dropped, { pos: [120, 0, 0], distance: 120, bearingDeg: 90, rerollSeconds: 20 });
   assert.deepEqual(dropped.others.map(peer => [peer.id, peer.enemy]), [[2, true]]);
   assert.ok(dropped.others.every(peer => peer.via !== 'team'));
@@ -1398,6 +1399,10 @@ test('Carrapeta state follows the snapshot and treats everyone as an enemy while
   snap({ kind: 'dropped', ...at, rerollAtMs: 22_000, frenzyUntilMs: 9000 }, 22_100);
   assert.equal(session.getState().carrapeta?.frenzy, false);
   assert.equal(session.getState().carrapeta?.dropped?.rerollSeconds, 0);
+  snap({ kind: 'held', holder: 2, sinceMs: 22_200, frenzyUntilMs: 0 }, 70_000);
+  assert.equal(session.getState().carrapeta?.holdSecondsLeft, 0);
+  snap({ kind: 'none', frenzyUntilMs: 0 }, 70_100);
+  assert.equal(session.getState().carrapeta?.holdSecondsLeft, null);
   socket.message({ t: 'match', match: { ...match, mode: 'ffa' } });
   assert.equal(session.getState().carrapeta, null);
 });

@@ -1227,75 +1227,8 @@ input:focus-visible {
   filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.85));
 }
 
-/* A light sweep crossing the lens. */
-.scope-glare {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--r) * 2);
-  height: calc(var(--r) * 2);
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  overflow: hidden;
-}
-.scope-glare::before {
-  content: '';
-  position: absolute;
-  inset: -20% auto -20% -40%;
-  width: 28%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transform: skewX(-18deg);
-  animation: scope-glare 5.5s ease-in-out infinite;
-}
-@keyframes scope-glare {
-  0%, 55% { left: -40%; opacity: 0; }
-  65% { opacity: 1; }
-  100% { left: 120%; opacity: 0; }
-}
-
-.scope-ruler {
-  position: absolute;
-  left: calc(50% + var(--r) * 0.68);
-  top: calc(50% - var(--r) * 0.5);
-  width: calc(var(--r) * 0.16);
-  height: var(--r);
-  border-left: 1px solid rgba(255, 255, 255, 0.55);
-  font: 600 10px/1 var(--mono, monospace);
-  color: rgba(255, 255, 255, 0.75);
-  text-shadow: 0 0 2px #000;
-}
-.scope-tick {
-  position: absolute;
-  left: 0;
-  padding-left: 7px;
-  transform: translateY(-50%);
-}
-.scope-tick::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 5px;
-  border-top: 1px solid rgba(255, 255, 255, 0.7);
-}
-.scope-marker {
-  position: absolute;
-  left: -6px;
-  top: 0;
-  width: 0;
-  height: 0;
-  border: 5px solid transparent;
-  border-left-color: #ffd23f;
-  transform: translateY(-5px);
-  transition: top 0.12s linear;
-  opacity: 0;
-}
-.scope.ranged .scope-marker { opacity: 1; }
-
 @media (prefers-reduced-motion: reduce) {
   .scope { transition: none; transform: none; }
-  .scope-glare::before { animation: none; }
-  .scope-marker { transition: none; }
 }
 
 /* center announcements */

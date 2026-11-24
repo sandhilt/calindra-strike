@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import {
-  eyeHeight, BATATA_BOUNTY_POINTS, CARRAPETA_MAX_HOLD_SECONDS, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, BATATA_DURATION_SECONDS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS,
+  eyeHeight, BATATA_BOUNTY_POINTS, CARRAPETA_MAX_HOLD_SECONDS, CARRAPETA_REDRAW_WAIT_SECONDS, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, BATATA_DURATION_SECONDS, CTF_PICKUP_RADIUS_UNITS, PLAYER_RADIUS,
   SNAPSHOT_EVERY_TICKS, TICK_RATE, WEAPON, liftCab, type ServerMsg,
 } from '@calindra-strike/shared';
 import { Game } from '../src/game.ts';
@@ -77,6 +77,8 @@ it('halves the live holder during frenzy, awards a bounty, and restores the new 
   assert.ok((snapshot()?.frenzyUntilMs ?? 0) > game.now());
   assert.equal(first.state.mag[WEAPON.MGL], 3);
   assert.ok(first.state.halvedAmmo);
+  assert.equal(first.state.health, 50);
+  assert.equal(first.state.armor, 100);
   game['kill'](first, second, WEAPON.RIFLE, false);
   assert.equal(second.points, BATATA_BOUNTY_POINTS);
   first.respawnAt = Infinity;
@@ -84,6 +86,8 @@ it('halves the live holder during frenzy, awards a bounty, and restores the new 
   assert.equal(second.state.primary, WEAPON.MGL);
   assert.equal(second.state.mag[WEAPON.MGL], 3);
   assert.ok(second.state.halvedAmmo);
+  assert.equal(second.state.health, 50);
+  assert.equal(second.state.armor, 100);
   run(BATATA_DURATION_SECONDS * TICK_RATE);
   assert.equal(snapshot()?.frenzyUntilMs, 0);
   assert.equal(second.state.halvedAmmo, false);
@@ -176,16 +180,48 @@ it('never airdrops the Azeitadora in Carrapeta Dourada, while other modes can', 
   assert.equal(airdropOf('ffa'), WEAPON.MGL);
 });
 
-it('redraws the Carrapeta to somebody else once the holder has kept it as long as allowed', () => {
+it('waits until the redraw deadline even if the expired holder is the only one landed', () => {
   const { game, first, second, run } = setup(0.9);
-  const holder = second.state.primary === WEAPON.MGL ? second : first;
-  const other = holder === first ? second : first;
-  run(CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE - TICK_RATE);
-  assert.equal(game['carrapeta'].kind === 'held' && game['carrapeta'].holder, holder.id, 'still held just before the limit');
-  run(2 * TICK_RATE);
-  assert.equal(game['carrapeta'].kind === 'held' && game['carrapeta'].holder, other.id, 'handed to the other player');
-  assert.equal(holder.state.primary !== WEAPON.MGL, true);
-  assert.equal(other.state.primary, WEAPON.MGL);
+  first.state.dropping = true;
+  run(CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE - 1);
+  assert.partialDeepStrictEqual(game['carrapeta'], { kind: 'held', holder: second.id });
+
+  run(1);
+  assert.equal(game['carrapeta'].kind, 'dropped');
+  run(CARRAPETA_REDRAW_WAIT_SECONDS * TICK_RATE - 1);
+  assert.equal(game['carrapeta'].kind, 'dropped');
+
+  first.state.dropping = false;
+  run(1);
+  assert.partialDeepStrictEqual(game['carrapeta'], { kind: 'held', holder: first.id });
+  assert.equal(second.state.primary, WEAPON.RIFLE);
+  assert.equal(first.state.primary, WEAPON.MGL);
+});
+
+it('publishes the hold-limit drop and its redraw deadline in the snapshot', () => {
+  const { game, first, second, run, snapshot, messages } = setup(0.9);
+  first.state.x = second.state.x - 2 * CTF_PICKUP_RADIUS_UNITS;
+  const { x, y, z } = second.state;
+  const expiresAtMs = game.now() + CARRAPETA_MAX_HOLD_SECONDS * 1000;
+  run(CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE);
+  assert.partialDeepStrictEqual(snapshot(), { kind: 'dropped', x, y, z });
+  const snap = messages.findLast((m) => m.t === 'snap');
+  assert.ok(snap?.ca?.kind === 'dropped');
+  assert.ok(Math.abs(snap.ca.rerollAtMs - expiresAtMs - CARRAPETA_REDRAW_WAIT_SECONDS * 1000) < 1);
+
+  run(CARRAPETA_REDRAW_WAIT_SECONDS * TICK_RATE - SNAPSHOT_EVERY_TICKS);
+  assert.partialDeepStrictEqual(snapshot(), { kind: 'held', holder: first.id });
+  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'carrapeta' && e.what === 'reroll' && e.by === first.id)));
+});
+
+it('lets another player pick up the hold-limit drop before the redraw', () => {
+  const { game, first, second, run, messages } = setup(0.9);
+  first.state.x = second.state.x - 2 * CTF_PICKUP_RADIUS_UNITS;
+  run(CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE);
+  Object.assign(first.state, { x: second.state.x, y: second.state.y, z: second.state.z });
+  run(SNAPSHOT_EVERY_TICKS);
+  assert.partialDeepStrictEqual(game['carrapeta'], { kind: 'held', holder: first.id });
+  assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'carrapeta' && e.what === 'take' && e.by === first.id)));
 });
 
 it('plays the Batata Quente twice in a match', () => {
@@ -214,6 +250,19 @@ it('gives a new holder 100 health and 200 armour, and keeps them out of airdrops
   assert.equal(game['airdrops'].length, 1, 'the holder does not collect the crate');
   assert.equal(holder.state.armor, 150);
   assert.equal(holder.state.primary, WEAPON.MGL);
+});
+
+it('keeps a halved holder away from supply stands', () => {
+  const { game, first, second, run } = setup(0.9);
+  const holder = second.state.primary === WEAPON.MGL ? second : first;
+  holder.state.health = 50;
+  const stand = game['map'].supplies[0];
+  if (!stand) return;
+  holder.state.x = stand.x;
+  holder.state.y = stand.y;
+  holder.state.z = stand.z;
+  run(2);
+  assert.equal(holder.state.health, 50);
 });
 
 it('caps the armour back to the normal maximum once the Carrapeta is lost', () => {

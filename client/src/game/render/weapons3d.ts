@@ -12,8 +12,8 @@ const mats = {
   wood: new THREE.MeshStandardMaterial({ color: '#7b4a22', roughness: 0.65 }),
   lime: new THREE.MeshStandardMaterial({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 1.1, roughness: 0.4 }),
   limeDim: new THREE.MeshStandardMaterial({ color: '#7fbf12', roughness: 0.5, metalness: 0.2 }),
-  // Clear scope glass of the AWP: nearly invisible, so the world shows through the tube.
-  scopeGlass: new THREE.MeshPhysicalMaterial({ color: '#cfe6ee', roughness: 0.02, metalness: 0, transparent: true, opacity: 0.1, depthWrite: false }),
+  // light green coated glass, clear enough that the world shows through the tube.
+  scopeGlass: new THREE.MeshPhysicalMaterial({ color: '#7fe08a', emissive: '#a5fa00', emissiveIntensity: 0.08, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.18, depthWrite: false }),
   // Coated scope glass: a dark blue-green see-through lens with a faint lime coating glint.
   lens: new THREE.MeshPhysicalMaterial({ color: '#1d3a46', emissive: '#a5fa00', emissiveIntensity: 0.12, roughness: 0.02, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0, transparent: true, opacity: 0.7 }),
   // Red dot optic: the dot is unlit so it stays bright in shade.

@@ -3,8 +3,8 @@ import { it } from 'node:test';
 import {
   BATATA_BOUNTY_POINTS, BATATA_PER_MATCH, CARRAPETA_MAX_HOLD_SECONDS, BATATA_DOUBLE_EVERY_SECONDS, BATATA_DURATION_SECONDS,
   BATATA_KILL_POINTS, BATATA_MAX_MULTIPLIER, CARRAPETA_BLAST_RADIUS_UNITS, CARRAPETA_SELF_DAMAGE_SCALE,
-  CollisionWorld, MapBuilder, TICK_RATE, blastDamage, carrapetaEnemies, carrapetaKillPoints,
-  carrapetaPointsPerSecond, dropCarrapeta, frenzyAtTicks, holdExpired, getMaps, stepCarrapeta, stepFrenzy,
+  CollisionWorld, MapBuilder, TICK_MS, TICK_RATE, blastDamage, carrapetaEnemies, carrapetaKillPoints,
+  carrapetaPointsPerSecond, dropCarrapeta, frenzyAtTicks, halveVitals, holdDeadlineMs, holdExpired, getMaps, stepCarrapeta, stepFrenzy,
   type FrenzyState,
 } from '../src/index.ts';
 
@@ -87,9 +87,20 @@ it('schedules the Batata Quente at least twice a match, each event whole and apa
 });
 
 it('the Carrapeta expires after the longest hold and not before', () => {
-  const held = { kind: 'held', holder: 1, sinceTick: 100 } as const;
-  const limit = 100 + CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE;
+  const held = { kind: 'held', holder: 1, sinceTick: 2 * TICK_RATE } as const;
+  const limit = held.sinceTick + CARRAPETA_MAX_HOLD_SECONDS * TICK_RATE;
+  const msAt = (tick: number) => tick * TICK_MS;
+  assert.equal(holdDeadlineMs(msAt(held.sinceTick)), msAt(limit));
   assert.equal(holdExpired(held, limit - 1), false);
   assert.equal(holdExpired(held, limit), true);
   assert.equal(holdExpired({ kind: 'none' }, limit), false);
+});
+
+it('Batata Quente halves health and armour, rounding up', () => {
+  const full = { health: 100, armor: 200 };
+  halveVitals(full);
+  assert.deepEqual(full, { health: 50, armor: 100 });
+  const hurt = { health: 1, armor: 0 };
+  halveVitals(hurt);
+  assert.deepEqual(hurt, { health: 1, armor: 0 });
 });

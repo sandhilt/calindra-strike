@@ -49,7 +49,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 
 ## Carrapeta Dourada
 
-- Read `get_state.carrapeta` for the holder, dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.
+- Read `get_state.carrapeta` for the holder, seconds until the holder loses it (`holdSecondsLeft`, null when nobody holds it), dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.
 - A new holder gets 100 health and 200 armour and cannot collect airdrops. Whenever somebody holds the Carrapeta only fights involving the holder deal damage, and with nobody holding it everyone can hurt everyone (a death then waits 8 seconds longer to respawn). The Azeitadora aims down sights like any other gun (`zoom`). The Batata Quente is rare: about one match in three has it. The holder’s Azeitadora keeps infinite reserve and needs to reload after three shots (six outside the frenzy). Check `you.infiniteReserve` and `you.magCapacity`. In other modes, check `airdrops` for a landed Azeitadora with finite reserve.
 
 ## Weapons and airdrops

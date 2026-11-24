@@ -3,6 +3,7 @@ import { NO_ACTIONS, weaponSlots, type ActionEcho } from './actions.ts';
 import type { LastSeen } from './perception.ts';
 import {
   carrapetaEnemies,
+  holdDeadlineMs,
   magCapacity,
   WEAPON,
   type CarrapetaSnapshot,
@@ -375,6 +376,7 @@ function describeCarrapeta(v: WorldView, describeRelative: Relative) {
     holderId,
     holderName: holderId === null ? null : v.roster.find(r => r[0] === holderId)?.[1] ?? String(holderId),
     youHoldIt: holderId === v.id,
+    holdSecondsLeft: state?.kind === 'held' ? Math.max(0, holdDeadlineMs(state.sinceMs) - v.time) / 1000 : null,
     dropped: dropped ? {
       pos: [dropped.x, dropped.y, dropped.z],
       ...describeRelative(dropped),

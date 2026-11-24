@@ -591,7 +591,8 @@ export class BotBrain {
       }
     }
     const objective = pickCarrapetaGoal(self, env) ?? pickCtfGoal(self, env) ?? pickBombGoal(self, env) ?? pickLunchGoal(self, env);
-    const carrying = env.mode === 'ctf' ? ctfRole(self, env) === 'carrier' : bombRole(self, env) === 'carrier';
+    const holdsCarrapeta = env.carrapeta?.kind === 'held' && env.carrapeta.holder === self.id;
+    const carrying = holdsCarrapeta || (env.mode === 'ctf' ? ctfRole(self, env) === 'carrier' : bombRole(self, env) === 'carrier');
     const restock = carrying ? null : pickSupplyGoal(self, env, objective !== null);
     if (restock) {
       this.goal = { x: restock.x, y: restock.y, z: restock.z };
@@ -611,7 +612,6 @@ export class BotBrain {
     const drop = env.airdrops.find((d) => d.landed && Math.hypot(d.x - s.x, d.z - s.z) < 1600);
     const enemy = this.nearestEnemy(self, env);
     const interior = env.interiors?.length && r > INTERIOR_ROAM_FROM ? env.interiors[Math.floor(env.random() * env.interiors.length)] : null;
-    const holdsCarrapeta = env.carrapeta?.kind === 'held' && env.carrapeta.holder === self.id;
     if (drop && !holdsCarrapeta && r < 0.6) this.goal = { x: drop.x, y: drop.y, z: drop.z };
     else if (interior) {
       this.goal = { x: interior.x, y: interior.y, z: interior.z };

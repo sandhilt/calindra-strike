@@ -1,13 +1,13 @@
 /**
  * Dev-only load/behaviour test: spawns simple bots that strafe around and shoot
- * at the nearest player, or play the objective in debug defusion and capture the flag. Usage:
+ * at the nearest player, or play the objective in debug defusion, capture the flag and Carrapeta Dourada. Usage:
  *   node tools/bots.ts [count=3] [ws://127.0.0.1:7350/ws] [origin=http://localhost:5173] [passive]
  * `passive` bots walk up to the nearest player and strafe in front of them without shooting
  * (handy for screenshots and for testing hit registration).
  * They aim like the server bots at BOT_SKILL (0-100, default 50), read from the environment or `.env`.
  */
 import {
-  BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, fillBotChat, newBotChatMemory, newTalkMemory, pickBotChat, pickBotRadio, recordTalk,
+  BTN, PROTOCOL_VERSION, TICK_MS, WEAPON, encodeCmd, fillBotChat, newBotChatMemory, newTalkMemory, isTeamMode, pickBotChat, pickBotRadio, recordTalk,
   type BotRadioTrigger, type MatchInfo, type RosterEntry, type ServerMsg,
 } from '../shared/src/index.ts';
 import { parseArgs } from 'node:util';
@@ -44,7 +44,7 @@ function bot(i: number): void {
   let seq = 0;
   let t = 0;
   let serverTime = 0;
-  let mode = 'ffa';
+  let mode: MatchInfo['mode'] = 'ffa';
   let map = -1;
   let snap: Extract<ServerMsg, { t: 'snap' }> | null = null;
   let driver: BotDriver | null = null;
@@ -106,7 +106,10 @@ function bot(i: number): void {
         if (fellLow(health, hp)) callRadio('hurt');
         health = hp;
       }
-      others = m.ps.filter((p: number[]) => p[0] !== id && !(mode !== 'ffa' && teams.get(p[0]) === teams.get(id)));
+      if (!driver || passive) {
+        const teamMode = isTeamMode(mode);
+        others = m.ps.filter(p => p[0] !== id && (!teamMode || teams.get(p[0]) !== teams.get(id)));
+      }
     }
     if (m.t === 'ev') {
       let spoke = false;
@@ -137,7 +140,7 @@ function bot(i: number): void {
     const interp = Math.max(0, serverTime - 100);
     if (driver && !passive) {
       if (!snap) return;
-      const input = driver.drive(snap, map, id, teams, t);
+      const input = driver.drive(snap, map, id, teams, t, mode);
       for (let k = 0; k < 2; k++) {
         const cmd = { ...input, seq: ++seq, interp };
         driver.sent(cmd);

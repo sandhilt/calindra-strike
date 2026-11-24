@@ -23,6 +23,7 @@ export interface Goal {
   use?: boolean;
   /** Strafe against a close enemy instead of walking on. */
   duel?: boolean;
+  keepMoving?: boolean;
   /** `point` is a patrol point: pick the next one on arrival or when stuck. */
   roam?: boolean;
   /** Stop walking once this close (3D) to `point`. Used for a moving player: walking onto them only makes the bot circle them. */

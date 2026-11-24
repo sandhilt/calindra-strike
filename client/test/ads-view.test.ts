@@ -30,8 +30,7 @@ test('the AWP keeps its mask and hides the gun exactly as before, whatever the a
   assert.equal(scopeOverlay(awp, { zoom: 2, aiming: true, blend: 1 }), 'awp');
   assert.equal(gunHidden(awp, { zoom: 1, aiming: false, blend: 0 }, false), true);
   assert.equal(gunHidden(awp, hip, false), false);
-  assert.deepEqual(crosshairFor(awp, hip, false), { visible: true, scale: 1 }, 'the AWP shows where it points before the scope is raised');
-  assert.deepEqual(crosshairFor(awp, { zoom: 1, aiming: false, blend: 0 }, false), { visible: false, scale: 1 }, 'and the scope replaces it');
+  assert.deepEqual(crosshairFor(awp, hip, false, true), { visible: false, scale: 1 });
 });
 
 test('the rifle looks through a red dot: the gun stays on screen and the crosshair gives way to the dot', () => {
@@ -41,10 +40,10 @@ test('the rifle looks through a red dot: the gun stays on screen and the crossha
     assert.equal(scopeOverlay(rifle, aimed(blend)), 'none', 'no lens is ever drawn over the view');
     assert.equal(gunHidden(rifle, aimed(blend), false), false);
   }
-  assert.equal(crosshairFor(rifle, hip, false).scale, 1);
-  assert.equal(crosshairFor(rifle, aimed(DOT_IN_BLEND - 0.01), false).visible, true);
-  assert.equal(crosshairFor(rifle, aimed(DOT_IN_BLEND), false).visible, false);
-  assert.equal(crosshairFor(rifle, { zoom: 0, aiming: false, blend: 1 }, false).visible, true, 'a released button brings the crosshair back');
+  assert.equal(crosshairFor(rifle, hip, false, false).scale, 1);
+  assert.equal(crosshairFor(rifle, aimed(DOT_IN_BLEND - 0.01), false, false).visible, true);
+  assert.equal(crosshairFor(rifle, aimed(DOT_IN_BLEND), false, false).visible, false);
+  assert.equal(crosshairFor(rifle, { zoom: 0, aiming: false, blend: 1 }, false, false).visible, true, 'a released button brings the crosshair back');
 });
 
 test('iron sights keep the gun on screen and shrink the crosshair', () => {
@@ -53,8 +52,8 @@ test('iron sights keep the gun on screen and shrink the crosshair', () => {
     assert.equal(def.ads?.kind, 'sights');
     assert.equal(scopeOverlay(def, aimed(1)), 'none');
     assert.equal(gunHidden(def, aimed(1), false), false);
-    assert.equal(crosshairFor(def, aimed(1), false).scale, ADS_CROSSHAIR_SCALE);
-    assert.equal(crosshairFor(def, hip, false).scale, 1);
+    assert.equal(crosshairFor(def, aimed(1), false, false).scale, ADS_CROSSHAIR_SCALE);
+    assert.equal(crosshairFor(def, hip, false, false).scale, 1);
   }
 });
 
@@ -63,12 +62,12 @@ test('the hammer has no aim: nothing changes for it', () => {
   assert.equal(aimFovFor(hammer, true, 90), 0);
   assert.equal(scopeOverlay(hammer, aimed(1)), 'none');
   assert.equal(gunHidden(hammer, hip, false), false);
-  assert.equal(crosshairFor(hammer, aimed(1), false).scale, 1);
+  assert.equal(crosshairFor(hammer, aimed(1), false, false).scale, 1);
 });
 
 test('parachuting hides the gun and the crosshair', () => {
   assert.equal(gunHidden(weaponDef(WEAPON.PISTOL), hip, true), true);
-  assert.equal(crosshairFor(weaponDef(WEAPON.PISTOL), hip, true).visible, false);
+  assert.equal(crosshairFor(weaponDef(WEAPON.PISTOL), hip, true, false).visible, false);
 });
 
 test('the aim field of view and mouse scale follow the weapon, and never widen or speed up the view', () => {

@@ -11,12 +11,15 @@ test('the feed names the holder on a take, reroll, and loss', () => {
   assert.equal(carrapetaFeed('lose', 'Lia'), 'Lia · avinagrou');
 });
 
-test('the objective HUD uses server deadlines for the reroll and frenzy timers', () => {
+test('the objective HUD uses server deadlines for the hold, reroll and frenzy timers', () => {
   const dropped = { kind: 'dropped', x: 0, y: 0, z: 0, rerollAtMs: 4000, frenzyUntilMs: 6000 } as const;
   const name = (id: number) => `jogador ${id}`;
   assert.equal(carrapetaStatus(dropped, 2500, name), 'no chão · sorteio em 2 s · Batata quente 4 s');
   assert.equal(carrapetaStatus(dropped, 7000, name), 'no chão · sorteio em 0 s');
-  assert.equal(carrapetaStatus({ kind: 'held', holder: 2, sinceMs: 100, frenzyUntilMs: 0 }, 7000, name), 'jogador 2');
+  const held = { kind: 'held', holder: 2, sinceMs: 100, frenzyUntilMs: 0 } as const;
+  assert.equal(carrapetaStatus(held, 7000, name), 'jogador 2 · avinagra em 39 s');
+  assert.equal(carrapetaStatus({ ...held, frenzyUntilMs: 9500 }, 7000, name), 'jogador 2 · avinagra em 39 s · Batata quente 3 s');
+  assert.equal(carrapetaStatus(held, 47_000, name), 'jogador 2 · avinagra em 0 s');
   assert.equal(carrapetaStatus({ kind: 'none', frenzyUntilMs: 0 }, 0, name), 'aguardando sorteio');
 });
 

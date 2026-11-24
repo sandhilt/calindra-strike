@@ -123,6 +123,7 @@ import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
 import { liveVotePanel } from './vote.ts';
+import { NO_RANGE, RANGE_MAX_UNITS, rangeReading, type RangeReading } from './scope-range.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
@@ -1572,6 +1573,27 @@ export class ClientGame {
     this.aimView.blend = this.aimT;
   }
 
+  /** Distance to what the camera points at, and whether an enemy is there: the nearest of the world and a visible, living, non-teammate player. */
+  private aimRange(): RangeReading {
+    const dir = this.camera.getWorldDirection(v3);
+    const o = this.camera.position;
+    const wall = this.collision.trace(o.x, o.y, o.z, dir.x, dir.y, dir.z, RANGE_MAX_UNITS);
+    let dist = wall ? wall.t : RANGE_MAX_UNITS;
+    let onEnemy = false;
+    const renderT = this.serverNow() - INTERP_DELAY_MS;
+    for (const r of this.remotes.values()) {
+      if (!r.visible || this.isTeammate(r.id)) continue;
+      const s = this.sample(r, renderT);
+      if (!s || !(s.flags & RF_ALIVE) || s.flags & (RF_DROP | RF_PROTECT)) continue;
+      const h = rayHitbox(o.x, o.y, o.z, dir.x, dir.y, dir.z, s.x, s.y, s.z, stanceFromFlags(s.flags), s.lean, s.yaw, dist);
+      if (h) {
+        dist = h.t;
+        onEnemy = true;
+      }
+    }
+    return dist >= RANGE_MAX_UNITS ? NO_RANGE : rangeReading(dist, onEnemy);
+  }
+
   /** Which scope overlay the player's own screen shows. */
   private localOverlay(def: WeaponDef): ScopeOverlay {
     return this.alive && !this.spectator ? scopeOverlay(def, this.aimView) : 'none';
@@ -2087,7 +2109,7 @@ export class ClientGame {
     if (this.spectator) {
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
-      const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0, target.w === WEAPON.SNIPER).visible;
+      const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0).visible;
       hud.setCrosshair(this.settings.crosshairGap, this.settings.crosshairSize, this.settings.crosshairColor, open);
       hud.setDrop(null);
       hud.setScope('none');
@@ -2119,10 +2141,11 @@ export class ClientGame {
     hud.setWeapon(def.name, def.tag, mag, reserve, def.legendary, def.slot === 3, slots, capacity);
     hud.setReload(s.reload > 0 ? this.localReload.progress(s.tick) : -1);
     hud.setScope(overlay);
+    hud.setScopeRange(overlay !== 'none' ? this.aimRange() : null);
     hud.setProtect(s.protect > 0 || s.dropping);
 
     // dynamic crosshair: gap follows the real spread used by the simulation
-    const crosshair = crosshairFor(def, this.aimView, s.dropping, def.id === WEAPON.SNIPER);
+    const crosshair = crosshairFor(def, this.aimView, s.dropping);
     let gap = this.settings.crosshairGap;
     if (this.settings.dynamicCrosshair && def.slot !== 3) {
       const spread = computeSpread(s, def);

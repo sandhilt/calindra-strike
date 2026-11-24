@@ -12,6 +12,8 @@ const mats = {
   wood: new THREE.MeshStandardMaterial({ color: '#7b4a22', roughness: 0.65 }),
   lime: new THREE.MeshStandardMaterial({ color: '#a5fa00', emissive: '#a5fa00', emissiveIntensity: 1.1, roughness: 0.4 }),
   limeDim: new THREE.MeshStandardMaterial({ color: '#7fbf12', roughness: 0.5, metalness: 0.2 }),
+  // Clear scope glass of the AWP: nearly invisible, so the world shows through the tube.
+  scopeGlass: new THREE.MeshPhysicalMaterial({ color: '#cfe6ee', roughness: 0.02, metalness: 0, transparent: true, opacity: 0.1, depthWrite: false }),
   // Coated scope glass: a dark blue-green see-through lens with a faint lime coating glint.
   lens: new THREE.MeshPhysicalMaterial({ color: '#1d3a46', emissive: '#a5fa00', emissiveIntensity: 0.12, roughness: 0.02, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0, transparent: true, opacity: 0.7 }),
   // Red dot optic: the dot is unlit so it stays bright in shade.
@@ -357,8 +359,8 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       cyl(g, 1.5, 15, mats.gun, 0, 5.7, -4);
       cyl(g, 1.9, 2, mats.gun2, 0, 5.7, -11.5);
       cyl(g, 1.7, 2, mats.gun2, 0, 5.7, 3.5);
-      cyl(g, 1.6, 0.3, mats.lens, 0, 5.7, -12.6);
-      cyl(g, 1.4, 0.3, mats.lens, 0, 5.7, 4.6);
+      cyl(g, 1.6, 0.3, mats.scopeGlass, 0, 5.7, -12.6);
+      cyl(g, 1.4, 0.3, mats.scopeGlass, 0, 5.7, 4.6);
       bx(g, 1.2, 2.2, 1.6, mats.gun, 0, 4, -4);
       bx(g, 3, 5.2, 13, mats.gun2, 0, 0.6, 10);
       bx(g, 3.1, 1.2, 9, mats.lime, 0, 1.6, 10);

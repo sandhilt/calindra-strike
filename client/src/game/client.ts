@@ -95,7 +95,7 @@ import { FlagsView } from './render/flags.ts';
 import { ColleaguesView } from './render/colleagues.ts';
 import { signCanvas } from './render/store-signs.ts';
 import { followersOf, followersText, lunchAnnouncement, LUNCH_RUSH_PITCH, LUNCH_RUSH_TAG, lunchMessage, lunchRole, lunchStatus, lunchView, type LunchView } from './lunch.ts';
-import { LunchTargetView } from './render/lunch-target.ts';
+import { LunchTargetView, type LunchTarget } from './render/lunch-target.ts';
 import { CARRAPETA_GOLD, CARRAPETA_SYMBOL, carrapetaFeed, carrapetaStatus, compareScoreRows, weaponAmmo } from './carrapeta.ts';
 import { CarrapetaView } from './render/carrapeta.ts';
 import { AirdropView } from './render/airdrop.ts';
@@ -1179,9 +1179,11 @@ export class ClientGame {
   }
 
   /** The restaurant of this round, for the beacon: null outside the mode. */
-  private lunchTarget(): { x: number; y: number; z: number; name: string; rush: boolean } | null {
+  private lunchTarget(): LunchTarget | null {
     const place = this.lunch ? this.map.restaurants[this.lunch.target] : undefined;
-    return this.lunch && place ? { ...place, rush: this.lunch.rush } : null;
+    if (!this.lunch || !place) return null;
+    const side = this.spectator ? 'attack' : (lunchRole(this.lunch.attackers, this.myTeam, this.lunch.rush)?.side ?? 'attack');
+    return { ...place, rush: this.lunch.rush, side };
   }
 
   /** Once per round: says where the colleagues must sit, and when it is a rush hour. */

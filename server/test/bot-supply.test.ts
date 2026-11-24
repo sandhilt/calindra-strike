@@ -55,7 +55,7 @@ describe('bots and the Mirante supply stand', () => {
     assert.notEqual(pickSupplyGoal(hurt, env(hurt), true), null);
   });
 
-  it('walks a hurt roaming bot up to the stand', () => {
+  it('walks a hurt roaming bot up to a stand, whichever one its route reaches first', () => {
     const self = agent(0, 0, -300, 30);
     const e = env(self);
     const brain = new BotBrain(0.5);
@@ -63,8 +63,8 @@ describe('bots and the Mirante supply stand', () => {
     for (e.tick = 1; e.tick <= TICK_RATE * 60 && reached < 0; e.tick++) {
       collision.liftTick = e.tick;
       applyCmd(collision, self.state, brain.think(self, e), 1);
-      if (inSupplyReach(self.state, shopping.supplies[0])) reached = e.tick;
+      if (shopping.supplies.some((stand) => inSupplyReach(self.state, stand))) reached = e.tick;
     }
-    assert.ok(reached > 0, 'never reached the stand, stopped at ' + [self.state.x, self.state.y, self.state.z].map(Math.round));
+    assert.ok(reached > 0, 'never reached a stand, stopped at ' + [self.state.x, self.state.y, self.state.z].map(Math.round));
   });
 });

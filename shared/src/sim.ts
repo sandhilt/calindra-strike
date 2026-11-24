@@ -39,6 +39,7 @@ import {
   WALK_SPEED_MULT,
 } from './constants.ts';
 import { carriedBy, liftAt, liftCab, type LiftCab } from './lift.ts';
+import { escalatorDrift } from './escalator.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
 import { STANCE, STANCES, isLowered, type BodyBox, type Stance } from './stance.ts';
@@ -290,10 +291,11 @@ function checkGround(w: CollisionWorld, s: PlayerState): boolean {
 }
 
 /** Horizontal move with stair stepping (only used while grounded). Returns blocked flags. */
-function walkMove(w: CollisionWorld, s: PlayerState, dt: number): void {
+/** `driftX` and `driftZ` move the player on top of their own velocity, as an escalator does, without becoming velocity. */
+function walkMove(w: CollisionWorld, s: PlayerState, dt: number, driftX = 0, driftZ = 0): void {
   const h = hullHeight(s);
-  const dx = s.vx * dt;
-  const dz = s.vz * dt;
+  const dx = (s.vx + driftX) * dt;
+  const dz = (s.vz + driftZ) * dt;
   const sx = s.x;
   const sy = s.y;
   const sz = s.z;
@@ -598,8 +600,10 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   }
   s.vy = clamp(s.vy, -MAX_VELOCITY, MAX_VELOCITY);
 
-  if (s.onGround) walkMove(w, s, dt);
-  else airMove(w, s, dt);
+  if (s.onGround) {
+    const [driftX, driftZ] = escalatorDrift(w.map, s) ?? [0, 0];
+    walkMove(w, s, dt, driftX, driftZ);
+  } else airMove(w, s, dt);
   if (carried && cab) {
     rideLift(w, s, cab);
   } else {

@@ -43,7 +43,7 @@ function foldedTable(r: Room, x: number, z: number, w: number, d: number, palett
 }
 
 /** Shelves along a wall with rows of boxes of goods in the given colours. */
-function wallShelves(r: Room, x: number, z: number, width: number, depth: number, levels: number, palette: readonly Hex[], seed: number, shelfTint = 0xe6dccb): void {
+export function wallShelves(r: Room, x: number, z: number, width: number, depth: number, levels: number, palette: readonly Hex[], seed: number, shelfTint = 0xe6dccb): void {
   const rnd = seeded(seed);
   const gap = 88 / levels;
   r.solid(x, z, width, depth, 8, 0, 'desk', shelfTint);

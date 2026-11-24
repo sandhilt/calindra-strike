@@ -6,7 +6,7 @@ import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT
 import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressDeckWalls } from './shopping-deck-walls.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
-import { LIFT_GAP_HALF, topFloor } from './shopping-top.ts';
+import { LIFT_GAP_HALF, topFloor, type MiranteShops } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
 /** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
@@ -31,8 +31,11 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
   ['kfg', 'burguer-rei', 'mania-picanha', 'parrilha'],
   ['mequi', 'outbaque', 'madeiro', 'bobis'],
 ];
-/** The pharmacy on each half's top floor: the ground floor has room for the other eight shops, so every brand stands once. */
-const MIRANTE_PHARMACIES = ['pague-pouco', 'droga-raio'] as const satisfies readonly ShopBrand[];
+/** The shops on each half's top floor, beside the ones on the ground floor, so every brand stands once. */
+const MIRANTE_SHOPS: readonly MiranteShops[] = [
+  { pharmacy: 'pague-pouco', small: 'pandorga', large: ['samsong', 'ray-bao'] },
+  { pharmacy: 'droga-raio', small: 'loccitano', large: ['sentauro', 'brinco-center'] },
+];
 const STORES: readonly (readonly ShopBrand[])[] = [
   ['zarra', 'cea', 'rener', 'hew'],
   ['cacau-chou', 'amerikanas', 'riachuela', 'travessura'],
@@ -185,7 +188,7 @@ export function buildShopping(): MapDef {
       b.block(px, PILLAR_Z, 40, 40, DECK - SLAB, 'white');
       b.block(px, PILLAR_Z, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
-    topFloor(b, MIRANTE_PHARMACIES[half]);
+    topFloor(b, MIRANTE_SHOPS[half]);
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through
     b.deco(-X, ROOF + 8, GALLERY_Z, X, ROOF + 12, 0, 'glass');

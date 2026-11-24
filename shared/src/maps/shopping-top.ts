@@ -1,4 +1,5 @@
 import { brandMat, STORE_BRANDS, type ShopBrand, type StoreBrand } from './brands.ts';
+import { boutiqueShop, DOORWAY_HEIGHT, SHOP_WALL_HEIGHT, type LargeBoutique, type SmallBoutique } from './shopping-boutiques.ts';
 import type { MapBuilder } from './builder.ts';
 import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
 import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
@@ -80,11 +81,7 @@ function lounge(b: MapBuilder): void {
   b.deco(-240, DECK3 + 110, -Z + 2, 240, DECK3 + 190, -Z + 4, brandMat('cacau-chou'));
   b.landmark('Café do Mirante', 0, -Z + 62);
   b.interior(0, DECK3, -Z + 122);
-  const x = 912;
-  sofa(b, x, -Z + 62, -1);
-  sofa(b, x + 220, -Z + 62, -1);
-  b.block(x + 110, -Z + 122, 60, 60, 26, 'wood', DECK3, { tint: 0xb98a58 });
-  for (const [x, z, brand] of [[-1120, -1184, 'zarra'], [-320, -1248, 'cea'], [320, -1344, 'hew'], [1120, -1216, 'rener']] as const) {
+  for (const [x, z, brand] of [[-1120, -1090, 'zarra'], [-320, -1248, 'cea']] as const) {
     board(b, x, z, 168, brand);
   }
   sofa(b, 510, -1140, 1);
@@ -93,9 +90,6 @@ function lounge(b: MapBuilder): void {
   b.interior(696, DECK3, -1090);
   b.deco(-TOP_X, DECK3, -Z, TOP_X, DECK3 + 96, -Z + 2, 'white', 0xbfd8d0);
   b.deco(-TOP_X, DECK3 + 96, -Z, TOP_X, DECK3 + 100, -Z + 3, 'charcoal');
-  for (const [x, brand] of [[-1000, 'zarra'], [560, 'travessura'], [1000, 'hew']] as const) {
-    b.deco(x - 90, DECK3 + 120, -Z, x + 90, DECK3 + 200, -Z + 2, brandMat(brand));
-  }
   for (const x of [-1000, -500, 0, 500, 1000]) b.deco(x - 120, ROOF - 3, -Z + 40, x + 120, ROOF, -700, 'white', 0xfff6df);
   b.deco(-X + 2, DECK3 + 90, -1000, -X + 4, DECK3 + 250, -820, 'logo');
   b.deco(X - 4, DECK3 + 90, -1000, X - 2, DECK3 + 250, -820, 'eitri');
@@ -168,21 +162,31 @@ function liftShaft(b: MapBuilder): void {
   b.landmark('Elevador panorâmico', 0, (LIFT_MIN_Z + LIFT_MAX_Z) / 2);
 }
 
+/** What each half's top floor sells along its back wall: the pharmacy, a small boutique past it and two larger ones across the lounge. */
+export interface MiranteShops {
+  readonly pharmacy: ShopBrand;
+  readonly small: SmallBoutique;
+  readonly large: readonly [LargeBoutique, LargeBoutique];
+}
+
 /** The pharmacy's middle: it fills the gallery's north-west corner between the lounge and the escalator bay. */
 const PHARMACY_X = -730;
-const PHARMACY_HEIGHT = 176;
 const PHARMACY_LAMP_Y = 160;
 
 const PHARMACY_WHITE = 0xeef2f6;
 const PHARMACY_BLUE = 0x1f4fa8;
 const PHARMACY_GREEN = 0x2f9e44;
 const SIGN_WIDTH = 180;
-/** Height of the doorway under the lintel; the full shop width stays walkable below it. */
-const DOORWAY_HEIGHT = 132;
 const LINTEL_TRIM = 14;
 const COUNTER_DEPTH = 142;
 const COUNTER_HEIGHT = 56;
 const WALL_FACE = STORE_HALF_WIDTH - 6;
+const PHARMACY_EDGE = STORE_HALF_WIDTH + 8;
+/** Clear walkway between the stair bay's exit and the gallery, so a shop never closes the way off the escalator. */
+const BAY_EXIT_WIDTH = 100;
+/** The small boutique stands between that walkway and the pharmacy's wall; two larger ones stand between the partitions at these x, past the cafe counter. */
+const SMALL_SLOT = [-TOP_X + BAY_EXIT_WIDTH, PHARMACY_X - PHARMACY_EDGE] as const;
+const LARGE_PARTITIONS = [276, 732, 1188] as const;
 const POSTER_DEPTHS = [44, 178, 236] as const;
 
 /** A green cross of three adjoining rectangles (so no two faces share a plane), on a plane facing +z at `z` (centred on x, y). */
@@ -253,12 +257,12 @@ function pharmacyFloor(b: MapBuilder, cx: number): void {
 /** An open storefront with short returns framing the pharmacy displays. */
 function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   const cx = PHARMACY_X;
-  const edge = STORE_HALF_WIDTH + 8;
+  const edge = PHARMACY_EDGE;
   const returnWidth = 64;
   for (const side of [-1, 1]) {
     const wallX = cx + side * edge;
-    b.wallZ(-Z, FACADE_Z, wallX, 16, PHARMACY_HEIGHT, 'white', [], DECK3);
-    b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, PHARMACY_HEIGHT, 'white', DECK3);
+    b.wallZ(-Z, FACADE_Z, wallX, 16, SHOP_WALL_HEIGHT, 'white', [], DECK3);
+    b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, SHOP_WALL_HEIGHT, 'white', DECK3);
     pharmacyCounter(b, cx + side * 150, brand);
   }
   b.block(cx, -Z + 52, 140, 36, 40, 'desk', DECK3);
@@ -271,7 +275,14 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }
 
-export function topFloor(b: MapBuilder, pharmacy: ShopBrand): void {
+function boutiques(b: MapBuilder, shops: MiranteShops): void {
+  boutiqueShop(b, shops.small, SMALL_SLOT[0], SMALL_SLOT[1], { left: true, right: false });
+  boutiqueShop(b, shops.large[0], LARGE_PARTITIONS[0], LARGE_PARTITIONS[1], { left: true, right: true });
+  boutiqueShop(b, shops.large[1], LARGE_PARTITIONS[1], LARGE_PARTITIONS[2], { left: false, right: true });
+  planter(b, 1266, -1420, 110, 150, 58);
+}
+
+export function topFloor(b: MapBuilder, shops: MiranteShops): void {
   liftShaft(b);
   b.add(-TOP_X, DECK3 - SLAB, -Z, TOP_X, DECK3, GALLERY_Z, 'tile');
   b.deco(-TOP_X, DECK3 - SLAB, GALLERY_Z, TOP_X, DECK3 - SLAB + 4, GALLERY_Z + 3);
@@ -283,7 +294,8 @@ export function topFloor(b: MapBuilder, pharmacy: ShopBrand): void {
   }
   supplyStand(b);
   lounge(b);
-  pharmacyShop(b, pharmacy);
+  pharmacyShop(b, shops.pharmacy);
+  boutiques(b, shops);
   cover(b);
   pillars(b);
   for (const x of [-1100, 550, 1100]) b.prop({ kind: 'ceilingFan', x, y: ROOF - 48, z: -880, radius: 44 });

@@ -19,5 +19,6 @@ export * from './maps/scenery.ts';
 export * from './lunch.ts';
 export * from './day-cycle.ts';
 export * from './lift.ts';
+export * from './escalator.ts';
 export * from './supply.ts';
 export * from './idle.ts';

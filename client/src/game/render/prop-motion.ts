@@ -1,4 +1,4 @@
-import type { EscalatorTravel } from '@calindra-strike/shared';
+import { ESCALATOR_SPEED_UNITS, type EscalatorTravel } from '@calindra-strike/shared';
 
 /**
  * Pure motion rules of the animated scenery (escalator steps, fountain drops, vent wisps, fan spin).
@@ -7,8 +7,8 @@ import type { EscalatorTravel } from '@calindra-strike/shared';
 
 /** Longest rise of one escalator step: `MapBuilder.stairs` never makes a step taller. */
 export const STEP_RISE_MAX_UNITS = 16;
-/** How fast the steps travel along the incline, in units per second. */
-export const ESCALATOR_SPEED_UNITS_PER_S = 30;
+/** How fast the steps travel along the incline, in units per second: the same speed that carries a rider (`escalatorDrift`). */
+export const ESCALATOR_SPEED_UNITS_PER_S = ESCALATOR_SPEED_UNITS;
 /** Thickness of a drawn tread and of a riser, in units. */
 export const TREAD_THICKNESS_UNITS = 3.5;
 export const RISER_THICKNESS_UNITS = 1.5;

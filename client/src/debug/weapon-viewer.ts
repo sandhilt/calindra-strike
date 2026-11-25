@@ -3,13 +3,14 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { PLAYER_COLORS, STANCE, WEAPONS, reloadCursor, weaponDef, type WeaponId } from '@calindra-strike/shared';
 import { QUALITY, QUALITY_OPTIONS, type Quality } from '../game/render/quality.ts';
 import { ViewModel } from '../game/render/viewmodel.ts';
-import { type GunPlacement, formatPlacement } from '../game/render/weapon-placement.ts';
+import { type GunPlacement, formatPlacement, placementFor } from '../game/render/weapon-placement.ts';
+import type { WeaponSkin } from '../game/render/weapons3d.ts';
 import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, controlsList, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
 import { stepBlend } from '../game/render/movement-pose.ts';
 import { ADS_BLEND_SECONDS } from '../game/render/ads-view.ts';
-import { autoFireShots, previewAim, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
+import { DEFAULT_VIEWER_WEAPON, autoFireShots, previewAim, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub, type ViewerRequest } from './weapon-debug.ts';
 
 const DEFAULT_FOV = 58;
 const BACKGROUND = 0x8a7a5e;
@@ -29,9 +30,8 @@ const degrees = (rad: number): string => `${Math.round((rad * 180) / Math.PI)}°
 
 /**
  * Debug mode: the real first-person weapon on its own, to try a weapon, its animations and its angle without joining a match.
- * Opened from the lobby by an easter egg. Needs WebGL; without it only a notice and the way out are shown.
  */
-export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: () => void): void {
+export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: () => void, request?: ViewerRequest): void {
   const exit = h('button', { class: 'btn', type: 'button', text: 'sair do debug' });
   let renderer: THREE.WebGLRenderer;
   try {
@@ -39,6 +39,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   } catch {
     root.replaceChildren(h('div', { class: 'overlay' }, [h('div', { class: 'menu glass dbg-notice' }, [h('h2', { text: 'modo debug' }), h('p', { class: 'sub', text: 'Este navegador não tem WebGL, então o visualizador de armas não abre.' }), exit])]));
     exit.addEventListener('click', onExit);
+    if (request) document.title = 'viewer:error';
     return;
   }
   renderer.setClearColor(BACKGROUND);
@@ -52,22 +53,24 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   const pmrem = new THREE.PMREMGenerator(renderer);
   view.setEnvironment(pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[quality].envMapPx }).texture);
 
-  let weapon: WeaponId = WEAPONS[WEAPONS.length - 1].id;
+  let weapon = request?.weapon ?? DEFAULT_VIEWER_WEAPON;
+  let skin: WeaponSkin = request?.skin ?? 'standard';
   const reload: ReloadScrub = { elapsed: -1, playing: false, speed: 1, loop: true };
   const carry = { ticks: 0 };
   let holdFire = false;
   let walking = false;
   let running = false;
-  let aiming = false;
-  let aimT = 0;
+  let aiming = request?.aim ?? false;
+  let aimT = previewAim(weaponDef(weapon), aiming, 1).aiming ? 1 : 0;
   let leftHanded = settings.leftHanded;
   let shells = 0;
   let placement = copyOf(view.placement());
 
   const select = (id: WeaponId) => {
     weapon = id;
-    view.setWeapon(id);
-    placement = copyOf(view.placement());
+    view.setWeapon(id, skin);
+    placement = copyOf(placementFor(id));
+    place();
     shells = weaponDef(id).mag;
     reload.elapsed = -1;
     reload.playing = false;
@@ -81,10 +84,15 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     group(
       'arma',
       choiceRow('arma', WEAPONS.map((w) => ({ v: w.id, label: w.name })), () => weapon, (v) => select(v), nothing),
+      choiceRow<WeaponSkin>('pintura', [{ v: 'standard', label: 'padrão' }, { v: 'carrapeta', label: 'carrapeta' }], () => skin, (v) => {
+        skin = v;
+        view.setWeapon(weapon, skin);
+        place();
+      }, nothing, 'só a Azeitadora muda'),
       choiceRow('gráficos', QUALITY_OPTIONS, () => quality, (v) => {
         quality = v;
         view.setQuality(v);
-        view.setWeapon(weapon);
+        view.setWeapon(weapon, skin);
         place();
       }, nothing, 'a correia da metralhadora muda por modo'),
       rangeRow('campo de visão', { min: 40, max: 110, step: 1 }, () => view.camera.fov, (v) => {
@@ -180,10 +188,17 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   window.addEventListener('resize', resize);
   view.camera.fov = DEFAULT_FOV;
   select(weapon);
+  const initialReload = request?.reload;
+  const initialTotal = reloadTotal(weaponDef(weapon), shells);
+  if (initialReload != null && initialTotal > 0) {
+    scrubTo(reload, initialReload, initialTotal);
+    scrub.value = String(Math.round(initialReload * SCRUB_STEPS));
+  }
   resize();
 
   let last = performance.now();
   let frame = 0;
+  let reportReady = request !== undefined;
   const tick = (now: number) => {
     const dt = Math.min(MAX_FRAME_S, (now - last) / 1000);
     last = now;
@@ -216,6 +231,10 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     readout.textContent = `${def.name}\nposição ${placement.position.map((v) => v.toFixed(1)).join(' ')}\ngiro ${placement.rotation.map(degrees).join(' ')}\nescala ${placement.scale.toFixed(2)}`;
     renderer.clear();
     view.render(renderer);
+    if (reportReady) {
+      document.title = 'viewer:ready';
+      reportReady = false;
+    }
     frame = requestAnimationFrame(tick);
   };
   frame = requestAnimationFrame(tick);

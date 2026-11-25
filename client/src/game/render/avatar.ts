@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { ADS_BLEND_SECONDS } from './ads-view.ts';
 import { SwingPlayer } from './hammer-swing.ts';
-import { buildWeapon, type WeaponModel } from './weapons3d.ts';
+import { buildWeapon, type WeaponModel, type WeaponSkin } from './weapons3d.ts';
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
@@ -107,6 +107,7 @@ export class Avatar {
   private readonly tag: THREE.Sprite;
   private weapon: WeaponModel | null = null;
   private weaponId: WeaponId | -1 = -1;
+  private weaponSkin: WeaponSkin = 'standard';
   private phase = 0;
   private recoil = 0;
   private readonly materials: THREE.MeshStandardMaterial[] = [];
@@ -210,12 +211,13 @@ export class Avatar {
     return m;
   }
 
-  setWeapon(id: WeaponId): void {
-    if (id === this.weaponId) return;
+  setWeapon(id: WeaponId, skin: WeaponSkin = 'standard'): void {
+    if (id === this.weaponId && skin === this.weaponSkin) return;
     if (this.weapon) this.wrist.remove(this.weapon.group);
     this.swing.stop();
-    this.weapon = buildWeapon(id);
+    this.weapon = buildWeapon(id, 0, skin);
     this.weaponId = id;
+    this.weaponSkin = skin;
     const g = this.weapon.group;
     this.supportArm.rotation.x = id === WEAPON.HAMMER ? -0.9 : 0;
     this.supportArm.position.x = id === WEAPON.HAMMER ? -4 : 0;

@@ -122,6 +122,7 @@ import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePos
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
 import { deathSpectateTargets } from './spectate/death.ts';
 import { ViewModel } from './render/viewmodel.ts';
+import { weaponSkin } from './render/weapons3d.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
@@ -868,7 +869,7 @@ export class ClientGame {
         this.input.yaw = Math.atan2(this.me.x, this.me.z);
         this.input.pitch = -0.55;
         this.hud.setDeath(null);
-        this.view.setWeapon(this.me.weapon);
+        this.view.setWeapon(this.me.weapon, weaponSkin(this.match.mode));
       } else {
         const ox = this.me.x;
         const oy = this.me.y;
@@ -1037,7 +1038,7 @@ export class ClientGame {
         if (e.id === this.myId) {
           this.sfx.loot();
           this.hud.announce(`${def.name.toLowerCase()} na mão`, def.zoomFov.length ? 'botão direito: mira 40° → 10° · fique parado pra acertar' : def.ads ? 'botão direito: mirar · arma lendária + armadura completa' : 'arma lendária + armadura completa');
-          this.view.setWeapon(e.w as WeaponId);
+          this.view.setWeapon(e.w as WeaponId, weaponSkin(this.match.mode));
         } else {
           this.hud.info(`${this.nameOf(e.id).name} pegou ${def.name}`);
         }
@@ -1529,7 +1530,7 @@ export class ClientGame {
     } else if (wade === 'thud') this.sfx.land(heavy);
     if (skydiveEnded) this.hud.announce('pousou!', 'proteção de spawn por 1,5 s', true);
     if (before.weapon !== s.weapon) {
-      this.view.setWeapon(s.weapon);
+      this.view.setWeapon(s.weapon, weaponSkin(this.match.mode));
       this.sfx.deploy();
     }
     this.localReloadSounds(before.weapon);
@@ -1804,7 +1805,7 @@ export class ClientGame {
     const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
     if (!this.spectator) {
       // The server also hands out weapons outside the player's own commands (the Azeitadora on a Carrapeta pickup, and taking it away), which prediction never sees.
-      this.view.setWeapon(this.me.weapon);
+      this.view.setWeapon(this.me.weapon, weaponSkin(this.match.mode));
       this.view.update({
         dt,
         speed: Math.hypot(this.me.vx, this.me.vz),
@@ -1857,7 +1858,7 @@ export class ClientGame {
       performance.now(),
       dt,
     );
-    this.view.setWeapon(weapon);
+    this.view.setWeapon(weapon, weaponSkin(this.match.mode));
     this.view.update(pose);
     return !pose.hidden;
   }
@@ -2057,7 +2058,7 @@ export class ClientGame {
       } else if (wasVisible && wade === 'thud') this.sfx.land(r.dropping, pos);
       r.ground = ground;
       r.dropping = dropping;
-      r.avatar.setWeapon(s.w as WeaponId);
+      r.avatar.setWeapon(s.w as WeaponId, weaponSkin(this.match.mode));
       this.remoteReloadSounds(r, s);
       const stance = stanceFromFlags(s.flags);
       r.avatar.update(dt, {

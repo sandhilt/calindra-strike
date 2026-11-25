@@ -4,7 +4,7 @@ import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { aimOffset, bobKeep } from './ads-view.ts';
 import { DrumView, type DrumRounds } from './drum-view.ts';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
-import { buildWeapon, poseFeed, type WeaponModel } from './weapons3d.ts';
+import { buildWeapon, poseFeed, type WeaponModel, type WeaponSkin } from './weapons3d.ts';
 import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
@@ -120,6 +120,7 @@ export class ViewModel {
   private readonly shellRest = new THREE.Vector3();
   private readonly casingRest = new THREE.Vector3();
   private weaponId: WeaponId | -1 = -1;
+  private weaponSkin: WeaponSkin = 'standard';
   private readonly flash: THREE.Sprite;
   private flashT = 0;
   private bobPhase = 0;
@@ -274,12 +275,12 @@ export class ViewModel {
     return free;
   }
 
-  setWeapon(id: WeaponId): void {
-    if (id === this.weaponId) return;
+  setWeapon(id: WeaponId, skin: WeaponSkin = 'standard'): void {
+    if (id === this.weaponId && skin === this.weaponSkin) return;
     if (this.model) this.kickGroup.remove(this.model.group);
     if (this.looseHand) this.kickGroup.remove(this.looseHand);
     this.looseHand = null;
-    const m = buildWeapon(id, this.beltLinks);
+    const m = buildWeapon(id, this.beltLinks, skin);
     m.group.traverse((o) => {
       o.castShadow = false;
     });
@@ -296,6 +297,7 @@ export class ViewModel {
     if (m.rig.casing) this.casingRest.copy(m.rig.casing.position);
     this.model = m;
     this.weaponId = id;
+    this.weaponSkin = skin;
     this.kickFeel = kickFeelFor(id);
     this.swing.stop();
     this.drumView.reset();

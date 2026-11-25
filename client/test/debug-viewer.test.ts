@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPRINT_SPEED_MULT, WEAPON, weaponDef } from '@calindra-strike/shared';
+import { SPRINT_SPEED_MULT, WEAPON, WEAPONS, weaponDef } from '@calindra-strike/shared';
 import { KONAMI_CODE, sequenceMatcher } from '../src/easter-egg.ts';
 import { formatPlacement, placementFor } from '../src/game/render/weapon-placement.ts';
-import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from '../src/debug/weapon-debug.ts';
+import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, viewerRequest, type ReloadScrub } from '../src/debug/weapon-debug.ts';
 
 const feed = (match: (code: string) => boolean, codes: readonly string[]) => codes.map(match);
 
@@ -31,6 +31,31 @@ test('every weapon has a placement, and it prints as the line to paste back', ()
   }
   assert.equal(formatPlacement(placementFor(WEAPON.RIFLE)), '{ position: [6, -6.4, -13], rotation: [0, 0.045, 0], scale: 0.62 }');
   assert.equal(formatPlacement({ position: [1.23456, 0, -2], rotation: [0.1, 0.2, 0.30001], scale: 0.5 }), '{ position: [1.235, 0, -2], rotation: [0.1, 0.2, 0.3], scale: 0.5 }');
+});
+
+test('the viewer URL accepts every weapon tag, including unaccented lowercase tags', () => {
+  for (const { id, tag } of WEAPONS) {
+    assert.equal(viewerRequest('?viewer&weapon=' + encodeURIComponent(tag))?.weapon, id);
+  }
+  assert.equal(viewerRequest('?viewer&weapon=faisca')?.weapon, WEAPON.PISTOL);
+  assert.equal(viewerRequest('?viewer&weapon=trovao')?.weapon, WEAPON.SHOTGUN);
+  assert.equal(viewerRequest('?viewer&weapon=ragnarok')?.weapon, WEAPON.LMG);
+});
+
+test('the viewer URL requires its own key and defaults unknown choices', () => {
+  assert.equal(viewerRequest('?weapon=awp&aim=1'), null);
+  const defaults = { weapon: WEAPONS.at(-1)?.id, skin: 'standard', aim: false, reload: null };
+  assert.deepEqual(viewerRequest('?viewer'), defaults);
+  assert.deepEqual(viewerRequest('?viewer&weapon=unknown&skin=unknown&aim=true&reload=bad'), defaults);
+  assert.deepEqual(viewerRequest('?viewer&skin=standard&reload='), defaults);
+});
+
+test('the viewer URL selects the skin and aim pose and clamps reload progress', () => {
+  assert.deepEqual(viewerRequest('?viewer&skin=carrapeta&aim=1&reload=0.35'), {
+    weapon: WEAPONS.at(-1)?.id, skin: 'carrapeta', aim: true, reload: 0.35,
+  });
+  assert.equal(viewerRequest('?viewer&reload=-1')?.reload, 0);
+  assert.equal(viewerRequest('?viewer&reload=2')?.reload, 1);
 });
 
 const fresh = (): ReloadScrub => ({ elapsed: -1, playing: false, speed: 1, loop: false });

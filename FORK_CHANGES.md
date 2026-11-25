@@ -11,6 +11,9 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-25
 
+- The weapon viewer opens by URL (`?viewer&weapon=<tag>&skin=&aim=&reload=`), reports `viewer:ready` or `viewer:error` in the title and has a skin choice (`client/src/debug/`).
+- `AGENTS.md` and the `verify-calindra-strike` skill require every weapon to be in the weapon viewer and agents to test weapon changes there.
+- The Azeitadora uses dark materials with lime accents by default and keeps its gold and walnut skin in Carrapeta Dourada matches (`client/src/game/render/weapons3d.ts`).
 - The AWP scope lenses on the gun model are the dark blue-green coated glass again, replacing the faint clear green one (`client/src/game/render/weapons3d.ts`).
 - The Azeitadora airdrop chance outside Carrapeta Dourada went down from 30% to 20%, below the LMG (`CARRAPETA_AIRDROP_CHANCE`).
 - `node --run typecheck` passes again: the `goal` helper in `tools/test/carrapeta-goals.test.ts` has an explicit return type.

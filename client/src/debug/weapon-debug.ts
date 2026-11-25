@@ -1,6 +1,31 @@
-import type { WeaponDef } from '@calindra-strike/shared';
-import { SPRINT_SPEED_MULT, reloadTotalTicks } from '@calindra-strike/shared';
+import { SPRINT_SPEED_MULT, WEAPONS, reloadTotalTicks, type WeaponDef, type WeaponId } from '@calindra-strike/shared';
 import { type ScopeOverlay, scopeOverlay } from '../game/render/ads-view.ts';
+import type { WeaponSkin } from '../game/render/weapons3d.ts';
+
+export interface ViewerRequest {
+  weapon: WeaponId;
+  skin: WeaponSkin;
+  aim: boolean;
+  reload: number | null;
+}
+
+export const DEFAULT_VIEWER_WEAPON = WEAPONS[WEAPONS.length - 1].id;
+
+const normalizeTag = (tag: string): string => tag.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+export function viewerRequest(search: string): ViewerRequest | null {
+  const params = new URLSearchParams(search);
+  if (!params.has('viewer')) return null;
+
+  const tag = normalizeTag(params.get('weapon') ?? '');
+  const reload = Number(params.get('reload')?.trim() || NaN);
+  return {
+    weapon: WEAPONS.find((def) => normalizeTag(def.tag) === tag)?.id ?? DEFAULT_VIEWER_WEAPON,
+    skin: params.get('skin') === 'carrapeta' ? 'carrapeta' : 'standard',
+    aim: params.get('aim') === '1',
+    reload: Number.isFinite(reload) ? Math.min(1, Math.max(0, reload)) : null,
+  };
+}
 
 /** The reload of the weapon on show: ticks since it began (-1 when none), and how it plays. */
 export interface ReloadScrub {

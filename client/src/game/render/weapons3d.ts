@@ -1,4 +1,4 @@
-import { WEAPON, type WeaponId } from '@calindra-strike/shared';
+import { WEAPON, type GameMode, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { isTracer, linkPlacement, reachedPath } from './belt-anim.ts';
 import { DRUM_CHAMBERS } from './drum-anim.ts';
@@ -18,11 +18,29 @@ const mats = {
   dot: new THREE.MeshBasicMaterial({ color: '#ff2a1a' }),
   hull: new THREE.MeshStandardMaterial({ color: '#b3261e', roughness: 0.55 }),
   brass: new THREE.MeshStandardMaterial({ color: '#c9a227', roughness: 0.3, metalness: 0.7 }),
-  // The Azeitadora's golden trim and walnut furniture, the colours of the Carrapeta Dourada.
+  // Gold and walnut are reserved for the Carrapeta Dourada skin.
   gold: new THREE.MeshStandardMaterial({ color: '#d9a520', emissive: '#6b4a00', emissiveIntensity: 0.3, roughness: 0.28, metalness: 0.85 }),
   goldDark: new THREE.MeshStandardMaterial({ color: '#8a6a1a', roughness: 0.4, metalness: 0.75 }),
   walnut: new THREE.MeshStandardMaterial({ color: '#4a2a14', roughness: 0.7 }),
   pipOff: new THREE.MeshStandardMaterial({ color: '#17191c', roughness: 0.6 }),
+};
+
+export type WeaponSkin = 'standard' | 'carrapeta';
+
+export function weaponSkin(mode: GameMode): WeaponSkin {
+  return mode === 'carrapeta' ? 'carrapeta' : 'standard';
+}
+
+const LAUNCHER_SKINS: Record<WeaponSkin, {
+  furniture: THREE.MeshStandardMaterial;
+  trim: THREE.MeshStandardMaterial;
+  rings: THREE.MeshStandardMaterial;
+  darkTrim: THREE.MeshStandardMaterial;
+  shells: THREE.MeshStandardMaterial;
+  emblem: boolean;
+}> = {
+  standard: { furniture: mats.poly, trim: mats.lime, rings: mats.limeDim, darkTrim: mats.gun2, shells: mats.limeDim, emblem: false },
+  carrapeta: { furniture: mats.walnut, trim: mats.gold, rings: mats.gold, darkTrim: mats.goldDark, shells: mats.brass, emblem: true },
 };
 
 /** Height of the red dot of the rifle's optic above the model origin (model units); `ads-view.ts` lifts the aimed gun to put it on the centre of the view. */
@@ -74,11 +92,11 @@ function cyl(g: THREE.Group, r: number, len: number, m: THREE.Material, x: numbe
   return mesh;
 }
 
-/** One cartridge: a brass case with a steel primer, its head toward +Z. */
-function shellCase(into: THREE.Object3D, x: number, y: number, z: number): THREE.Group {
+/** One cartridge: a case with a steel primer, its head toward +Z. */
+function shellCase(into: THREE.Object3D, material: THREE.Material, x: number, y: number, z: number): THREE.Group {
   const shell = new THREE.Group();
   shell.position.set(x, y, z);
-  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.96, 0.96, 0.55, 10), mats.brass);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.96, 0.96, 0.55, 10), material);
   head.rotation.x = Math.PI / 2;
   const primer = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.6, 8), mats.steel);
   primer.rotation.x = Math.PI / 2;
@@ -206,7 +224,7 @@ export function poseFeed(
 const magDownFor = (rx: number): THREE.Vector3 => new THREE.Vector3(0, -Math.cos(rx), -Math.sin(rx));
 
 /** Original low-poly weapon models. Barrel points toward -Z, origin at the firing hand. */
-export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
+export function buildWeapon(id: WeaponId, beltLinks = 0, skin: WeaponSkin = 'standard'): WeaponModel {
   const g = new THREE.Group();
   const muzzle = new THREE.Object3D();
   const rig: ReloadRig = {
@@ -228,26 +246,29 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
   };
   switch (id) {
     case WEAPON.MGL: {
+      const finish = LAUNCHER_SKINS[skin];
       // Frame: a lower frame with the grip, and a thin top strap, with the sides between them open so the drum's rear face shows from behind.
       bx(g, 3.4, 3.2, 9, mats.gun, 0, -2, 0.5);
-      bx(g, 3.6, 0.6, 9.2, mats.goldDark, 0, -3.7, 0.5);
+      bx(g, 3.6, 0.6, 9.2, finish.darkTrim, 0, -3.7, 0.5);
       bx(g, 2.8, 1.6, 9.5, mats.gun, 0, 5.6, 0.2);
-      bx(g, 3.1, 0.5, 9.7, mats.gold, 0, 6.55, 0.2);
-      bx(g, 2.7, 5.4, 3, mats.walnut, 0, -4.4, 3.4, -0.28);
-      bx(g, 3.1, 1, 3.4, mats.gold, 0, -7.4, 4.4, -0.28);
+      bx(g, 3.1, 0.5, 9.7, finish.trim, 0, 6.55, 0.2);
+      bx(g, 2.7, 5.4, 3, finish.furniture, 0, -4.4, 3.4, -0.28);
+      bx(g, 3.1, 1, 3.4, finish.trim, 0, -7.4, 4.4, -0.28);
       bx(g, 0.8, 1.6, 3.2, mats.gun2, 0, -4.6, -1.4);
-      bx(g, 0.7, 1.6, 0.7, mats.gold, 0, 7.2, 4.6, -0.45);
+      bx(g, 0.7, 1.6, 0.7, finish.trim, 0, 7.2, 4.6, -0.45);
       bx(g, 3.2, 2.4, 1.8, mats.gun2, 0, 2.4, 5.2);
-      bx(g, 3.5, 3.5, 1.8, mats.walnut, 0, -1.6, 9.8);
-      for (const side of [-1, 1]) emblem(g, side * 1.75, -2, 0.5, side);
-      // Barrel with its shroud, gold rings and an open sight rail.
+      bx(g, 3.5, 3.5, 1.8, finish.furniture, 0, -1.6, 9.8);
+      if (finish.emblem) {
+        for (const side of [-1, 1]) emblem(g, side * 1.75, -2, 0.5, side);
+      }
+      // Barrel with its shroud, rings and an open sight rail.
       bx(g, 3.6, 1.4, 16, mats.gun2, 0, 7, -9.5);
       cyl(g, 2, 12, mats.gun, 0, 4.6, -19);
-      cyl(g, 2.45, 2, mats.gold, 0, 4.6, -24);
-      cyl(g, 2.3, 0.8, mats.goldDark, 0, 4.6, -14);
-      cyl(g, 2.3, 0.8, mats.goldDark, 0, 4.6, -20);
+      cyl(g, 2.45, 2, finish.rings, 0, 4.6, -24);
+      cyl(g, 2.3, 0.8, finish.darkTrim, 0, 4.6, -14);
+      cyl(g, 2.3, 0.8, finish.darkTrim, 0, 4.6, -20);
       cyl(g, 1.45, 0.05, mats.poly, 0, 4.6, -25.01);
-      bx(g, 4, 2.4, 6, mats.walnut, 0, 1.4, -17);
+      bx(g, 4, 2.4, 6, finish.furniture, 0, 1.4, -17);
       // Iron sights: a notch at the rear, a lit post at the front. The aimed gun is lifted to put them on the centre of the view.
       bx(g, 3.2, 1.2, 1.2, mats.gun, 0, 7.2, 0.8);
       for (const x of [-1.3, 1.3]) bx(g, 0.8, 1.6, 0.8, mats.gun, x, 8.5, 0.8);
@@ -257,9 +278,9 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
       const hinge = part(g, -4.5, 0.4, -8.5);
       const drum = part(hinge, 4.5, 0.4, 0);
       cyl(drum, 5.4, 9, mats.gun2, 0, 0, 0);
-      cyl(drum, 5.5, 1.1, mats.gold, 0, 0, -4.4);
+      cyl(drum, 5.5, 1.1, finish.rings, 0, 0, -4.4);
       cyl(drum, 5.5, 1.1, mats.gun, 0, 0, 4.4);
-      // The drum's rim carries a brass window over every chamber and a groove between them, so the turn and the rounds left read from the side and from above,
+      // The drum's rim carries a window over every chamber and a groove between them, so the turn and the rounds left read from the side and from above,
       // where the receiver does not hide them. The case heads at the rear are the same rounds.
       const rounds: THREE.Object3D[] = [];
       const chambers: THREE.Vector3[] = [];
@@ -270,8 +291,8 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
         const y = 3.65 * Math.cos(angle);
         cyl(drum, 1.38, 9.5, mats.poly, x, y, 0);
         const round = new THREE.Group();
-        round.add(shellCase(round, x, y, 4.85));
-        bx(round, 2.5, 0.5, 8.2, mats.brass, RIM * Math.sin(angle), RIM * Math.cos(angle), 0, 0, 0, -angle);
+        round.add(shellCase(round, finish.shells, x, y, 4.85));
+        bx(round, 2.5, 0.5, 8.2, finish.shells, RIM * Math.sin(angle), RIM * Math.cos(angle), 0, 0, 0, -angle);
         drum.add(round);
         rounds.push(round);
         chambers.push(new THREE.Vector3(RIM * Math.sin(angle), RIM * Math.cos(angle), 0));
@@ -279,7 +300,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0): WeaponModel {
         bx(drum, 0.7, 0.45, 8.6, mats.poly, RIM * Math.sin(groove), RIM * Math.cos(groove), 0, 0, 0, -groove);
       }
       const loose = Array.from({ length: DRUM_CHAMBERS }, () => {
-        const shell = shellCase(g, 0, 0, 0);
+        const shell = shellCase(g, finish.shells, 0, 0, 0);
         shell.visible = false;
         return shell;
       });

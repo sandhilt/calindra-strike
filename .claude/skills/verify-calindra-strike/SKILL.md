@@ -35,6 +35,10 @@ Pick a recipe from [features/README.md](features/README.md). Harnesses:
 - **Match phases:** `scripts/watch-phase.sh [seconds]` prints each change of phase/map/mode with a timestamp.
 - **Raw WebSocket:** Node's global `WebSocket` accepts `{ headers: { Origin } }`, which is how origin enforcement is tested.
 
+## Weapons
+
+Test every weapon change in the weapon viewer, opened by URL in headless Chromium: [features/weapon-viewer.md](features/weapon-viewer.md).
+
 ## Graphics benchmark
 
 The benchmark needs only the Vite client. Open `http://127.0.0.1:5273/?benchmark&rounds=1&ms=600` in Chromium, wait for title `benchmark:done`, and capture `window.__benchmark` or the `[benchmark]` console JSON. Verify one run per tier and map, with positive frame counts and canvas dimensions. Check that run rows and tier summaries include median `cpuMs` for main-thread update and submission and `gpuMs` for WebGL 2 GPU elapsed time. Expect `gpuMs: null` if `EXT_disjoint_timer_query_webgl2` is unavailable or the run yields no valid GPU timing samples. Headless Chromium can use `--use-angle=swiftshader --enable-unsafe-swiftshader` to check that the report and overlay work. SwiftShader frame timings are meaningless for graphics recommendations. Use a real GPU for performance measurements.
@@ -61,6 +65,6 @@ Stops the bots, client and server by recorded pid and removes `$VERIFY_DIR/run`.
 
 ## Known limits
 
-- **No WebGL in the MCP browser.** The Chrome DevTools MCP browser here has no GPU, so Three.js fails with `Could not create a WebGL context` and the in-game view and HUD never render. The lobby, the join (server registers the player), `/status` and bots all work. Treat anything that needs the 3D view or HUD (scoreboard, kill feed, podium scene, scope) as unverified, say so, and verify the server side through `/status`, `server.log` and bots instead. Do not report an unrendered HUD as passing.
+- **No WebGL in the MCP browser.** The Chrome DevTools MCP browser here has no GPU, so Three.js fails with `Could not create a WebGL context` and the in-game view and HUD never render. The lobby, the join (server registers the player), `/status` and bots all work. The weapon viewer is the exception: headless Chromium renders it (see Weapons). Treat anything else that needs the 3D view or HUD (scoreboard, kill feed, podium scene, scope) as unverified, say so, and verify the server side through `/status`, `server.log` and bots instead. Do not report an unrendered HUD as passing.
 - **Pointer lock** needs a real user gesture on the canvas; keyboard/mouse gameplay input is not driveable from the MCP browser.
 - **Two instances side by side** work only with different `VERIFY_SERVER_PORT` / `VERIFY_CLIENT_PORT` and `VERIFY_DIR`; the scripts refuse a second run on the same ones.

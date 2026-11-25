@@ -5,6 +5,7 @@ import { KICK_CLOSE_CODE, type KickReason, PROTOCOL_VERSION, type ServerMsg } fr
 import { loadBrand } from './brand.ts';
 import { KONAMI_CODE, sequenceMatcher } from './easter-egg.ts';
 import { SERVER_HTTP, SERVER_WS } from './config.ts';
+import { viewerRequest, type ViewerRequest } from './debug/weapon-debug.ts';
 import { ClientGame, type Welcome } from './game/client.ts';
 import { Connection } from './game/net.ts';
 import { type Settings, loadSettings } from './settings.ts';
@@ -51,7 +52,7 @@ function lobby(error = '', benchmark = false): void {
   stopLobby = renderLobby(app, settings, error, (s, spectate) => void play(s, spectate), benchmark);
 }
 
-/** Easter egg: the Konami code on the lobby opens the weapon viewer. It is fetched only then, so it costs the normal game nothing. */
+/** The Konami code on the lobby opens the weapon viewer. */
 const konami = sequenceMatcher(KONAMI_CODE);
 document.addEventListener('keydown', (e) => {
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -59,13 +60,18 @@ document.addEventListener('keydown', (e) => {
   void openDebug();
 });
 
-async function openDebug(): Promise<void> {
+async function openDebug(request?: ViewerRequest): Promise<void> {
   stopLobby?.();
   stopLobby = null;
+  const title = document.title;
   try {
     const { openWeaponViewer } = await import('./debug/weapon-viewer.ts');
-    openWeaponViewer(app, settings, () => lobby());
+    openWeaponViewer(app, settings, () => {
+      if (request) document.title = title;
+      lobby();
+    }, request);
   } catch {
+    if (request) document.title = 'viewer:error';
     lobby('Não foi possível abrir o modo debug.');
   }
 }
@@ -285,5 +291,7 @@ if (new URLSearchParams(location.search).has('benchmark')) {
   });
 } else {
   void loadBrand();
-  lobby();
+  const request = viewerRequest(location.search);
+  if (request) void openDebug(request);
+  else lobby();
 }

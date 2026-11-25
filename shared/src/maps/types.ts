@@ -132,6 +132,7 @@ export interface MapDef {
   dropArea: { minX: number; maxX: number; minZ: number; maxZ: number };
   /** Debug defusion bases by team, authored at their walking surface. */
   defuseBases?: readonly [BombPoint, BombPoint];
+  defuseSite?: BombPoint;
   flagBases: readonly [{ x: number; z: number }, { x: number; z: number }];
   dropHeight: number;
   airdropPoints: { x: number; z: number }[];

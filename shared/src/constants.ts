@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 23;
+export const PROTOCOL_VERSION = 24;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -224,7 +224,7 @@ export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000
 export const DAY_TRANSITION_MS = 30_000;
 
 export const CARRAPETA_PICKUP_TIMEOUT_SECONDS = 20;
-export const CARRAPETA_AIRDROP_CHANCE = 0.15;
+export const CARRAPETA_AIRDROP_CHANCE = 0.3;
 export const CARRAPETA_AIRDROP_RESERVE = 6;
 export const CARRAPETA_BLAST_RADIUS_UNITS = 160;
 export const CARRAPETA_SELF_DAMAGE_SCALE = 0.35;

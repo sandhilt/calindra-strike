@@ -867,19 +867,18 @@ test('bomb perception exposes roles, names, progress, positions and all named ev
   session.close();
 });
 
-test('Shopping bomb perception names both Mirante bases and swaps them with the attackers', async () => {
+test('Shopping bomb perception swaps the Mirante home and keeps the ground-floor site', async () => {
   const map = getMap(2);
   assert.ok(map.defuseBases);
   const { session, snap } = await defusion(2);
   for (const attackers of [0, 1]) {
     const home = map.defuseBases[attackers];
-    const site = map.defuseBases[1 - attackers];
     snap([0, -1, home.x, home.y, home.z, 0, 0, 0, attackers]);
     assert.partialDeepStrictEqual(session.getState(), {
       bomb: {
         pos: [home.x, home.y, home.z],
         home: { pos: [home.x, home.y, home.z], floor: 'Mirante' },
-        site: { pos: [site.x, site.y, site.z], floor: 'Mirante' },
+        site: { pos: [0, 0, 0], floor: 'térreo' },
       },
     });
   }
@@ -1154,6 +1153,33 @@ test('fire holds the trigger for the time asked and then lets go', async () => {
   const pressed = Array.from({ length: 8 }, () => sentCmds(ctx)).flat().filter((c) => c[1] & BTN.ATTACK).length;
   assert.equal(pressed, Math.ceil(150 / TICK_MS));
   assert.equal((await ctx.call('fire', { ms: 10 })).isError, true, 'below the minimum press');
+  ctx.session.close();
+});
+
+test('fire with heavy holds the right button on the hammer', async () => {
+  const ctx = await playing(WEAPON.HAMMER);
+  const res = await ctx.call('fire', { heavy: true, ms: 150 });
+  assert.equal(res.isError, undefined);
+  assert.partialDeepStrictEqual(JSON.parse(res.content[0].text), { heavy: true });
+  const cmds = Array.from({ length: 8 }, () => sentCmds(ctx)).flat();
+  assert.equal(cmds.filter((c) => c[1] & BTN.ATTACK2).length, Math.ceil(150 / TICK_MS));
+  assert.equal(cmds.filter((c) => c[1] & BTN.ATTACK).length, 0);
+  ctx.session.close();
+});
+
+test('fire with heavy is rejected for a weapon without a heavy swing and for a non boolean', async () => {
+  const rifle = await playing(WEAPON.RIFLE);
+  const res = await rifle.call('fire', { heavy: true });
+  assert.equal(res.isError, true);
+  assert.match(res.content[0].text, /hammer/);
+  assert.equal((await rifle.call('fire', { heavy: 'yes' })).isError, true);
+  rifle.session.close();
+});
+
+test('fire with heavy is rejected while a switch away from the hammer is in flight', async () => {
+  const ctx = await playing(WEAPON.HAMMER);
+  await ctx.call('switch_weapon', { slot: 'pistol' });
+  assert.equal((await ctx.call('fire', { heavy: true })).isError, true);
   ctx.session.close();
 });
 

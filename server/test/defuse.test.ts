@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
-import { bombStandBox, defuseBases, type BombPlaces, type BombState } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, waterSurfaceAt, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { bombPlaces, bombStandBox, defuseBases, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
 function setup(defuseLimit = 5, mode: GameMode = 'defuse', random = () => 0.5, maps?: string[]) {
@@ -92,6 +92,11 @@ it('a defender holding use scores the round for the defenders', () => {
   assert.equal((game as any).attackers, 1 - attackers);
   assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'defused' && e.by === defender.id)));
   assert.equal(snapshot(game, messages).bm[8], 1 - attackers);
+  game.phaseEnds = game.now() + 1;
+  game.update();
+  assert.equal(game.phase, 'podium');
+  assert.equal(game.teamScores[1 - attackers], 1);
+  assert.equal(game.teamScores[attackers], 0);
 });
 
 it('releasing use while defusing resets the progress', () => {
@@ -138,6 +143,69 @@ it('leaving the match drops a carried bomb', () => {
   assert.equal(snapshot(game, messages).bm[0], 3);
 });
 
+for (const teamLeaves of [false, true]) {
+  it(`awards the plant at the match clock and breaks the podium tie (team leaves: ${teamLeaves})`, () => {
+    const { game, players, attacker, defender, messages } = setup();
+    plant(game, attacker, defender);
+    defender.alive = true;
+    place(game, defender, attackSite(game, attacker.team), true);
+    const planted = snapshot(game, messages);
+    assert.equal(planted.bm[0], 4);
+    assert.equal(planted.bm[1], defender.id);
+    assert.deepEqual(game.teamScores, [0, 0]);
+
+    if (teamLeaves) {
+      for (const p of players) if (p.team === attacker.team) game.leave(p.id);
+      assert.equal(game.phase, 'live');
+    }
+
+    game.phaseEnds = game.now() + 1;
+    assert.ok(game.phaseEnds < Math.min(planted.bm[5], planted.bm[6]));
+    game.update();
+    const expected = attacker.team === 0 ? [1, 0] : [0, 1];
+    const podium = messages.findLast((m) => m.t === 'match');
+    assert.equal(podium?.match.phase, 'podium');
+    assert.deepEqual(podium?.match.teams, expected);
+    assert.equal(podium?.match.winner, attacker.team);
+    assert.equal(snapshot(game, messages).bm[0], 0);
+    run(game, 20);
+    assert.deepEqual(messages.findLast((m) => m.t === 'score')?.ts, expected);
+    assert.deepEqual(game.teamScores, expected);
+
+    game.phaseEnds = game.now() + 1;
+    game.update();
+    assert.equal(game.phase, 'live');
+    assert.deepEqual(game.teamScores, [0, 0]);
+  });
+}
+
+it('discards a planted round when everyone leaves and starts the next match scoreless', () => {
+  const { game, players, attacker, defender, messages } = setup();
+  plant(game, attacker, defender);
+  assert.equal(snapshot(game, messages).bm[0], 4);
+  for (const p of players) game.leave(p.id);
+  assert.equal(game.phase, 'warmup');
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.ok(!messages.some((m) => m.t === 'match' && m.match.phase === 'podium'));
+
+  for (const p of players.slice(0, 2)) game.join(p.name, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
+  assert.equal(game.phase, 'live');
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.equal(snapshot(game, messages).bm[0], 0);
+});
+
+it('ends a match with an unplanted bug without awarding a round', () => {
+  const { game, attacker, messages } = setup();
+  place(game, attacker, attacker.team);
+  assert.equal(snapshot(game, messages).bm[0], 1);
+  game.phaseEnds = game.now() + 1;
+  game.update();
+  const podium = messages.findLast((m) => m.t === 'match');
+  assert.equal(podium?.match.phase, 'podium');
+  assert.deepEqual(podium?.match.teams, [0, 0]);
+  assert.equal(podium?.match.winner, -1);
+});
+
 it('ends the match at the round limit with the winning team', () => {
   const { game, attacker, defender, messages } = setup(1);
   plant(game, attacker, defender);
@@ -149,6 +217,8 @@ it('ends the match at the round limit with the winning team', () => {
   const match = messages.findLast((m) => m.t === 'match');
   assert.ok(match?.t === 'match');
   assert.equal(match.match.limit, 1);
+  assert.equal(match.match.teams[attacker.team], 1);
+  assert.equal(match.match.teams[1 - attacker.team], 0);
   assert.equal(match.match.winner, attacker.team);
 });
 
@@ -380,7 +450,7 @@ for (const mapId of ['forja', 'shopping']) {
     const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
     const { game, attacker, defender } = setup(5, 'defuse', random, [mapId]);
     const bases = defuseBases(game.map, (x, z) => game.world.groundBelow(x, game.map.dropHeight, z, PLAYER_RADIUS));
-    const site = bases[attackSite(game, attacker.team)];
+    const { site } = bombPlaces(game.map, bases, attacker.team);
     for (let i = 0; i < 200; i++) {
       (game as unknown as { spawn(p: ServerPlayer): void }).spawn(defender);
       const distance = Math.hypot(defender.state.x - site.x, defender.state.z - site.z);
@@ -388,3 +458,32 @@ for (const mapId of ['forja', 'shopping']) {
     }
   });
 }
+
+
+it('plants in the Shopping fountain basin, steps clear of the desk and lets the defender defuse', () => {
+  const { game, attacker, defender, messages } = setup(5, 'defuse', () => 0.5, ['shopping']);
+  const bases = game.map.defuseBases;
+  assert.ok(bases);
+  Object.assign(attacker.state, { ...bases[attacker.team], dropping: false });
+  game.update();
+  assert.equal(snapshot(game, messages).bm[1], attacker.id);
+
+  const at = { x: 0, y: 0, z: 96 };
+  assert.equal(waterSurfaceAt(game.map, at.x, at.y, at.z), 28);
+  assert.equal(game.world.hullOverlaps(at.x, at.y, at.z, STAND_HEIGHT), false);
+  Object.assign(attacker.state, { ...at, yaw: 0 });
+  attacker.using = true;
+  run(game, PLANT_TICKS + 1);
+  const planted = snapshot(game, messages).bm;
+  assert.equal(planted[0], 4);
+  assert.deepEqual(planted.slice(2, 5), [at.x, at.y, at.z]);
+  const { x, y, z } = attacker.state;
+  assert.ok(Math.max(Math.abs(x - at.x), Math.abs(z - at.z)) > BOMB_DESK_SIZE_UNITS / 2 + PLAYER_RADIUS);
+  assert.equal(game.world.hullOverlaps(x, y, z, STAND_HEIGHT), false);
+  assert.equal(waterSurfaceAt(game.map, x, y, z), 28);
+
+  Object.assign(defender.state, { x, y, z, dropping: false });
+  defender.using = true;
+  run(game, DEFUSE_TICKS + 1);
+  assert.equal(game.teamScores[defender.team], 1);
+});

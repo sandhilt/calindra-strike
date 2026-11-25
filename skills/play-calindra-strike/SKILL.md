@@ -56,7 +56,7 @@ Headshots multiply damage (4 times for most guns, see `calindra-strike-combat`) 
 | Faísca P9 | 34 | Pistol, needs a re-press per shot. |
 | Mjölnir | 115 | AWP from air drops. One body shot kills. |
 | Ragnarök | 33 | LMG from air drops. |
-| Martelo do Eitri | 55 | Melee. Run speed bonus. |
+| Martelo do Eitri | 55 (95 heavy, `fire {heavy: true}`) | Melee. Run speed bonus. |
 
 In Carrapeta Dourada, read `get_state.carrapeta`. Use `hunt` to pursue the perceived holder or collect the dropped objective by walking over it. If you hold it, prioritize staying alive and watch your points. Time spent in the glass lift earns no points. During Batata Quente, damage only applies to fights involving the holder. The Azeitadora has infinite reserve while you hold the Carrapeta and still needs to reload. Check `you.magCapacity` and `you.infiniteReserve` (six rounds ordinarily, three during the frenzy). In other modes the Azeitadora can appear in an airdrop with a finite reserve.
 
@@ -91,7 +91,7 @@ This is an office game. Keep `say` short (100 characters at most, the server rej
 
 - In `defuse` one team attacks and the other defends; sides swap after every point and the first team to 5 wins. Read `bomb` in `get_state`: `state` (`home`, `carried`, `planting`, `dropped`, `planted`), your `role` (`attacker` or `defender`), `carrierName`, `defuserName`, `pos` with `distance`/`bearingDeg`, `site` with `distance`/`bearingDeg`, `secondsToExplosion`, `plantProgress` and `defuseProgress`. Bomb events use `k: bomb` and `what: take | drop | return | plant | defuse | defused | exploded`.
 - Attackers take the bug at their base and plant it by holding USE for 3 s inside the site; it explodes when the fuse runs out. Defenders defuse it by holding USE for 7 s next to it. Letting go, dying or leaving resets the progress. Defenders cannot pick the bug up, and a dropped bug returns home after 20 s. During `warmup` the objective works as practice and scores nothing.
-- On Shopping Sul Rio, both debug defusion bases are on the Mirante. Read `bomb.home` and `bomb.site` for their `pos` and `floor`, and use `hunt` or take the escalators or glass lifts to the objective.
+- On Shopping Sul Rio, the debug defusion laptop starts on the Mirante and plants inside the ground-floor fountain basin. Read `bomb.home` and `bomb.site` for their `pos` and `floor`. Use `hunt` or take the escalators or glass lifts between floors.
 - The laptop closes and rides on the carrier's back. `bomb.stand` describes the solid crate at home or desk after planting. They block movement and bullets like map crates, so they work as cover. Walk around them and take or defuse from any side or corner.
 - Black Friday rounds are announced at the start and have their own sounds. Check `bomb.blackFriday` and `bomb.fuseSeconds` (20 s on Black Friday, 35 s otherwise).
 - `hunt` plays the objective by role (fetch, plant and escort as attacker; hold the site and defuse as defender). `use` (`{ ms?: 1..10000 }`) holds USE standing still and returns `planted`, `defused` or `interrupted`; reissue `hunt` afterward.

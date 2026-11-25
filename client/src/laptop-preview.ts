@@ -196,9 +196,9 @@ function mountModel(container: Element | null): void {
   const camera = new THREE.PerspectiveCamera(55, MODEL_W / MODEL_H, 1, 3000);
   const at = { y: 0, variant: 0, attackers: 0, blackFriday: false, plantByAt: 0 };
   const stations = [
-    { renderer: new BombRenderer([], QUALITY.high.laptopScreenRefreshMs), bomb: (now: number) => ({ ...at, x: -90, z: 0, variant: 5, blackFriday: true, state: 'planted' as const, explodeAt: now + 20000, defuser: 1, defuseDoneAt: now + 3000 }) },
-    { renderer: new BombRenderer([], QUALITY.high.laptopScreenRefreshMs), bomb: () => ({ ...at, x: 90, z: 0, variant: 0, state: 'home' as const }) },
-    { renderer: new BombRenderer([], QUALITY.high.laptopScreenRefreshMs), bomb: () => ({ ...at, x: 0, z: -40, variant: 2, state: 'carried' as const, carrier: CARRIER_ID }) },
+    { renderer: new BombRenderer(QUALITY.high.laptopScreenRefreshMs), bomb: (now: number) => ({ ...at, x: -90, z: 0, variant: 5, blackFriday: true, state: 'planted' as const, explodeAt: now + 20000, defuser: 1, defuseDoneAt: now + 3000 }) },
+    { renderer: new BombRenderer(QUALITY.high.laptopScreenRefreshMs), bomb: () => ({ ...at, x: 90, z: 0, variant: 0, state: 'home' as const }) },
+    { renderer: new BombRenderer(QUALITY.high.laptopScreenRefreshMs), bomb: () => ({ ...at, x: 0, z: -40, variant: 2, state: 'carried' as const, carrier: CARRIER_ID }) },
   ];
   const carrierAvatar = new THREE.Mesh(new THREE.CapsuleGeometry(PLAYER_RADIUS, STAND_HEIGHT - PLAYER_RADIUS * 2, 4, 12), new THREE.MeshStandardMaterial({ color: '#4a78c8' }));
   carrierAvatar.position.set(0, STAND_HEIGHT / 2, -40);

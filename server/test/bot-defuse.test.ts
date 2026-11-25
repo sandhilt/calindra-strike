@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, TICK_RATE, BOMB_SITE_RADIUS_UNITS, defuseBases, inBombReach, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombPoint, type BombState, type ServerMsg } from '@calindra-strike/shared';
+import { BOMB_DESK_SIZE_UNITS, PLAYER_RADIUS, DEFUSE_TICKS, TICK_RATE, BOMB_SITE_RADIUS_UNITS, bombPlaces, defuseBases, inBombReach, CollisionWorld, createPlayerState, getMaps, BTN, WEAPON, FUSE_TICKS, type BombState, type ServerMsg } from '@calindra-strike/shared';
 import { BotBrain, guardPatrolPoint, pickBombGoal, type BotAgent, type BotEnv } from '../src/bot.ts';
 import { NavGrid } from '../src/nav.ts';
 import { Game } from '../src/game.ts';
@@ -126,8 +126,10 @@ for (const map of getMaps()) {
     const { game, events, attacker, defender } = botGame(map.id);
     attacker.alive = false;
     attacker.respawnAt = Infinity;
-    const site = defuseBases(map, (x, z) => game.world.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS))[1 - attacker.team];
-    (game as unknown as { bomb: BombState }).bomb = { kind: 'planted', ...site, explodeAtTick: game.tick + FUSE_TICKS * 6, variant: 1, defuse: null };
+    const bases = defuseBases(map, (x, z) => game.world.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS));
+    const { site } = bombPlaces(map, bases, attacker.team);
+    const at = map.defuseSite ? { ...site, z: 96 } : site;
+    (game as unknown as { bomb: BombState }).bomb = { kind: 'planted', ...at, explodeAtTick: game.tick + FUSE_TICKS * 6, variant: 1, defuse: null };
     let ticks = 0;
     while (ticks < BUDGET_TICKS && !events.includes('defused')) { game.update(); ticks++; }
     t.diagnostic(map.id + ': ticks-to-defuse=' + (events.includes('defused') ? ticks : 'none'));
@@ -137,11 +139,10 @@ for (const map of getMaps()) {
   });
 }
 
-/** The climb to the Mirante is slow and few defenders get there before the fuse ends, so one seed is luck: seeds are tried in turn until a defender reaches the laptop, and every run must have moved. */
-const MIRANTE_SEEDS = [3, 1, 5, 7, 9, 11, 13, 15];
-const MIRANTE_BUDGET_TICKS = 60 * 300;
+const SHOPPING_SEEDS = [3, 1, 5, 7, 9, 11, 13, 15];
+const SHOPPING_BUDGET_TICKS = 60 * 300;
 
-function playMirante(seed: number, t: { diagnostic(message: string): void }): { took: boolean; plants: number; defuseStarted: boolean; longestIdleTicks: number } {
+function playShopping(seed: number, t: { diagnostic(message: string): void }): { took: boolean; plants: number; defuseStarted: boolean; longestIdleTicks: number } {
   const { game, events } = botGame('shopping', 8, seed);
   const bases = game.map.defuseBases;
   assert.ok(bases);
@@ -149,13 +150,13 @@ function playMirante(seed: number, t: { diagnostic(message: string): void }): { 
   let longestIdleTicks = 0;
   let plants = 0;
   const round = game as unknown as { attackers: number; bomb: BombState };
-  for (let tick = 0; tick < MIRANTE_BUDGET_TICKS; tick++) {
+  for (let tick = 0; tick < SHOPPING_BUDGET_TICKS; tick++) {
     const previous = events.length;
-    const site: BombPoint = bases[1 - round.attackers];
+    const site = bombPlaces(game.map, bases, round.attackers).site;
     game.update();
     if (events.slice(previous).includes('plant')) {
       assert.equal(round.bomb.kind, 'planted');
-      assert.equal(round.bomb.y, site.y);
+      assert.ok(round.bomb.y <= 36, 'the desk is in the basin or on its rim');
       assert.ok(inBombReach(round.bomb, site, BOMB_SITE_RADIUS_UNITS));
       plants++;
     }
@@ -178,14 +179,14 @@ function playMirante(seed: number, t: { diagnostic(message: string): void }): { 
   return { took: events.includes('take'), plants, defuseStarted: events.includes('defuse'), longestIdleTicks };
 }
 
-it('Shopping bots take, plant and reach the laptop live on the Mirante without getting permanently stuck', (t) => {
-  const runs: ReturnType<typeof playMirante>[] = [];
-  for (const seed of MIRANTE_SEEDS) {
-    runs.push(playMirante(seed, t));
+it('Shopping bots take, plant and reach the laptop at the fountain without getting permanently stuck', (t) => {
+  const runs: ReturnType<typeof playShopping>[] = [];
+  for (const seed of SHOPPING_SEEDS) {
+    runs.push(playShopping(seed, t));
     if (runs.at(-1)?.defuseStarted) break;
   }
   assert.ok(runs.some((run) => run.took && run.plants > 0), 'no seed had the bots take and plant');
-  assert.ok(runs.some((run) => run.defuseStarted), 'across the seeds a defender reached the laptop on the Mirante and started to defuse it');
+  assert.ok(runs.some((run) => run.defuseStarted), 'across the seeds a defender reached the laptop at the fountain and started to defuse it');
   for (const run of runs) assert.ok(run.longestIdleTicks < 30 * TICK_RATE, 'every living landed bot moved within 30 seconds');
 });
 

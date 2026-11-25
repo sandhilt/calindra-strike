@@ -172,13 +172,10 @@ export class BombRenderer {
   private modelShown: LaptopModel | undefined;
   private readonly light: THREE.Mesh;
   private readonly siteRing: THREE.Mesh;
-  private readonly bases: readonly BombPoint[];
   private nextScreenAt = 0;
   private screenRefreshMs: number;
-  private siteOf = -1;
 
-  constructor(bases: readonly BombPoint[], screenRefreshMs: number) {
-    this.bases = bases;
+  constructor(screenRefreshMs: number) {
     this.screenRefreshMs = screenRefreshMs;
     const canvas = document.createElement('canvas');
     canvas.width = SCREEN_WIDTH_PX;
@@ -234,13 +231,14 @@ export class BombRenderer {
     this.group.visible = false;
   }
 
-  update(bomb: BombView | null, now: number, seconds: number, camera: THREE.Vector3, carrier: (id: number) => CarrierPose | undefined): void {
+  update(bomb: BombView | null, now: number, seconds: number, camera: THREE.Vector3, carrier: (id: number) => CarrierPose | undefined, site?: BombPoint): void {
     this.group.visible = bomb !== null;
     if (!bomb) {
       this.placedAt = '';
       return;
     }
-    this.placeSite(bomb);
+    this.siteRing.visible = site !== undefined;
+    if (site) this.siteRing.position.set(site.x, site.y + SITE_RING_LIFT_UNITS, site.z);
     this.placeLaptop(bomb, camera, carrier);
     this.blink(bomb, now, seconds);
     this.refreshScreen(bomb, now);
@@ -252,15 +250,6 @@ export class BombRenderer {
   }
 
   position(): THREE.Vector3 { return this.station.position; }
-
-  private placeSite(bomb: BombView): void {
-    const site = this.bases[1 - bomb.attackers];
-    if (!site) return;
-    if (this.siteOf !== bomb.attackers) {
-      this.siteOf = bomb.attackers;
-      this.siteRing.position.set(site.x, site.y + SITE_RING_LIFT_UNITS, site.z);
-    }
-  }
 
   private placeLaptop(bomb: BombView, camera: THREE.Vector3, carrier: (id: number) => CarrierPose | undefined): void {
     const holder = bomb.state === 'carried' || bomb.state === 'planting' ? carrier(bomb.carrier) : undefined;

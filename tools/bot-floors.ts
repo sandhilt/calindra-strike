@@ -7,7 +7,7 @@
  * STUCK_RADIUS_UNITS of one spot for `--stuck` seconds without firing or holding USE (a bot in a lift shaft is waiting for the cab).
  */
 import { parseArgs } from 'node:util';
-import { type GameMode, CollisionWorld, defuseBases, inBombReach, PLAYER_RADIUS, TICK_RATE, WEAPON, getMap, getMaps, liftAt, modeFitsMap, mulberry32 } from '../shared/src/index.ts';
+import { type GameMode, CollisionWorld, bombPlaces, defuseBases, inBombReach, PLAYER_RADIUS, TICK_RATE, WEAPON, getMap, getMaps, liftAt, modeFitsMap, mulberry32 } from '../shared/src/index.ts';
 import { Game } from '../server/src/game.ts';
 
 const STUCK_RADIUS_UNITS = 64;
@@ -50,6 +50,7 @@ function run(map: string, mode: string, bots: number, seconds: number, seed: num
   game.join('Observer', 0, WEAPON.RIFLE, () => {});
   const terrain = new CollisionWorld(game.map);
   const bombBases = mode === 'defuse' ? defuseBases(game.map, (x, z) => Math.max(0, terrain.groundBelow(x, game.map.dropHeight, z, PLAYER_RADIUS))) : undefined;
+  const objectiveSpots = bombBases && [...bombBases, bombPlaces(game.map, bombBases, 0).site];
   const tally = newTally();
   const trails = new Map<number, Trail>();
   for (let tick = 0; tick < seconds * TICK_RATE; tick++) {
@@ -80,8 +81,8 @@ function run(map: string, mode: string, bots: number, seconds: number, seed: num
       if (trail.samples.length < stuckSeconds) continue;
       const first = trail.samples[0];
       const near = trail.samples.every((q) => Math.hypot(q.x - first.x, q.z - first.z) < STUCK_RADIUS_UNITS && Math.abs(q.y - first.y) < 24);
-      const guarding = bombBases
-        ? bombBases.some(spot => inBombReach(spot, s, GUARD_RADIUS_UNITS))
+      const guarding = objectiveSpots
+        ? objectiveSpots.some(spot => inBombReach(spot, s, GUARD_RADIUS_UNITS))
         : [...game.map.flagBases, ...game.map.restaurants].some(spot => Math.hypot(spot.x - s.x, spot.z - s.z) < GUARD_RADIUS_UNITS);
       const waitingForCab = liftAt(game.map.lifts, s.x, s.y, s.z) !== undefined;
       const busy = p.using || guarding || waitingForCab || p.brain.browsing || s.tick - s.lastFire < stuckSeconds * TICK_RATE;

@@ -1,4 +1,4 @@
-import { bombStandBox } from '../shared/src/index.ts';
+import { bombPlaces, bombStandBox } from '../shared/src/index.ts';
 import type { Brain } from './bot-driver.ts';
 import { carrapetaGoal } from './carrapeta-goals.ts';
 import { ctfGoal, readFlags } from './ctf-goals.ts';
@@ -12,7 +12,7 @@ export const defuseBrain: Brain = {
   decide({ snap, terrain, self, players, leg, enemy, closeEnemy }) {
     const bomb = readBombRow(snap.bm);
     if (!bomb) return null;
-    const places = { home: terrain.bombBases[bomb.attackers], site: terrain.bombBases[1 - bomb.attackers], attackers: bomb.attackers };
+    const places = bombPlaces(terrain.world.map, terrain.bombBases, bomb.attackers);
     return defuseGoal(bomb, places, self, players, leg, enemy, closeEnemy);
   },
 };

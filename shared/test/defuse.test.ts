@@ -1,6 +1,6 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stepBomb, defuseBases, practiceRound, bombSpawnScore, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
+import { stepBomb, bombPlaces, defuseBases, practiceRound, bombSpawnScore, otherVariant, blackFridayDue, blackFridayMarked, startBlackFriday, bombStandBox, standExit, inBombReach, dropBomb, applyCmd, createPlayerState, CollisionWorld, getMaps, BTN, type BombActor, type BombPlaces, type BombState } from '../src/index.ts';
 import { BLACK_FRIDAY_FUSE_TICKS, BOMB_SPAWN_KEEPOUT_UNITS, BLACK_FRIDAY_GUARANTEE_ROUND, BOMB_CRATE_HEIGHT_UNITS, BOMB_CRATE_SIZE_UNITS, BOMB_DESK_HEIGHT_UNITS, BOMB_DESK_SIZE_UNITS, BOMB_DROPPED_TICKS, CTF_PICKUP_RADIUS_UNITS, DEFUSE_RADIUS_UNITS, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, PLAYER_RADIUS, STAND_HEIGHT } from '../src/constants.ts';
 
 it('uses authored defuse heights and resolves both flag bases on maps without them', () => {
@@ -325,4 +325,18 @@ it('a trace reports the material it hit: the map box, or a crate for the bug sta
   assert.equal(world.trace(-400, 10, 0, 1, 0, 0, 500)?.mat, 'crate');
   world.setProp(null);
   assert.equal(world.trace(0, 50, 0, 1, 0, 0, 500)?.mat, 'metal');
+});
+
+
+it('resolves a fixed plant site for either side and falls back to the opposing base', () => {
+  const bases = [{ x: -10, y: 384, z: -20 }, { x: 10, y: 384, z: 20 }] as const;
+  const centre = { x: 0, y: 0, z: 0 };
+  for (const attackers of [0, 1] as const) {
+    assert.deepEqual(bombPlaces({ defuseSite: centre }, bases, attackers), {
+      home: bases[attackers], site: centre, attackers,
+    });
+    assert.deepEqual(bombPlaces({}, bases, attackers), {
+      home: bases[attackers], site: bases[1 - attackers], attackers,
+    });
+  }
 });

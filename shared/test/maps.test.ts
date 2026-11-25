@@ -23,8 +23,10 @@ for (const map of getMaps()) {
     it('uses open, mirrored Mirante bases for Shopping defusion', () => {
       if (map.id !== 'shopping') {
         assert.equal(map.defuseBases, undefined);
+        assert.equal(map.defuseSite, undefined);
         return;
       }
+      assert.deepEqual(map.defuseSite, { x: 0, y: 0, z: 0 });
       assert.ok(map.defuseBases);
       const [north, south] = map.defuseBases;
       assert.deepEqual(south, { x: -north.x, y: north.y, z: -north.z });

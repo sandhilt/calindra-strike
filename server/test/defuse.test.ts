@@ -1,7 +1,7 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
-import { bombStandBox, defuseBases, type BombPlaces, type BombState } from '@calindra-strike/shared';
+import { BLACK_FRIDAY_FUSE_MS, BOMB_DESK_SIZE_UNITS, waterSurfaceAt, BOMB_SPAWN_KEEPOUT_UNITS, PLAYER_RADIUS, STAND_HEIGHT, BOMB_DROPPED_TICKS, BTN, DEBUG_SCENARIO_COUNT, DEFUSE_TICKS, FUSE_TICKS, PLANT_TICKS, SNAPSHOT_EVERY_TICKS, TICK_MS, WEAPON, type GameMode, type ServerMsg } from '@calindra-strike/shared';
+import { bombPlaces, bombStandBox, defuseBases, type BombPlaces, type BombState } from '@calindra-strike/shared';
 import { Game, type ServerPlayer } from '../src/game.ts';
 
 function setup(defuseLimit = 5, mode: GameMode = 'defuse', random = () => 0.5, maps?: string[]) {
@@ -380,7 +380,7 @@ for (const mapId of ['forja', 'shopping']) {
     const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
     const { game, attacker, defender } = setup(5, 'defuse', random, [mapId]);
     const bases = defuseBases(game.map, (x, z) => game.world.groundBelow(x, game.map.dropHeight, z, PLAYER_RADIUS));
-    const site = bases[attackSite(game, attacker.team)];
+    const { site } = bombPlaces(game.map, bases, attacker.team);
     for (let i = 0; i < 200; i++) {
       (game as unknown as { spawn(p: ServerPlayer): void }).spawn(defender);
       const distance = Math.hypot(defender.state.x - site.x, defender.state.z - site.z);
@@ -388,3 +388,32 @@ for (const mapId of ['forja', 'shopping']) {
     }
   });
 }
+
+
+it('plants in the Shopping fountain basin, steps clear of the desk and lets the defender defuse', () => {
+  const { game, attacker, defender, messages } = setup(5, 'defuse', () => 0.5, ['shopping']);
+  const bases = game.map.defuseBases;
+  assert.ok(bases);
+  Object.assign(attacker.state, { ...bases[attacker.team], dropping: false });
+  game.update();
+  assert.equal(snapshot(game, messages).bm[1], attacker.id);
+
+  const at = { x: 0, y: 0, z: 96 };
+  assert.equal(waterSurfaceAt(game.map, at.x, at.y, at.z), 28);
+  assert.equal(game.world.hullOverlaps(at.x, at.y, at.z, STAND_HEIGHT), false);
+  Object.assign(attacker.state, { ...at, yaw: 0 });
+  attacker.using = true;
+  run(game, PLANT_TICKS + 1);
+  const planted = snapshot(game, messages).bm;
+  assert.equal(planted[0], 4);
+  assert.deepEqual(planted.slice(2, 5), [at.x, at.y, at.z]);
+  const { x, y, z } = attacker.state;
+  assert.ok(Math.max(Math.abs(x - at.x), Math.abs(z - at.z)) > BOMB_DESK_SIZE_UNITS / 2 + PLAYER_RADIUS);
+  assert.equal(game.world.hullOverlaps(x, y, z, STAND_HEIGHT), false);
+  assert.equal(waterSurfaceAt(game.map, x, y, z), 28);
+
+  Object.assign(defender.state, { x, y, z, dropping: false });
+  defender.using = true;
+  run(game, DEFUSE_TICKS + 1);
+  assert.equal(game.teamScores[defender.team], 1);
+});

@@ -20,6 +20,8 @@ import {
   type CarrapetaSnapshot,
   respawnTicksOf,
   type MapDef,
+  bombPlaces,
+  BOMB_SITE_RADIUS_UNITS,
   defuseBases,
   type MatchInfo,
   PLAYER_COLORS,
@@ -315,6 +317,7 @@ export class ClientGame {
   private announcedLunchRound = 0;
   private bomb: BombView | null = null;
   private announcedBombRound = '';
+  private bombSiteRingLift = 0;
   private bombBases!: ReturnType<typeof defuseBases>;
   private bombRenderer?: BombRenderer;
   private nextBombBeepAt = 0;
@@ -715,6 +718,10 @@ export class ClientGame {
     const groundY = (x: number, z: number) => this.collision.groundBelow(x, this.map.dropHeight, z, PLAYER_RADIUS);
     const bases = this.map.flagBases.map(base => ({ ...base, y: groundY(base.x, base.z) }));
     this.bombBases = defuseBases(this.map, (x, z) => Math.max(0, groundY(x, z)));
+    const fixedSite = this.map.defuseSite;
+    this.bombSiteRingLift = fixedSite
+      ? Math.max(0, groundY(fixedSite.x + BOMB_SITE_RADIUS_UNITS - 1, fixedSite.z) - fixedSite.y)
+      : 0;
     this.flagRenderer?.dispose();
     this.flagRenderer = new FlagsView(bases);
     this.scene.add(this.flagRenderer.group);
@@ -729,7 +736,7 @@ export class ClientGame {
     this.announcedLunchRound = 0;
     this.hud.clearLunchBanner();
     this.bombRenderer?.dispose();
-    this.bombRenderer = new BombRenderer(this.bombBases, QUALITY[this.settings.quality].laptopScreenRefreshMs);
+    this.bombRenderer = new BombRenderer(QUALITY[this.settings.quality].laptopScreenRefreshMs);
     this.scene.add(this.bombRenderer.group);
     for (const r of this.remotes.values()) r.buf.length = 0;
     this.effects.clear();
@@ -1121,8 +1128,8 @@ export class ClientGame {
   /** E pressed where it cannot plant or defuse: say why instead of failing silently. */
   private explainUse(): void {
     const bomb = this.bomb;
-    const site = bomb && this.bombBases[1 - bomb.attackers];
-    if (!bomb || !site) return;
+    if (!bomb) return;
+    const { site } = bombPlaces(this.map, this.bombBases, bomb.attackers);
     const reason = useRefusal({ bomb, myId: this.myId, myTeam: this.myTeam, me: this.me, site, name: id => this.nameOf(id).name, practice: this.match.phase === 'warmup' });
     if (!reason) return;
     this.hud.info(reason);
@@ -1748,7 +1755,9 @@ export class ClientGame {
     this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
     this.colleaguesView?.update(this.lunch?.colleagues ?? [], dt);
     this.lunchTargetView?.update(this.lunchTarget(), this.elapsed);
-    this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose);
+    const site = this.bomb && bombPlaces(this.map, this.bombBases, this.bomb.attackers).site;
+    this.bombRenderer?.update(this.bomb, this.serverNow(), this.elapsed, this.camera.position, this.carrierPose,
+      site ? { ...site, y: site.y + this.bombSiteRingLift } : undefined);
     this.beepBomb(this.serverNow());
     this.typeOnBomb();
     this.effects.update(dt, this.debrisGround);
@@ -2189,8 +2198,9 @@ export class ClientGame {
     if (!bomb) return;
     const carrying = !this.spectator && (bomb.state === 'carried' || bomb.state === 'planting') && bomb.carrier === this.myId;
     if (carrying) {
-      const site = this.bombBases[1 - bomb.attackers];
-      targets.push({ ...site, y: site.y + 100, label: `site · segure ${this.controlLabels.use} para plantar` });
+      const { site } = bombPlaces(this.map, this.bombBases, bomb.attackers);
+      const markerY = site.y + 100 + this.bombSiteRingLift;
+      targets.push({ ...site, y: markerY, label: `site · segure ${this.controlLabels.use} para plantar` });
       return;
     }
     const at = this.bombRenderer?.position() ?? bomb;

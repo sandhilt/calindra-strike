@@ -16,6 +16,7 @@ import {
   AUDIBLE_INTENSITY,
   dayCycleAt,
   heardIntensity,
+  bombPlaces as resolveBombPlaces,
   defuseBases,
   type BombPoint,
   unpackState,
@@ -421,8 +422,7 @@ export function bombPlaces(v: WorldView, world: CollisionWorld) {
     bases = defuseBases(map, (x, z) => Math.max(0, terrain.groundBelow(x, map.dropHeight, z, PLAYER_RADIUS)));
     bombBases.set(map, bases);
   }
-  const attackers = v.bomb[8];
-  return { home: bases[attackers], site: bases[1 - attackers], attackers };
+  return resolveBombPlaces(map, bases, v.bomb[8]);
 }
 /** The colleagues of a running hora de almoçar round; undefined in other modes and on the podium, where no round runs. */
 export function lunchColleagues(v: WorldView): Colleague[] | undefined {

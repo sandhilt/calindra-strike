@@ -183,8 +183,9 @@ export class Hud {
   ]);
   private readonly deathBy = h('div', { class: 'by' });
   private readonly deathMeta = h('div', { class: 'meta' });
+  private readonly deathWatching = h('div', { class: 'meta hidden' });
   private readonly deathRespawn = h('div', { class: 'respawn' });
-  private readonly death = h('div', { class: 'death glass hidden' }, [h('div', { class: 'label', text: 'eliminado' }), this.deathBy, this.deathMeta, this.deathRespawn]);
+  private readonly death = h('div', { class: 'death glass hidden' }, [h('div', { class: 'label', text: 'eliminado' }), this.deathBy, this.deathMeta, this.deathWatching, this.deathRespawn]);
   private readonly markersEl = h('div', { class: 'markers' });
   private readonly markerPool: HTMLElement[] = [];
   readonly chat = h('div', { class: 'chat' });
@@ -658,13 +659,18 @@ export class Hud {
 
   setDeath(info: { killer: string; color: string; weapon: string; hs: boolean } | null): void {
     this.death.classList.toggle('hidden', !info);
+    this.deathWatching.classList.add('hidden');
+    this.deathWatching.textContent = '';
     if (!info) return;
     this.deathBy.replaceChildren('por ', h('span', { style: `color:${info.color}`, text: info.killer }));
     this.deathMeta.textContent = `${info.weapon}${info.hs ? ' · headshot' : ''}`;
   }
 
-  setRespawn(text: string): void {
+  setRespawn(text: string, followed: string | null): void {
     this.deathRespawn.textContent = text;
+    this.deathWatching.classList.toggle('hidden', followed === null);
+    const watching = followed === null ? '' : `assistindo ${followed} · clique para trocar`;
+    if (this.deathWatching.textContent !== watching) this.deathWatching.textContent = watching;
   }
 
   setMarkers(list: Marker[]): void {

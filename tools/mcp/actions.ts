@@ -54,6 +54,8 @@ export class ActionOverlay {
   /** Where the agent holds the crosshair, in radians; replaces the view the brain wanted until cleared. */
   aim: { yaw: number; pitch: number } | null = null;
   private fireTicks = 0;
+  /** The pending trigger hold is the melee alt attack: the right button, and only on a weapon that has one. */
+  private heavy = false;
   /** Last cmd seq the server reports as processed (snapshot `ack`). */
   ack = 0;
   private jumpPending = false;
@@ -64,6 +66,13 @@ export class ActionOverlay {
   private pressSeq = 0;
   private weaponSeq = 0;
   private adsSwitchSeq = 0;
+  private awaySeq = 0;
+
+  /** A switch to another slot is queued or not yet acknowledged, so a snapshot may still show the hammer. */
+  leavingHammer(): boolean {
+    const queued = this.weaponPending !== null && this.weaponPending !== WEAPON_SLOT_REQUEST.hammer;
+    return queued || this.ack < this.awaySeq;
+  }
 
   requestJump(): void {
     this.jumpPending = true;
@@ -109,9 +118,13 @@ export class ActionOverlay {
     this.reloadPending = true;
   }
 
-  /** Holds the trigger for `ms`, rounded up to whole commands so even a short burst presses at least once. */
-  requestFire(ms: number): void {
+  /**
+   * Holds the trigger for `ms`, rounded up to whole commands so even a short burst presses at least once.
+   * `heavy` holds the right button instead, the hammer's heavy swing.
+   */
+  requestFire(ms: number, heavy = false): void {
     this.fireTicks = Math.max(1, Math.ceil(ms / TICK_MS));
+    this.heavy = heavy;
   }
 
   requestWeapon(request: WeaponRequest): void {
@@ -123,6 +136,7 @@ export class ActionOverlay {
     this.walk = false;
     this.aim = null;
     this.fireTicks = 0;
+    this.heavy = false;
     this.reloadPending = false;
     this.weaponPending = null;
     this.crouch = false;
@@ -136,6 +150,7 @@ export class ActionOverlay {
     this.pressSeq = 0;
     this.weaponSeq = 0;
     this.adsSwitchSeq = 0;
+    this.awaySeq = 0;
     this.ack = 0;
   }
 
@@ -150,6 +165,7 @@ export class ActionOverlay {
     if (this.weaponPending !== null) {
       weapon = this.weaponPending;
       this.weaponSeq = cmd.seq;
+      if (this.weaponPending !== WEAPON_SLOT_REQUEST.hammer) this.awaySeq = cmd.seq;
       this.weaponPending = null;
     }
     if (this.crouch) buttons |= BTN.DUCK;
@@ -183,8 +199,15 @@ export class ActionOverlay {
         this.pressSeq = cmd.seq;
       }
     }
+    // On any other weapon the right button would aim or scope, so leaving the hammer cancels the swing.
+    if (this.heavy && self) {
+      const target = slotWeapon(self, weapon);
+      const switching = this.leavingHammer() || (target !== -1 && target !== self.weapon);
+      if (switching || !weaponDef(self.weapon).heavy) this.fireTicks = 0;
+    }
     if (this.fireTicks > 0 && self && self.health > 0 && !self.dropping) {
-      buttons |= BTN.ATTACK;
+      // The sim only swings heavy when ATTACK is up, so the pilot's trigger is dropped.
+      buttons = this.heavy ? (buttons & ~BTN.ATTACK) | BTN.ATTACK2 : buttons | BTN.ATTACK;
       this.fireTicks--;
     }
     if (this.use && self && self.health > 0 && !self.dropping) {

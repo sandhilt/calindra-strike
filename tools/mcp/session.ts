@@ -465,11 +465,14 @@ export class GameSession {
     };
   }
   /** Holds the trigger for `ms` where the crosshair points; the pilot stays idle, so it fires nothing by itself. */
-  fire(ms: number): object {
+  fire(ms: number, heavy = false): object {
     const self = this.livingSelf();
     if (self.dropping) throw new Error('Player is dropping');
-    this.actions.requestFire(ms);
-    return { firing: ms, weapon: weaponDef(self.weapon).name, mag: self.mag[self.weapon], aimed: this.actions.aim !== null };
+    const def = weaponDef(self.weapon);
+    if (heavy && !def.heavy) throw new Error(`${def.name} has no heavy swing; switch_weapon to the hammer first and read it in get_state`);
+    if (heavy && this.actions.leavingHammer()) throw new Error('Switching away from the hammer; read get_state before a heavy swing');
+    this.actions.requestFire(ms, heavy);
+    return { firing: ms, heavy, weapon: def.name, mag: self.mag[self.weapon], aimed: this.actions.aim !== null };
   }
   private actionState(): ActionEcho {
     return this.actions.echo(this.requirePlaying().view.self?.weapon);

@@ -1,7 +1,7 @@
 import { describe, it, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BTN, CollisionWorld, MapBuilder, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, STANCE, WEAPON,
+  BTN, CollisionWorld, MapBuilder, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, STAMINA_MAX, STANCE, TICK_MS, WEAPON,
   applyCmd, createPlayerState, getMaps, spawnState,
   type Cmd, type MapDef, type WeaponId,
 } from '../../shared/src/index.ts';
@@ -100,6 +100,76 @@ test('the hammer never gets ATTACK2 from zoom', () => {
   const o = new ActionOverlay();
   o.zoom = 1;
   for (let i = 0; i < 40; i++) assert.ok(!pressed(o.apply(cmd(), player(WEAPON.HAMMER)), BTN.ATTACK2));
+});
+
+test('a heavy swing holds ATTACK2 without ATTACK for its time, dropping the pilot trigger', () => {
+  const o = new ActionOverlay();
+  o.requestFire(TICK_MS * 2, true);
+  for (let seq = 1; seq <= 2; seq++) {
+    const c = o.apply(cmd(BTN.ATTACK, seq), player(WEAPON.HAMMER));
+    assert.ok(pressed(c, BTN.ATTACK2), 'seq ' + seq);
+    assert.ok(!pressed(c, BTN.ATTACK), 'ATTACK would turn it into a light swing');
+  }
+  assert.ok(!pressed(o.apply(cmd(0, 3), player(WEAPON.HAMMER)), BTN.ATTACK2));
+});
+
+test('a heavy swing is cancelled by leaving the hammer, so ATTACK2 never reaches a scope', () => {
+  const o = new ActionOverlay();
+  o.requestFire(1000, true);
+  o.requestWeapon(1);
+  const s = player(WEAPON.HAMMER);
+  s.primary = WEAPON.SNIPER;
+  assert.ok(!pressed(o.apply(cmd(0, 1), s), BTN.ATTACK2));
+  assert.ok(!pressed(o.apply(cmd(0, 2), s), BTN.ATTACK2), 'stale snapshot');
+  assert.ok(!pressed(o.apply(cmd(0, 3), player(WEAPON.SNIPER)), BTN.ATTACK2));
+});
+
+test('a heavy swing asked for after leaving the hammer is dropped until the server acknowledges the switch', () => {
+  const o = new ActionOverlay();
+  const stale = player(WEAPON.HAMMER);
+  o.requestWeapon(1);
+  o.apply(cmd(0, 1), stale);
+  assert.equal(o.leavingHammer(), true);
+  o.requestFire(1000, true);
+  assert.ok(!pressed(o.apply(cmd(0, 2), stale), BTN.ATTACK2));
+  o.ack = 1;
+  assert.equal(o.leavingHammer(), false);
+});
+
+test('asking for the hammer already in hand does not drop a heavy swing', () => {
+  const o = new ActionOverlay();
+  o.requestWeapon(3);
+  o.requestFire(1000, true);
+  assert.ok(pressed(o.apply(cmd(0, 1), player(WEAPON.HAMMER)), BTN.ATTACK2));
+  assert.ok(pressed(o.apply(cmd(0, 2), player(WEAPON.HAMMER)), BTN.ATTACK2));
+});
+
+test('a heavy swing presses nothing once the snapshot shows another weapon', () => {
+  const o = new ActionOverlay();
+  o.requestFire(1000, true);
+  assert.ok(!pressed(o.apply(cmd(0, 1), player(WEAPON.RIFLE)), BTN.ATTACK2 | BTN.ATTACK));
+  assert.ok(!pressed(o.apply(cmd(0, 2), player(WEAPON.HAMMER)), BTN.ATTACK2), 'cancelled, not queued');
+});
+
+test('a plain fire replaces a pending heavy swing', () => {
+  const o = new ActionOverlay();
+  o.requestFire(1000, true);
+  o.requestFire(TICK_MS);
+  const c = o.apply(cmd(), player(WEAPON.HAMMER));
+  assert.ok(pressed(c, BTN.ATTACK));
+  assert.ok(!pressed(c, BTN.ATTACK2));
+});
+
+test('the sim reads the overlay command as the heavy swing', () => {
+  const world = new CollisionWorld(getMaps()[0]);
+  const s = createPlayerState();
+  spawnState(s, 0, 0.1, 0, 0, WEAPON.RIFLE);
+  s.dropping = false;
+  s.weapon = WEAPON.HAMMER;
+  s.deploy = 0;
+  const o = new ActionOverlay();
+  o.requestFire(TICK_MS, true);
+  assert.equal(applyCmd(world, s, o.apply(cmd(0, 1), s), 1)?.heavy, true);
 });
 
 test('ADS holds through commands while deploying and reloading and yields to objective use', () => {

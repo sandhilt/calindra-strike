@@ -120,6 +120,7 @@ import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
 import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, mouseLooks, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
+import { deathSpectateTargets } from './spectate/death.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
@@ -127,6 +128,7 @@ import { easeFov } from './render/zoom.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
+const DEFUSE_DEATH_CAM_MS = 2_000;
 // Typing rhythm of the bug keyboard while planting or defusing, in ms between keystrokes.
 const KEYSTROKE_MIN_MS = 55;
 const KEYSTROKE_JITTER_MS = 90;
@@ -434,12 +436,22 @@ export class ClientGame {
 
     this.renderer.domElement.addEventListener('click', () => {
       if (this.spectator) { this.onSpectatorClick(); return; }
-      if (!this.input.locked && !this.menuOpen) void this.requestPlay();
+      if (this.menuOpen || this.chatOpen) return;
+      if (!this.input.locked) { void this.requestPlay(); return; }
+      if (this.canDeathSpectate()) this.stepTarget(1);
+    });
+    this.renderer.domElement.addEventListener('mousedown', (e) => {
+      if (e.button !== 2 || this.menuOpen || this.chatOpen || !this.canDeathSpectate()) return;
+      this.stepTarget(-1);
     });
     this.renderer.domElement.addEventListener('contextmenu', (e) => {
-      if (!this.spectator) return;
+      if (this.spectator) {
+        e.preventDefault();
+        if (!this.menuOpen && this.cameraMode !== 'free') this.stepTarget(-1);
+        return;
+      }
+      if (this.menuOpen || this.chatOpen || !this.canDeathSpectate()) return;
       e.preventDefault();
-      if (!this.menuOpen && this.cameraMode !== 'free') this.stepTarget(-1);
     });
     this.hud.onSpectate = (action) => this.runSpectatorAction(action);
     document.addEventListener('pointerlockchange', this.onLockChange);
@@ -844,6 +856,8 @@ export class ClientGame {
       this.pending = this.pending.filter((c) => c.seq > m.ack);
       if (!this.alive) {
         this.alive = true;
+        this.deathAt = 0;
+        this.followedId = -1;
         this.input.clearProne();
         copyState(this.me, this.serverState);
         for (const c of this.pending) this.predict(this.me, c);
@@ -994,6 +1008,7 @@ export class ClientGame {
           this.alive = false;
           this.input.clearProne();
           this.deathAt = performance.now();
+          this.followedId = -1;
           this.deathWaitMs = e.wait;
           this.deathPos.set(this.me.x, this.me.y, this.me.z);
           this.killerId = e.by;
@@ -1223,6 +1238,11 @@ export class ClientGame {
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
+    if (!this.spectator && (info.phase !== before.phase || info.mode !== before.mode || info.map !== before.map)) {
+      this.deathAt = 0;
+      this.followedId = -1;
+      this.hud.setDeath(null);
+    }
     if (info.mode !== 'carrapeta' || info.phase !== 'live') this.clearCarrapeta();
     if (info.mode !== 'ctf') this.flags = [];
     if (info.mode !== 'almoco') {
@@ -1309,6 +1329,14 @@ export class ClientGame {
     if (this.spectator) return this.onSpectatorKey(code, down, e);
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
+      return true;
+    }
+    const action = spectatorAction(code);
+    if (!this.menuOpen && (action?.kind === 'next' || action?.kind === 'prev') && this.canDeathSpectate()) {
+      if (down) {
+        e.preventDefault();
+        if (!e.repeat) this.stepTarget(action.kind === 'next' ? 1 : -1);
+      }
       return true;
     }
     if (down) {
@@ -1848,8 +1876,44 @@ export class ClientGame {
     }).sort((a, b) => a.id - b.id);
   }
 
+  private canDeathSpectate(): boolean {
+    return !this.spectator && !this.alive && this.match.mode === 'defuse' && this.match.phase !== 'podium'
+      && this.deathAt > 0 && performance.now() - this.deathAt >= DEFUSE_DEATH_CAM_MS;
+  }
+
+  private deathTargets(): number[] {
+    const renderT = this.serverNow() - INTERP_DELAY_MS;
+    return deathSpectateTargets([...this.remotes.values()].map(r => ({
+      id: r.id,
+      team: this.names.get(r.id)?.team,
+      // Use the latest alive flag as well as the interpolated one so a death cannot linger in the chase view.
+      flags: (r.buf.at(-1)?.flags ?? 0) & (this.sample(r, renderT)?.flags ?? 0),
+    })), this.myTeam);
+  }
+
   private stepTarget(dir: 1 | -1): void {
-    this.followedId = stepTarget(this.watchTargets().map(r => r.id), this.followedId, dir);
+    const ids = this.spectator ? this.watchTargets().map(r => r.id) : this.deathTargets();
+    this.followedId = stepTarget(ids, this.followedId, dir);
+  }
+
+  private updateDeathSpectateCamera(): boolean {
+    const ids = this.deathTargets();
+    if (!ids.includes(this.followedId)) this.followedId = ids[0] ?? -1;
+    const followed = this.followedPlayer(this.followedSample());
+    if (!followed) return false;
+    const { x, y, z, yaw, pitch } = chasePose(followed, this.collision);
+    this.camera.position.set(x, y, z);
+    this.camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    return true;
+  }
+
+  private followedPlayer(sample: Snap | null): FollowedPlayer | null {
+    return sample && {
+      ...sample,
+      stance: stanceFromFlags(sample.flags),
+      onGround: (sample.flags & RF_GROUND) !== 0,
+      sliding: (sample.flags & RF_SLIDE) !== 0,
+    };
   }
 
   /** Places the spectator camera for the current mode and remembers where it stands. */
@@ -1865,12 +1929,7 @@ export class ClientGame {
       this.spectatorPose = stepFreeCam({ ...this.spectatorPose, yaw: this.input.yaw, pitch: this.input.pitch }, keys, dt, limits);
     } else {
       const sample = this.followedSample();
-      const followed: FollowedPlayer | null = sample && {
-        ...sample,
-        stance: stanceFromFlags(sample.flags),
-        onGround: (sample.flags & RF_GROUND) !== 0,
-        sliding: (sample.flags & RF_SLIDE) !== 0,
-      };
+      const followed = this.followedPlayer(sample);
       const view = this.cameraMode === 'orbit' ? { yaw: this.input.yaw, pitch: this.input.pitch } : followed;
       if (sample && followed && this.cameraMode === 'first') {
         const eye = movementEye(followed.stance, followed.onGround, Number(followed.sliding));
@@ -1928,15 +1987,18 @@ export class ClientGame {
       const [rp, ry] = recoilOffset(def, s.recoil);
       this.camera.rotation.set(this.input.pitch + rp + this.punch * 0.012, this.input.yaw + ry, -s.lean * LEAN_ROLL_RAD, 'YXZ');
     } else {
-      // death cam: rise above the body and look at the killer
+      const deathSpectate = this.canDeathSpectate();
+      if (deathSpectate && this.updateDeathSpectateCamera()) return;
+      // Rise above the body. In defusion the killer camera only runs at the start.
       const t = (performance.now() - this.deathAt) / 1000;
       const rise = Math.min(1, t / 1.2);
       this.camera.position.set(this.deathPos.x, this.deathPos.y + 40 + rise * 90, this.deathPos.z);
       const k = this.remotes.get(this.killerId);
-      if (k?.visible) {
+      if (k?.visible && !deathSpectate) {
         this.camera.lookAt(k.avatar.root.position.x, k.avatar.root.position.y + 50, k.avatar.root.position.z);
       } else {
-        this.camera.rotation.set(-0.9 * rise - 0.2, this.input.yaw, 0, 'YXZ');
+        const pitch = this.match.mode === 'defuse' ? 0 : -0.9 * rise - 0.2;
+        this.camera.rotation.set(pitch, this.input.yaw, 0, 'YXZ');
       }
     }
   }
@@ -2086,7 +2148,10 @@ export class ClientGame {
 
     if (!this.alive) {
       const left = Math.max(0, (this.deathWaitMs ?? this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
-      if (this.deathAt > 0) hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…');
+      if (this.deathAt > 0) {
+        const followed = this.followedId >= 0 ? this.nameOf(this.followedId).name : null;
+        hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…', followed);
+      }
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);
       hud.setScope('none');

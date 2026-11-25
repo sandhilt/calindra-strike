@@ -169,3 +169,4 @@ Whenever you add a feature, document it in the same change. A feature that is on
 
 - `origin` is the `sandhilt` fork, `upstream` is `gabriel-accetta/calindra-strike`.
 - Default branch is `main`. Commit messages are short, imperative, in English.
+- Record every change in `FORK_CHANGES.md`, the history of this fork against `upstream`, in the same change. Read and follow `.claude/skills/record-fork-changes/SKILL.md`.

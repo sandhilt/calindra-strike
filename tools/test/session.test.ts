@@ -867,19 +867,18 @@ test('bomb perception exposes roles, names, progress, positions and all named ev
   session.close();
 });
 
-test('Shopping bomb perception names both Mirante bases and swaps them with the attackers', async () => {
+test('Shopping bomb perception swaps the Mirante home and keeps the ground-floor site', async () => {
   const map = getMap(2);
   assert.ok(map.defuseBases);
   const { session, snap } = await defusion(2);
   for (const attackers of [0, 1]) {
     const home = map.defuseBases[attackers];
-    const site = map.defuseBases[1 - attackers];
     snap([0, -1, home.x, home.y, home.z, 0, 0, 0, attackers]);
     assert.partialDeepStrictEqual(session.getState(), {
       bomb: {
         pos: [home.x, home.y, home.z],
         home: { pos: [home.x, home.y, home.z], floor: 'Mirante' },
-        site: { pos: [site.x, site.y, site.z], floor: 'Mirante' },
+        site: { pos: [0, 0, 0], floor: 'térreo' },
       },
     });
   }

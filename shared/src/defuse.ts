@@ -27,6 +27,12 @@ export interface BombActor extends BombPoint { id: number; team: number; alive: 
 /** Outcome events carry the winning team (the new attackers for 'expired' and 'abandoned'); the others carry the acting player's team. */
 export interface BombEvent { k: 'bomb'; what: BombAction; team: number; by: number }
 export interface BombPlaces { home: BombPoint; site: BombPoint; attackers: number }
+
+/** The attackers' laptop base and where they plant: the map's shared site, else the other team's base. */
+export function bombPlaces(map: Pick<MapDef, 'defuseSite'>, bases: readonly [BombPoint, BombPoint], attackers: number): BombPlaces {
+  return { home: bases[attackers], site: map.defuseSite ?? bases[1 - attackers], attackers };
+}
+
 export interface BombStep { bomb: BombState; events: BombEvent[]; outcome?: BombOutcome }
 /**
  * Drawn when a round starts: which laptop scenario plays, whether Black Friday is on right now, when it will switch on

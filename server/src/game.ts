@@ -5,7 +5,7 @@ import {
   dropCarrapeta, frenzyAtTicks, halveVitals, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
-  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombPlaces, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   SUPPLY_COOLDOWN_TICKS, inSupplyReach, needsSupply, resupply,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
@@ -588,7 +588,7 @@ export class Game {
       bases = defuseBases(this.map, (x, z) => this.groundY(x, this.map.dropHeight, z));
       this.bombBasesByMap.set(this.map.id, bases);
     }
-    return { home: bases[this.attackers], site: bases[1 - this.attackers], attackers: this.attackers };
+    return bombPlaces(this.map, bases, this.attackers);
   }
 
   private updateBomb(): void {

@@ -232,6 +232,7 @@ export function buildShopping(): MapDef {
     subtitle: 'escada rolante, chafariz e praça de alimentação',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
     dropArea: { minX: -X + END_COLUMN_CLEARANCE, maxX: X - END_COLUMN_CLEARANCE, minZ: -600, maxZ: 600 },
+    defuseSite: { x: 0, y: 0, z: 0 },
     defuseBases: [{ x: -1090, y: DECK3, z: -1020 }, { x: 1090, y: DECK3, z: 1020 }],
     flagBases: [{ x: -1000, z: -480 }, { x: 1000, z: 480 }],
     dropHeight: DROP_HEIGHT,

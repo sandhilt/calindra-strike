@@ -100,9 +100,10 @@ describe('NavGrid', () => {
     }
   });
 
-  it('connects both ground bases to each Mirante defusion base and connects the two sites', () => {
+  it('connects both ground bases and the fountain to each Mirante laptop home', () => {
     assert.ok(shopping.defuseBases);
-    const [home, site] = shopping.defuseBases;
+    const site = shopping.defuseSite;
+    assert.ok(site);
     const groundStart = navS.nearest(shopping.flagBases[0].x, 0, shopping.flagBases[0].z);
     assert.ok(groundStart);
     const reachable = navS.reachableFrom(groundStart);
@@ -118,8 +119,11 @@ describe('NavGrid', () => {
       assert.equal(viaLift?.at(-1)?.y, base.y);
       assert.ok(viaLift?.every(node => node.y >= base.y), 'base is walkable directly from the top lift exit');
     }
-    for (const [from, to] of [[home, site], [site, home]]) {
-      assert.equal(route(navS, [from.x, from.y, from.z], [to.x, to.y, to.z])?.at(-1)?.y, to.y);
+    const basin: [number, number, number] = [site.x, site.y, site.z + 96];
+    for (const home of shopping.defuseBases) {
+      const base: [number, number, number] = [home.x, home.y, home.z];
+      assert.equal(route(navS, base, basin)?.at(-1)?.y, site.y);
+      assert.equal(route(navS, basin, base)?.at(-1)?.y, home.y);
     }
   });
 

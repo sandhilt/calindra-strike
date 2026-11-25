@@ -410,7 +410,7 @@ input:focus-visible {
   background: linear-gradient(170deg, rgba(32, 32, 30, 0.92), rgba(22, 22, 21, 0.92));
   border: 1px solid var(--line);
   border-radius: 28px;
-  padding: 26px;
+  padding: 84px 26px 26px;
   box-shadow:
     0 40px 80px -20px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -429,6 +429,33 @@ input:focus-visible {
     linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
+}
+
+.beta-ribbon {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 150px;
+  height: 150px;
+  overflow: hidden;
+  border-top-right-radius: 28px;
+  pointer-events: none;
+}
+
+.beta-ribbon span {
+  position: absolute;
+  top: 25px;
+  right: -58px;
+  width: 200px;
+  background: var(--lime);
+  color: var(--lime-ink);
+  font: 800 19px/34px var(--mono);
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+  box-shadow: 0 4px 18px rgba(165, 250, 0, 0.55);
+  transform: rotate(45deg);
 }
 
 .server {

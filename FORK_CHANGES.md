@@ -11,6 +11,10 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-25
 
+- The AWP scope lenses on the gun model are the dark blue-green coated glass again, replacing the faint clear green one (`client/src/game/render/weapons3d.ts`).
+- The Azeitadora airdrop chance outside Carrapeta Dourada went down from 30% to 20%, below the LMG (`CARRAPETA_AIRDROP_CHANCE`).
+- `node --run typecheck` passes again: the `goal` helper in `tools/test/carrapeta-goals.test.ts` has an explicit return type.
+- The lobby join card carries a lime “BETA” ribbon (`client/src/ui/lobby.ts`, `client/src/styles.css`).
 - Added this history file, the `record-fork-changes` skill that maintains it, and the rule in `AGENTS.md` that every change gets an entry.
 
 ## Baseline: upstream `310567f` to `cba52de` (2026-11-14 to 2026-11-25)

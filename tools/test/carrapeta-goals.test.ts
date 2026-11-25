@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { BTN, RF_ALIVE, TICK_MS, WEAPON, createPlayerState, packState, spawnState } from '../../shared/src/index.ts';
 import { BotDriver, type DriveView, type Snap } from '../bot-driver.ts';
 import { brainFor } from '../brains.ts';
-import { patrolPoint, type BotPlayer } from '../drive-goals.ts';
+import { patrolPoint, type BotPlayer, type Goal } from '../drive-goals.ts';
 
 const self: BotPlayer = { id: 1, team: -1, x: -100, y: 0, z: -1500, alive: true, dropping: false };
 const holder: BotPlayer = { ...self, id: 2, z: -1150 };
@@ -27,11 +27,12 @@ function driveView(ca: Snap['ca'], players: BotPlayer[], decide: (view: DriveVie
   driver.drive(snapshot(ca, players), 0, self.id, new Map([self, ...players].map(p => [p.id, p.team])), 0, 'carrapeta');
 }
 
-function goal(ca: Snap['ca'], players: BotPlayer[] = [], enemy: BotPlayer | null = null, leg = 0) {
+function goal(ca: Snap['ca'], players: BotPlayer[] = [], enemy: BotPlayer | null = null, leg = 0): Goal {
   const brain = brainFor('carrapeta');
   assert.ok(brain);
-  let result;
+  let result: Goal | null | undefined;
   driveView(ca, players, view => { result = brain.decide({ ...view, enemy, leg }); });
+  assert.ok(result);
   return result;
 }
 

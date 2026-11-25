@@ -123,6 +123,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
   const watch = h('button', { class: 'btn', type: 'submit', text: 'só assistir' });
   const footnote = h('p', { class: 'footnote', text: 'Partidas de 5 min · quem fizer mais kills sobe no pódio' });
   const form = h('form', { class: 'card', novalidate: true }, [
+    h('div', { class: 'beta-ribbon' }, [h('span', { text: 'beta' })]),
     server,
     h('div', { class: 'field' }, [h('label', { class: 'label', for: 'nick', text: 'apelido' }), nameInput]),
     h('div', { class: 'field' }, [h('span', { class: 'label', text: 'sua cor' }), swatches]),

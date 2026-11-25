@@ -92,6 +92,11 @@ it('a defender holding use scores the round for the defenders', () => {
   assert.equal((game as any).attackers, 1 - attackers);
   assert.ok(messages.some((m) => m.t === 'ev' && m.e.some((e) => e.k === 'bomb' && e.what === 'defused' && e.by === defender.id)));
   assert.equal(snapshot(game, messages).bm[8], 1 - attackers);
+  game.phaseEnds = game.now() + 1;
+  game.update();
+  assert.equal(game.phase, 'podium');
+  assert.equal(game.teamScores[1 - attackers], 1);
+  assert.equal(game.teamScores[attackers], 0);
 });
 
 it('releasing use while defusing resets the progress', () => {
@@ -138,6 +143,69 @@ it('leaving the match drops a carried bomb', () => {
   assert.equal(snapshot(game, messages).bm[0], 3);
 });
 
+for (const teamLeaves of [false, true]) {
+  it(`awards the plant at the match clock and breaks the podium tie (team leaves: ${teamLeaves})`, () => {
+    const { game, players, attacker, defender, messages } = setup();
+    plant(game, attacker, defender);
+    defender.alive = true;
+    place(game, defender, attackSite(game, attacker.team), true);
+    const planted = snapshot(game, messages);
+    assert.equal(planted.bm[0], 4);
+    assert.equal(planted.bm[1], defender.id);
+    assert.deepEqual(game.teamScores, [0, 0]);
+
+    if (teamLeaves) {
+      for (const p of players) if (p.team === attacker.team) game.leave(p.id);
+      assert.equal(game.phase, 'live');
+    }
+
+    game.phaseEnds = game.now() + 1;
+    assert.ok(game.phaseEnds < Math.min(planted.bm[5], planted.bm[6]));
+    game.update();
+    const expected = attacker.team === 0 ? [1, 0] : [0, 1];
+    const podium = messages.findLast((m) => m.t === 'match');
+    assert.equal(podium?.match.phase, 'podium');
+    assert.deepEqual(podium?.match.teams, expected);
+    assert.equal(podium?.match.winner, attacker.team);
+    assert.equal(snapshot(game, messages).bm[0], 0);
+    run(game, 20);
+    assert.deepEqual(messages.findLast((m) => m.t === 'score')?.ts, expected);
+    assert.deepEqual(game.teamScores, expected);
+
+    game.phaseEnds = game.now() + 1;
+    game.update();
+    assert.equal(game.phase, 'live');
+    assert.deepEqual(game.teamScores, [0, 0]);
+  });
+}
+
+it('discards a planted round when everyone leaves and starts the next match scoreless', () => {
+  const { game, players, attacker, defender, messages } = setup();
+  plant(game, attacker, defender);
+  assert.equal(snapshot(game, messages).bm[0], 4);
+  for (const p of players) game.leave(p.id);
+  assert.equal(game.phase, 'warmup');
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.ok(!messages.some((m) => m.t === 'match' && m.match.phase === 'podium'));
+
+  for (const p of players.slice(0, 2)) game.join(p.name, 0, WEAPON.RIFLE, (data) => messages.push(JSON.parse(data)));
+  assert.equal(game.phase, 'live');
+  assert.deepEqual(game.teamScores, [0, 0]);
+  assert.equal(snapshot(game, messages).bm[0], 0);
+});
+
+it('ends a match with an unplanted bug without awarding a round', () => {
+  const { game, attacker, messages } = setup();
+  place(game, attacker, attacker.team);
+  assert.equal(snapshot(game, messages).bm[0], 1);
+  game.phaseEnds = game.now() + 1;
+  game.update();
+  const podium = messages.findLast((m) => m.t === 'match');
+  assert.equal(podium?.match.phase, 'podium');
+  assert.deepEqual(podium?.match.teams, [0, 0]);
+  assert.equal(podium?.match.winner, -1);
+});
+
 it('ends the match at the round limit with the winning team', () => {
   const { game, attacker, defender, messages } = setup(1);
   plant(game, attacker, defender);
@@ -149,6 +217,8 @@ it('ends the match at the round limit with the winning team', () => {
   const match = messages.findLast((m) => m.t === 'match');
   assert.ok(match?.t === 'match');
   assert.equal(match.match.limit, 1);
+  assert.equal(match.match.teams[attacker.team], 1);
+  assert.equal(match.match.teams[1 - attacker.team], 0);
   assert.equal(match.match.winner, attacker.team);
 });
 

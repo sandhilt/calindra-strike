@@ -5,7 +5,7 @@ import {
   dropCarrapeta, frenzyAtTicks, halveVitals, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
   dropCarried, stepFlags, type FlagState, type FlagBase, PLAYER_RADIUS, isTeamMode, MODE_RULES, respawnTicksOf,
-  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombOutcome, type BombState, type BombPlaces, type BombPoint, type BombRound,
+  BLACK_FRIDAY_WINDOW_TICKS, BOMB_PLANT_TIMEOUT_SECONDS, BTN, DEBUG_SCENARIO_COUNT, bombStandBox, defuseBases, standExit, hullHeight, blackFridayDue, blackFridayMarked, dropBomb, otherVariant, startBlackFriday, stepBomb, type BombState, type BombPlaces, type BombPoint, type BombRound,
   MAX_SPECTATORS, RADIO_COOLDOWN_MS, SPECTATOR_PICK_MS, type SpectatorInfo,
   SUPPLY_COOLDOWN_TICKS, inSupplyReach, needsSupply, resupply,
   AIRDROP_FALL_SPEED, newBotChatMemory, pickBotChat, type BotChatMemory, type BotChatTrigger,
@@ -616,7 +616,9 @@ export class Game {
     }
     for (const event of result.events) this.emit(event);
     if (!result.outcome) return;
-    if (result.outcome !== 'expired' && this.phase === 'live') this.scoreBomb(result.outcome);
+    if (result.outcome !== 'expired' && this.phase === 'live') {
+      this.scoreBomb(result.outcome === 'defused' ? 1 - this.attackers : this.attackers);
+    }
     this.attackers = (1 - this.attackers) as 0 | 1;
     this.startBombRound(result.outcome === 'expired' ? this.bombRound.variant : undefined);
     if (this.phase === 'live') this.botsGreetRound();
@@ -636,8 +638,7 @@ export class Game {
     }
   }
 
-  private scoreBomb(outcome: Exclude<BombOutcome, 'expired'>): void {
-    const winner = outcome === 'defused' ? 1 - this.attackers : this.attackers;
+  private scoreBomb(winner: number): void {
     this.teamScores[winner]++;
     this.scoreDirty = true;
     if (this.defuseLimit > 0 && this.teamScores[winner] >= this.defuseLimit) this.endPending = true;
@@ -1267,6 +1268,7 @@ export class Game {
   }
 
   private endMatch(): void {
+    if (this.mode === 'defuse' && this.bomb.kind === 'planted') this.scoreBomb(this.attackers);
     this.scoreCarrapetaTime();
     if (this.frenzy.kind === 'frenzy') this.emit({ k: 'frenzy', what: 'off' });
     this.resetObjectives();

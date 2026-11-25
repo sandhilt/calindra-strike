@@ -164,7 +164,8 @@ describe('Game', () => {
     place(a, drop.x, drop.z + 30);
     a.state.y = (game as any).airdrops[0].landY + 0.05;
     game.update();
-    assert.ok(([WEAPON.SNIPER, WEAPON.LMG] as number[]).includes(a.state.weapon));
+    assert.ok(([WEAPON.SNIPER, WEAPON.LMG, WEAPON.MGL] as number[]).includes(drop.w));
+    assert.equal(a.state.weapon, drop.w);
     assert.equal(a.state.armor, 100);
     assert.equal(events(inbox.get(a.id)!).some((e) => e.k === 'loot'), true);
   });

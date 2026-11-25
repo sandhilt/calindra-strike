@@ -224,7 +224,7 @@ export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000
 export const DAY_TRANSITION_MS = 30_000;
 
 export const CARRAPETA_PICKUP_TIMEOUT_SECONDS = 20;
-export const CARRAPETA_AIRDROP_CHANCE = 0.15;
+export const CARRAPETA_AIRDROP_CHANCE = 0.3;
 export const CARRAPETA_AIRDROP_RESERVE = 6;
 export const CARRAPETA_BLAST_RADIUS_UNITS = 160;
 export const CARRAPETA_SELF_DAMAGE_SCALE = 0.35;

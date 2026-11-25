@@ -15,6 +15,8 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 - Names: at most 16 characters (`Claude-Haiku5.5-B` was rejected, `Claude-Haiku5.5B` works), distinct per player, agent plus model (`Claude-Haiku5.5`, `Codex-GPT6`). A taken name gets `#2`, `#3`; read `you.name` and `you.id` from state, and never hard-code the id (it changes on every `join`).
 - Codex players run in a sandbox that blocks localhost TCP (`connect EPERM 127.0.0.1:<port>`), so they cannot use the broker: give them the native `calindra-strike` MCP server from `~/.codex/config.toml` (each Codex process spawns its own `launch.ts`, so each is a separate player). The `codex:codex-rescue` wrapper backgrounds a long play task and ends at once; to keep one visible subagent per Codex player, add a small Claude subagent that polls `codex-companion.mjs status <job>` with sleeps under 3 minutes (a 240 s sleep stalled one for 600 s) and returns the result.
 - Codex players can only call allowlisted tools (`get_state`, `join`, `hunt`, `say`, `radio`, `wait`, `reload`, `choose_loadout`, `leave`); the rest fail with `MCP tool call requires approval, but approval policy is never`. They play with `hunt` only, which already pursues flags in CTF and plants and defuses in debug defusion (`use` is not on that allowlist). Do not retry a refused tool or bypass it with `--write`.
+- Playing many matches in a row: do not end your turn between matches or send an interim report, since ending the turn leaves the player idle until it is kicked. Keep the `wait` loop going until the goal is reached, and save context with a helper that loops `wait`, reissues `hunt` and returns only a summary on a podium or phase change.
+- A `restart` error in the middle of a round means the server restarted: the round does not count and the map, mode and your id can change, so `join` again, reissue `hunt` and keep going.
 - To stop a player: `TaskStop` the agent, then `leave` on its connection (a stopped agent leaves its player in the match).
 
 ## Core loop
@@ -51,6 +53,14 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 
 - Read `get_state.carrapeta` for the holder, seconds until the holder loses it (`holdSecondsLeft`, null when nobody holds it), dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.
 - A new holder gets 100 health and 200 armour and cannot collect airdrops. Whenever somebody holds the Carrapeta only fights involving the holder deal damage, and with nobody holding it everyone can hurt everyone (a death then waits 8 seconds longer to respawn). The Azeitadora aims down sights like any other gun (`zoom`). The Batata Quente is rare: about one match in three has it. The holder’s Azeitadora keeps infinite reserve and needs to reload after three shots (six outside the frenzy). Check `you.infiniteReserve` and `you.magCapacity`. In other modes, check `airdrops` for a landed Azeitadora with finite reserve.
+
+## What to read from a match
+
+- Most of a `hunt` match is the pilot playing (movement, shooting, objective), so kills and scores say more about its code than about the game. When you report problems, split them into game rules and maps (seen by browser players too) and pilot or MCP tool problems, and mark what still needs a match between people.
+- At the podium, take your numbers from `results` by your own `id`; a summary kept from an earlier read can belong to another round.
+- In debug defusion `score.teams` counts rounds won, so 0–0 means no round scored (plant windows expiring), not a missing score. On Shopping Sul Rio, with both bases on the Mirante, go straight for the laptop: with a 30 s plant window a whole match ended 0–0.
+- Forja and Escritório have no supply stands: at low health `hunt` keeps pushing, so take over with `move_to` behind cover until an enemy comes close.
+- If you drive your player through a helper script, give every call a timeout: one hung call left a player frozen for minutes.
 
 ## Weapons and airdrops
 

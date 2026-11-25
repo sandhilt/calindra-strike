@@ -21,7 +21,7 @@ The server bots in `server/src/bot.ts` play by the same rules as you, so their h
 | Automatic (rifle, SMG, LMG) | Bursts of 3 to 8 rounds, then release for about a quarter of a second so recoil resets. Do not hold the trigger down. |
 | Semi-automatic (pistol, AWP) | One press per shot. Holding does nothing. |
 | Shotgun | Close range only. Pellet damage falls off fast past about 3000 units. |
-| Hammer | Run straight at the target and swing inside about 80 units. Holding it runs at 280 units per second, 12 percent faster than a pistol. |
+| Hammer | Run straight at the target and swing inside about 80 units. Holding it runs at 280 units per second, 12 percent faster than a pistol. `fire {heavy: true}` is the heavy swing: 95 damage once a second instead of 55 every 0.45 s. |
 
 ## Movement while fighting
 

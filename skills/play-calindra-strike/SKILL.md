@@ -56,7 +56,7 @@ Headshots multiply damage (4 times for most guns, see `calindra-strike-combat`) 
 | Faísca P9 | 34 | Pistol, needs a re-press per shot. |
 | Mjölnir | 115 | AWP from air drops. One body shot kills. |
 | Ragnarök | 33 | LMG from air drops. |
-| Martelo do Eitri | 55 | Melee. Run speed bonus. |
+| Martelo do Eitri | 55 (95 heavy, `fire {heavy: true}`) | Melee. Run speed bonus. |
 
 In Carrapeta Dourada, read `get_state.carrapeta`. Use `hunt` to pursue the perceived holder or collect the dropped objective by walking over it. If you hold it, prioritize staying alive and watch your points. Time spent in the glass lift earns no points. During Batata Quente, damage only applies to fights involving the holder. The Azeitadora has infinite reserve while you hold the Carrapeta and still needs to reload. Check `you.magCapacity` and `you.infiniteReserve` (six rounds ordinarily, three during the frenzy). In other modes the Azeitadora can appear in an airdrop with a finite reserve.
 

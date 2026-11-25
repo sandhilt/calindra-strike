@@ -1,9 +1,12 @@
-import { CHAT_MAX_LEN, LUNCH_USE_RADIUS_UNITS, PRONE_SWITCH_TICKS, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, SLIDE_TICKS, STAMINA_MAX, STAMINA_RESUME, TICK_MS, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, type WeaponId } from '../../shared/src/index.ts';
+import { CHAT_MAX_LEN, LUNCH_USE_RADIUS_UNITS, PRONE_SWITCH_TICKS, SLIDE_MIN_SPEED, SLIDE_STAMINA_COST, SLIDE_TICKS, STAMINA_MAX, STAMINA_RESUME, TICK_MS, RADIO_MENUS, RADIO_MENU_IDS, WEAPON, radioLineAt, radioMenuById, weaponDef, type WeaponId } from '../../shared/src/index.ts';
 import { result, failure, type McpTool } from './jsonrpc.ts';
 import type { GameSession } from './session.ts';
 import { LEAN_SIDES, WEAPON_SLOT_REQUEST, type LeanSide, type WeaponSlot } from './actions.ts';
 const isLeanSide = (side: unknown): side is LeanSide => LEAN_SIDES.some((s) => s === side);
 const isWeaponSlot = (slot: string): slot is WeaponSlot => Object.hasOwn(WEAPON_SLOT_REQUEST, slot);
+const HAMMER = weaponDef(WEAPON.HAMMER);
+const HEAVY_SWING = HAMMER.heavy ?? { damage: HAMMER.damage, ticks: HAMMER.fireTicks };
+const seconds = (ticks: number): number => Math.round((ticks * TICK_MS) / 10) / 100;
 type Args = Record<string, unknown>;
 const number = (a: Args, k: string, min = -Infinity, max = Infinity, integer = false): number => {
   const v = a[k];
@@ -111,9 +114,9 @@ export const toolDefinitions: Definition[] = [
   {
     name: 'fire',
     description:
-      'Hold the trigger for ms (default 150, 50 to 5000) where the crosshair points; use aim first. Firing keeps effective ADS raised. A short press is one shot with a semi-automatic weapon, a hold is a burst with an automatic one. The pilot stays idle, so nothing else fires. Shots and their impacts then show up in get_state sounds.',
-    properties: { ms: { type: 'number', minimum: 50, maximum: 5000 } },
-    run: (s, a) => s.fire(a.ms === undefined ? 150 : number(a, 'ms', 50, 5000)),
+      `Hold the trigger for ms (default 150, 50 to 5000) where the crosshair points; use aim first. Firing keeps effective ADS raised. A short press is one shot with a semi-automatic weapon, a hold is a burst with an automatic one. With the hammer in hand a plain fire is the light swing (the left mouse button) and heavy: true is the heavy swing (the right mouse button): ${HEAVY_SWING.damage} damage instead of ${HAMMER.damage}, one swing every ${seconds(HEAVY_SWING.ticks)} s instead of ${seconds(HAMMER.fireTicks)} s, same reach. heavy is rejected for any other weapon, and switching weapons cancels it. The pilot stays idle after aim or stop, so nothing else fires. Shots and their impacts then show up in get_state sounds (your own hammer swings make no sound there).`,
+    properties: { ms: { type: 'number', minimum: 50, maximum: 5000 }, heavy: { type: 'boolean' } },
+    run: (s, a) => s.fire(a.ms === undefined ? 150 : number(a, 'ms', 50, 5000), a.heavy === undefined ? false : boolean(a, 'heavy')),
   },
   {
     name: 'hunt',
@@ -160,7 +163,7 @@ export const toolDefinitions: Definition[] = [
   },
   {
     name: 'zoom',
-    description: 'For pistol, rifle, SMG, shotgun, LMG and the Azeitadora, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer rejects zoom.',
+    description: 'For pistol, rifle, SMG, shotgun, LMG and the Azeitadora, 1 holds aim down sights and 0 releases it. It slows movement, tightens spread and ends sprinting. Reload, deploy and objective use interrupt effective aim. The request resumes when those end and clears on a weapon switch, death, respawn or leave. Check you.aiming for effective aim and you.actions.zoom for the request. For AWP, 0 to 2 sets the CS scope level and overrides automatic scoping until respawn. The scope drops during the bolt cycle and returns by itself. The hammer rejects zoom: its right button is the heavy swing, use fire with heavy: true.',
     properties: { level: { type: 'integer', minimum: 0, maximum: 2 } },
     required: ['level'],
     run: (s, a) => s.setZoom(number(a, 'level', 0, 2, true)),

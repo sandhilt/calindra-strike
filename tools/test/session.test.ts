@@ -1157,6 +1157,33 @@ test('fire holds the trigger for the time asked and then lets go', async () => {
   ctx.session.close();
 });
 
+test('fire with heavy holds the right button on the hammer', async () => {
+  const ctx = await playing(WEAPON.HAMMER);
+  const res = await ctx.call('fire', { heavy: true, ms: 150 });
+  assert.equal(res.isError, undefined);
+  assert.partialDeepStrictEqual(JSON.parse(res.content[0].text), { heavy: true });
+  const cmds = Array.from({ length: 8 }, () => sentCmds(ctx)).flat();
+  assert.equal(cmds.filter((c) => c[1] & BTN.ATTACK2).length, Math.ceil(150 / TICK_MS));
+  assert.equal(cmds.filter((c) => c[1] & BTN.ATTACK).length, 0);
+  ctx.session.close();
+});
+
+test('fire with heavy is rejected for a weapon without a heavy swing and for a non boolean', async () => {
+  const rifle = await playing(WEAPON.RIFLE);
+  const res = await rifle.call('fire', { heavy: true });
+  assert.equal(res.isError, true);
+  assert.match(res.content[0].text, /hammer/);
+  assert.equal((await rifle.call('fire', { heavy: 'yes' })).isError, true);
+  rifle.session.close();
+});
+
+test('fire with heavy is rejected while a switch away from the hammer is in flight', async () => {
+  const ctx = await playing(WEAPON.HAMMER);
+  await ctx.call('switch_weapon', { slot: 'pistol' });
+  assert.equal((await ctx.call('fire', { heavy: true })).isError, true);
+  ctx.session.close();
+});
+
 const shotEvent = (over: object = {}) => ({ t: 'ev', e: [{ k: 'shot', id: 2, w: WEAPON.RIFLE, o: [0, 40, 0], e: [], h: 0, ...over }] });
 
 test('a shot is heard with its distance, bearing and intensity, louder when closer', async () => {

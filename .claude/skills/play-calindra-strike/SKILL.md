@@ -58,7 +58,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 
 - Most of a `hunt` match is the pilot playing (movement, shooting, objective), so kills and scores say more about its code than about the game. When you report problems, split them into game rules and maps (seen by browser players too) and pilot or MCP tool problems, and mark what still needs a match between people.
 - At the podium, take your numbers from `results` by your own `id`; a summary kept from an earlier read can belong to another round.
-- In debug defusion `score.teams` counts rounds won, so 0–0 means no round scored (plant windows expiring), not a missing score. On Shopping Sul Rio, with both bases on the Mirante, go straight for the laptop: with a 30 s plant window a whole match ended 0–0.
+- In debug defusion `score.teams` counts rounds won, so 0–0 means no round scored (plant windows expiring), not a missing score. On Shopping Sul Rio, go straight for the laptop on the Mirante and take it to the fountain: with a 30 s plant window a whole match ended 0–0 when both bases were still up there.
 - Forja and Escritório have no supply stands: at low health `hunt` keeps pushing, so take over with `move_to` behind cover until an enemy comes close.
 - If you drive your player through a helper script, give every call a timeout: one hung call left a player frozen for minutes.
 

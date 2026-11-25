@@ -171,13 +171,15 @@ it('lets only the holder and whoever shoots the holder hurt each other, and free
 });
 
 it('never airdrops the Azeitadora in Carrapeta Dourada, while other modes can', () => {
-  const airdropOf = (mode: 'carrapeta' | 'ffa') => {
-    const game = new Game({ maxPlayers: 8, matchMs: 120_000, podiumMs: 5000, warmupMinPlayers: 3, modes: mode, maps: ['forja'], random: () => 0 });
+  const airdropOf = (mode: 'carrapeta' | 'ffa', roll = 0) => {
+    const game = new Game({ maxPlayers: 8, matchMs: 120_000, podiumMs: 5000, warmupMinPlayers: 3, modes: mode, maps: ['forja'], random: () => roll });
     game['spawnAirdrop']();
     return game['airdrops'][0].w;
   };
   assert.notEqual(airdropOf('carrapeta'), WEAPON.MGL, 'the lowest roll would be the launcher outside the mode');
   assert.equal(airdropOf('ffa'), WEAPON.MGL);
+  assert.equal(airdropOf('ffa', 0.29), WEAPON.MGL, 'about three drops in ten are the launcher');
+  assert.notEqual(airdropOf('ffa', 0.31), WEAPON.MGL);
 });
 
 it('waits until the redraw deadline even if the expired holder is the only one landed', () => {

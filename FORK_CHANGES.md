@@ -15,7 +15,7 @@ Changes made after the baseline, newest day first.
 - Shopping air conditioning ducts are metal that stops bullets and leaks air for 2 s when shot (high tier only). The atrium ducts hang from a riser and the food court duct runs above the kitchen hoods instead of through them (`b.duct`, `onDuct`, `DuctLeaks`).
 - In Carrapeta Dourada only the Carrapeta holder's guns are gilded (the rest of the match keeps the normal finish), every hammer is drawn as a red and yellow squeaky toy hammer, look only (`GILDED` and `toyHammer` in `client/src/game/render/weapons3d.ts`).
 - Shopping Sul Rio: Natal replaces each display car with a reindeer-drawn sleigh and a seated Santa (`shopping-natal.ts`). Protocol 27 keeps client, server and MCP collision maps in sync after removing the car cover.
-- Standing and seated Santas share player avatar proportions and the static prop batch (`santa.ts`). The KFG mascot wears a Santa hat in Natal (`store-signs.ts`).
+- Standing and seated Santas reuse the store mannequin body in a Santa suit and the static prop batch (`santa.ts`). The KFG mascot wears a Santa hat in Natal (`store-signs.ts`).
 - Natal adds garlands beside store logos, rails and pillars, and small Christmas displays inside shops and on food court counters (`shopping-natal.ts`).
 - The Natal canopy gains a frost frame and crossbars that anchor the star strings. The falling snow volume ends at the underside of the glass (`shopping-levels.ts`, `shopping-natal.ts`).
 - The food court burger chain is now called Batatas Douradas and the Mirante sports store Minotauro, on their signs and in the README (`brands.ts`, `store-signs.ts`).

@@ -1,5 +1,6 @@
 import type { ShopBrand } from './brands.ts';
 import { outfit, Room, seeded } from './room.ts';
+import type { StaffRole } from './staff.ts';
 
 /** A store is 688 wide between its partitions, 272 deep, and 176 under the food court floor. */
 export const STORE_HALF_WIDTH = 344;
@@ -65,11 +66,51 @@ function plinth(r: Room, x: number, z: number, tint: Hex): number {
   return 6;
 }
 
+/**
+ * The solid counter the map places at the back of every store (x -70..70, depth 34..70) stands this tall: above the
+ * 45 unit jump, so nobody climbs over it into the staff cubby behind.
+ */
+export const TILL_HEIGHT = 50;
+
 function counter(r: Room, tint: Hex, topTint: Hex): void {
-  r.box(0, 52, 144, 40, 1.4, 40, 'white', topTint);
-  r.box(0, 34, 140, 1.4, 40, 0, 'white', tint);
-  r.box(-34, 50, 18, 12, 12, 41.4, 'charcoal', 0x1b1b1b);
-  r.box(-34, 44, 14, 1, 8, 49, 'screen');
+  r.box(0, 52, 144, 40, 1.4, TILL_HEIGHT, 'white', topTint);
+  r.box(0, 34, 140, 1.4, TILL_HEIGHT, 0, 'white', tint);
+  r.box(-34, 50, 18, 12, 12, TILL_HEIGHT + 1.4, 'charcoal', 0x1b1b1b);
+  r.box(-34, 44, 14, 1, 8, TILL_HEIGHT + 9, 'screen');
+}
+
+/** The cubby behind the counter runs from the back wall to the counter's back face. */
+const CUBBY_BACK_Z = 2;
+const CUBBY_FRONT_Z = 34;
+const CUBBY_EDGE_X = 69;
+/** Each half of the cubby holds one employee, 16 units deep, clear of the back shelves (to z 15) and of the counter. */
+const CREW_X = 34;
+const CREW_Z = 24;
+
+/** Who works beside the cashier: a role that suits the store, so each counter reads as that shop's crew. */
+const TILL_MATE: Readonly<Record<ShopBrand, StaffRole>> = {
+  zarra: 'seller',
+  cea: 'seller',
+  rener: 'stocker',
+  hew: 'seller',
+  'cacau-chou': 'seller',
+  amerikanas: 'stocker',
+  riachuela: 'cleaner',
+  travessura: 'cleaner',
+  'droga-raio': 'pharmacist',
+  'pague-pouco': 'pharmacist',
+};
+
+/**
+ * Closes the space behind the counter with solid side panels and a middle divider, as tall as the counter, so the
+ * cashier and the till mate each stand in a closed half that no player reaches.
+ */
+function tillCrew(r: Room, brand: ShopBrand, tint: Hex): void {
+  const depth = CUBBY_FRONT_Z - CUBBY_BACK_Z;
+  const midZ = (CUBBY_BACK_Z + CUBBY_FRONT_Z) / 2;
+  for (const x of [-CUBBY_EDGE_X, 0, CUBBY_EDGE_X]) r.solid(x, midZ, 2, depth, TILL_HEIGHT, 0, 'white', tint);
+  r.staff(-CREW_X, CREW_Z, 'front', 'cashier', brand);
+  r.staff(CREW_X, CREW_Z, 'front', TILL_MATE[brand], brand);
 }
 
 const MONO = [0x111111, 0xf5f5f5, 0x8d8d8d, 0x2e2e2e];
@@ -569,6 +610,7 @@ const SIDE_MIRROR_Y = 8;
 
 export function dressStore(r: Room, brand: ShopBrand): void {
   STORES[brand](r);
+  tillCrew(r, brand, ACCENT[brand]);
   if (CLOTHING.has(brand)) {
     r.mirror(-SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'left');
     r.mirror(SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'right');

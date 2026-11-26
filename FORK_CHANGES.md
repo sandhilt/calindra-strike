@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- The lift level signs are no longer covered: the Natal wreaths over the lift doorways are gone, the signs sit 14 units over the doorway so the drawn lintel and lamp clear them, and `shopping-natal.test.ts` now checks every decoration, not only garlands, against every sign face.
+- The Batatas Douradas (`mequi`) sign has narrower arches and a clear gap before its words.
 - `F2` (remappable, **tirar print**) saves a PNG of the 3D view (`client/src/screenshot.ts`). It is browser-only, so the MCP cover test accepts `browser-only` keys with a reason.
 - Store staff: a cashier behind each Mirante boutique till (in a cubby the till now closes with side panels), and a cook and a server in every food court kitchen, each in its brand's uniform. They are look only, placed where no player can reach (the boutique tills are 50 units tall, above the jump, and the Pé Leve shoe shelves and the lowest Brinco Center shelf sit clear of the cashier, and their arms move on the high and low tiers (`staff` prop in `types.ts`, `staff.ts` for the uniforms, `client/src/game/render/staff.ts` for the figures, `staffMotion` in `quality.ts`). `shared/test/staff.test.ts` pins the placement.
 - Mirrors are their own `mirror` material (shiny silver, opaque) that rings as glass when shot, instead of plaster (`Room.mirror`, `SURFACE_OF`).

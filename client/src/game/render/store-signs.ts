@@ -143,16 +143,17 @@ const SIGNS: Record<StoreBrand, (g: G, christmas?: boolean) => void> = {
   mequi(g) {
     panel(g, '#da291c');
     g.strokeStyle = '#ffc72c';
-    g.lineWidth = 30;
+    g.lineWidth = 26;
     g.lineCap = 'butt';
     g.beginPath();
-    g.moveTo(70, 210);
-    g.bezierCurveTo(70, 20, 170, 20, 170, 210);
-    g.moveTo(170, 210);
-    g.bezierCurveTo(170, 20, 270, 20, 270, 210);
+    g.moveTo(50, 210);
+    g.bezierCurveTo(50, 30, 140, 30, 140, 210);
+    g.moveTo(140, 210);
+    g.bezierCurveTo(140, 30, 230, 30, 230, 210);
     g.stroke();
-    label(g, 'Batatas', 390, 92, 66, '#ffffff', 'Arial Black, Arial, sans-serif', 220);
-    label(g, 'Douradas', 390, 168, 66, '#ffc72c', 'Arial Black, Arial, sans-serif', 220);
+    // The arches end at x 243, so the words start about 40 px to their right.
+    label(g, 'Batatas', 380, 92, 62, '#ffffff', 'Arial Black, Arial, sans-serif', 190);
+    label(g, 'Douradas', 380, 168, 62, '#ffc72c', 'Arial Black, Arial, sans-serif', 190);
   },
   outbaque(g) {
     panel(g, '#5a1a12');

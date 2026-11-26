@@ -126,8 +126,8 @@ function bay(b: MapBuilder, x1: number, x2: number, travel: EscalatorTravel, sig
 }
 
 const LEVEL_SIGN_WIDTH = 110;
-/** Gap between a doorway's top and the level sign above it (units). */
-const LEVEL_SIGN_GAP = 10;
+/** Gap between a doorway's top and the level sign above it (units): clears the drawn lintel and its lamp, which reach 11 over the doorway. */
+const LEVEL_SIGN_GAP = 14;
 
 /** A sign over each doorway of the lift naming the floor it opens on, facing the walkway that leads to it. */
 function levelSigns(b: MapBuilder, x0: number, x1: number, zFront: number, zBack: number): void {

@@ -119,17 +119,17 @@ describe('Shopping Sul Rio: Natal', () => {
     }
   });
 
-  it('keeps garlands clear of every sign face with a forward margin on both sides', () => {
+  it('keeps every decoration clear of every sign face with a forward margin on both sides', () => {
     const forwardMargin = 12;
     assert.ok(garlands.length > 100);
     for (const sign of retained.filter((box) => isBrandMat(box.mat))) {
       const normal = sign.max.x - sign.min.x < sign.max.z - sign.min.z ? 'x' : 'z';
       const across = normal === 'x' ? 'z' : 'x';
-      const hit = garlands.find((b) =>
+      const hit = decor.find((b) =>
         b.min[normal] < sign.max[normal] + forwardMargin && b.max[normal] > sign.min[normal] - forwardMargin &&
         b.min[across] < sign.max[across] && b.max[across] > sign.min[across] &&
         b.min.y < sign.max.y && b.max.y > sign.min.y);
-      assert.equal(hit, undefined, `garland obscures ${sign.mat} at ${JSON.stringify(sign.min)}`);
+      assert.equal(hit, undefined, `decoration obscures ${sign.mat} at ${JSON.stringify(sign.min)}`);
     }
   });
 

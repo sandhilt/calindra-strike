@@ -1,9 +1,8 @@
-import { LIFT_DOOR_HEIGHT_UNITS, type Lift } from '../lift.ts';
 import { isBrandMat } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { buildShopping } from './shopping.ts';
 import { SUPPLY_STAND } from './shopping-top.ts';
-import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_WALL, RAIL, X } from './shopping-levels.ts';
+import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, RAIL, X } from './shopping-levels.ts';
 import type { MapDef, MapProp, Mat } from './types.ts';
 
 const RED = 0xc32038;
@@ -29,7 +28,7 @@ const GARLAND_DROP = 12;
  * Every piece is `deco` (non-solid, shot through), so nothing changes for movement, bots or the nav grid.
  * The builder is replayed through `mirrored`, so the authored north half and its 180 degree turn match.
  */
-function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
+function decorations(b: MapBuilder, base: MapDef): void {
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, tint: number, mat: Mat = 'white') =>
     b.deco(x - w / 2, y, z - d / 2, x + w / 2, y + h, z + d / 2, mat, tint);
 
@@ -135,12 +134,8 @@ function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   // Santa on the edge of the Mirante supply dais, turned to its gift box.
   b.prop({ kind: 'santa', x: SUPPLY_STAND.x + 66, y: DECK3 + 10, z: SUPPLY_STAND.z, yaw: Math.PI / 2, pose: 'standing' });
 
-  // Wreaths over the shop fronts and the lift doorways.
+  // Wreaths over the shop fronts. The lift doorways get none: the level signs fill the space over them.
   for (const x of [-1152, -384, 384, 1152]) wreath(x + 139, 139, FACADE_Z + 14);
-  for (const door of northLift.doors) {
-    const onGround = door.y === 0;
-    wreath(0, door.y + LIFT_DOOR_HEIGHT_UNITS + 22, onGround ? northLift.maxZ + LIFT_WALL + 3 : GALLERY_Z - LIFT_WALL - 6);
-  }
 
   function garland(x: number, y: number, z: number, width: number): void {
     const [fir, ribbon, bell] = GARLAND_TINTS;
@@ -224,10 +219,8 @@ function withSeasonStation(props: readonly MapProp[]): MapProp[] {
  */
 export function buildShoppingNatal(): MapDef {
   const base = buildShopping({ displayCar: false });
-  const northLift = base.lifts.find((l) => l.minZ < 0);
-  if (!northLift) throw new Error('Shopping Sul Rio has no north lift to decorate');
   const b = new MapBuilder();
-  b.mirrored(() => decorations(b, base, northLift));
+  b.mirrored(() => decorations(b, base));
 
   return {
     ...base,

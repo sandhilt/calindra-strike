@@ -242,7 +242,7 @@ function flameGrill(r: Room, x: number): void {
 /** Where the cook stands, clear of every kitchen's equipment, and where the server stands behind the serving window. */
 const COOK_X = -120;
 const COOK_Z = 52;
-const SERVER_X = -140;
+const SERVER_X = -120;
 const SERVER_Z = 84;
 /** Staff stand in the aisle on the deck, below the platform the kitchen is authored on. */
 const STAFF_Y = -KITCHEN_FLOOR;
@@ -251,7 +251,7 @@ const STAFF_Y = -KITCHEN_FLOOR;
 const COUNTER_TOP = 42 - KITCHEN_FLOOR;
 const COUNTER_CAP_Z = KITCHEN_DEPTH - 4;
 /** The register stands beside the server, at the window's edge and inside the kitchen, clear of the server's body. */
-const REGISTER_X = SERVER_X + 26;
+const REGISTER_X = SERVER_X + 34;
 const REGISTER_Z = KITCHEN_DEPTH - 5;
 
 /**
@@ -259,7 +259,7 @@ const REGISTER_Z = KITCHEN_DEPTH - 5;
  * behind the cap, so the register sits at counter height, the operator screen faces the server and a small display faces the customer.
  */
 function register(r: Room, x: number, z: number): void {
-  r.box(x, (z - 5 + COUNTER_CAP_Z) / 2, 22, COUNTER_CAP_Z - (z - 5), COUNTER_TOP - STAFF_Y, STAFF_Y, 'white', STEEL_DARK);
+  r.box(x, (z - 5 + COUNTER_CAP_Z) / 2, 18, COUNTER_CAP_Z - (z - 5), COUNTER_TOP - STAFF_Y, STAFF_Y, 'white', STEEL_DARK);
   r.box(x, z, 16, 8, 5, COUNTER_TOP, 'charcoal', 0x1b1b1b);
   r.box(x, z - 1, 12, 4, 1.5, COUNTER_TOP + 5, 'charcoal', 0x3a3a3a);
   r.box(x, z - 3.5, 12, 1, 8, COUNTER_TOP + 5, 'screen');

@@ -137,8 +137,6 @@ function decorations(b: MapBuilder, northLift: Lift): void {
   reindeer(850, 0, -40);
   sleigh(960, -60);
   drift(860, 68, -250, 110, 40);
-  drift(-800, 40, -320, 120, 56);
-  drift(220, 18, -440, 110, 26);
   drift(-300, 108, -440, 60, 60);
 
   // Food court and Mirante: a tree and Santa on each level.

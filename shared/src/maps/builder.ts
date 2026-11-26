@@ -128,6 +128,7 @@ export class MapBuilder {
       case 'clothesRack':
       case 'vent':
       case 'lift':
+      case 'adScreen':
         return { ...p, x, z, yaw: p.yaw - turn };
       case 'flame':
       case 'steam':

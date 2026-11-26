@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- The Shopping Sul Rio atrium loses its tables (the wooden Quiosque and the low wood table) and is spread out more evenly: the central cart, planter and info totem cluster by the lift moves out, and four small closed kiosks (Bobo's, Livraria da Travessura, Méqui, KFG) and two slim LED totems per half fill the empty patches. Kiosks and totems carry digital ad screens that hold each ad and slide to the next, a new `adScreen` prop drawn as one merged mesh over one shared ad strip (`shopping-cover.ts`, `props.ts`, `adScroll` in `prop-motion.ts`), moving only where `ambientMotion` is on.
 - Shopping Sul Rio clears its storefronts on all three floors and replaces the atrium ad masts with kiosks, planters, a bench and info totems. The Mirante gains two stationery shops, local shop ventilation sounds and staggered seating and cover (`shopping-cover.ts`, `shopping-top.ts`, `shopping-boutiques.ts`).
 - Added LMS and Gincana elimination rounds, a chase camera for eliminated players, and lead announcements across scoring modes. MCP reports round state and alive counts. Protocol 26 adds the two mode IDs.
 - The lobby and Esc menu share an **issues?** link with the GitHub mark that opens the fork’s issue tracker (`client/src/ui/issues-link.ts`).

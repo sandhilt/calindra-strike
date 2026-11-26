@@ -92,6 +92,8 @@ export type MapProp =
   | { kind: 'steam'; x: number; y: number; z: number }
   /** Where a kitchen cooks: a point the sound of `voice` comes from, heard within a few hundred units. Sound only. */
   | { kind: 'cook'; x: number; y: number; z: number; voice: CookVoice }
+  /** A digital ad screen centred on (x, y, z), `width` by `height` units, facing local -z, that slides through a loop of store ads. Look only: the body behind it is a Box. */
+  | { kind: 'adScreen'; x: number; y: number; z: number; yaw: number; width: number; height: number }
   /** The glass cab and frame of a lift shaft, centred on its footprint. The cabs follow whoever rides (the field is `MapDef.lifts`). */
   | { kind: 'lift'; x: number; z: number; yaw: number; width: number; depth: number; height: number; stops: readonly LiftStopDoor[] };
 

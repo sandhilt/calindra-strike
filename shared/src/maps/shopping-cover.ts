@@ -5,7 +5,8 @@ import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z
 
 /**
  * Cover that breaks the long clean shots of Shopping Sul Rio: ad boards in the covered gallery, a car promotion, an
- * information desk, planters and info totems in the atrium, menu boards and hedges in the food court.
+ * information desk, planters, info totems, small closed kiosks and ad screens in the atrium, menu boards and hedges in
+ * the food court.
  * Authored for the north half, inside `b.mirrored`, so the south half gets the same pieces turned 180 degrees.
  * `sightlines.test.ts` pins how open the map stays.
  */
@@ -122,6 +123,50 @@ function kiosk(b: MapBuilder, x: number, z: number, w: number, d: number, brand:
   adPanel(b, x - 38, 92, front, x + 38, 130, front + 2, brand);
 }
 
+const SMALL_KIOSK = 80;
+const SMALL_KIOSK_HEIGHT = 140;
+const KIOSK_SCREEN_WIDTH = 56;
+const KIOSK_SCREEN_HEIGHT = 28;
+const KIOSK_SCREEN_Y = 72;
+/** Screens stand this far off the face they hang on, so the face never shows through them. */
+const SCREEN_GAP = 0.8;
+const BEZEL = 3;
+const SCREEN_BODY = 0x1d2330;
+
+/** A dark bezel on a face at `faceZ` and the ad screen prop just off it, on the side `dir` (+1 faces +z, -1 faces -z). */
+function adScreenOn(b: MapBuilder, x: number, y: number, faceZ: number, dir: 1 | -1, width: number, height: number): void {
+  b.deco(x - width / 2 - BEZEL, y - height / 2 - BEZEL, Math.min(faceZ, faceZ + dir * 0.5), x + width / 2 + BEZEL, y + height / 2 + BEZEL, Math.max(faceZ, faceZ + dir * 0.5), 'charcoal');
+  b.prop({ kind: 'adScreen', x, y, z: faceZ + dir * SCREEN_GAP, yaw: dir > 0 ? Math.PI : 0, width, height });
+}
+
+/**
+ * A small closed kiosk nobody can enter: a solid body with a counter ledge and shutter on its aisle side (+z), the
+ * brand over it, and an ad screen on both long faces.
+ */
+function smallKiosk(b: MapBuilder, x: number, z: number, brand: StoreBrand, tint: number): void {
+  const half = SMALL_KIOSK / 2;
+  b.block(x, z, SMALL_KIOSK, SMALL_KIOSK, SMALL_KIOSK_HEIGHT, 'white', 0, { tint: PAINT });
+  b.deco(x - half - 4, SMALL_KIOSK_HEIGHT, z - half - 4, x + half + 4, SMALL_KIOSK_HEIGHT + 6, z + half + 4, 'white', tint);
+  b.deco(x - half - 2, 40, z + half, x + half + 2, 44, z + half + 8, 'wood', 0xb98a58);
+  b.deco(x - half + 6, 44, z + half, x + half - 6, 52, z + half + 1, 'metal');
+  adPanel(b, x - 34, 100, z + half, x + 34, 134, z + half + 1, brand);
+  adScreenOn(b, x, KIOSK_SCREEN_Y, z + half + 1, 1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
+  adScreenOn(b, x, KIOSK_SCREEN_Y + 20, z - half, -1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
+}
+
+const AD_TOTEM_WIDTH = 64;
+const AD_TOTEM_DEPTH = 16;
+const AD_TOTEM_HEIGHT = 190;
+const AD_TOTEM_SCREEN_Y = 130;
+
+/** A slim freestanding LED totem: a dark slab with an ad screen on each face. */
+function adTotem(b: MapBuilder, x: number, z: number): void {
+  b.block(x, z, AD_TOTEM_WIDTH + 12, AD_TOTEM_DEPTH + 12, 8, 'tile');
+  b.block(x, z, AD_TOTEM_WIDTH, AD_TOTEM_DEPTH, AD_TOTEM_HEIGHT, 'white', 8, { tint: SCREEN_BODY });
+  const width = AD_TOTEM_WIDTH - 10;
+  for (const dir of [1, -1] as const) adScreenOn(b, x, AD_TOTEM_SCREEN_Y, z + (dir * AD_TOTEM_DEPTH) / 2, dir, width, width / 2);
+}
+
 function atrium(b: MapBuilder): void {
   kiosk(b, 370, -530, 96, 120, 'cacau-chou');
   planter(b, -1376, -316, 64, 112);
@@ -129,13 +174,18 @@ function atrium(b: MapBuilder): void {
   bench(b, 672, -64, 96, 30, true);
   carStand(b, 860, -250);
   infoDesk(b, -300, -560);
-  cart(b, -90, -330, 'mequi', 0xd7263d);
-  cart(b, 220, -600, 'cacau-chou', 0x6a3a1c);
+  cart(b, 1000, -620, 'cacau-chou', 0x6a3a1c);
   cart(b, -1180, -80, 'cea', 0x0050a0);
+
+  smallKiosk(b, -880, -60, 'bobis', 0xd9a520);
+  smallKiosk(b, -1350, -470, 'travessura', 0x2f6f4e);
+  smallKiosk(b, -110, -350, 'mequi', 0xd7263d);
+  smallKiosk(b, 1340, -180, 'kfg', 0xc8102e);
+  adTotem(b, -780, -330);
+  adTotem(b, 220, -440);
 
   planter(b, -1010, -340, 200, 44);
   planter(b, 528, -150, 130, 44);
-  planter(b, -60, -380, 200, 44);
   planter(b, 820, -540, 170, 44);
   planter(b, -1180, -620, 44, 150);
 
@@ -144,8 +194,8 @@ function atrium(b: MapBuilder): void {
   bench(b, 1180, -140, 30, 130, false);
 
   for (const [x, z, brand] of [
-    [-1160, -380, 'zarra'], [-700, -600, 'hew'], [-140, -470, 'riachuela'], [350, -360, 'travessura'],
-    [1260, -560, 'amerikanas'], [-640, -100, 'cea'], [1250, -60, 'rener'],
+    [-1160, -380, 'zarra'], [-700, -600, 'hew'], [350, -360, 'travessura'],
+    [1260, -560, 'amerikanas'], [-1300, -180, 'cea'], [1250, -60, 'rener'],
   ] as const) infoTotem(b, x, z, brand);
 }
 

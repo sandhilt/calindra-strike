@@ -13,7 +13,7 @@ const SLACK_UNITS = 0.5;
 const base = buildShopping();
 const natal = buildShoppingNatal();
 const isDisplayCar = ({ min, max }: Box) =>
-  min.y >= 8 && max.y <= 68 &&
+  min.y >= 5 && max.y <= 68 &&
   (min.x >= 786 && max.x <= 934 && min.z >= -287 && max.z <= -209 ||
     min.x >= -934 && max.x <= -786 && min.z >= 209 && max.z <= 287);
 const retained = base.boxes.filter((box) => !isDisplayCar(box));
@@ -55,7 +55,7 @@ describe('Shopping Sul Rio: Natal', () => {
   });
 
   it('preserves the ordered base geometry except the two display cars', () => {
-    assert.equal(base.boxes.length - retained.length, 36);
+    assert.equal(base.boxes.length - retained.length, 88);
     assert.deepEqual(natal.boxes.slice(0, retained.length), retained);
     assert.ok(decor.length > 0);
   });
@@ -94,10 +94,20 @@ describe('Shopping Sul Rio: Natal', () => {
     });
   });
 
+  it('stands a Santa beside each Mirante supply gift, facing it', () => {
+    for (const stand of base.supplies) {
+      const santa = natal.props.find((p) => p.kind === 'santa' && Math.hypot(p.x - stand.x, p.z - stand.z) < 100);
+      assert.ok(santa && santa.kind === 'santa', `Santa by the stand at z ${stand.z}`);
+      const facing = { x: -Math.sin(santa.yaw), z: -Math.cos(santa.yaw) };
+      const toGift = { x: stand.x - santa.x, z: stand.z - santa.z };
+      assert.ok(facing.x * toGift.x + facing.z * toGift.z > 0, 'looks at the gift');
+    }
+  });
+
   it('places a seated Santa on each plinth and standing Santas on both upper floors', () => {
     const santas = natal.props.filter((prop) => prop.kind === 'santa');
-    assert.equal(santas.length, 6);
-    assert.deepEqual(santas.filter((p) => p.pose === 'standing').map((p) => p.y).sort(), [DECK, DECK, DECK3, DECK3]);
+    assert.equal(santas.length, 8);
+    assert.deepEqual(santas.filter((p) => p.pose === 'standing').map((p) => p.y).sort(), [DECK, DECK, DECK3, DECK3, DECK3 + 10, DECK3 + 10]);
     for (const p of santas) {
       assert.ok(santas.some((twin) => twin.pose === p.pose && twin.x === -p.x && twin.y === p.y &&
         twin.z === -p.z && Math.abs(twin.yaw - p.yaw) === Math.PI));

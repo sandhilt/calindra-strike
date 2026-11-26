@@ -2,6 +2,7 @@ import { LIFT_DOOR_HEIGHT_UNITS, type Lift } from '../lift.ts';
 import { isBrandMat } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { buildShopping } from './shopping.ts';
+import { SUPPLY_STAND } from './shopping-top.ts';
 import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_WALL, RAIL, X } from './shopping-levels.ts';
 import type { MapDef, MapProp, Mat } from './types.ts';
 
@@ -131,6 +132,8 @@ function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   b.prop({ kind: 'santa', x: 1000, y: DECK, z: -920, yaw: Math.PI, pose: 'standing' });
   tree(-400, DECK3, -1000, 1);
   b.prop({ kind: 'santa', x: -180, y: DECK3, z: -980, yaw: Math.PI, pose: 'standing' });
+  // Santa on the edge of the Mirante supply dais, turned to its gift box.
+  b.prop({ kind: 'santa', x: SUPPLY_STAND.x + 66, y: DECK3 + 10, z: SUPPLY_STAND.z, yaw: Math.PI / 2, pose: 'standing' });
 
   // Wreaths over the shop fronts and the lift doorways.
   for (const x of [-1152, -384, 384, 1152]) wreath(x + 139, 139, FACADE_Z + 14);

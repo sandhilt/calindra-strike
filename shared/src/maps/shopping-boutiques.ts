@@ -95,9 +95,11 @@ function loccitano(r: Room, half: number): void {
 }
 
 const SHOES = [0xf4e3b0, 0x1f3d2b, 0xd7263d, 0xf5f5f5, 0x6b4a32, 0x1b1b1b];
+/** The sole of every shoe, so a test can count the pairs on a shop's shelves. */
+export const SHOE_SOLE_TINT = 0xe1ddd2;
 
 function shoe(r: Room, x: number, z: number, y: number, tint: Hex): void {
-  r.box(x, z, 9, 20, 2, y, 'white', 0xe1ddd2);
+  r.box(x, z, 9, 20, 2, y, 'white', SHOE_SOLE_TINT);
   r.box(x, z, 9, 19, 4, y + 2, 'white', tint);
   r.box(x, z - 4, 9, 10, 4, y + 6, 'white', tint);
 }
@@ -248,6 +250,71 @@ function rayBao(r: Room, half: number): void {
 const SENTAURO_MIRROR_Z = 60;
 
 const KIT = [0xe4002b, 0x161616, 0xf5f5f5, 0x2e2e2e];
+/** Every dumbbell plate, so a test can count the weights on the rack. */
+export const DUMBBELL_PLATE_TINT = 0x3d3a37;
+const YOGA = [0x8a6fc0, 0x4fb0c6, 0xf2c200];
+const BACKPACKS = [0xe4002b, 0x161616, 0x1f6fd1];
+const RACKET_HEAD = 0xc8e13a;
+const FOOTBALL = 0xf5f5f5;
+const BASKETBALL = 0xff7a1a;
+
+/** A shoe table by the left side wall: six pairs laid out in a row on top, the shoes of the shoe wall's brands. */
+function shoeTable(r: Room, x: number, z: number): void {
+  r.solid(x, z, 64, 36, 34, 0, 'desk', 0x555555);
+  SHOES.forEach((tint, i) => shoe(r, x + (i - (SHOES.length - 1) / 2) * 10, z, 34, tint));
+}
+
+/** Three shelves of dumbbells on a rack across the free floor, heavier pairs on the lower shelves. */
+function dumbbellRack(r: Room, x: number, z: number): void {
+  const span = 88;
+  for (const side of [-1, 1]) r.box(x + side * span / 2, z, 2, 10, 84, 0, 'metal');
+  [30, 52, 74].forEach((shelfY) => {
+    r.box(x, z, span, 10, 1.6, shelfY, 'metal');
+    for (let i = 0; i < 7; i++) {
+      const load = 6 + ((i + shelfY) % 3) * 1.5;
+      const dx = x + (i - 3) * 12;
+      r.box(dx, z, 9, 1.6, 1.6, shelfY + load / 2 + 1.6, 'metal');
+      for (const plate of [-4.6, 4.6]) r.box(dx + plate, z, 2.6, 6, load, shelfY + 1.6, 'charcoal', DUMBBELL_PLATE_TINT);
+    }
+  });
+}
+
+/** Rackets hung by their handles on a pegboard on the back wall, clear of the shoe wall and the kit. */
+function racketPegboard(r: Room, x: number): void {
+  r.box(x, 5, 56, 2, 56, 70, 'wood', 0xd8b878);
+  for (const dx of [-6, 6, 18]) {
+    r.box(x + dx, 8, 1.6, 1.6, 12, 84, 'charcoal', 0x161616);
+    r.box(x + dx, 8, 11, 2, 15, 96, 'white', RACKET_HEAD);
+  }
+}
+
+/** A low display block of backpacks, then one of balls: footballs and basketballs in a row. */
+function backpacksAndBalls(r: Room, x: number, z: number, ballZ: number): void {
+  r.box(x, z, 34, 14, 36, 0, 'wood', 0xb98a58);
+  BACKPACKS.forEach((tint, i) => r.box(x + (i - 1) * 10, z, 12, 7, 17, 36, 'sofa', tint));
+  r.box(x, ballZ, 34, 14, 36, 0, 'wood', 0xb98a58);
+  [-10, 0, 10].forEach((dx, i) => r.box(x + dx, ballZ, 9, 9, 9, 36, 'white', i === 1 ? FOOTBALL : BASKETBALL));
+}
+
+/** Rolled yoga mats standing in a bin by the left wall. */
+function yogaMatBin(r: Room, x: number, z: number): void {
+  r.box(x, z, 40, 12, 6, 0, 'wood', 0xc5a078);
+  YOGA.forEach((tint, i) => r.box(x + (i - 1) * 12, z, 8, 8, 11, 6, 'sofa', tint));
+}
+
+/** Water bottles lined up on the far end of the counter, away from the till. */
+function waterBottles(r: Room, x: number): void {
+  for (let i = 0; i < 4; i++) r.box(x + i * 7, COUNTER_Z, 4.4, 4.4, 14, 42, 'glass', 0x4fb0c6);
+}
+
+function sportsGoods(r: Room, half: number): void {
+  shoeTable(r, 40 - half, 70);
+  yogaMatBin(r, 40 - half, 36);
+  dumbbellRack(r, 150, 60);
+  racketPegboard(r, 18);
+  backpacksAndBalls(r, 84, 80, 100);
+  waterBottles(r, 26);
+}
 
 function sentauro(r: Room, half: number): void {
   const displayX = half * 0.52;
@@ -282,6 +349,7 @@ function sentauro(r: Room, half: number): void {
   r.box(bikeX, 154, 24, 5, 4, 46, 'charcoal');
   r.box(bikeX, 174, 5, 5, 29, 6, 'wood', 0xa8b1c2);
   r.box(bikeX, 175, 14, 15, 4, 35, 'charcoal');
+  sportsGoods(r, half);
   r.mirror(-half + 1, SENTAURO_MIRROR_Z, 6, 46, 130, 'left');
   r.mirror(half - 1, SENTAURO_MIRROR_Z, 6, 46, 130, 'right');
 }

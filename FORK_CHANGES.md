@@ -13,6 +13,7 @@ Changes made after the baseline, newest day first.
 - Mirrors are their own `mirror` material (shiny silver, opaque) that rings as glass when shot, instead of plaster (`Room.mirror`, `SURFACE_OF`).
 - Santas wear the black visor band across the face again.
 - Debug explorer (Konami code, **cenário**): a **sons do cenário** checkbox plays the map's ambient loops and speaker music, and a **movimento** row switches between flying and **andar**, where the walker moves, jumps and crouches under the match's rules and left click fires the selected **arma** with tracers, impacts and surface sounds. Key files: `client/src/debug/scenario-explorer.ts`, `client/src/debug/scenario-walk.ts`.
+- Minotauro, the Mirante sports shop, sells more shoes (a shoe table beside the shoe wall), dumbbells on a rack, rackets on a pegboard, footballs and basketballs, rolled yoga mats, water bottles and backpacks, all look-only (`sportsGoods` in `shopping-boutiques.ts`).
 - Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
 - The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
 - Shooting water splashes: `water` is its own surface (splash sound, pale blue spray) instead of ringing as glass, and still gets the pane impact on the way through (`isPane` in `shared/src/surface.ts`).

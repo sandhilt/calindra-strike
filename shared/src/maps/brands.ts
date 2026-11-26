@@ -14,7 +14,7 @@ export const STORE_BRANDS = {
   bobis: { name: "Bobo's", kind: 'food' },
   zarra: { name: 'ZORRA', kind: 'shop' },
   cea: { name: 'C&Á', kind: 'shop' },
-  rener: { name: 'Rener', kind: 'shop' },
+  brenner: { name: 'Brenner', kind: 'shop' },
   hew: { name: 'H&W', kind: 'shop' },
   'cacau-chou': { name: 'Cacau Chou', kind: 'shop' },
   amerikanas: { name: 'Amerikanas', kind: 'shop' },

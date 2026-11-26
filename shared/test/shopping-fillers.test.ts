@@ -10,7 +10,7 @@ import type { Box } from '../src/maps/types.ts';
 
 const shopping = buildShopping();
 /** The ground floor stores that sell clothes, each with racks, mannequins and so a mirror on each side wall. */
-const CLOTHING: readonly ShopBrand[] = ['zarra', 'cea', 'rener', 'hew', 'riachuela'];
+const CLOTHING: readonly ShopBrand[] = ['zarra', 'cea', 'brenner', 'hew', 'riachuela'];
 /** Overlaps thinner than this (units) are faces that merely touch. */
 const SLACK_UNITS = 0.5;
 

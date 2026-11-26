@@ -136,7 +136,7 @@ function infoDesk(b: MapBuilder, x: number, z: number): void {
 function gallery(b: MapBuilder): void {
   kiosk(b, -1280, -880, 112, 210, 'zarra');
   kiosk(b, 860, -900, 112, 180, 'hew');
-  for (const [x, brand] of [[-768, 'zarra'], [0, 'rener'], [768, 'hew']] as const) {
+  for (const [x, brand] of [[-768, 'zarra'], [0, 'brenner'], [768, 'hew']] as const) {
     const z = FACADE_Z + (x < 0 ? 208 : 232);
     board(b, x, z, 144, GALLERY_FLOOR, WALL, brand);
     bench(b, x + 64, z, 28, 96, false);
@@ -234,7 +234,7 @@ function adTotem(b: MapBuilder, x: number, z: number): void {
 function atrium(b: MapBuilder, displayCar: boolean): void {
   kiosk(b, 370, -530, 96, 120, 'cacau-chou');
   planter(b, -1376, -316, 64, 112);
-  infoTotem(b, 1440, -416, 'rener');
+  infoTotem(b, 1440, -416, 'brenner');
   bench(b, 672, -64, 96, 30, true);
   carStand(b, 860, -250, displayCar);
   infoDesk(b, -300, -560);
@@ -259,7 +259,7 @@ function atrium(b: MapBuilder, displayCar: boolean): void {
 
   for (const [x, z, brand] of [
     [-1160, -380, 'zarra'], [-700, -600, 'hew'], [350, -360, 'travessura'],
-    [1260, -560, 'amerikanas'], [-1300, -180, 'cea'], [1250, -60, 'rener'],
+    [1260, -560, 'amerikanas'], [-1300, -180, 'cea'], [1250, -60, 'brenner'],
   ] as const) infoTotem(b, x, z, brand);
 }
 

@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- The Rener store is renamed **Brenner** (brand id `brenner`, sign in `store-signs.ts`).
+
 - Merging the working kiosks (below) with the ground floor crews: `seller`, `stocker`, `pharmacist` and `cleaner` get arm motions (`prop-motion.ts`), and each kiosk gets a cash register on its counter (`kioskRegister` in `shopping-cover.ts`).
 
 - The small atrium kiosks open a serving window over a 52 unit counter on their aisle side, with an attendant inside in the kiosk brand's uniform (Livraria da Travessura gets one in `STAFF_UNIFORMS`); an invisible solid `clip` box keeps the inside closed, and the aisle ad screen moves to the counter front (`smallKiosk` in `shopping-cover.ts`). Staff now work: the mannequin model is split into a body and arms, staff arms are two instanced meshes posed by `staffArmPose` (`prop-motion.ts`; cooks stir, cashiers scan, servers hand over) on the high and low tiers through the `staffMotion` quality column, and `performance` keeps the rest pose. Store mannequins stay static.

@@ -765,7 +765,7 @@ function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: Prop
 }
 
 /** The ads every screen loops through, in order. Each screen starts at its own place in the loop. */
-const SCREEN_ADS: readonly StoreBrand[] = ['mequi', 'zarra', 'kfg', 'cacau-chou', 'amerikanas', 'bobis', 'rener', 'travessura'];
+const SCREEN_ADS: readonly StoreBrand[] = ['mequi', 'zarra', 'kfg', 'cacau-chou', 'amerikanas', 'bobis', 'brenner', 'travessura'];
 const AD_PIXELS_WIDE = 256;
 const AD_PIXELS_HIGH = 128;
 

@@ -135,6 +135,7 @@ export class MapBuilder {
         return { ...p, x, z };
       case 'speaker':
       case 'santa':
+      case 'snowman':
       case 'mannequin':
       case 'staff':
       case 'clothesRack':

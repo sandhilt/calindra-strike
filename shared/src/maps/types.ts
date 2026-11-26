@@ -83,6 +83,8 @@ export type MapProp =
   | { kind: 'speaker'; x: number; y: number; z: number; yaw: number; station: StationId }
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
   | { kind: 'santa'; x: number; y: number; z: number; yaw: number; pose: 'standing' | 'seated' }
+  /** A snowman standing on (x, y, z), facing local -z, about 80 units tall at `scale` 1. Look only, never solid. */
+  | { kind: 'snowman'; x: number; y: number; z: number; yaw: number; scale: number }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
   /** A store employee behind a till or inside a kitchen: a mannequin in a uniform. Scenery only, never a player, bot or target. */
   | { kind: 'staff'; x: number; y: number; z: number; yaw: number; role: StaffRole; uniform: StaffUniform }
@@ -100,8 +102,11 @@ export type MapProp =
   | { kind: 'cook'; x: number; y: number; z: number; voice: CookVoice }
   /** A digital ad screen centred on (x, y, z), `width` by `height` units, facing local -z, that slides through a loop of store ads. Look only: the body behind it is a Box. */
   | { kind: 'adScreen'; x: number; y: number; z: number; yaw: number; width: number; height: number }
-  /** The glass cab and frame of a lift shaft, centred on its footprint. The cabs follow whoever rides (the field is `MapDef.lifts`). */
-  | { kind: 'lift'; x: number; z: number; yaw: number; width: number; depth: number; height: number; stops: readonly LiftStopDoor[] };
+  /**
+   * The glass cab and frame of a lift shaft, centred on its footprint. The cabs follow whoever rides (the field is `MapDef.lifts`).
+   * `festive` dresses the inside of the cab for Christmas: garlands, wreaths and gifts that ride with it. Look only.
+   */
+  | { kind: 'lift'; x: number; z: number; yaw: number; width: number; depth: number; height: number; stops: readonly LiftStopDoor[]; festive?: true };
 
 export type PropKind = MapProp['kind'];
 

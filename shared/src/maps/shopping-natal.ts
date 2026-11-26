@@ -2,7 +2,7 @@ import { isBrandMat } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { buildShopping } from './shopping.ts';
 import { SUPPLY_STAND } from './shopping-top.ts';
-import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, RAIL, X } from './shopping-levels.ts';
+import { BAY_ESCALATORS, BAY_TOP_Z, CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, RAIL, TOP_X, X, Z } from './shopping-levels.ts';
 import type { MapDef, MapProp, Mat } from './types.ts';
 
 const RED = 0xc32038;
@@ -23,6 +23,16 @@ const SNOW_FLAKES = 640;
 const SNOW_FLOOR_Y = 4;
 /** Garland height on a rail, measured from its top. */
 const GARLAND_DROP = 12;
+/** Gap between a lift level sign's edge and the holly hung beside it (units), so the sign face stays whole. */
+const SIGN_HOLLY_GAP = 2;
+/** Snowmen keep this far back from the top of the up escalator (units): its exit and the turn onto the gallery stay open. */
+export const SNOWMAN_EXIT_CLEARANCE = 120;
+/** Snowmen in the corner of each up escalator's landing on the Mirante: x, z and scale. Authored for the north-east bay. */
+const SNOWMEN = [
+  [1488, -1488, 1.2],
+  [1418, -1500, 0.9],
+  [1500, -1418, 0.65],
+] as const;
 
 /**
  * Every piece is `deco` (non-solid, shot through), so nothing changes for movement, bots or the nav grid.
@@ -132,6 +142,26 @@ function decorations(b: MapBuilder, base: MapDef): void {
   // Santa on the edge of the Mirante supply dais, turned to its gift box.
   b.prop({ kind: 'santa', x: SUPPLY_STAND.x + 66, y: DECK3 + 10, z: SUPPLY_STAND.z, yaw: Math.PI / 2, pose: 'standing' });
 
+  // Holly beside each level sign of the lift, never over it: a fir strip with baubles and a red bow on each side.
+  for (const sign of base.boxes.filter((box) => box.mat === 'brand:piso-terreo' || box.mat === 'brand:piso-1' || box.mat === 'brand:piso-mirante')) {
+    if (sign.min.z > 0) continue;
+    const back = sign.mat === 'brand:piso-terreo';
+    // Flush with the sign, against the shaft's corner glass.
+    const z = (sign.min.z + sign.max.z) / 2;
+    const height = sign.max.y - sign.min.y;
+    for (const x of [sign.min.x - SIGN_HOLLY_GAP - 4, sign.max.x + SIGN_HOLLY_GAP + 4]) {
+      box(x, sign.min.y, z, 6, height, 2, PINE);
+      for (const [i, y] of [0.2, 0.5, 0.8].entries()) box(x, sign.min.y + height * y - 2.5, z + (back ? 3 : -3), 5, 5, 4, i % 2 ? GOLD : RED, 'lamp');
+      box(x, sign.max.y, z, 8, 6, 2, RED);
+    }
+  }
+
+  // Snowmen in the dead-end corner of the up escalator's landing on the Mirante, on a patch of snow.
+  const [up] = BAY_ESCALATORS;
+  const patch = { minX: up.x1 + 4, maxX: X - 6, minZ: -Z + 6, maxZ: BAY_TOP_Z - SNOWMAN_EXIT_CLEARANCE };
+  drift((patch.minX + patch.maxX) / 2, DECK3, (patch.minZ + patch.maxZ) / 2, patch.maxX - patch.minX, patch.maxZ - patch.minZ);
+  for (const [x, z, scale] of SNOWMEN) b.prop({ kind: 'snowman', x, y: DECK3 + 3, z, yaw: Math.atan2(x - TOP_X, z - BAY_TOP_Z), scale });
+
   // Wreaths over the shop fronts. The lift doorways get none: the level signs fill the space over them.
   for (const x of [-1152, -384, 384, 1152]) wreath(x + 139, 139, FACADE_Z + 14);
 
@@ -211,6 +241,11 @@ function withSeasonStation(props: readonly MapProp[]): MapProp[] {
   return props.map((p) => (p.kind === 'speaker' ? { ...p, station: 'shopping-natal' } : p));
 }
 
+/** The lift cabs wear their Christmas dress. */
+function festiveLifts(props: readonly MapProp[]): MapProp[] {
+  return props.map((p) => (p.kind === 'lift' ? { ...p, festive: true } : p));
+}
+
 /**
  * Shopping Sul Rio at Christmas: the base map with decoration, snow and its own radio. The base is called and
  * extended, so any change to Shopping Sul Rio shows up here.
@@ -228,7 +263,7 @@ export function buildShoppingNatal(): MapDef {
     boxes: [...base.boxes, ...b.boxes],
     lights: [...base.lights, ...b.lights],
     features: [...base.features, ...b.features],
-    props: [...withSeasonStation(base.props), ...b.props],
+    props: [...festiveLifts(withSeasonStation(base.props)), ...b.props],
     theme: {
       ...base.theme,
       skyTop: '#3b4c85',

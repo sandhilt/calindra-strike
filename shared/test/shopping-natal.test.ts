@@ -3,8 +3,8 @@ import { describe, it } from 'node:test';
 import { getMaps } from '../src/index.ts';
 import { isBrandMat } from '../src/maps/brands.ts';
 import { buildShopping } from '../src/maps/shopping.ts';
-import { buildShoppingNatal, GARLAND_TINTS } from '../src/maps/shopping-natal.ts';
-import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, Z } from '../src/maps/shopping-levels.ts';
+import { buildShoppingNatal, GARLAND_TINTS, SNOWMAN_EXIT_CLEARANCE } from '../src/maps/shopping-natal.ts';
+import { BAY_ESCALATORS, BAY_TOP_Z, CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, TOP_X, X, Z } from '../src/maps/shopping-levels.ts';
 import type { Box } from '../src/maps/types.ts';
 
 /** Overlaps thinner than this (units) are faces that merely touch. */
@@ -82,12 +82,14 @@ describe('Shopping Sul Rio: Natal', () => {
     }
   });
 
-  it('keeps the base props, changing only the stations of the speakers', () => {
+  it('keeps the base props, changing only the stations of the speakers and dressing the lift cabs', () => {
     natal.props.slice(0, base.props.length).forEach((prop, i) => {
       const original = base.props[i];
       if (prop.kind === 'speaker') {
         assert.equal(prop.station, 'shopping-natal');
         assert.partialDeepStrictEqual(prop, { ...original, station: 'shopping-natal' });
+      } else if (prop.kind === 'lift') {
+        assert.deepEqual(prop, { ...original, festive: true });
       } else {
         assert.deepEqual(prop, original);
       }
@@ -149,6 +151,52 @@ describe('Shopping Sul Rio: Natal', () => {
           box.min.z < front + 64 && box.max.z > front), `blocked aisle at ${JSON.stringify(box.min)}`);
       }
     }
+  });
+
+  it('dresses only the Christmas lift cabs', () => {
+    const lifts = natal.props.filter((p) => p.kind === 'lift');
+    assert.equal(lifts.length, natal.lifts.length);
+    assert.ok(lifts.every((p) => p.kind === 'lift' && p.festive === true));
+    for (const map of getMaps().filter((m) => m.id !== natal.id)) {
+      assert.ok(map.props.every((p) => p.kind !== 'lift' || p.festive === undefined), map.id);
+    }
+  });
+
+  it('hangs holly beside every lift level sign, at its height, without covering it', () => {
+    const signs = retained.filter((box) => box.mat.startsWith('brand:piso-'));
+    assert.equal(signs.length, 6);
+    for (const sign of signs) {
+      const beside = decor.filter((b) => b.min.y < sign.max.y && b.max.y > sign.min.y &&
+        Math.abs((b.min.z + b.max.z) / 2 - (sign.min.z + sign.max.z) / 2) < 8 &&
+        b.max.x > sign.min.x - 24 && b.min.x < sign.max.x + 24);
+      assert.ok(beside.some((b) => b.max.x <= sign.min.x), `holly left of ${sign.mat} at z ${sign.min.z}`);
+      assert.ok(beside.some((b) => b.min.x >= sign.max.x), `holly right of ${sign.mat} at z ${sign.min.z}`);
+      assert.ok(beside.every((b) => b.max.x <= sign.min.x || b.min.x >= sign.max.x));
+    }
+  });
+
+  it('stands snowmen in the corner of each up escalator landing, out of its exit', () => {
+    const snowmen = natal.props.filter((p) => p.kind === 'snowman');
+    assert.equal(snowmen.length, 6);
+    const [up] = BAY_ESCALATORS;
+    for (const p of snowmen) {
+      assert.ok(p.kind === 'snowman');
+      // Fold the mirrored half back onto the authored north-east bay.
+      const x = p.z < 0 ? p.x : -p.x;
+      const z = p.z < 0 ? p.z : -p.z;
+      // Twig arms reach about 28 units from the middle at scale 1.
+      const radius = 28 * p.scale;
+      assert.equal(p.y, DECK3 + 3);
+      assert.ok(x - radius > Math.max(TOP_X, up.x1) && x + radius < X, `snowman x ${p.x}`);
+      assert.ok(z - radius > -Z && z + radius < BAY_TOP_Z - SNOWMAN_EXIT_CLEARANCE, `snowman z ${p.z}`);
+      assert.ok(decor.some((snow) => snow.max.y === p.y && snow.min.x < p.x && snow.max.x > p.x &&
+        snow.min.z < p.z && snow.max.z > p.z), 'stands on its snow patch');
+      const fold = p.z < 0 ? 1 : -1;
+      const facing = { x: -Math.sin(p.yaw) * fold, z: -Math.cos(p.yaw) * fold };
+      assert.ok(facing.x * (TOP_X - x) + facing.z * (BAY_TOP_Z - z) > 0, 'faces the landing');
+    }
+    const sizes = new Set(snowmen.map((p) => p.kind === 'snowman' && p.scale));
+    assert.ok(sizes.size >= 3);
   });
 
   it('has its own speakers and a radio station of its own', () => {

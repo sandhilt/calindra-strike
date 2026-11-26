@@ -3,11 +3,14 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `23f3aa6`
+- Covered through: `580154a`
 
 ## Log
 
 Changes made after the baseline, newest day first.
+
+### 2026-11-26
+- The lobby and Esc menu share an **issues?** link with the GitHub mark that opens the fork’s issue tracker (`client/src/ui/issues-link.ts`).
 
 ### 2026-11-25
 - New map Shopping Sul Rio: Natal (`shopping-natal`): the Shopping Sul Rio layout with Christmas decoration (trees, Santas, reindeer, a sleigh, gifts, wreaths, garlands on the Mirante rail, stars hanging from the roof) built on top of the base map in `shared/src/maps/shopping-natal.ts`, with the same gameplay, its own radio station (`shopping-natal` in `shared/src/maps/stations.ts`, track `client/public/music/shopping-natal.ogg`) and its own rotation entry.

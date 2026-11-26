@@ -1,2 +1,2 @@
-/** The game's repository, which the lobby links to. */
-export const GITHUB_URL = 'https://github.com/sandhilt/calindra-strike';
+/** Issue tracker shared by the lobby and pause menu. */
+export const GITHUB_ISSUES_URL = 'https://github.com/sandhilt/calindra-strike/issues';

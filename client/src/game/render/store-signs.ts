@@ -145,7 +145,7 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.fillStyle = '#e30613';
     g.fillRect(0, 0, W, 28);
     g.fillRect(0, H - 28, W, 28);
-    outlined(g, "Bobi's", W / 2, 128, 130, '#e30613', '#1b1b1b', SERIF, W - 60, 'italic bold');
+    outlined(g, "Bobo's", W / 2, 128, 130, '#e30613', '#1b1b1b', SERIF, W - 60, 'italic bold');
   },
   zarra(g) {
     panel(g, '#f7f7f5');
@@ -206,7 +206,7 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.save();
     g.translate(W / 2, H / 2 + 4);
     g.scale(1.25, 1);
-    label(g, 'SAMSONG', 0, 0, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 330);
+    label(g, 'SEMSUNGA', 0, 0, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 330);
     g.restore();
   },
   'ray-bao'(g) {

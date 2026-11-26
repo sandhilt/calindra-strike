@@ -192,9 +192,9 @@ const SIGNS: Record<StoreBrand, (g: G, christmas?: boolean) => void> = {
     panel(g, '#0050a0');
     label(g, 'C&Á', W / 2, 132, 150, '#ffffff', 'Arial Black, Arial, sans-serif', W - 80);
   },
-  rener(g) {
+  brenner(g) {
     panel(g, '#2b2b2b');
-    label(g, 'Rener', W / 2, 128, 130, '#ffffff', SERIF, W - 80, 'bold');
+    label(g, 'Brenner', W / 2, 128, 130, '#ffffff', SERIF, W - 80, 'bold');
   },
   hew(g) {
     panel(g, '#e50010');

@@ -36,7 +36,7 @@ const MIRANTE_SHOPS: readonly MiranteShops[] = [
   { pharmacy: 'droga-raio', small: 'loccitano', lounge: 'essencia', corner: 'papel-e-cor', gift: 'toc-toque', large: ['sentauro', 'brinco-center'] },
 ];
 const STORES: readonly (readonly ShopBrand[])[] = [
-  ['zarra', 'cea', 'rener', 'hew'],
+  ['zarra', 'cea', 'brenner', 'hew'],
   ['cacau-chou', 'amerikanas', 'riachuela', 'travessura'],
 ];
 

@@ -95,7 +95,7 @@ function lounge(b: MapBuilder): void {
 function cover(b: MapBuilder): void {
   const boards: readonly (readonly [number, number, StoreBrand])[] = [
     [-1080, -822, 'burguer-rei'], [-576, -780, 'hew'],
-    [-304, -974, 'cea'], [430, -800, 'rener'], [304, -990, 'amerikanas'],
+    [-304, -974, 'cea'], [430, -800, 'brenner'], [304, -990, 'amerikanas'],
     [680, -980, 'mequi'], [1080, -832, 'parrilha'],
   ];
   for (const [x, z, brand] of boards) board(b, x, z, 108, brand);

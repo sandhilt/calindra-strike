@@ -93,7 +93,7 @@ const CREW_Z = 24;
 const TILL_MATE: Readonly<Record<ShopBrand, StaffRole>> = {
   zarra: 'seller',
   cea: 'seller',
-  rener: 'stocker',
+  brenner: 'stocker',
   hew: 'seller',
   'cacau-chou': 'seller',
   amerikanas: 'stocker',
@@ -185,7 +185,7 @@ function cea(r: Room): void {
   clothingDisplay(r, DENIM, 0x0050a0);
 }
 
-function rener(r: Room): void {
+function brenner(r: Room): void {
   shell(r, { floor: 'desk', floorTint: 0x8a6a4a, wall: 0xb5503a, trim: 0x1b1b1b });
   r.box(0, 2.5, 2 * STORE_HALF_WIDTH - 4, 3, 110, 0, 'brick', 0xb86a55);
   counter(r, 0x1b1b1b, 0x3a2a1c);
@@ -570,7 +570,7 @@ function paguePouco(r: Room): void {
 const STORES: Record<ShopBrand, (r: Room) => void> = {
   zarra,
   cea,
-  rener,
+  brenner,
   hew,
   'cacau-chou': cacauChou,
   amerikanas,
@@ -584,7 +584,7 @@ const STORES: Record<ShopBrand, (r: Room) => void> = {
 const ACCENT: Record<ShopBrand, Hex> = {
   zarra: 0x151515,
   cea: 0x0050a0,
-  rener: 0x6e2a22,
+  brenner: 0x6e2a22,
   hew: 0xe50010,
   'cacau-chou': 0x6a3a1c,
   amerikanas: 0xe60014,
@@ -602,7 +602,7 @@ export function storeAccent(brand: ShopBrand): Hex {
 const WINDOW_DISPLAY_DEPTH = 142;
 const WINDOW_DISPLAY_X = 150;
 const WINDOW_DISPLAY_HEIGHT = 56;
-const CLOTHING = new Set<ShopBrand>(['zarra', 'cea', 'rener', 'hew', 'riachuela']);
+const CLOTHING = new Set<ShopBrand>(['zarra', 'cea', 'brenner', 'hew', 'riachuela']);
 
 /** Full-length mirrors hang on both side walls of a clothing store, in the strip between the back wall and its first rack. */
 const SIDE_MIRROR_X = STORE_HALF_WIDTH - 3.5;

@@ -46,7 +46,7 @@ export const STAFF_UNIFORMS: Readonly<Record<StaffUniform, Outfit>> = {
   // Ground floor stores: Zara's floor staff dress all in black, the rest wear a polo in their sign colour.
   zarra: outfit(BLACK, BLACK, 0x3a3a3a),
   cea: outfit(0x0050a0, BLACK, WHITE),
-  rener: outfit(0x1b1b1b, 0x2a2a2a, 0xc8102e),
+  brenner: outfit(0x1b1b1b, 0x2a2a2a, 0xc8102e),
   hew: outfit(0xe50010, BLACK, WHITE),
   amerikanas: outfit(0xe60014, BLACK, WHITE),
   riachuela: outfit(0x1c2a5a, BLACK, 0xe9dcc0),

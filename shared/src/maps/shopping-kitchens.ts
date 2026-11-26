@@ -249,8 +249,8 @@ function register(r: Room, x: number, z: number): void {
   r.box(x, (z - 5 + COUNTER_CAP_Z) / 2, 22, COUNTER_CAP_Z - (z - 5), COUNTER_TOP, 0, 'white', STEEL_DARK);
   r.box(x, z, 16, 8, 5, COUNTER_TOP, 'charcoal', 0x1b1b1b);
   r.box(x, z - 1, 12, 4, 1.5, COUNTER_TOP + 5, 'charcoal', 0x3a3a3a);
-  r.box(x, z - 3.5, 12, 1, 8, COUNTER_TOP + 6.5, 'screen');
-  r.box(x + 4, z + 3.5, 6, 0.8, 4, COUNTER_TOP + 7, 'screen');
+  r.box(x, z - 3.5, 12, 1, 8, COUNTER_TOP + 5, 'screen');
+  r.box(x + 4, z + 3.5, 6, 0.8, 4, COUNTER_TOP + 5, 'screen');
 }
 
 /** The people behind a food court counter, all inside the kitchen so players never reach them: a cook at a station and a server at the window with the register. */

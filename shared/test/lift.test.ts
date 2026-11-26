@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BTN, CollisionWorld, LIFT_CARRY_UNITS, LIFT_CLOCK_SLACK_TICKS, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, TICK_MS, WEAPON,
+  BTN, CollisionWorld, PLAYER_RADIUS, LIFT_CARRY_UNITS, LIFT_CLOCK_SLACK_TICKS, LIFT_SPEED_UNITS, LIFT_STOP_WAIT_TICKS, MapBuilder, TICK_MS, WEAPON,
   applyCmd, carriedBy, createPlayerState, getMaps, inLiftCab, liftAt, liftCab, liftClockTick, liftDoorOpen, LIFT_DOOR_CLOSE_TICKS, liftRideSeconds, spawnState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
@@ -348,21 +348,19 @@ describe('the Mirante doorway when the cab leaves', () => {
     assert.ok(Math.abs(s.y - 384) < 1, 'still on the Mirante, y=' + s.y);
   });
 
-  it('takes along someone who is already in the doorway when it shuts: they ride the cab, they do not fall past it', () => {
+  it('puts someone whose centre is still on the landing back on the landing when the doorway shuts on them', () => {
     const { s, run } = walker(doorZ - 8, shuts - 1);
     run(60, BTN.BACK, 0);
-    assert.ok(s.z > doorZ, 'inside the shaft, z=' + s.z);
-    assert.ok(s.onGround, 'standing on the cab');
-    assert.ok(Math.abs(s.y - liftCab(lift, shuts + 59).y) <= LIFT_CARRY_UNITS, 'level with the cab, y=' + s.y);
+    assert.ok(s.z < doorZ - PLAYER_RADIUS, 'pushed out of the door slab onto the Mirante, z=' + s.z);
+    assert.ok(Math.abs(s.y - 384) < 1, 'still on the Mirante, y=' + s.y);
   });
 
-  it('does not drag a rider at the doorway edge down into the floor slab when the cab leaves, and lets them walk out', () => {
-    const { s, run } = walker(doorZ + 8, arrives + LIFT_STOP_WAIT_TICKS - 4);
+  it('pushes a rider at the doorway edge onto the cab when the doorway shuts, and they ride it down instead of staying on the slab', () => {
+    const { s, run } = walker(doorZ + 8, arrives + LIFT_STOP_WAIT_TICKS - 14);
     run(40, 0, 0);
-    assert.ok(s.y > 383, 'did not sink into the slab, y=' + s.y);
-    run(40, BTN.FWD, 0);
-    assert.ok(s.z < doorZ - 20, 'walked out onto the Mirante, z=' + s.z);
-    assert.ok(Math.abs(s.y - 384) < 1, 'level with the Mirante, y=' + s.y);
+    assert.ok(s.z >= doorZ + PLAYER_RADIUS, 'clear of the door slab, z=' + s.z);
+    assert.equal(s.y, liftCab(lift, arrives + LIFT_STOP_WAIT_TICKS + 25).y, 'on the cab floor');
+    assert.ok(s.y < 383, 'left the Mirante with the cab, y=' + s.y);
   });
 });
 

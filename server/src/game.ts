@@ -1524,9 +1524,9 @@ export class Game {
     }
   }
 
-  /** The cab is a safe room: nobody in it can be shot, and a shot fired from it hurts nobody, glass or not. */
-  private inCab(s: { x: number; y: number; z: number }): boolean {
-    return inLiftCab(this.map.lifts, s.x, s.y, s.z, this.tick);
+  /** The cab is a safe room, for whoever rides it on their own commands' clock: nobody in it can be shot, and a shot fired from it hurts nobody, glass or not. */
+  private inCab(s: { x: number; y: number; z: number; lift: number }): boolean {
+    return s.lift >= 0 || inLiftCab(this.map.lifts, s.x, s.y, s.z, this.tick);
   }
 
   private handleShot(p: ServerPlayer, shot: ShotInfo, interp: number): void {

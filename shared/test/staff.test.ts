@@ -145,10 +145,30 @@ describe('the shopping floor staff', () => {
     const landmarks = shopping.features.flatMap((f) => (f.kind === 'landmark' ? [f] : []));
     const tills = landmarks.filter((f) => f.name.includes('(Mirante)') && tillNames.some((n) => f.name.startsWith(n)));
     assert.ok(tills.length > 0);
-    assert.equal(roles('cashier').length, tills.length);
+    assert.equal(roles('cashier').filter((p) => p.y === DECK3).length, tills.length);
     for (const till of tills) {
       const cashier = roles('cashier').find((p) => Math.abs(p.x - till.x) < 1 && p.y === DECK3);
       assert.ok(cashier, `a cashier behind ${till.name}`);
+    }
+  });
+});
+
+describe('the small atrium kiosks', () => {
+  const shopping = maps.find((m) => m.id === 'shopping');
+  assert.ok(shopping);
+  const KIOSK_BRANDS = ['bobis', 'travessura', 'mequi', 'kfg'];
+  const ground = staffOf(shopping).filter((p) => p.y === 0);
+
+  it('puts one attendant in each kiosk, both halves, in the kiosk brand', () => {
+    assert.equal(ground.length, KIOSK_BRANDS.length * 2);
+    assert.deepEqual([...new Set(ground.map((p) => p.uniform))].sort(), [...KIOSK_BRANDS].sort());
+  });
+
+  it('keeps each attendant inside a solid clip box nobody can enter, facing the serving window', () => {
+    for (const p of ground) {
+      assert.ok(inKitchen(shopping, p), `${p.uniform} at ${p.x}, ${p.z}`);
+      const ahead = nearestSolid(shopping, p.x, p.z, -Math.sin(p.yaw), -Math.cos(p.yaw), p.y + 70);
+      assert.ok(ahead > 40, `${p.uniform} window blocked at ${ahead}`);
     }
   });
 });

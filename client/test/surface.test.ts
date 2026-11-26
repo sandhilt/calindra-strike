@@ -53,6 +53,10 @@ test('Carrapeta keeps its aura on high and low and the full blast on high only',
   assert.deepEqual(Object.values(QUALITY).map((profile) => profile.carrapetaBlastParticles), [true, false, false]);
 });
 
+test('only high and low animate store staff', () => {
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].staffMotion), ['high', 'low']);
+});
+
 test('only high and low render kitchen flames', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].kitchenFire), ['high', 'low']);
 });

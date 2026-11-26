@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   adScroll,
+  ARM_REST,
+  staffArmPose,
+  type ArmPose,
   CASCADE_DROP,
   CEILING_FAN_RAD_PER_S,
   JET_DROP,
@@ -26,7 +29,7 @@ import {
   type StepSlot,
   type WispPose,
 } from './prop-motion.ts';
-import { addClothesRack, addEscalatorBody, addEscalatorGlass, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
+import { addClothesRack, addEscalatorBody, addEscalatorGlass, addFanMount, addMannequin, addMannequinBody, addMannequinHand, addMannequinSleeve, addVentFrame, armMatrix } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
 import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
@@ -163,10 +166,58 @@ function buildMannequins(items: readonly PropOf<'mannequin'>[], ctx: PropContext
   return still();
 }
 
-/** Staff are the store mannequin model dressed in their brand's uniform (`staffOutfit`), merged into the static mesh. */
+/**
+ * Staff are the store mannequin model dressed in their brand's uniform (`staffOutfit`): the body joins the static
+ * mesh, and the arms are the mannequin's own arm parts drawn as two instanced meshes (sleeves tinted per figure, bare
+ * forearms), two instances per figure, posed by `staffArmPose` while `QualityProfile.staffMotion` is on.
+ */
 function buildStaff(items: readonly PropOf<'staff'>[], ctx: PropContext): PropGroup {
-  for (const s of items) addMannequin(ctx.statics, { x: s.x, y: s.y, z: s.z, yaw: s.yaw, outfit: staffOutfit(s.uniform, s.role) });
-  return still();
+  if (items.length === 0) return still();
+  const outfits = items.map((s) => staffOutfit(s.uniform, s.role));
+  items.forEach((s, i) => addMannequinBody(ctx.statics, { x: s.x, y: s.y, z: s.z, yaw: s.yaw, outfit: outfits[i] }));
+  const sleeveParts = new Parts();
+  addMannequinSleeve(sleeveParts, 0xffffff);
+  const handParts = new Parts();
+  addMannequinHand(handParts);
+  const sleeveGeometry = sleeveParts.merge();
+  const handGeometry = handParts.merge();
+  if (!sleeveGeometry || !handGeometry) return still();
+  const count = items.length * 2;
+  const sleeves = new THREE.InstancedMesh(sleeveGeometry, newPropMaterial(), count);
+  const hands = new THREE.InstancedMesh(handGeometry, newPropMaterial(), count);
+  for (const mesh of [sleeves, hands]) {
+    mesh.castShadow = true;
+    mesh.frustumCulled = false;
+  }
+  const sides = [1, -1] as const;
+  const color = new THREE.Color();
+  items.forEach((_, i) => sides.forEach((_side, k) => sleeves.setColorAt(i * 2 + k, color.setHex(outfits[i].top))));
+  const seeds = items.map((s) => seedOf(s.x, s.z));
+  const matrix = new THREE.Matrix4();
+  const pose: ArmPose = { ...ARM_REST };
+  const place = (seconds: number | null): void => {
+    items.forEach((s, i) => sides.forEach((side, k) => {
+      const at = seconds === null ? ARM_REST : staffArmPose(pose, s.role, side, seconds, seeds[i]);
+      armMatrix(matrix, s, side, at);
+      sleeves.setMatrixAt(i * 2 + k, matrix);
+      hands.setMatrixAt(i * 2 + k, matrix);
+    }));
+    sleeves.instanceMatrix.needsUpdate = true;
+    hands.instanceMatrix.needsUpdate = true;
+  };
+  place(null);
+  const clock = new MotionClock(ctx.profile);
+  clock.running = ctx.profile.staffMotion;
+  return {
+    object: groupOf(sleeves, hands),
+    update(dt) {
+      if (clock.tick(dt)) place(clock.seconds);
+    },
+    setQuality(profile) {
+      clock.running = profile.staffMotion;
+      if (!clock.running) place(null);
+    },
+  };
 }
 
 function buildClothesRacks(items: readonly PropOf<'clothesRack'>[], ctx: PropContext): PropGroup {

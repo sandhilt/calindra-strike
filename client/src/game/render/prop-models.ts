@@ -1,5 +1,7 @@
 import type { MapProp } from '@calindra-strike/shared';
-import { Parts } from './prop-parts.ts';
+import * as THREE from 'three';
+import { ARM_REST, type ArmPose } from './prop-motion.ts';
+import type { Parts } from './prop-parts.ts';
 
 type Of<K extends MapProp['kind']> = Extract<MapProp, { kind: K }>;
 
@@ -9,11 +11,64 @@ const STEEL = 0x9aa0a8;
 /** Height of the mannequin's round base. */
 const BASE_UNITS = 2.5;
 
+/** Where a mannequin's shoulder pivot sits on its body: out to the side and over the feet (units). */
+const SHOULDER_X = 15.5;
+const SHOULDER_Y = BASE_UNITS + 56;
+/** The rest pose hangs each arm a little off the vertical, top out and hand in. */
+const ARM_TILT = -0.1;
+
+export type ArmSide = 1 | -1;
+type Placed = Pick<Of<'mannequin'>, 'x' | 'y' | 'z' | 'yaw'>;
+
+const scratch = new THREE.Matrix4();
+const scratchQuat = new THREE.Quaternion();
+const scratchEuler = new THREE.Euler();
+
+/**
+ * Where an arm of a mannequin standing at `m` goes in the world, for the arm model built by `addMannequinSleeve` and
+ * `addMannequinHand` around its shoulder (outward +x). `pose.pitch` swings it forward (forward is -z), `pose.roll`
+ * lifts it out to the side. The left arm is the right one turned half a turn about its own vertical.
+ */
+export function armMatrix(out: THREE.Matrix4, m: Placed, side: ArmSide, pose: ArmPose): THREE.Matrix4 {
+  out.makeRotationY(m.yaw).setPosition(m.x, m.y, m.z);
+  out.multiply(scratch.makeTranslation(side * SHOULDER_X, SHOULDER_Y, 0));
+  scratchEuler.set(pose.pitch, 0, side * (ARM_TILT + pose.roll), 'ZXY');
+  out.multiply(scratch.makeRotationFromQuaternion(scratchQuat.setFromEuler(scratchEuler)));
+  if (side < 0) out.multiply(scratch.makeRotationY(Math.PI));
+  return out;
+}
+
+/** The upper arm of a mannequin in the shirt colour, around its shoulder pivot. */
+export function addMannequinSleeve(parts: Parts, color: number): void {
+  parts.box(6.4, 12, 7.4, color, { x: 0, y: -6, z: 0 });
+}
+
+/** The bare forearm and hand of a mannequin, around its shoulder pivot. */
+export function addMannequinHand(parts: Parts): void {
+  parts.box(5.2, 12, 6, SKIN, { x: 1.4, y: -17, z: 0 });
+}
+
+/** Both arms of a mannequin, fixed in a pose, into a static mesh. */
+function addMannequinArms(parts: Parts, m: Placed, top: number, pose: ArmPose): void {
+  const matrix = new THREE.Matrix4();
+  for (const side of [-1, 1] as const) {
+    parts.atMatrix(armMatrix(matrix, m, side, pose));
+    addMannequinSleeve(parts, top);
+    addMannequinHand(parts);
+  }
+}
+
 /**
  * A shop mannequin cut like the player's `Avatar` (legs 0 to 32, torso 32 to 58, head 58 to 72) in matte white,
  * dressed in the colours of its shop, standing on a round base. One pose: arms hanging a little apart.
  */
 export function addMannequin(parts: Parts, m: Pick<Of<'mannequin'>, 'x' | 'y' | 'z' | 'yaw' | 'outfit'>): void {
+  addMannequinBody(parts, m);
+  addMannequinArms(parts, m, m.outfit.top, ARM_REST);
+}
+
+/** The mannequin without its arms, for figures whose arms are drawn apart so they can move (staff). */
+export function addMannequinBody(parts: Parts, m: Pick<Of<'mannequin'>, 'x' | 'y' | 'z' | 'yaw' | 'outfit'>): void {
   const { top, legs, trim, dress } = m.outfit;
   const y = BASE_UNITS;
   parts.at(m.x, m.y, m.z, m.yaw);
@@ -31,10 +86,6 @@ export function addMannequin(parts: Parts, m: Pick<Of<'mannequin'>, 'x' | 'y' | 
   parts.box(24, 21, 14, top, { x: 0, y: y + 46, z: 0 });
   parts.box(24.6, 2.4, 14.6, trim, { x: 0, y: y + 35.5, z: 0 });
   parts.box(10, 2.4, 9, trim, { x: 0, y: y + 57, z: 0 });
-  for (const side of [-15.5, 15.5]) {
-    parts.box(6.4, 12, 7.4, top, { x: side, y: y + 50, z: 0, rot: [0, 0, -Math.sign(side) * 0.1] });
-    parts.box(5.2, 12, 6, SKIN, { x: side + Math.sign(side) * 1.4, y: y + 39, z: 0, rot: [0, 0, -Math.sign(side) * 0.1] });
-  }
   parts.cylinder(3, 3.4, 4, 8, SKIN, { x: 0, y: y + 60, z: 0 });
   parts.box(14, 12, 14, SKIN, { x: 0, y: y + 68, z: 0 });
   parts.box(12, 4.4, 2, DARK, { x: 0, y: y + 68, z: -7.3 });

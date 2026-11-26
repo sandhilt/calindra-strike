@@ -1,4 +1,4 @@
-import { ESCALATOR_SPEED_UNITS, type EscalatorTravel } from '@calindra-strike/shared';
+import { ESCALATOR_SPEED_UNITS, type EscalatorTravel, type StaffRole } from '@calindra-strike/shared';
 
 /**
  * Pure motion rules of the animated scenery (escalator steps, fountain drops, vent wisps, fan spin).
@@ -218,4 +218,51 @@ export function adScroll(seconds: number): number {
   const sliding = (seconds - shown * cycle - AD_HOLD_SECONDS) / AD_SLIDE_SECONDS;
   if (sliding <= 0) return shown;
   return shown + sliding * sliding * (3 - 2 * sliding);
+}
+
+/** How a mannequin arm is turned at the shoulder: `pitch` swings it forward, `roll` lifts it out to the side (radians). */
+export interface ArmPose {
+  pitch: number;
+  roll: number;
+}
+
+/** Arms hanging at the sides: the store mannequin's one pose, and the pose staff hold where scenery does not move. */
+export const ARM_REST: Readonly<ArmPose> = { pitch: 0, roll: 0 };
+
+/** One work cycle of each staff role, in seconds (tuning values). */
+export const STAFF_CYCLE_SECONDS: Readonly<Record<StaffRole, number>> = { cook: 1.2, cashier: 1.6, server: 3.2 };
+
+const TAU = Math.PI * 2;
+
+/** 0 to 1 and back over a serving cycle: reach out, hold the order over the counter, draw back, wait. */
+function reachOf(phase: number): number {
+  const ease = (u: number) => u * u * (3 - 2 * u);
+  if (phase < 0.3) return ease(phase / 0.3);
+  if (phase < 0.5) return 1;
+  if (phase < 0.8) return ease((0.8 - phase) / 0.3);
+  return 0;
+}
+
+/**
+ * The pose of one arm (`side` 1 right, -1 left) of a working staff member at `seconds`, offset by its own `seed` (0
+ * to 1) so neighbours do not move in step: a cook stirs a pot with the right hand and steadies it with the left, a
+ * cashier passes goods over the scanner from the left hand to the right, a server reaches over the counter with both.
+ */
+export function staffArmPose(out: ArmPose, role: StaffRole, side: 1 | -1, seconds: number, seed: number): ArmPose {
+  const phase = (((seconds / STAFF_CYCLE_SECONDS[role] + seed) % 1) + 1) % 1;
+  const a = phase * TAU;
+  switch (role) {
+    case 'cook':
+      out.pitch = side > 0 ? 1 + 0.18 * Math.sin(a) : 0.75;
+      out.roll = side > 0 ? -0.12 + 0.16 * Math.cos(a) : -0.2;
+      return out;
+    case 'cashier':
+      out.pitch = side > 0 ? 0.9 : 0.6 + 0.25 * Math.max(0, Math.sin(a + Math.PI));
+      out.roll = side > 0 ? -0.15 + 0.35 * Math.sin(a) : -0.1;
+      return out;
+    case 'server':
+      out.pitch = 0.35 + 0.95 * reachOf(phase);
+      out.roll = -0.15;
+      return out;
+  }
 }

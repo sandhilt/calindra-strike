@@ -1,4 +1,5 @@
 import { brandMat, type StoreBrand } from './brands.ts';
+import type { KioskBrand, StaffRole } from './staff.ts';
 import type { MapBuilder } from './builder.ts';
 import { trimSolid } from './shopping-deck-walls.ts';
 import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, X } from './shopping-levels.ts';
@@ -161,6 +162,8 @@ const SMALL_KIOSK_HEIGHT = 140;
 const KIOSK_SCREEN_WIDTH = 56;
 const KIOSK_SCREEN_HEIGHT = 28;
 const KIOSK_SCREEN_Y = 72;
+/** The aisle screen sits on the counter front, under the serving window. */
+const KIOSK_SCREEN_Y_FRONT = 26;
 /** Screens stand this far off the face they hang on, so the face never shows through them. */
 const SCREEN_GAP = 0.8;
 const BEZEL = 3;
@@ -172,19 +175,36 @@ function adScreenOn(b: MapBuilder, x: number, y: number, faceZ: number, dir: 1 |
   b.prop({ kind: 'adScreen', x, y, z: faceZ + dir * SCREEN_GAP, yaw: dir > 0 ? Math.PI : 0, width, height });
 }
 
+const KIOSK_WALL = 4;
+/** The serving counter stands above the 45 unit jump, like the boutique tills. */
+const KIOSK_COUNTER_HEIGHT = 52;
+/** The serving window runs from the counter up to the header that carries the sign. */
+const KIOSK_WINDOW_TOP = 98;
+const KIOSK_ROOF = 4;
+/** The attendant stands this far toward the window from the kiosk's centre, so a reach brings the hands near the counter. */
+const KIOSK_STAFF_FORWARD = 14;
+
 /**
- * A small closed kiosk nobody can enter: a solid body with a counter ledge and shutter on its aisle side (+z), the
- * brand over it, and an ad screen on both long faces.
+ * A small kiosk nobody can enter: solid back and side walls, a counter above jump height with a serving window over it
+ * on the aisle side (+z), a header with the brand, a roof, and an invisible solid `clip` box over the whole inside, so
+ * the attendant can be seen working but nobody climbs in. An ad screen hangs on the counter front and on the back wall.
  */
-function smallKiosk(b: MapBuilder, x: number, z: number, brand: StoreBrand, tint: number): void {
+function smallKiosk(b: MapBuilder, x: number, z: number, brand: KioskBrand, role: StaffRole, tint: number): void {
   const half = SMALL_KIOSK / 2;
-  b.block(x, z, SMALL_KIOSK, SMALL_KIOSK, SMALL_KIOSK_HEIGHT, 'white', 0, { tint: PAINT });
+  const front = z + half;
+  const body = { tint: PAINT };
+  b.block(x, z - half + KIOSK_WALL / 2, SMALL_KIOSK, KIOSK_WALL, SMALL_KIOSK_HEIGHT, 'white', 0, body);
+  for (const side of [-1, 1]) b.block(x + side * (half - KIOSK_WALL / 2), z, KIOSK_WALL, SMALL_KIOSK, SMALL_KIOSK_HEIGHT, 'white', 0, body);
+  b.block(x, front - KIOSK_WALL / 2, SMALL_KIOSK, KIOSK_WALL, KIOSK_COUNTER_HEIGHT, 'white', 0, body);
+  b.block(x, front - KIOSK_WALL / 2, SMALL_KIOSK, KIOSK_WALL, SMALL_KIOSK_HEIGHT - KIOSK_WINDOW_TOP, 'white', KIOSK_WINDOW_TOP, body);
+  b.block(x, z, SMALL_KIOSK, SMALL_KIOSK, KIOSK_ROOF, 'white', SMALL_KIOSK_HEIGHT - KIOSK_ROOF, body);
+  b.add(x - half, 0, z - half, x + half, SMALL_KIOSK_HEIGHT - KIOSK_ROOF, z + half, 'clip', { visible: false, shoot: true });
   b.deco(x - half - 4, SMALL_KIOSK_HEIGHT, z - half - 4, x + half + 4, SMALL_KIOSK_HEIGHT + 6, z + half + 4, 'white', tint);
-  b.deco(x - half - 2, 40, z + half, x + half + 2, 44, z + half + 8, 'wood', 0xb98a58);
-  b.deco(x - half + 6, 44, z + half, x + half - 6, 52, z + half + 1, 'metal');
-  adPanel(b, x - 34, 100, z + half, x + 34, 134, z + half + 1, brand);
-  adScreenOn(b, x, KIOSK_SCREEN_Y, z + half + 1, 1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
+  b.deco(x - half - 2, KIOSK_COUNTER_HEIGHT, front - KIOSK_WALL, x + half + 2, KIOSK_COUNTER_HEIGHT + 3, front + 8, 'wood', 0xb98a58);
+  adPanel(b, x - 34, 100, front, x + 34, 134, front + 1, brand);
+  adScreenOn(b, x, KIOSK_SCREEN_Y_FRONT, front, 1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
   adScreenOn(b, x, KIOSK_SCREEN_Y + 20, z - half, -1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
+  b.prop({ kind: 'staff', x, y: 0, z: z + KIOSK_STAFF_FORWARD, yaw: Math.PI, role, uniform: brand });
 }
 
 const AD_TOTEM_WIDTH = 64;
@@ -210,10 +230,10 @@ function atrium(b: MapBuilder, displayCar: boolean): void {
   cart(b, 1000, -620, 'cacau-chou', 0x6a3a1c);
   cart(b, -1180, -80, 'cea', 0x0050a0);
 
-  smallKiosk(b, -640, -120, 'bobis', 0xd9a520);
-  smallKiosk(b, -1350, -470, 'travessura', 0x2f6f4e);
-  smallKiosk(b, -110, -350, 'mequi', 0xd7263d);
-  smallKiosk(b, 1340, -180, 'kfg', 0xc8102e);
+  smallKiosk(b, -640, -120, 'bobis', 'server', 0xd9a520);
+  smallKiosk(b, -1350, -470, 'travessura', 'cashier', 0x2f6f4e);
+  smallKiosk(b, -110, -350, 'mequi', 'server', 0xd7263d);
+  smallKiosk(b, 1340, -180, 'kfg', 'server', 0xc8102e);
   adTotem(b, -780, -330);
   adTotem(b, 220, -440);
 

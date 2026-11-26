@@ -75,6 +75,40 @@ const DENIM = [0x2a4f8f, 0x4d77b8, 0x1d3463, 0xe8e8e8];
 const WARM = [0xe50010, 0xffffff, 0x222222, 0xf2b84b];
 const NAVY = [0x1c2a5a, 0xc9a227, 0xf2ece0, 0x6b7fb5];
 
+function saleSign(r: Room, x: number, z: number, y: number, tint: Hex): void {
+  r.box(x, z, 34, 2, 24, y, 'white', tint);
+  for (const step of [-1, 0, 1]) {
+    r.box(x + step * 4, z + 1.5, 4, 1, 5, y + 9 + step * 5, 'white', 0xffffff);
+  }
+  r.box(x - 8, z + 1.5, 4, 1, 4, y + 16, 'white', 0xffffff);
+  r.box(x + 8, z + 1.5, 4, 1, 4, y + 5, 'white', 0xffffff);
+}
+
+function clothingDisplay(r: Room, palette: readonly Hex[], accent: Hex): void {
+  r.box(-152, 14, 62, 3, 3, 99, 'metal', STEEL);
+  for (const offset of [-24, -16, -8, 0, 8, 16, 24]) {
+    r.box(-152 + offset, 14, 7.8, 3 + (Math.abs(offset) % 16 ? 3 : 0), 92, 7, 'white', palette[0]);
+  }
+  r.box(-205, 7, 29, 3, 89, 7, 'metal', STEEL);
+  r.box(-205, 9, 24, 1, 83, 10, 'white', 0xc7dbe1);
+  r.box(-211, 9.8, 3, 0.6, 72, 17, 'white', 0xeaf5f8);
+  for (const y of [46, 72]) {
+    r.box(238, 11, 94, 14, 2, y, 'desk', accent);
+    palette.forEach((color, i) => {
+      const x = 202 + i * 23;
+      r.box(x, 12, 16, 9, 5, y + 2, 'white', color);
+      r.box(x - 3, 10, 9, 5, 5, y + 7, 'white', color);
+    });
+  }
+  r.box(110, 148, 2, 2, 22, 56, 'metal', STEEL);
+  saleSign(r, 110, 148, 78, accent);
+  r.box(192, 142, 17, 12, 2, 56, 'white', 0xf2efe8);
+  r.box(192, 142, 4, 4, 9, 58, 'metal', STEEL);
+  r.box(192, 142, 14, 8, 19, 67, 'white', palette[1]);
+  r.box(192, 142, 23, 7, 5, 80, 'white', palette[1]);
+  r.box(192, 142, 7, 7, 9, 86, 'white', 0xd7baa6);
+}
+
 function zarra(r: Room): void {
   shell(r, { floor: 'tile', floorTint: 0xf3f3f0, wall: 0xf4f4f1, trim: 0x151515 });
   r.box(0, 3, 200, 2, 120, 20, 'charcoal', 0x151515);
@@ -88,6 +122,7 @@ function zarra(r: Room): void {
   r.mannequin(-235, 232, 'front', outfit(0x111111, 0x111111, 0xf5f5f5, true), plinth(r, -235, 232, 0x151515));
   r.mannequin(150, 232, 'front', outfit(0x111111, 0x8d8d8d, 0xf5f5f5), plinth(r, 150, 232, 0x151515));
   r.mannequin(235, 232, 'front', outfit(0xf5f5f5, 0x111111, 0x151515, true), plinth(r, 235, 232, 0x151515));
+  clothingDisplay(r, MONO, 0x972a3d);
 }
 
 function cea(r: Room): void {
@@ -102,6 +137,7 @@ function cea(r: Room): void {
   r.mannequin(-215, 232, 'front', outfit(0x4d77b8, 0x1d3463, 0xffffff), plinth(r, -215, 232, 0xdbe7f7));
   r.mannequin(215, 232, 'front', outfit(0xd94f4f, 0x2a4f8f, 0xffffff), plinth(r, 215, 232, 0xdbe7f7));
   r.mannequin(-160, 232, 'front', outfit(0xf2b84b, 0xf5f5f5, 0x0050a0, true), plinth(r, -160, 232, 0xdbe7f7));
+  clothingDisplay(r, DENIM, 0x0050a0);
 }
 
 function rener(r: Room): void {
@@ -117,6 +153,7 @@ function rener(r: Room): void {
   r.mannequin(190, 232, 'front', outfit(0x6e2a22, 0x1d1d1d, 0xe6e6e6), plinth(r, 190, 232, 0x2b2b2b));
   r.mannequin(-250, 190, 'right', outfit(0x2b2b2b, 0x151515, 0xa5fa00), 0);
   r.box(0, 14, 180, 2, 3, 128, 'lime');
+  clothingDisplay(r, [0x6e2a22, 0x2b2b2b, 0x9b684a, 0xe6e6e6], 0x6e2a22);
 }
 
 function hew(r: Room): void {
@@ -134,6 +171,7 @@ function hew(r: Room): void {
   r.mannequin(-210, 232, 'front', outfit(0xe50010, 0x2a4f8f, 0xf5f5f5), plinth(r, -210, 232, 0xe50010));
   r.mannequin(210, 232, 'front', outfit(0xf5f5f5, 0x1b1b1b, 0xe50010, true), plinth(r, 210, 232, 0xe50010));
   r.mannequin(-290, 232, 'front', outfit(0x222222, 0xe50010, 0xf5f5f5), plinth(r, -290, 232, 0xe50010));
+  clothingDisplay(r, WARM, 0xe50010);
 }
 
 function riachuela(r: Room): void {
@@ -150,6 +188,7 @@ function riachuela(r: Room): void {
   }
   r.box(0, 150, 56, 56, 2, CEILING - 8, 'white', 0xf2ece0);
   r.box(0, 150, 20, 20, 24, CEILING - 32, 'white', 0xc9a227);
+  clothingDisplay(r, NAVY, 0x1c2a5a);
 }
 
 const CHOCOLATES = [0x4a2513, 0x6a3a1c, 0xe9c27a, 0xd98a9a, 0x2b160b, 0xf5e6c8, 0x8a5a33];
@@ -164,13 +203,25 @@ function cacauChou(r: Room): void {
     wallShelves(r, side * 330, 140, 14, 150, 4, CHOCOLATES, 42 + side, 0x6a3a1c);
     r.solid(side * 230, 150, 70, 46, 40, 0, 'desk', 0x3b1d0e);
     r.box(side * 230, 150, 74, 50, 1.6, 40, 'white', 0xe9c27a);
-    for (let i = 0; i < 6; i++) r.box(side * 230 - 25 + i * 10, 150, 8, 8, 8, 41.6, 'white', CHOCOLATES[(i + 2) % CHOCOLATES.length]);
   }
   r.box(0, 190, 40, 40, 6, 0, 'desk', 0x3b1d0e);
   r.box(0, 190, 28, 28, 16, 6, 'desk', 0x4a2513);
   r.box(0, 190, 18, 18, 14, 22, 'desk', 0x5a3118);
   r.box(0, 190, 9, 9, 12, 36, 'desk', 0x6a3a1c);
   r.box(0, 190, 5, 5, 6, 48, 'wood', 0x3b1d0e);
+  r.box(-239, 162, 54, 27, 3, 41.6, 'metal', STEEL);
+  r.box(-239, 162, 42, 20, 1, 44.6, 'white', 0x4a2513);
+  for (const x of [-253, -239, -225]) r.box(x, 162, 8, 14, 1, 45.6, 'white', 0x8a5a33);
+  for (const [i, x] of [208, 230, 252].entries()) {
+    const tint = CHOCOLATES[i + 2];
+    r.box(x, 162, 17, 14, 12, 41.6, 'white', tint);
+    r.box(x, 162, 17.8, 14.8, 2, 53.6, 'white', tint);
+    r.box(x, 162, 3, 15.2, 2.6, 53.6, 'white', 0xf5e6c8);
+    r.box(x, 172, 1, 1, 36, 140, 'metal', STEEL);
+    r.box(x, 172, 8, 8, 5, 120, 'white', tint);
+    r.box(x, 172, 14, 11, 10, 125, 'white', tint);
+    r.box(x, 172, 10, 9, 5, 135, 'white', tint);
+  }
 }
 
 /** The logo red; the sign in `client/src/game/render/store-signs.ts` draws the same one. */
@@ -345,7 +396,16 @@ function amerikanas(r: Room): void {
 
   r.rack(316, 48, 'left', 80, [AMERIKANAS_RED, 0xffffff, 0x222222, 0x1f6fd1]);
   r.rack(160, 40, 'front', 70, [0xffffff, AMERIKANAS_RED, 0xf2c200]);
-  foldedTable(r, 250, 45, 60, 36, [AMERIKANAS_RED, 0xffffff, 0x1f6fd1], 55);
+  r.solid(250, 45, 60, 36, 26, 0, 'desk', 0xf3ece0);
+  for (const x of [236, 264]) {
+    r.box(x, 44, 26, 25, 9, 26, 'white', AMERIKANAS_RED);
+    r.box(x, 44, 23, 21, 2, 35, 'white', AMERIKANAS_WHITE);
+    for (const [i, dx] of [-7, 0, 7].entries()) {
+      r.box(x + dx, 45, 6, 12, 4 + i * 2, 37, 'white', HOUSEHOLD[i + 1]);
+    }
+  }
+  r.box(250, 59, 2, 2, 20, 26, 'metal', STEEL);
+  saleSign(r, 250, 59, 46, AMERIKANAS_RED);
 }
 
 const BOOKS = [0x8b2e2e, 0x2e5d8b, 0x2f6b3a, 0xc9a227, 0x5a3b7a, 0xd8cdb0, 0x1f3d2b, 0xb5503a];
@@ -375,7 +435,7 @@ function travessura(r: Room): void {
       for (const z of [60, 140, 220]) bookRun(r, side * 328, z, y + 1.6, 16, 76, rnd);
     }
     r.solid(side * 240, 70, 90, 46, 24, 0, 'desk', 0x4a2d18);
-    for (let i = 0; i < 6; i++) r.box(side * 240 - 36 + i * 14, 70, 11, 30, 5 + (i % 3) * 3, 24, 'white', BOOKS[(i + 2) % BOOKS.length]);
+    if (side < 0) for (let i = 0; i < 6; i++) r.box(-276 + i * 14, 70, 11, 30, 5 + (i % 3) * 3, 24, 'white', BOOKS[(i + 2) % BOOKS.length]);
   }
   r.box(-230, 205, 110, 80, 0.8, 0, 'carpet', 0x8b2e2e);
   r.solid(-262, 205, 34, 34, 28, 0, 'white', 0x2f6b3a);
@@ -385,6 +445,23 @@ function travessura(r: Room): void {
   r.box(-228, 238, 6, 6, 40, 20, 'wood', 0x4a2d18);
   r.box(-228, 238, 22, 22, 14, 60, 'white', 0xfff0c0);
   r.box(-60, 8, 120, 1, 14, 150, 'white', 0xefe6cf);
+  r.box(240, 91, 66, 2, 13, 24, 'white', 0x2e5a3f);
+  for (const [i, x] of [212, 240, 268].entries()) {
+    r.box(x, 71, 20, 17, 4, 24, 'white', BOOKS[i + 3]);
+    r.box(x + 1, 71, 18, 16, 3, 28, 'white', 0xe7ddc4);
+    r.box(x, 71, 20, 17, 1, 31, 'white', BOOKS[i]);
+    r.box(x - 2, 71, 16, 14, 3, 32, 'white', BOOKS[i + 3]);
+  }
+  r.box(-262, 211, 27, 21, 3, 28, 'white', 0xefe6cf);
+  r.box(-204, 190, 19, 14, 2, 26, 'white', 0x5a3b7a);
+  for (const x of [-209, -199]) r.box(x, 190, 9, 12, 1, 28, 'white', 0xefe6cf);
+  for (const y of [38, 64]) {
+    r.box(224, 12, 94, 20, 2, y, 'desk', 0x4a2d18);
+    for (const [i, x] of [190, 212, 234, 256].entries()) {
+      r.box(x, 15, 17, 4, 17, y + 2, 'white', BOOKS[i + 2]);
+      r.box(x, 17.3, 9, 0.6, 8, y + 7, 'white', 0xefe6cf);
+    }
+  }
 }
 
 const PILLS = [0xffffff, 0xe8f4ee, 0x2f9e44, 0x1f6fd1, 0xf2c200, 0xe60014, 0xdcdcdc];
@@ -404,14 +481,44 @@ function pharmacy(r: Room, p: Pharmacy, seed: number): void {
   r.box(-(STORE_HALF_WIDTH - 2.5), 150, 1.5, 14, 44, 100, 'white', p.cross);
   r.box(-(STORE_HALF_WIDTH - 2.5), 150, 1.5, 44, 14, 115, 'white', p.cross);
   r.box(0, 30, 2 * STORE_HALF_WIDTH - 8, 1, 6, 118, 'white', p.cross);
+  for (const x of [-122, -42, 38, 118]) {
+    r.box(x, 16, 66, 1.5, 10, 106, 'white', p.trim);
+    r.box(x, 17, 30, 0.5, 3, 110, 'white', 0xf5f7f6);
+  }
+  const cosmetics = [0xe8f4ee, 0xd5a7b7, 0xb7c6e5, 0xf3d7a2];
+  for (const y of [46, 67, 88]) {
+    r.box(-229, 13, 54, 19, 2, y, 'desk', 0xf5f7f6);
+    for (const [i, tint] of cosmetics.entries()) {
+      const x = -247 + i * 12;
+      r.box(x, 16, 7, 7, 8 + i, y + 2, 'white', tint);
+      r.box(x, 16, 5, 5, 2, y + 10 + i, 'metal', STEEL);
+    }
+  }
+  r.box(46, 54, 36, 16, 9, 41.4, 'white', p.trim);
+  r.box(46, 55, 30, 12, 2, 50.4, 'white', 0xe8f4ee);
+  r.box(43, 55, 18, 9, 0.8, 52.4, 'white', 0xffffff);
+  r.box(20, 12, 2, 20, 2, 120, 'metal', STEEL);
+  r.box(72, 12, 2, 20, 2, 120, 'metal', STEEL);
+  r.box(46, 22, 78, 2, 12, 116, 'white', p.trim);
+  r.box(46, 23.3, 45, 0.6, 3, 120, 'white', 0xffffff);
 }
 
 function drogaRaio(r: Room): void {
   pharmacy(r, { wall: 0xf7f2f0, trim: 0xd8202a, cross: 0xd8202a }, 71);
+  r.box(-289, 24, 36, 34, 5, 0, 'white', 0xf5f7f6);
+  r.box(-289, 14, 5, 5, 54, 5, 'metal', STEEL);
+  r.box(-289, 16, 21, 10, 9, 59, 'white', 0xf5f7f6);
+  r.box(-289, 21.3, 13, 0.6, 5, 61, 'screen');
 }
 
 function paguePouco(r: Room): void {
   pharmacy(r, { wall: 0xf1f5fa, trim: 0x1f4fa8, cross: 0xf2c200 }, 83);
+  r.box(-289, 24, 36, 32, 38, 0, 'white', 0xf5f7f6);
+  r.box(-289, 22, 40, 34, 2, 38, 'white', 0x1f4fa8);
+  r.box(-300, 15, 12, 11, 13, 40, 'white', 0xf5f7f6);
+  r.box(-300, 20.8, 8, 0.6, 6, 45, 'screen');
+  for (const x of [-286, -275]) r.box(x, 24, 5, 16, 12, 40, 'charcoal');
+  for (const z of [16, 32]) r.box(-280.5, z, 6, 3, 12, 40, 'charcoal');
 }
 
 const STORES: Record<ShopBrand, (r: Room) => void> = {
@@ -449,14 +556,22 @@ export function storeAccent(brand: ShopBrand): Hex {
 const WINDOW_DISPLAY_DEPTH = 142;
 const WINDOW_DISPLAY_X = 150;
 const WINDOW_DISPLAY_HEIGHT = 56;
+const CLOTHING = new Set<ShopBrand>(['zarra', 'cea', 'rener', 'hew', 'riachuela']);
 
 export function dressStore(r: Room, brand: ShopBrand): void {
   STORES[brand](r);
   const accent = ACCENT[brand];
   for (const side of [-1, 1]) {
-    for (let i = 0; i < 4; i++) {
+    const displayCount = side > 0 && CLOTHING.has(brand) ? 3 : 4;
+    for (let i = 0; i < displayCount; i++) {
       const x = side * WINDOW_DISPLAY_X - 42 + i * 28;
-      r.box(x, WINDOW_DISPLAY_DEPTH, 20, 14, 8 + (i % 2) * 6, WINDOW_DISPLAY_HEIGHT, 'white', i % 2 ? 0xf2efe8 : accent);
+      if (CLOTHING.has(brand)) {
+        r.box(x, WINDOW_DISPLAY_DEPTH, 22, 16, 4, WINDOW_DISPLAY_HEIGHT, 'white', accent);
+        r.box(x + 1, WINDOW_DISPLAY_DEPTH, 19, 14, 3, WINDOW_DISPLAY_HEIGHT + 4, 'white', 0xf2efe8);
+        r.box(x - 1, WINDOW_DISPLAY_DEPTH, 16, 12, 3, WINDOW_DISPLAY_HEIGHT + 7, 'white', accent);
+      } else {
+        r.box(x, WINDOW_DISPLAY_DEPTH, 20, 14, 8 + (i % 2) * 6, WINDOW_DISPLAY_HEIGHT, 'white', i % 2 ? 0xf2efe8 : accent);
+      }
     }
   }
 }

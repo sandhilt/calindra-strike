@@ -11,7 +11,7 @@ export const STORE_BRANDS = {
   mequi: { name: 'Méqui', kind: 'food' },
   outbaque: { name: 'Outbaque', kind: 'food' },
   madeiro: { name: 'Madeiro', kind: 'food' },
-  bobis: { name: "Bobi's", kind: 'food' },
+  bobis: { name: "Bobo's", kind: 'food' },
   zarra: { name: 'ZARRA', kind: 'shop' },
   cea: { name: 'C&Á', kind: 'shop' },
   rener: { name: 'Rener', kind: 'shop' },
@@ -22,12 +22,14 @@ export const STORE_BRANDS = {
   'droga-raio': { name: 'Droga Raio', kind: 'shop' },
   'pague-pouco': { name: 'Farmácia Pague Pouco', kind: 'shop' },
   travessura: { name: 'Livraria da Travessura', kind: 'shop' },
-  samsong: { name: 'Samsong', kind: 'boutique' },
+  samsong: { name: 'Semsunga', kind: 'boutique' },
   'ray-bao': { name: 'Ray-Bão', kind: 'boutique' },
   pandorga: { name: 'Pandorga', kind: 'boutique' },
   sentauro: { name: 'Sentauro', kind: 'boutique' },
   'brinco-center': { name: 'Brinco Center', kind: 'boutique' },
   loccitano: { name: "L'Occitano", kind: 'boutique' },
+  'pe-leve': { name: 'Calçados Pé Leve', kind: 'boutique' },
+  essencia: { name: 'Perfumaria Essência', kind: 'boutique' },
 } as const satisfies Record<string, { name: string; kind: 'food' | 'shop' | 'boutique' }>;
 
 export type StoreBrand = keyof typeof STORE_BRANDS;

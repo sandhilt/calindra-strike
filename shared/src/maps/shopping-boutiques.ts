@@ -1,7 +1,7 @@
 import { brandMat, STORE_BRANDS, type BoutiqueBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { FACADE_Z, ROOF, DECK3, Z } from './shopping-levels.ts';
-import { outfit, Room, seeded } from './room.ts';
+import { Room } from './room.ts';
 import { wallShelves } from './shopping-stores.ts';
 
 /**
@@ -11,6 +11,8 @@ import { wallShelves } from './shopping-stores.ts';
  */
 
 export type SmallBoutique = 'pandorga' | 'loccitano';
+/** The shops either side of the cafe's partition on the Mirante lounge, one per half. */
+export type LoungeBoutique = 'pe-leve' | 'essencia';
 export type LargeBoutique = 'samsong' | 'ray-bao' | 'sentauro' | 'brinco-center';
 
 /** Partitions and the storefront stand this tall; the doorway is the full width between the wall returns. */
@@ -47,65 +49,149 @@ function till(r: Room, x: number, width: number, tint: Hex): void {
   r.box(x - width / 4, COUNTER_Z - 7.5, 12, 1, 7, 46, 'screen');
 }
 
-function plinth(r: Room, x: number, z: number, tint: Hex): number {
-  r.box(x, z, 56, 56, 6, 0, 'white', tint);
-  return 6;
-}
-
-/** A glass-topped case: a solid base with a pane on top and small goods inside. */
-function showcase(r: Room, x: number, z: number, w: number, d: number, base: Hex, goods: readonly Hex[], seed: number): void {
-  const rnd = seeded(seed);
-  r.solid(x, z, w, d, 30, 0, 'white', base);
-  r.box(x, z, w - 2, d - 2, 8, 30, 'glass', 0xdfe8f2);
-  const cols = Math.floor((w - 8) / 12);
-  for (let i = 0; i < cols; i++) r.box(x - w / 2 + 10 + i * 12, z, 6, 6, 3 + Math.floor(rnd() * 3) * 2, 30.4, 'white', goods[Math.floor(rnd() * goods.length)]);
-}
-
-/** The small shops are narrow, so their till is too. */
 const SMALL_TILL = 70;
-
 const CHARMS = [0xe77aa6, 0xc0c4cc, 0xf2c200, 0x8a6fc0, 0xffffff, 0x4fb0c6];
 
 function pandorga(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, CHARMS, 91, 0xf5f0f2);
-  r.box(0, 3, 150, 1.2, 60, 104, 'glass', 0xdfe8f2);
-  r.box(0, 2.6, 156, 1.6, 3, 102, 'white', 0xc0c4cc);
+  const spacing = half / 2;
+  r.box(0, 12, 2 * half - 16, 16, 3, 74, 'wood', 0xc0c4cc);
+  for (const x of [-spacing, 0, spacing]) {
+    r.box(x, 12, 24, 10, 11, 77, 'charcoal');
+    r.box(x, 12, 13, 10, 12, 88, 'charcoal');
+    r.box(x, 17.5, 12, 1, 1.5, 89, 'white', 0xf2c200);
+    r.box(x, 18, 4, 2, 4, 85, 'white', 0xf2c200);
+  }
   till(r, 0, SMALL_TILL, 0xe77aa6);
-  showcase(r, -(half - 30), 150, 50, 40, 0xf4eef1, CHARMS, 92);
+  const trayX = 28 - half;
+  r.solid(trayX, 150, 48, 40, 36, 0, 'white', 0xf4eef1);
+  for (const z of [139, 159]) {
+    r.box(trayX, z, 40, 16, 2, 36, 'sofa', 0x54243e);
+    for (const dx of [-12, 0, 12]) {
+      r.box(trayX + dx, z, 5, 4, 3, 38, 'white', z === 139 ? 0xf2c200 : 0xc0c4cc);
+      r.box(trayX + dx, z, 3, 3, 2, 41, 'glass', CHARMS[(dx + 12) / 12]);
+    }
+  }
   r.box(0, 190, 2 * half - 20, 60, 0.8, 0, 'carpet', 0xe9c8d6);
 }
 
 const PROVENCE = [0xf2c200, 0x8a6fc0, 0xffffff, 0xf4e3a6, 0x6b8f4a, 0x1c3a6b];
 
 function loccitano(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, PROVENCE, 93, 0xf1e6c4);
+  wallShelves(r, 0, 10, 2 * half - 14, 14, 2, PROVENCE, 93, 0xf1e6c4);
   till(r, 0, SMALL_TILL, 0x1c3a6b);
-  const crate = half - 30;
-  r.solid(crate, 118, 44, 34, 24, 0, 'wood', 0xb98a58);
-  for (let i = 0; i < 4; i++) r.box(crate - 15 + i * 10, 118, 7, 7, 8 + (i % 2) * 5, 24, 'white', PROVENCE[(i + 3) % PROVENCE.length]);
-  r.box(crate, 118, 34, 28, 10, 32, 'plant', 0x8a6fc0);
-  r.solid(-(half - 36), 170, 50, 50, 30, 0, 'wood', 0xd8b878);
-  r.box(-(half - 36), 170, 56, 56, 2, 30, 'white', 0xf2c200);
-  for (let i = 0; i < 4; i++) r.box(-(half - 36) - 12 + (i % 2) * 24, 160 + Math.floor(i / 2) * 20, 8, 8, 14, 32, 'white', PROVENCE[i % PROVENCE.length]);
+  const tableX = 27 - half;
+  r.solid(tableX, 164, 46, 56, 30, 0, 'wood', 0xd8b878);
+  r.box(tableX, 164, 50, 60, 2, 30, 'wood', 0xf4e3a6);
+  for (const dx of [-14, 0, 14]) {
+    r.box(tableX + dx, 176, 11, 17, 4, 32, 'white', PROVENCE[(dx + 14) / 14 + 1]);
+    r.box(tableX + dx, 176, 4, 17, 0.5, 36, 'white', 0xf4e3a6);
+    r.box(tableX + dx, 145, 9, 9, 6, 32, 'wood');
+    r.box(tableX + dx, 145, 3, 3, 12, 38, 'plant', 0x6b8f4a);
+    r.box(tableX + dx, 145, 6, 5, 7, 46, 'white', 0x8a6fc0);
+  }
 }
 
-const SCREENS = 5;
+const SHOES = [0xf4e3b0, 0x1f3d2b, 0xd7263d, 0xf5f5f5, 0x6b4a32, 0x1b1b1b];
+
+function shoe(r: Room, x: number, z: number, y: number, tint: Hex): void {
+  r.box(x, z, 9, 20, 2, y, 'white', 0xe1ddd2);
+  r.box(x, z, 9, 19, 4, y + 2, 'white', tint);
+  r.box(x, z - 4, 9, 10, 4, y + 6, 'white', tint);
+}
+
+function shoeWall(r: Room, x: number, width: number, levels: readonly number[]): void {
+  const step = width / SHOES.length;
+  for (const y of levels) {
+    SHOES.forEach((tint, i) => {
+      const shoeX = x - width / 2 + step * (i + 0.5);
+      r.box(shoeX, 15, 20, 22, 3, y, 'wood', 0xc5a078);
+      shoe(r, shoeX, 15, y + 3, tint);
+    });
+  }
+}
+
+function peLeve(r: Room, half: number): void {
+  shoeWall(r, 0, 2 * half - 20, [68, 96, 124]);
+  till(r, 0, 100, 0x1f3d2b);
+  const benchX = half - 34;
+  r.solid(benchX, 172, 50, 90, 16, 0, 'wood', 0xb98a58);
+  r.box(benchX, 172, 52, 92, 5, 16, 'sofa', 0x1f3d2b);
+  r.box(0, 190, 2 * half - 20, 60, 0.8, 0, 'carpet', 0xd9e6dc);
+}
+
+const SCENTS = [0xf3c6dd, 0x8a6fc0, 0xf2c200, 0x4fb0c6, 0xffffff, 0xd7263d];
+
+function perfume(r: Room, x: number, z: number, y: number, tint: Hex): void {
+  r.box(x, z, 8, 7, 10, y, 'glass', tint);
+  r.box(x, z + 3.7, 5, 0.6, 4, y + 3, 'white', 0xf6ecf2);
+  r.box(x, z, 4, 4, 4, y + 10, 'white', 0xd8af55);
+}
+
+function essencia(r: Room, half: number): void {
+  wallShelves(r, 0, 10, 2 * half - 14, 14, 2, SCENTS, 102, 0xf6ecf2);
+  till(r, 0, 100, 0x7a2f5a);
+  for (const z of [127, 199]) {
+    const x = half - 29;
+    r.solid(x, z, 38, 38, 42, 0, 'white', 0xe9d3e0);
+    r.box(x, z, 44, 44, 3, 42, 'wood', 0x7a2f5a);
+    for (const dx of [-12, 0, 12]) perfume(r, x + dx, z + 7, 45, SCENTS[(dx + 12) / 12]);
+  }
+  const x = 38 - half;
+  r.solid(x, 170, 64, 58, 30, 0, 'white', 0xf6ecf2);
+  for (const tier of [0, 1, 2]) {
+    const z = 186 - tier * 16;
+    const y = 30 + tier * 12;
+    const count = 5 - tier * 2;
+    r.box(x, z, 12 * count + 2, 15, 2 + tier * 12, 30, 'wood', 0x7a2f5a);
+    for (let i = 0; i < count; i++) perfume(r, x + (i - (count - 1) / 2) * 12, z, y + 2, SCENTS[i + tier]);
+  }
+  r.box(0, 190, 2 * half - 20, 60, 0.8, 0, 'carpet', 0xe9c8d6);
+}
+
+function displayScreen(r: Room, x: number, z: number, y: number, width: number, height: number, tint: Hex): void {
+  r.box(x, z, width, 2, height, y, 'charcoal', 0x161616);
+  r.box(x, z + 1.3, width - 2, 0.6, height - 2, y + 1, 'screen', tint);
+}
 
 function samsong(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 2, [0x1b1b1b, 0xf5f5f5, 0x1428a0], 94, 0xe8ecf3);
-  const step = (2 * half - 40) / SCREENS;
-  for (let i = 0; i < SCREENS; i++) {
-    const x = -half + 20 + step * (i + 0.5);
-    r.box(x, 4.2, step - 6, 1.6, 50, 73, 'charcoal', 0x161616);
-    r.box(x, 5.2, step - 12, 1, 44, 76, 'screen');
+  const tvSpacing = (2 * half - 24) / 5;
+  for (const column of [-2, -1, 0, 1, 2]) {
+    displayScreen(r, column * tvSpacing, 6, 76, tvSpacing - 10, 40, column % 2 ? 0xa4c8ff : 0xffffff);
   }
-  till(r, 0, 140, 0x1428a0);
-  for (const side of [-1, 1]) {
-    r.solid(side * 130, 150, 90, 44, 34, 0, 'white', 0xf2f4f8);
-    for (let i = 0; i < 4; i++) {
-      r.box(side * 130 - 30 + i * 20, 150, 14, 9, 1.4, 34.4, 'charcoal', 0x161616);
-      r.box(side * 130 - 30 + i * 20, 151, 12, 6, 6, 35.4, 'screen');
+  const aisleDisplay = half * 0.58;
+  till(r, 0, 110, 0x1428a0);
+  r.solid(-aisleDisplay, 140, 94, 56, 34, 0, 'white', 0xf2f4f8);
+  for (const z of [125, 152]) {
+    for (const dx of [-30, -10, 10, 30]) {
+      r.box(-aisleDisplay + dx, z, 12, 8, 2, 34, 'wood', 0xa8b1c2);
+      displayScreen(r, -aisleDisplay + dx, z, 36, 8, 15, z === 125 ? 0xd8d4ff : 0xb5edff);
     }
+  }
+  r.solid(aisleDisplay, 140, 94, 56, 34, 0, 'white', 0xf2f4f8);
+  for (const dx of [-28, 0, 28]) {
+    r.box(aisleDisplay + dx, 140, 18, 16, 2, 34, 'wood', 0xa8b1c2);
+    r.box(aisleDisplay + dx, 138, 5, 5, 8, 36, 'charcoal');
+    displayScreen(r, aisleDisplay + dx, 141, 40, 22, 15, 0xc3eeff);
+  }
+  r.solid(-aisleDisplay, 210, 92, 28, 38, 0, 'desk', 0x1428a0);
+  r.box(-aisleDisplay, 216, 83, 8, 2, 38, 'charcoal');
+  for (const dx of [-28, 0, 28]) {
+    r.box(-aisleDisplay + dx, 217, 9, 14, 2, 40, 'charcoal');
+    r.box(-aisleDisplay + dx, 217, 7, 11, 0.6, 42, 'screen');
+    r.box(-aisleDisplay + dx, 209, 1, 5, 0.5, 38, 'white');
+  }
+  r.box(aisleDisplay, 16, 92, 18, 3, 45, 'desk', 0xe8ecf3);
+  for (const dx of [-30, 0, 30]) {
+    const x = aisleDisplay + dx;
+    r.box(x, 16, 9, 10, 2, 48, 'charcoal');
+    r.box(x, 16, 2, 3, 17, 50, 'wood', 0xa8b1c2);
+    r.box(x, 16, 18, 5, 3, 64, 'charcoal');
+    for (const ear of [-7, 7]) r.box(x + ear, 16, 5, 6, 11, 53, 'charcoal');
+  }
+  r.box(-aisleDisplay, 16, 92, 20, 3, 45, 'desk', 0xe8ecf3);
+  for (const dx of [-30, 0, 30]) {
+    r.box(-aisleDisplay + dx, 16, 23, 14, 16, 48, 'white', 0xe8ecf3);
+    r.box(-aisleDisplay + dx, 23.3, 12, 0.6, 7, 52, 'white', 0x1428a0);
   }
 }
 
@@ -118,51 +204,109 @@ function glasses(r: Room, x: number, z: number, y: number, tint: Hex): void {
 }
 
 function rayBao(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, FRAMES, 95, 0xf4f1ee);
-  r.box(0, 3, 2 * half - 14, 2, 3, 112, 'white', 0xd71f26);
-  const pairs = Math.floor((2 * half - 40) / 22);
-  for (let i = 0; i < pairs; i++) glasses(r, -half + 28 + i * 22, 4, 98, i % 2 ? 0x2b3a4a : 0x161616);
-  till(r, 0, 140, 0xd71f26);
+  till(r, 0, 110, 0xd71f26);
   for (const side of [-1, 1]) {
-    showcase(r, side * 120, 150, 90, 40, 0xf4f1ee, FRAMES, 96 + side);
-    for (let i = 0; i < 4; i++) glasses(r, side * 120 - 30 + i * 20, 150, 38, 0x161616);
+    const x = side * half * 0.55;
+    r.solid(x, 142, 30, 30, 8, 0, 'charcoal');
+    r.box(x, 142, 4, 4, 68, 8, 'wood', 0xb7bcc6);
+    for (const y of [33, 47, 61]) {
+      r.box(x, 142, 28, 22, 2, y, 'white', 0xf4f1ee);
+      glasses(r, x, 151, y + 2, FRAMES[(y - 33) / 14]);
+      glasses(r, x, 133, y + 2, FRAMES[(y - 33) / 14 + 1]);
+    }
+  }
+  for (const x of [-half / 2, half / 2]) {
+    r.box(x, 7, 58, 5, 85, 48, 'wood', 0x563530);
+    r.box(x, 10, 50, 1, 77, 52, 'metal', 0xe2efff);
+    r.box(x - 12, 10.7, 3, 0.4, 74, 54, 'white', 0xe9f3ff);
+    r.box(x, 17, 62, 18, 3, 42, 'wood', 0x563530);
+    glasses(r, x + 17, 21, 45, FRAMES[1]);
   }
 }
 
 const KIT = [0xe4002b, 0x161616, 0xf5f5f5, 0x2e2e2e];
 
 function sentauro(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, KIT, 97, 0xe9e9e9);
-  r.box(0, 3, 2 * half - 14, 2, 3, 112, 'white', 0xe4002b);
-  till(r, 0, 140, 0x161616);
-  for (const side of [-1, 1]) {
-    r.rack(side * (half - 24), 120, side < 0 ? 'right' : 'left', 90, KIT);
-    r.mannequin(side * 120, 220, 'front', outfit(side < 0 ? 0xe4002b : 0xf5f5f5, 0x161616, 0xf5f5f5), plinth(r, side * 120, 220, 0x161616));
+  const displayX = half * 0.52;
+  shoeWall(r, -displayX, half - 22, [74, 102]);
+  KIT.forEach((tint, i) => {
+    const x = displayX + (i - 1.5) * 38;
+    r.box(x, 9, 20, 3, 29, 83, 'white', tint);
+    for (const side of [-1, 1]) r.box(x + side * 13, 9, 7, 3, 12, 99, 'white', tint);
+    r.box(x, 11, 6, 1, 8, 94, 'white', i === 2 ? KIT[1] : KIT[2]);
+  });
+  till(r, 0, 110, 0x161616);
+  for (const z of [133, 197]) {
+    r.solid(-displayX, z, 57, 42, 19, 0, 'charcoal');
+    r.box(-displayX, z + 20, 57, 3, 9, 19, 'white', 0xe4002b);
+    r.box(-displayX, z - 20, 57, 3, 9, 19, 'white', 0xe4002b);
+    for (const dx of [-16, 0, 16]) {
+      r.box(-displayX + dx, z, 13, 13, 12, 19, 'white', z === 133 ? 0xff8a29 : 0xf5f5f5);
+      r.box(-displayX + dx, z + 7, 2, 1, 10, 20, 'charcoal');
+    }
   }
-  r.solid(0, 170, 110, 30, 20, 0, 'wood', 0x2b2b2b);
-  for (let i = 0; i < 3; i++) r.box(-30 + i * 30, 170, 22, 14, 9, 20, 'white', KIT[i]);
+  r.solid(displayX, 166, 46, 76, 9, 0, 'desk', 0x555555);
+  r.box(displayX, 170, 34, 61, 1, 9, 'charcoal');
+  for (const side of [-1, 1]) {
+    r.box(displayX + side * 19, 136, 5, 5, 39, 9, 'wood', 0x888888);
+    r.box(displayX + side * 19, 144, 5, 19, 4, 48, 'charcoal');
+  }
+  displayScreen(r, displayX, 135, 48, 26, 10, 0xb5edff);
+  const bikeX = half - 30;
+  r.solid(bikeX, 165, 28, 63, 6, 0, 'desk', 0x555555);
+  r.box(bikeX, 146, 10, 20, 23, 6, 'charcoal');
+  r.box(bikeX, 150, 4, 5, 17, 29, 'wood', 0xa8b1c2);
+  r.box(bikeX, 154, 24, 5, 4, 46, 'charcoal');
+  r.box(bikeX, 174, 5, 5, 29, 6, 'wood', 0xa8b1c2);
+  r.box(bikeX, 175, 14, 15, 4, 35, 'charcoal');
 }
 
 const TOYS = [0xe4002b, 0x1f6fd1, 0x2f9e44, 0xf2c200, 0xff7ab0, 0xff7a1a];
 
 function brincoCenter(r: Room, half: number): void {
-  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, TOYS, 98, 0xfff3c4);
-  till(r, 0, 140, 0xe4002b);
-  const rnd = seeded(99);
-  for (const side of [-1, 1]) {
-    r.solid(side * 130, 130, 80, 30, 50, 0, 'white', 0xfff3c4);
-    for (let i = 0; i < 6; i++) r.box(side * 130 - 30 + i * 12, 130, 9, 22, 7 + Math.floor(rnd() * 3) * 3, 50, 'white', TOYS[Math.floor(rnd() * TOYS.length)]);
+  const displayX = half * 0.57;
+  till(r, 0, 110, 0xe4002b);
+  for (const y of [74, 98, 122]) {
+    r.box(0, 14, 2 * half - 24, 20, 3, y, 'wood', 0xfff3c4);
+    for (const column of [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]) {
+      const x = column * (half - 22) / 5;
+      const tint = TOYS[(column + 5 + (y - 74) / 24) % TOYS.length];
+      r.box(x, 14, 23, 14, 9, y + 3, 'white', tint);
+      for (const dx of [-6, 6]) r.box(x + dx, 14, 5, 5, 2, y + 12, 'white', tint);
+    }
   }
-  r.box(0, 195, 200, 70, 0.8, 0, 'carpet', 0x2f9e44);
-  [[-30, 0xe4002b], [0, 0x1f6fd1], [30, 0xf2c200]].forEach(([x, tint]) => r.solid(x, 190, 22, 22, 22, 0.8, 'white', tint));
-  r.solid(70, 215, 34, 34, 26, 0.8, 'wood', 0x8a5a33);
-  r.solid(70, 215, 24, 24, 20, 26.8, 'wood', 0x8a5a33);
-  for (const ear of [-8, 8]) r.box(70 + ear, 215, 7, 7, 7, 46.8, 'wood', 0x6b4a32);
+  r.solid(-displayX, 156, 98, 64, 18, 0, 'wood', 0xe5b96e);
+  r.box(-displayX, 147, 69, 40, 12, 18, 'sofa', 0xffc885);
+  for (const [dx, z, y, tint] of [[-31, 170, 18, 0x8a5a33], [0, 149, 30, 0xb57948], [31, 170, 18, 0xcc866d]]) {
+    const x = -displayX + dx;
+    r.box(x, z, 23, 20, 16, y, 'sofa', tint);
+    r.box(x, z + 1, 17, 15, 13, y + 16, 'sofa', tint);
+    for (const ear of [-7, 7]) r.box(x + ear, z, 6, 7, 6, y + 27, 'sofa', tint);
+    r.box(x, z + 9, 7, 4, 5, y + 19, 'wood', 0xffdcab);
+  }
+  r.solid(displayX, 156, 106, 72, 28, 0, 'wood', 0xb98a58);
+  r.box(displayX, 156, 102, 68, 2, 28, 'carpet', 0x2f9e44);
+  for (const z of [135, 177]) {
+    r.box(displayX, z, 81, 11, 1, 30, 'wood', 0x6b4a32);
+    for (const rail of [-4, 4]) r.box(displayX, z + rail, 82, 1, 1, 31, 'metal');
+  }
+  for (const side of [-1, 1]) {
+    r.box(displayX + side * 40, 156, 11, 31, 1, 30, 'wood', 0x6b4a32);
+    for (const rail of [-4, 4]) r.box(displayX + side * 40 + rail, 156, 1, 43, 1, 31.1, 'metal');
+  }
+  for (const dx of [-23, -3, 19]) {
+    r.box(displayX + dx, 177, 16, 9, 3, 32, 'charcoal');
+    r.box(displayX + dx, 177, 16, 9, 7, 35, 'white', dx === 19 ? TOYS[0] : TOYS[1]);
+  }
+  r.box(displayX + 14, 177, 7, 9, 5, 42, 'white', TOYS[0]);
+  r.box(displayX + 25, 177, 3, 3, 5, 42, 'charcoal');
 }
 
 const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
   pandorga: { paint: 0xfaf3f6, trim: 0xe77aa6, floor: 0xf4eef1, browseX: 20, dress: pandorga },
   loccitano: { paint: 0xf6e9bd, trim: 0x1c3a6b, floor: 0xe7d6a2, browseX: 0, dress: loccitano },
+  'pe-leve': { paint: 0xeef4ef, trim: 0x1f3d2b, floor: 0xdbe5dd, browseX: 0, dress: peLeve },
+  essencia: { paint: 0xf8eff4, trim: 0x7a2f5a, floor: 0xeedbe5, browseX: 0, dress: essencia },
   samsong: { paint: 0xeef1f8, trim: 0x1428a0, floor: 0xdfe3ec, browseX: 0, dress: samsong },
   'ray-bao': { paint: 0xf7f4f1, trim: 0xd71f26, floor: 0xe7e1da, browseX: 0, dress: rayBao },
   sentauro: { paint: 0xefefef, trim: 0xe4002b, floor: 0xcfcfcf, browseX: 0, dress: sentauro },

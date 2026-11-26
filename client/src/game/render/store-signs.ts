@@ -145,7 +145,7 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.fillStyle = '#e30613';
     g.fillRect(0, 0, W, 28);
     g.fillRect(0, H - 28, W, 28);
-    outlined(g, "Bobi's", W / 2, 128, 130, '#e30613', '#1b1b1b', SERIF, W - 60, 'italic bold');
+    outlined(g, "Bobo's", W / 2, 128, 130, '#e30613', '#1b1b1b', SERIF, W - 60, 'italic bold');
   },
   zarra(g) {
     panel(g, '#f7f7f5');
@@ -200,14 +200,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
   samsong(g) {
     panel(g, '#ffffff');
     g.fillStyle = '#1428a0';
-    g.beginPath();
-    g.ellipse(W / 2, H / 2, 236, 96, 0, 0, Math.PI * 2);
-    g.fill();
     g.save();
-    g.translate(W / 2, H / 2 + 4);
-    g.scale(1.25, 1);
-    label(g, 'SAMSONG', 0, 0, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 330);
+    g.translate(W / 2, H / 2 - 12);
+    g.rotate(-0.07);
+    g.beginPath();
+    g.ellipse(0, 0, 232, 88, 0, 0, Math.PI * 2);
+    g.fill();
+    g.scale(1.3, 1);
+    label(g, 'SEMSUNGA', 0, 3, 74, '#ffffff', 'Arial Black, Arial, sans-serif', 300);
     g.restore();
+    label(g, 'ELETRÔNICOS · CELULARES · TABLETS', W / 2, 228, 22, '#1428a0', 'Arial, sans-serif', W - 80, 'bold');
   },
   'ray-bao'(g) {
     panel(g, '#161616');
@@ -225,6 +227,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.arc(W / 2 + 9, 52, 12, 0, Math.PI * 2);
     g.fill();
     label(g, 'JOIAS E CHARMS', W / 2, 192, 30, '#8d8d8d', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  'pe-leve'(g) {
+    panel(g, '#1f3d2b');
+    label(g, 'Pé Leve', W / 2, 104, 104, '#f4e3b0', SERIF, W - 60, 'italic bold');
+    label(g, 'CALÇADOS', W / 2, 196, 32, '#f4e3b0', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  essencia(g) {
+    panel(g, '#f3e6ef');
+    label(g, 'Essência', W / 2, 104, 100, '#7a2f5a', SERIF, W - 60, 'italic bold');
+    label(g, 'PERFUMARIA', W / 2, 196, 30, '#7a2f5a', 'Arial, sans-serif', W - 120, 'bold');
   },
   sentauro(g) {
     panel(g, '#e4002b');

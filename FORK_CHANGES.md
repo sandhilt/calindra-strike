@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Ray-Bão, the Mirante eyewear boutique, fills with three shelves of frames on its back wall, a central table of open glasses and a try-on mirror on each side wall (`rayBao` in `shopping-boutiques.ts`).
 - The five clothing stores of Shopping Sul Rio hang a full-length mirror on each side wall (silver glass in a dark frame, look only), via `Room.mirror` (`shopping-stores.ts`, `room.ts`).
 - A winded player pants with deep breaths until the sprint meter refills, slowing and fading over 3 s after (`Panting`, `Sfx.breath`).
 - The display car of Shopping Sul Rio is red and more car-like (stepped windshield, side glass, pillars, bumpers, grille, mirrors, rounder wheels with arches), with the same cover solids (`carStand` in `shopping-cover.ts`).

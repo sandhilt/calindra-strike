@@ -204,25 +204,42 @@ function glasses(r: Room, x: number, z: number, y: number, tint: Hex): void {
   r.box(x, z, 3, 1.2, 1.2, y + 3, 'charcoal', 0x161616);
 }
 
+/** A pair of sunglasses lying on a table, lenses up. */
+function glassesFlat(r: Room, x: number, z: number, y: number, tint: Hex): void {
+  r.box(x - 4.5, z, 7, 5, 1.4, y, 'glass', tint);
+  r.box(x + 4.5, z, 7, 5, 1.4, y, 'glass', tint);
+  r.box(x, z, 3, 1.2, 1.2, y, 'charcoal', 0x161616);
+}
+
+const RAY_WOOD = 0x563530;
+/** Three shelves of frames along the back wall, and a pair of glasses every `RAY_PAIR_SPACING` units. */
+const RAY_SHELF_HEIGHTS = [40, 64, 88] as const;
+const RAY_PAIR_SPACING = 30;
+const RAY_SHELF_FRONT_Z = 15;
+/** The try-on mirrors stand on the side partitions, clear of the central table. */
+const RAY_MIRROR_Z = 196;
+
+/**
+ * Eyewear: frames on the back wall, a central table of glasses lying open, the till at the back and a try-on mirror
+ * on each side wall. The table stands forward of the browse spot, so bots browsing at the back stay in the aisle.
+ */
 function rayBao(r: Room, half: number): void {
   till(r, 0, 110, 0xd71f26);
-  for (const side of [-1, 1]) {
-    const x = side * half * 0.55;
-    r.solid(x, 142, 30, 30, 8, 0, 'charcoal');
-    r.box(x, 142, 4, 4, 68, 8, 'wood', 0xb7bcc6);
-    for (const y of [33, 47, 61]) {
-      r.box(x, 142, 28, 22, 2, y, 'white', 0xf4f1ee);
-      glasses(r, x, 151, y + 2, FRAMES[(y - 33) / 14]);
-      glasses(r, x, 133, y + 2, FRAMES[(y - 33) / 14 + 1]);
+  const span = 2 * half - 40;
+  const pairs = Math.floor(span / RAY_PAIR_SPACING);
+  RAY_SHELF_HEIGHTS.forEach((y, level) => {
+    r.box(0, 9, span, 10, 2, y, 'wood', RAY_WOOD);
+    for (let i = 0; i < pairs; i++) {
+      glasses(r, -span / 2 + RAY_PAIR_SPACING / 2 + i * RAY_PAIR_SPACING, RAY_SHELF_FRONT_Z, y + 2, FRAMES[(i + level) % FRAMES.length]);
     }
+  });
+  r.solid(0, 190, 120, 46, 30, 0, 'wood', RAY_WOOD);
+  r.box(0, 190, 124, 50, 2, 30, 'glass', 0xdfeaf2);
+  for (const z of [180, 200]) {
+    [-42, -14, 14, 42].forEach((x, i) => glassesFlat(r, x, z, 32, FRAMES[(i + (z === 180 ? 0 : 2)) % FRAMES.length]));
   }
-  for (const x of [-half / 2, half / 2]) {
-    r.box(x, 7, 58, 5, 85, 48, 'wood', 0x563530);
-    r.box(x, 10, 50, 1, 77, 52, 'metal', 0xe2efff);
-    r.box(x - 12, 10.7, 3, 0.4, 74, 54, 'white', 0xe9f3ff);
-    r.box(x, 17, 62, 18, 3, 42, 'wood', 0x563530);
-    glasses(r, x + 17, 21, 45, FRAMES[1]);
-  }
+  r.mirror(-half + 1, RAY_MIRROR_Z, 6, 46, 130, 'left');
+  r.mirror(half - 1, RAY_MIRROR_Z, 6, 46, 130, 'right');
 }
 
 const KIT = [0xe4002b, 0x161616, 0xf5f5f5, 0x2e2e2e];

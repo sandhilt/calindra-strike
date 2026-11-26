@@ -99,8 +99,8 @@ function materialFor(look: Look, christmas: boolean): THREE.Material {
       return new THREE.MeshStandardMaterial({ map: TEX.plant(), roughness: 0.9, vertexColors: true });
     default: {
       const tex = TEX[mat]?.();
-      const rough: Partial<Record<Mat, number>> = { metal: 0.45, container: 0.55, charcoal: 0.75, desk: 0.55, tile: 0.35 };
-      const metal: Partial<Record<Mat, number>> = { metal: 0.55, container: 0.3 };
+      const rough: Partial<Record<Mat, number>> = { mirror: 0.08, metal: 0.45, container: 0.55, charcoal: 0.75, desk: 0.55, tile: 0.35 };
+      const metal: Partial<Record<Mat, number>> = { mirror: 0.35, metal: 0.55, container: 0.3 };
       return new THREE.MeshStandardMaterial({
         map: tex,
         roughness: rough[mat] ?? 0.9,

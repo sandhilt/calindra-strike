@@ -83,12 +83,12 @@ export class Room {
     const rim = MIRROR_RIM_UNITS;
     if (wall === 'back') {
       this.box(x, z, width + 2 * rim, MIRROR_FRAME_UNITS, height + 2 * rim, y - rim, 'charcoal', MIRROR_FRAME_TINT);
-      this.box(x, z + (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, width, MIRROR_GLASS_UNITS, height, y, 'white', MIRROR_GLASS_TINT);
+      this.box(x, z + (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, width, MIRROR_GLASS_UNITS, height, y, 'mirror', MIRROR_GLASS_TINT);
       return;
     }
     const inward = wall === 'left' ? 1 : -1;
     this.box(x, z, MIRROR_FRAME_UNITS, width + 2 * rim, height + 2 * rim, y - rim, 'charcoal', MIRROR_FRAME_TINT);
-    this.box(x + inward * (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, z, MIRROR_GLASS_UNITS, width, height, y, 'white', MIRROR_GLASS_TINT);
+    this.box(x + inward * (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, z, MIRROR_GLASS_UNITS, width, height, y, 'mirror', MIRROR_GLASS_TINT);
   }
 
   /** A grille on a surface that faces `gaze`, centred at (x, y) on depth z. */

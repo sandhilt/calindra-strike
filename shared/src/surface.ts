@@ -27,6 +27,7 @@ export const SURFACE_OF: Readonly<Record<BaseMat, Surface>> = {
   sofa: 'cloth',
   plant: 'plant',
   water: 'water',
+  mirror: 'glass',
 };
 
 export function surfaceOf(mat: Mat): Surface {

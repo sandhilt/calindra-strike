@@ -28,7 +28,8 @@ export type BaseMat =
   | 'sofa'
   | 'eitri' // official Eitri icon banner
   | 'logo' // Calindra Strike logo banner
-  | 'water';
+  | 'water'
+  | 'mirror';
 
 /** A brand mat is a store sign, drawn whole on each face like the banners. */
 export type Mat = BaseMat | BrandMat;

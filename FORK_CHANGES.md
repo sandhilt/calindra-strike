@@ -10,6 +10,8 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Mirrors are their own `mirror` material (shiny silver, opaque) that rings as glass when shot, instead of plaster (`Room.mirror`, `SURFACE_OF`).
+- Santas wear the black visor band across the face again.
 - Debug explorer (Konami code, **cenário**): a **sons do cenário** checkbox plays the map's ambient loops and speaker music, and a **movimento** row switches between flying and **andar**, where the walker moves, jumps and crouches under the match's rules and left click fires the selected **arma** with tracers, impacts and surface sounds. Key files: `client/src/debug/scenario-explorer.ts`, `client/src/debug/scenario-walk.ts`.
 - Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
 - The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
@@ -26,7 +28,7 @@ Changes made after the baseline, newest day first.
 - In Carrapeta Dourada only the Carrapeta holder's guns are gilded (the rest of the match keeps the normal finish), every hammer is drawn as a red and yellow squeaky toy hammer, look only (`GILDED` and `toyHammer` in `client/src/game/render/weapons3d.ts`).
 - Shopping Sul Rio: Natal replaces each display car with a reindeer-drawn sleigh and a seated Santa (`shopping-natal.ts`). Protocol 27 keeps client, server and MCP collision maps in sync after removing the car cover.
 - Standing and seated Santas reuse the store mannequin body in a Santa suit and the static prop batch (`santa.ts`). The KFG mascot wears a Santa hat in Natal (`store-signs.ts`).
-- Natal: the food court tree and its gifts moved to the corner by the rail, off the escalator approaches. Santas drop the visor band, so they have no eyes, like the mannequins.
+- Natal: the food court tree and its gifts moved to the corner by the rail, off the escalator approaches.
 - Bullet impacts: every surface now has a bright layer that cuts through the gunshot (concrete, plaster, ground, cloth, crate, container, wood, tile and plant were too low or too short to hear). `client/test/surface.test.ts` pins it.
 - Natal adds garlands beside store logos, rails and pillars, and small Christmas displays inside shops and on food court counters (`shopping-natal.ts`).
 - The Natal canopy gains a frost frame and crossbars that anchor the star strings. The falling snow volume ends at the underside of the glass (`shopping-levels.ts`, `shopping-natal.ts`).

@@ -57,6 +57,15 @@ describe('hora do rush', () => {
     assert.ok(lunchStatus(calm, 0, 'KFG').every((row) => row.tag === null));
   });
 
+  it('counts the defenders\' seconds two at a time in a rush hour', () => {
+    const rush = lunchView([0, 30_000, 0, 1], []);
+    const calm = lunchView([0, 30_000, 0, 0], []);
+    assert.ok(rush && calm);
+    const left = (view: typeof rush, now: number) => lunchStatus(view, now, 'KFG')[1].big;
+    assert.deepEqual([left(calm, 20_000), left(calm, 21_000)], ['10 s', '9 s']);
+    assert.deepEqual([left(rush, 20_000), left(rush, 21_000)], ['20 s', '18 s']);
+  });
+
   it('counts only the colleagues following this player', () => {
     const view = lunchView([0, 30_000], [[1, 7, 0, 0, 0, 0], [1, 8, 0, 0, 0, 0], [2, 7, 0, 0, 0, 0], [0, -1, 0, 0, 0, 0]]);
     assert.ok(view);

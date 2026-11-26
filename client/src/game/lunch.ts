@@ -36,7 +36,8 @@ export interface LunchRow { team: number; text: string; big: string; unit: strin
 /** One status row per team: what it is doing, the number that matters to it in large type (attackers: seated, defenders: seconds left) and the rush call. */
 export function lunchStatus(view: LunchView, now: number, restaurant: string): LunchRow[] {
   const seated = view.colleagues.filter((c) => c.kind === 'seated').length;
-  const secs = Math.max(0, Math.ceil((view.endsAt - now) / 1000));
+  const pace = view.rush ? LUNCH_RUSH_SPEED : 1;
+  const secs = Math.max(0, Math.ceil(((view.endsAt - now) / 1000) * pace));
   const tag = view.rush ? LUNCH_RUSH_TAG : null;
   return [
     { team: view.attackers, text: `levando o time pro ${restaurant}`, big: `${seated}/${view.colleagues.length}`, unit: 'sentados', tag },

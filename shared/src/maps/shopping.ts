@@ -32,8 +32,8 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
 ];
 /** The shops on each half's top floor, beside the ones on the ground floor, so every brand stands once. */
 const MIRANTE_SHOPS: readonly MiranteShops[] = [
-  { pharmacy: 'pague-pouco', small: 'pandorga', lounge: 'pe-leve', corner: 'linha-fina', large: ['samsong', 'ray-bao'] },
-  { pharmacy: 'droga-raio', small: 'loccitano', lounge: 'essencia', corner: 'papel-e-cor', large: ['sentauro', 'brinco-center'] },
+  { pharmacy: 'pague-pouco', small: 'pandorga', lounge: 'pe-leve', corner: 'linha-fina', gift: 'imaginario', large: ['samsong', 'ray-bao'] },
+  { pharmacy: 'droga-raio', small: 'loccitano', lounge: 'essencia', corner: 'papel-e-cor', gift: 'toc-toque', large: ['sentauro', 'brinco-center'] },
 ];
 const STORES: readonly (readonly ShopBrand[])[] = [
   ['zarra', 'cea', 'rener', 'hew'],

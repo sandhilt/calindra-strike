@@ -1,6 +1,6 @@
 import type { FoodBrand, ShopBrand } from './brands.ts';
+import type { BoutiqueBrand, FoodBrand } from './brands.ts';
 import { outfit } from './room.ts';
-import type { GalleryShopBrand } from './shopping-boutiques.ts';
 import type { Outfit } from './types.ts';
 
 /**
@@ -11,6 +11,7 @@ export type StaffRole = 'cashier' | 'cook' | 'server' | 'seller' | 'stocker' | '
 
 /** Each uniform is named for the brand whose staff wear it, so every counter has its own look. */
 export type StaffUniform = FoodBrand | GalleryShopBrand | ShopBrand;
+export type StaffUniform = FoodBrand | BoutiqueBrand;
 
 const WHITE = 0xf5f5f5;
 const BLACK = 0x1b1b1b;
@@ -51,6 +52,8 @@ export const STAFF_UNIFORMS: Readonly<Record<StaffUniform, Outfit>> = {
   travessura: outfit(0x2e5a3f, CHARCOAL, 0xe9dcc0),
   'droga-raio': outfit(0xd8202a, CHARCOAL, WHITE),
   'pague-pouco': outfit(0x1f4fa8, CHARCOAL, 0xf2c200),
+  imaginario: outfit(0x0f6e78, BLACK, 0xffc93c),
+  'toc-toque': outfit(0x3a3a3a, 0xcfb894, 0xd9773a),
 };
 
 /** The colour that says which brand a uniform is: the polo, or its trim when the polo is white. */

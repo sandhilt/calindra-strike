@@ -276,6 +276,16 @@ const SIGNS: Record<StoreBrand, (g: G, christmas?: boolean) => void> = {
     label(g, 'Papel & Cor', W / 2, 104, 76, '#f6efe4', SERIF, W - 60, 'bold');
     label(g, 'PAPELARIA', W / 2, 196, 30, '#f6efe4', 'Arial, sans-serif', W - 120, 'bold');
   },
+  imaginario(g) {
+    panel(g, '#0f6e78');
+    label(g, 'Imaginário', W / 2, 104, 84, '#ffc93c', 'Arial Black, Arial, sans-serif', W - 60);
+    label(g, 'PRESENTES  •  DESIGN', W / 2, 196, 28, '#fdfaf2', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  'toc-toque'(g) {
+    panel(g, '#3a3a3a');
+    label(g, 'Toc & Toque', W / 2, 104, 80, '#f4efe6', SERIF, W - 60, 'bold');
+    label(g, 'CASA  •  DECORAÇÃO', W / 2, 196, 28, '#d9773a', 'Arial, sans-serif', W - 120, 'bold');
+  },
   essencia(g) {
     panel(g, '#f3e6ef');
     label(g, 'Essência', W / 2, 104, 100, '#7a2f5a', SERIF, W - 60, 'italic bold');

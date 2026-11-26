@@ -32,6 +32,8 @@ export const STORE_BRANDS = {
   'linha-fina': { name: 'Linha Fina', kind: 'boutique' },
   'papel-e-cor': { name: 'Papel & Cor', kind: 'boutique' },
   essencia: { name: 'Perfumaria Essência', kind: 'boutique' },
+  imaginario: { name: 'Imaginário', kind: 'boutique' },
+  'toc-toque': { name: 'Toc & Toque', kind: 'boutique' },
   'piso-terreo': { name: 'Térreo', kind: 'floor' },
   'piso-1': { name: '1º andar', kind: 'floor' },
   'piso-mirante': { name: 'Mirante', kind: 'floor' },

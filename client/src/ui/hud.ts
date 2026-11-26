@@ -73,7 +73,7 @@ export class Hud {
   private readonly leadersLeft = h('div', { style: 'display:flex;gap:8px' });
   private readonly leadersRight = h('div', { style: 'display:flex;gap:8px' });
   private readonly flagStatus = h('div', { class: 'flag-status glass hidden' });
-  private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a bandeira, volte à base' });
+  private readonly flagBanner = h('div', { class: 'flag-banner glass hidden', text: 'você está com a mochila, volte à base' });
   private readonly bombRole = h('div', { class: 'bomb-role glass hidden' });
   private readonly bombStatus = h('div', { class: 'bomb-status glass hidden' });
   private readonly blackFridayBanner = h('div', { class: 'black-friday-banner hidden', role: 'alert' }, [

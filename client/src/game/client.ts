@@ -720,6 +720,7 @@ export class ClientGame {
     this.nearbyLoops?.dispose();
     this.nearbyLoops = new NearbyLoops(ambientEmitters(this.map.props), (at) => {
       if (at.kind === 'noise') return this.sfx.ambientLoop(at.voice, at);
+      if (this.settings.musicVolume === 0) return;
       const track = stationTracks.get(at.station);
       if (track.kind === 'ready') return this.sfx.trackLoop(track.buffer, at, at.station, this.serverNow());
       if (track.kind === 'idle') void stationTracks.load(at.station, (data) => this.sfx.ctx.decodeAudioData(data));

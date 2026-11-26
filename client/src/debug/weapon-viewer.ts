@@ -7,9 +7,14 @@ import { type GunPlacement, formatPlacement } from '../game/render/weapon-placem
 import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, controlsList, group, rangeRow, row } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
+import { fullscreenButtonLabel, toggleFullscreen } from '../ui/fullscreen.ts';
 import { stepBlend } from '../game/render/movement-pose.ts';
 import { ADS_BLEND_SECONDS } from '../game/render/ads-view.ts';
+import { createPerfHud } from './perf-hud.ts';
+import { createScenarioExplorer } from './scenario-explorer.ts';
 import { autoFireShots, previewAim, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, type ReloadScrub } from './weapon-debug.ts';
+
+type DebugView = 'weapon' | 'scenario';
 
 const DEFAULT_FOV = 58;
 const BACKGROUND = 0x8a7a5e;
@@ -37,11 +42,13 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true });
   } catch {
-    root.replaceChildren(h('div', { class: 'overlay' }, [h('div', { class: 'menu glass dbg-notice' }, [h('h2', { text: 'modo debug' }), h('p', { class: 'sub', text: 'Este navegador não tem WebGL, então o visualizador de armas não abre.' }), exit])]));
+    root.replaceChildren(h('div', { class: 'overlay' }, [h('div', { class: 'menu glass dbg-notice' }, [h('h2', { text: 'modo debug' }), h('p', { class: 'sub', text: 'Este navegador precisa de WebGL para abrir o modo debug.' }), exit])]));
     exit.addEventListener('click', onExit);
     return;
   }
   renderer.setClearColor(BACKGROUND);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
@@ -50,7 +57,18 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   const view = new ViewModel(PLAYER_COLORS[settings.color], quality);
   view.setLeftHanded(settings.leftHanded);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  view.setEnvironment(pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[quality].envMapPx }).texture);
+  const studio = new RoomEnvironment();
+  const environment = pmrem.fromScene(studio, 0.04, 0.1, 100, { size: QUALITY[quality].envMapPx });
+  studio.dispose();
+  view.setEnvironment(environment.texture);
+  let scenarioGun: ViewModel | undefined;
+  const getScenarioGun = () => {
+    if (scenarioGun) return scenarioGun;
+    scenarioGun = new ViewModel(PLAYER_COLORS[settings.color], quality);
+    scenarioGun.setLeftHanded(settings.leftHanded);
+    scenarioGun.setEnvironment(environment.texture);
+    return scenarioGun;
+  };
 
   let weapon: WeaponId = WEAPONS[WEAPONS.length - 1].id;
   const reload: ReloadScrub = { elapsed: -1, playing: false, speed: 1, loop: true };
@@ -163,30 +181,93 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     }
   }
 
+  const perf = createPerfHud(renderer);
+  const fpsRow = checkRow('mostrar FPS', 'tempos de quadro e memória', () => perf.visible, (v) => perf.setVisible(v), nothing);
+  const listeners = new AbortController();
+  window.addEventListener('keydown', (event) => {
+    if (event.code !== 'F3') return;
+    event.preventDefault();
+    if (event.repeat) return;
+    perf.setVisible(!perf.visible);
+    const checkbox = fpsRow.querySelector('input');
+    if (checkbox) checkbox.checked = perf.visible;
+  }, { signal: listeners.signal });
+
+  let mode: DebugView = 'weapon';
+  let scenario: ReturnType<typeof createScenarioExplorer> | undefined;
+  const weaponControls = h('div', {}, [
+    weaponHost, reloadHost, placementHost, copied, readout, group('controles da partida', controlsList(settings.bindings)),
+  ]);
+  const scenarioHost = h('div', { hidden: true });
+  const fullscreen = h('button', { class: 'btn', type: 'button', onclick: () => void toggleFullscreen(stage) });
   const panel = h('aside', { class: 'menu glass dbg-panel' }, [
-    h('header', { class: 'menu-head' }, [h('div', {}, [h('h2', { text: 'debug' }), h('p', { class: 'sub', text: 'armas, animações e ângulo' })]), exit]),
-    h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [weaponHost, reloadHost, placementHost, copied, readout, group('controles da partida', controlsList(settings.bindings))])]),
+    h('header', { class: 'menu-head' }, [h('h2', { text: 'debug' }), exit]),
+    h('div', { class: 'menu-body' }, [h('div', { class: 'menu-col' }, [
+      choiceRow<DebugView>('modo', [{ v: 'weapon', label: 'arma' }, { v: 'scenario', label: 'cenário' }], () => mode, setMode, nothing),
+      fullscreen, fpsRow, weaponControls, scenarioHost,
+    ])]),
   ]);
   const scopeHost = h('div', { class: 'scope' }, [h('div', { class: 'scope-glass' })]);
-  const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, scopeHost, panel]);
+  const stage = h('div', { class: 'dbg-stage' }, [renderer.domElement, scopeHost, panel, perf.element]);
   root.replaceChildren(stage);
 
-  const resize = () => {
+  function setMode(next: DebugView) {
+    if (next === mode) return;
+    mode = next;
+    weaponControls.hidden = mode !== 'weapon';
+    scenarioHost.hidden = mode !== 'scenario';
+    perf.reset();
+    if (mode === 'scenario') {
+      scopeHost.className = 'scope';
+      scenario = createScenarioExplorer(renderer, quality, settings.sensitivity, getScenarioGun, (locked) => {
+        panel.hidden = locked;
+      }, perf.reset);
+      scenarioHost.replaceChildren(scenario.controls);
+      return;
+    }
+    scenario?.dispose();
+    scenario = undefined;
+    scenarioHost.replaceChildren();
+    resize();
+  }
+
+  function resize() {
+    if (scenario) {
+      scenario.resize();
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality].maxPixelRatio));
     renderer.setSize(window.innerWidth, window.innerHeight);
     view.camera.aspect = window.innerWidth / window.innerHeight;
     view.camera.updateProjectionMatrix();
-  };
+  }
+  function updateFullscreenButton() {
+    const label = fullscreenButtonLabel('debug', document.fullscreenEnabled, document.fullscreenElement === stage);
+    fullscreen.disabled = label === null;
+    fullscreen.textContent = label ?? 'maximizar janela';
+  }
+  document.addEventListener('fullscreenchange', () => {
+    updateFullscreenButton();
+    resize();
+  }, { signal: listeners.signal });
+  updateFullscreenButton();
   window.addEventListener('resize', resize);
   view.camera.fov = DEFAULT_FOV;
   select(weapon);
   resize();
 
-  let last = performance.now();
+  let last: number | undefined;
   let frame = 0;
   const tick = (now: number) => {
-    const dt = Math.min(MAX_FRAME_S, (now - last) / 1000);
+    const frameMs = last === undefined ? 0 : now - last;
+    const dt = Math.min(MAX_FRAME_S, frameMs / 1000);
     last = now;
+    frame = requestAnimationFrame(tick);
+    if (scenario) {
+      scenario.update(now, dt);
+      perf.render(scenario.draw, now, frameMs);
+      return;
+    }
     const def = weaponDef(weapon);
     const total = reloadTotal(def, shells);
     stepReload(reload, dt, total);
@@ -214,17 +295,27 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     const cursor = def.reloadTiming && reload.elapsed >= 0 ? reloadCursor(def.reloadTiming, reload.elapsed, shells) : null;
     phase.textContent = cursor ? `${cursor.phase} ${Math.round(cursor.t * 100)}%` : '';
     readout.textContent = `${def.name}\nposição ${placement.position.map((v) => v.toFixed(1)).join(' ')}\ngiro ${placement.rotation.map(degrees).join(' ')}\nescala ${placement.scale.toFixed(2)}`;
+    perf.render(drawWeapon, now, frameMs);
+  };
+  function drawWeapon() {
     renderer.clear();
     view.render(renderer);
-    frame = requestAnimationFrame(tick);
-  };
+  }
   frame = requestAnimationFrame(tick);
 
-  exit.addEventListener('click', () => {
+  exit.addEventListener('click', async () => {
+    exit.disabled = true;
+    fullscreen.disabled = true;
     cancelAnimationFrame(frame);
+    listeners.abort();
+    scenario?.dispose();
+    perf.dispose();
     window.removeEventListener('resize', resize);
+    environment.dispose();
     pmrem.dispose();
     renderer.dispose();
+    renderer.forceContextLoss();
+    if (document.fullscreenElement === stage) await toggleFullscreen(stage);
     onExit();
   });
 }

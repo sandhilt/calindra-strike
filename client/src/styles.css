@@ -1823,7 +1823,6 @@ input:focus-visible {
   flex: 1;
 }
 
-/* Debug mode (weapon viewer): the panel floats over the weapon on a full-screen canvas. */
 .dbg-stage {
   position: fixed;
   inset: 0;
@@ -1844,6 +1843,10 @@ input:focus-visible {
   bottom: 16px;
   width: min(400px, calc(100% - 32px));
   max-height: none;
+}
+
+.dbg-panel[hidden] {
+  display: none;
 }
 
 .dbg-panel .menu-body {
@@ -1903,6 +1906,29 @@ input:focus-visible {
 
 .dbg-panel .menu-head h2 {
   font-size: 26px;
+}
+
+.dbg-perf {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-family: var(--mono);
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+@media (max-width: 800px) {
+  .dbg-panel:not([hidden]):has(~ .dbg-perf:not([hidden])) {
+    top: 175px;
+  }
 }
 
 .dbg-notice {
@@ -3006,6 +3032,10 @@ input:focus-visible {
 .cs-ready small {
   color: var(--text);
 }
+
+.lobby-fullscreen { text-align: center; }
+.lobby-fullscreen .btn { margin-inline-start: 8px; padding: 4px 8px; font-size: inherit; }
+.lobby-fullscreen .btn[hidden] { display: none; }
 
 /* Graphics benchmark */
 .lobby-graphics { display: flex; flex-wrap: wrap; gap: 8px; }

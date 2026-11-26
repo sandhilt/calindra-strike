@@ -4,6 +4,7 @@ import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { type Settings, saveSettings } from '../settings.ts';
 import { GITHUB_URL } from '../feedback.ts';
 import { controlsList } from './controls.ts';
+import { fullscreenButtonLabel, toggleFullscreen } from './fullscreen.ts';
 import { ICONS, eitriLogo, gameLogo, h, svg } from './dom.ts';
 
 interface Status {
@@ -122,6 +123,22 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
 
   const watch = h('button', { class: 'btn', type: 'submit', text: 'só assistir' });
   const footnote = h('p', { class: 'footnote', text: 'Partidas de 5 min · quem fizer mais kills sobe no pódio' });
+  const fullscreenButton = h('button', {
+    class: 'btn', type: 'button', onclick: () => void toggleFullscreen(document.documentElement),
+  });
+  const fullscreenHint = h('p', { class: 'field-hint lobby-fullscreen' }, [
+    'Joga melhor em tela cheia', fullscreenButton,
+  ]);
+  const updateFullscreenHint = () => {
+    const active = Boolean(document.fullscreenElement);
+    const label = fullscreenButtonLabel('lobby', document.fullscreenEnabled, active);
+    fullscreenHint.hidden = active;
+    fullscreenButton.hidden = label === null;
+    fullscreenButton.textContent = label ?? '';
+  };
+  updateFullscreenHint();
+  document.addEventListener('fullscreenchange', updateFullscreenHint);
+
   const form = h('form', { class: 'card', novalidate: true }, [
     h('div', { class: 'beta-ribbon' }, [h('span', { text: 'beta' })]),
     server,
@@ -138,6 +155,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
     err,
     leaders,
     h('p', { class: 'mobile-note', text: 'Calindra Strike precisa de mouse e teclado. Abra no computador.' }),
+    fullscreenHint,
     footnote,
   ]);
 
@@ -272,6 +290,7 @@ export function renderLobby(app: HTMLElement, settings: Settings, error: string,
 
   return () => {
     disposed = true;
+    document.removeEventListener('fullscreenchange', updateFullscreenHint);
     closeBenchmark?.();
     clearInterval(iv);
   };

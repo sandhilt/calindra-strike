@@ -3,13 +3,16 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `cba52de`
+- Covered through: `e4cf7c1`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- The lobby offers a fullscreen hint and a button on browsers that support fullscreen (`client/src/ui/lobby.ts`).
+- Both Konami debug views can enter and exit browser fullscreen from the panel (`client/src/debug/weapon-viewer.ts`).
+- The Konami debug mode now lets players fly through any map and shows FPS, CPU and supported GPU frame timings, JS heap when available, and renderer counts in both views (`client/src/debug/weapon-viewer.ts`).
 
 - The AWP scope lenses on the gun model are the dark blue-green coated glass again, replacing the faint clear green one (`client/src/game/render/weapons3d.ts`).
 - The Azeitadora airdrop chance outside Carrapeta Dourada went down from 30% to 20%, below the LMG (`CARRAPETA_AIRDROP_CHANCE`).

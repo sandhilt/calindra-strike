@@ -5,6 +5,8 @@ import { outfit, Room, seeded } from './room.ts';
 export const STORE_HALF_WIDTH = 344;
 export const STORE_DEPTH = 272;
 const CEILING = 176;
+/** A grille on the 30 unit shell duct, short enough to leave a strip of duct above and below it (units). */
+const DUCT_VENT_HEIGHT = 22;
 type Hex = number;
 
 const STEEL = 0xc9ced6;
@@ -24,7 +26,7 @@ function shell(r: Room, d: Dress): void {
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 6, 0, 'white', d.trim);
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 3, 112, 'white', d.trim);
   r.duct(0, 15, 2 * STORE_HALF_WIDTH - 8, 30, 30, CEILING - 36);
-  for (const x of [-200, 200]) r.vent(x, CEILING - 21, 30, 'front');
+  for (const x of [-200, 200]) r.vent(x, CEILING - 21, 30, 'front', 44, DUCT_VENT_HEIGHT);
   for (const x of [-230, -80, 80, 230]) r.box(x, 150, 70, 6, 1.4, CEILING - 1.4, 'lamp');
 }
 

@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- A winded player pants with deep breaths until the sprint meter refills, slowing and fading over 3 s after (`Panting`, `Sfx.breath`).
 - The display car of Shopping Sul Rio is red and more car-like (stepped windshield, side glass, pillars, bumpers, grille, mirrors, rounder wheels with arches), with the same cover solids (`carStand` in `shopping-cover.ts`).
 - Shopping air conditioning ducts are metal that stops bullets and leaks air for 2 s when shot (high tier only). The atrium ducts hang from a riser and the food court duct runs above the kitchen hoods instead of through them (`b.duct`, `onDuct`, `DuctLeaks`).
 - In Carrapeta Dourada only the Carrapeta holder's guns are gilded (the rest of the match keeps the normal finish), every hammer is drawn as a red and yellow squeaky toy hammer, look only (`GILDED` and `toyHammer` in `client/src/game/render/weapons3d.ts`).

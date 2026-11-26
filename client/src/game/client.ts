@@ -117,6 +117,7 @@ import { RtGovernor } from './render/rt-governor.ts';
 import { AUTO_RT_START, INTEGRATED_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
 import { INTEGRATED_GPU_TIP, lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
+import { Panting } from './panting.ts';
 import { onDuct } from '@calindra-strike/shared';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
@@ -258,6 +259,7 @@ export class ClientGame {
   private nearbyLoops: NearbyLoops | null = null;
   private collision!: CollisionWorld;
   private map!: MapDef;
+  private readonly panting = new Panting();
   private mapIndex = -1;
   private dayLooks: Record<DayPhase, DayLook> | null = null;
   private readonly dayLook = createLook();
@@ -1791,6 +1793,8 @@ export class ClientGame {
     this.lastFrame = now;
     if (dt > 0.25) dt = 0.25;
     this.elapsed += dt;
+    const breath = this.panting.step(dt, this.me.winded, this.alive && !this.spectator);
+    if (breath) this.sfx.breath(breath.breath, breath.loud);
     this.fpsAcc += dt;
     this.fpsN++;
     if (this.fpsAcc >= 0.5) {

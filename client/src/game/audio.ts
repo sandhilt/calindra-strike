@@ -374,6 +374,16 @@ export class Sfx {
     this.tone(this.master, t + 0.08, 'sine', base * 1.5, base * 1.5, 0.3, 0.2);
   }
 
+  /** One deep breath of a winded player: a slow airy draw in, or a longer, lower push out. */
+  breath(breath: 'in' | 'out', loud: number): void {
+    const t = this.ctx.currentTime;
+    if (breath === 'in') this.noiseBurst(this.master, t, 1300, 1.1, 0.22, 0.28, 0.07 * loud);
+    else {
+      this.noiseBurst(this.master, t, 650, 0.9, 0.05, 0.45, 0.1 * loud);
+      this.noiseBurst(this.master, t, 260, 1.2, 0.05, 0.3, 0.05 * loud, 'lowpass');
+    }
+  }
+
   hurt(): void {
     const t = this.ctx.currentTime;
     this.tone(this.master, t, 'sine', 160, 70, 0.14, 0.3);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { PLAYER_COLORS, STANCE, WEAPONS, reloadCursor, weaponDef, type WeaponId } from '@calindra-strike/shared';
-import { QUALITY, QUALITY_OPTIONS, type Quality } from '../game/render/quality.ts';
+import { QUALITY, QUALITY_OPTIONS, renderPixelRatio, type Quality } from '../game/render/quality.ts';
 import { ViewModel } from '../game/render/viewmodel.ts';
 import { type GunPlacement, formatPlacement, placementFor } from '../game/render/weapon-placement.ts';
 import type { WeaponSkin } from '../game/render/weapons3d.ts';
@@ -51,7 +51,14 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   const view = new ViewModel(PLAYER_COLORS[settings.color], quality);
   view.setLeftHanded(settings.leftHanded);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  view.setEnvironment(pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: QUALITY[quality].envMapPx }).texture);
+  const buildEnvironment = (size: number) => {
+    const room = new RoomEnvironment();
+    const target = pmrem.fromScene(room, 0.04, 0.1, 100, { size });
+    room.dispose();
+    return target;
+  };
+  let environment = buildEnvironment(QUALITY[quality].envMapPx);
+  view.setEnvironment(environment.texture);
 
   let weapon = request?.weapon ?? DEFAULT_VIEWER_WEAPON;
   let skin: WeaponSkin = request?.skin ?? 'standard';
@@ -74,6 +81,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     shells = weaponDef(id).mag;
     reload.elapsed = -1;
     reload.playing = false;
+    scrub.value = '0';
     placementHost.replaceChildren(placementGroup());
     reloadHost.replaceChildren(reloadGroup());
   };
@@ -90,7 +98,16 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
         place();
       }, nothing, 'só a Azeitadora muda'),
       choiceRow('gráficos', QUALITY_OPTIONS, () => quality, (v) => {
+        const previousProfile = QUALITY[quality];
         quality = v;
+        const profile = QUALITY[quality];
+        resize();
+        if (profile.envMapPx !== previousProfile.envMapPx) {
+          const nextEnvironment = buildEnvironment(profile.envMapPx);
+          view.setEnvironment(nextEnvironment.texture);
+          environment.dispose();
+          environment = nextEnvironment;
+        }
         view.setQuality(v);
         view.setWeapon(weapon, skin);
         place();
@@ -180,7 +197,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   root.replaceChildren(stage);
 
   const resize = () => {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality].maxPixelRatio));
+    renderer.setPixelRatio(renderPixelRatio(QUALITY[quality], window.devicePixelRatio));
     renderer.setSize(window.innerWidth, window.innerHeight);
     view.camera.aspect = window.innerWidth / window.innerHeight;
     view.camera.updateProjectionMatrix();
@@ -242,6 +259,8 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
   exit.addEventListener('click', () => {
     cancelAnimationFrame(frame);
     window.removeEventListener('resize', resize);
+    view.dispose();
+    environment.dispose();
     pmrem.dispose();
     renderer.dispose();
     onExit();

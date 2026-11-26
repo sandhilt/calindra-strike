@@ -4,7 +4,8 @@ import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { aimOffset, bobKeep } from './ads-view.ts';
 import { DrumView, type DrumRounds } from './drum-view.ts';
 import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
-import { buildWeapon, poseFeed, type WeaponModel, type WeaponSkin } from './weapons3d.ts';
+import { buildWeapon, poseFeed, SHARED_WEAPON_RESOURCES, type WeaponModel, type WeaponSkin } from './weapons3d.ts';
+import { disposeMeshes } from './dispose-meshes.ts';
 import { QUALITY, type Quality } from './quality.ts';
 import { type GunPlacement, placementFor } from './weapon-placement.ts';
 import { BELT_BURST_S, type BeltFlow, stepBeltFlow } from './belt-anim.ts';
@@ -153,12 +154,14 @@ export class ViewModel {
   private frameDt = 0;
   private readonly basePos = new THREE.Vector3();
   private readonly sleeve: THREE.MeshStandardMaterial;
+  private readonly sharedResources: typeof SHARED_WEAPON_RESOURCES;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
 
   constructor(color: string, quality: Quality) {
     this.beltLinks = QUALITY[quality].fx.beltLinks;
     this.sleeve = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.55), roughness: 0.85 });
+    this.sharedResources = new Set([...SHARED_WEAPON_RESOURCES, this.sleeve]);
     this.hemi = new THREE.HemisphereLight('#ffffff', '#444444', VIEWMODEL_HEMI_INTENSITY);
     this.sun = new THREE.DirectionalLight('#ffffff', 2.2);
     this.sun.position.set(-0.4, 1, 0.3);
@@ -277,9 +280,7 @@ export class ViewModel {
 
   setWeapon(id: WeaponId, skin: WeaponSkin = 'standard'): void {
     if (id === this.weaponId && skin === this.weaponSkin) return;
-    if (this.model) this.kickGroup.remove(this.model.group);
-    if (this.looseHand) this.kickGroup.remove(this.looseHand);
-    this.looseHand = null;
+    this.releaseWeapon();
     const m = buildWeapon(id, this.beltLinks, skin);
     m.group.traverse((o) => {
       o.castShadow = false;
@@ -308,6 +309,28 @@ export class ViewModel {
     this.applyPlacement(m.group, placementFor(id));
     m.muzzle.add(this.flash);
     this.kickGroup.add(m.group);
+  }
+
+  private releaseWeapon(): void {
+    this.flash.removeFromParent();
+    this.model?.group.removeFromParent();
+    this.looseHand?.removeFromParent();
+    disposeMeshes([this.model?.group ?? null, this.looseHand], this.sharedResources);
+    this.model = null;
+    this.looseHand = null;
+    this.leftHand = null;
+    this.rightHand = null;
+    this.hammerWrist = null;
+    this.spareMagazine = null;
+    this.weaponId = -1;
+  }
+
+  dispose(): void {
+    this.releaseWeapon();
+    this.sleeve.dispose();
+    this.flash.material.map?.dispose();
+    this.flash.material.dispose();
+    this.scene.environment = null;
   }
 
   /** True when the weapon on show has an aim down sights. */

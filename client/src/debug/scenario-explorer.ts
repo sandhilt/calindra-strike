@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CollisionWorld, DEG, getMaps, TICK_MS, WEAPON, type MapDef } from '@calindra-strike/shared';
+import { CollisionWorld, DEG, applyCmd, eyePosition, getMaps, TICK_MS, WEAPON, type Cmd, type MapDef, type PlayerState, type WeaponId } from '@calindra-strike/shared';
 import { Sfx, type AmbientLoop } from '../game/audio.ts';
 import { NearbyLoops, ambientEmitters, type Emitter } from '../game/nearby-loops.ts';
 import { StationTracks } from '../game/station-tracks.ts';
@@ -11,12 +11,14 @@ import type { Settings } from '../settings.ts';
 import { buttonRow, checkRow, choiceRow, group, rangeRow } from '../ui/controls.ts';
 import { h } from '../ui/dom.ts';
 import { lookBy, stepFly, type FlyInput, type FlyPose } from './fly-camera.ts';
-import { lookDirection } from './scenario-walk.ts';
+import { lookDirection, spawnWalker, ticksDue, walkButtons } from './scenario-walk.ts';
 
 const DEFAULT_FOV = 74;
 const FAR_PLANE_UNITS = 12000;
 const MOUSE_YAW_DEGREES = 0.022;
-const MOVEMENT_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', 'ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight']);
+/** Any simulation seed: the explorer is single-player, so its spread only needs to vary between shots. */
+const WALK_SEED = 1;
+type Mode = 'fly' | 'walk';
 const stationTracks = new StationTracks<AudioBuffer>((src) => fetch(src));
 
 export function createScenarioExplorer(
@@ -37,21 +39,53 @@ export function createScenarioExplorer(
   const sunDir = new THREE.Vector3();
   const nothing = () => {};
   let map = maps[0];
+  let collision = new CollisionWorld(map);
   let quality = initialQuality;
   let world = buildWorld(map, scene, QUALITY[quality]);
   let pose: FlyPose;
   let showGun = false;
+  let mode: Mode = 'fly';
+  let weapon: WeaponId = WEAPON.RIFLE;
+  let player: PlayerState;
+  let carry = 0;
   let soundsOn = false;
   let sfx: Sfx | undefined;
   let loops: NearbyLoops | undefined;
 
   function resetPose() {
     const point = tourPoints(map)[0] ?? { x: 0, z: 0 };
-    const ground = groundAt(new CollisionWorld(map), point);
+    const ground = groundAt(collision, point);
     pose = {
       x: point.x, z: point.z, y: (Number.isFinite(ground) ? ground : 0) + TOUR_EYE_HEIGHT,
       yaw: 0, pitch: 0,
     };
+    if (mode === 'walk') spawnPlayer();
+  }
+
+  /** Drops the walker where the camera stands, so switching modes keeps the place. */
+  function spawnPlayer() {
+    player = spawnWalker(collision, pose.x, pose.z, pose.yaw, weapon, pose.y);
+    carry = 0;
+  }
+
+  function setMode(next: Mode) {
+    if (next === mode) return;
+    mode = next;
+    if (mode === 'walk') spawnPlayer();
+  }
+
+  /** Runs the walker through the game's own movement, one command per simulation tick. */
+  function stepWalk(now: number, dt: number) {
+    const due = ticksDue(carry, dt);
+    carry = due.carry;
+    collision.liftTick = Math.round(now / TICK_MS);
+    const buttons = walkButtons(pressed, settings.bindings);
+    for (let i = 0; i < due.ticks; i++) {
+      const cmd: Cmd = { seq: player.tick, buttons, yaw: pose.yaw, pitch: pose.pitch, weapon: 0, interp: 0 };
+      applyCmd(collision, player, cmd, WALK_SEED);
+    }
+    const eye = eyePosition(player);
+    pose = { ...pose, x: player.x, y: eye.y, z: player.z };
   }
 
   function orientSun() {
@@ -94,6 +128,7 @@ export function createScenarioExplorer(
     if (next === map) return;
     disposeWorld();
     map = next;
+    collision = new CollisionWorld(map);
     world = buildWorld(map, scene, QUALITY[quality]);
     orientSun();
     resetPose();
@@ -142,7 +177,7 @@ export function createScenarioExplorer(
     if (locked()) pose = lookBy(pose, event.movementX, event.movementY, settings.sensitivity * MOUSE_YAW_DEGREES * DEG);
   }, options);
   window.addEventListener('keydown', (event) => {
-    if (!locked() || !MOVEMENT_KEYS.has(event.code)) return;
+    if (!locked() || event.metaKey) return;
     event.preventDefault();
     pressed.add(event.code);
   }, options);
@@ -155,6 +190,7 @@ export function createScenarioExplorer(
   const controls = group(
     'cenário',
     choiceRow('mapa', maps.map((v) => ({ v, label: v.name })), () => map, selectMap, nothing),
+    choiceRow<Mode>('movimento', [{ v: 'fly', label: 'voar' }, { v: 'walk', label: 'andar' }], () => mode, setMode, nothing),
     choiceRow('gráficos', QUALITY_OPTIONS, () => quality, selectQuality, nothing),
     checkRow('sons do cenário', 'ambientes, fontes e a música das caixas', () => soundsOn, setSounds, nothing),
     rangeRow('campo de visão', { min: 40, max: 110, step: 1 }, () => camera.fov, (v) => {
@@ -166,7 +202,7 @@ export function createScenarioExplorer(
       showGun = v;
       resetStats();
     }, nothing),
-    h('small', { class: 'hint', text: 'Clique no cenário para voar. WASD move, Espaço sobe, Ctrl desce, Shift acelera e Esc volta ao painel.' }),
+    h('small', { class: 'hint', text: 'Clique no cenário para entrar. Voar: WASD move, Espaço sobe, Ctrl desce e Shift acelera. Andar: WASD anda, Espaço pula, Ctrl agacha e Shift corre. Esc volta ao painel.' }),
   );
 
   orientSun();
@@ -176,7 +212,8 @@ export function createScenarioExplorer(
     controls,
     resize,
     update(now: number, dt: number) {
-      if (locked()) {
+      if (mode === 'walk') stepWalk(now, dt);
+      else if (locked()) {
         pose = stepFly(pose, {
           forward: axis(pressed.has('KeyW'), pressed.has('KeyS')),
           right: axis(pressed.has('KeyD'), pressed.has('KeyA')),

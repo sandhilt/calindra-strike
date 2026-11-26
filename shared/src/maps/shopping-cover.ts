@@ -133,12 +133,12 @@ function gallery(b: MapBuilder): void {
   const boards: readonly (readonly [number, StoreBrand])[] = [
     [-690, 'cea'],
   ];
-  for (const [x, brand] of [[-1120, 'zarra'], [-360, 'rener'], [384, 'hew'], [1152, 'cea']] as const) {
+  for (const [x, brand] of [[-768, 'zarra'], [0, 'rener'], [768, 'hew']] as const) {
     const z = FACADE_Z + (x < 0 ? 144 : 232);
     board(b, x, z, 144, GALLERY_FLOOR, WALL, brand);
     bench(b, x + 64, z, 28, 96, false);
   }
-  for (const [x, z] of [[-1248, -912], [-560, -976], [160, -856], [864, -1168], [1280, -960]] as const) {
+  for (const [x, z] of [[-1248, -912], [-560, -976], [160, -856], [1280, -960]] as const) {
     b.block(x, z, 220, 20, WALL, 'white', GALLERY_FLOOR, { tint: PAINT });
   }
   b.landmark('Galeria das lojas', 0, FACADE_Z + 160);

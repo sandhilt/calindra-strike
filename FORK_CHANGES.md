@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Store staff: a cashier behind each Mirante boutique till (in a cubby the till now closes with side panels), and a cook and a server in every food court kitchen, each in its brand's uniform. They are look only, placed where no player can reach, and their arms move on the high and low tiers (`staff` prop in `types.ts`, `staff.ts` for the uniforms, `client/src/game/render/staff.ts` for the figures, `staffMotion` in `quality.ts`). `shared/test/staff.test.ts` pins the placement.
 - The cafe counter on each Mirante is gone: its gap holds a Cacau Chou chocolate shop with chocolate shelves, a glass display case and the till (`chocolates` in `shopping-boutiques.ts`, placed in `topFloor` in `shopping-top.ts`). Natal garlands skip any that would hang over a neighbouring sign (`shopping-natal.ts`).
 - Ray-Bão, the Mirante eyewear boutique, fills with three shelves of frames on its back wall, a central table of open glasses and a try-on mirror on each side wall (`rayBao` in `shopping-boutiques.ts`).
 - The five clothing stores of Shopping Sul Rio hang a full-length mirror on each side wall (silver glass in a dark frame, look only), via `Room.mirror` (`shopping-stores.ts`, `room.ts`).

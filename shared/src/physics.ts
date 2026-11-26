@@ -2,6 +2,7 @@ import { PLAYER_RADIUS } from './constants.ts';
 import { LIFT_DOOR_HEIGHT_UNITS, liftDoorOpen, type Lift, type LiftDoor } from './lift.ts';
 import { rayAabb } from './math.ts';
 import type { Mat, MapDef } from './maps/types.ts';
+import { surfaceOf } from './surface.ts';
 
 const EPS = 0.03125;
 
@@ -45,6 +46,8 @@ export class CollisionWorld {
   private bullets: Float64Array;
   private readonly mapBulletMats: readonly Mat[];
   private bulletMats: readonly Mat[];
+  private readonly panes: Float64Array;
+  private readonly paneMats: readonly Mat[];
   readonly map: MapDef;
   private readonly doors: readonly DoorSlot[];
   private tick = 0;
@@ -64,6 +67,10 @@ export class CollisionWorld {
     this.bullets = this.mapBullets;
     this.mapBulletMats = bullet.map((b) => b.mat);
     this.bulletMats = this.mapBulletMats;
+    const panes = map.boxes.filter((b) => b.visible && b.shootThrough && surfaceOf(b.mat) === 'glass');
+    this.panes = new Float64Array(panes.length * 6);
+    panes.forEach((b, i) => this.panes.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
+    this.paneMats = panes.map((b) => b.mat);
     this.syncDoors();
   }
 
@@ -190,32 +197,12 @@ export class CollisionWorld {
 
   /** Nearest bullet-blocking surface along a normalized ray. */
   trace(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): TraceHit | null {
-    const s = this.bullets;
-    let best = maxDist;
-    let bi = -1;
-    for (let i = 0; i < s.length; i += 6) {
-      const t = rayAabb(ox, oy, oz, dx, dy, dz, s[i], s[i + 1], s[i + 2], s[i + 3], s[i + 4], s[i + 5], best);
-      if (t >= 0 && t < best) {
-        best = t;
-        bi = i;
-      }
-    }
-    if (bi < 0) return null;
-    const hx = ox + dx * best;
-    const hy = oy + dy * best;
-    const hz = oz + dz * best;
-    // pick the face the hit point lies on
-    const faces = [
-      [Math.abs(hx - s[bi]), -1, 0, 0],
-      [Math.abs(hx - s[bi + 3]), 1, 0, 0],
-      [Math.abs(hy - s[bi + 1]), 0, -1, 0],
-      [Math.abs(hy - s[bi + 4]), 0, 1, 0],
-      [Math.abs(hz - s[bi + 2]), 0, 0, -1],
-      [Math.abs(hz - s[bi + 5]), 0, 0, 1],
-    ];
-    let f = faces[0];
-    for (const c of faces) if (c[0] < f[0]) f = c;
-    return { t: best, nx: f[1], ny: f[2], nz: f[3], mat: this.bulletMats[bi / 6] ?? PROP_MAT };
+    return nearestHit(this.bullets, this.bulletMats, ox, oy, oz, dx, dy, dz, maxDist);
+  }
+
+  /** Nearest glass or water along a normalized ray. Bullets fly on through it, so `trace` never sees it, but the shot still rings off it. */
+  tracePane(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): TraceHit | null {
+    return nearestHit(this.panes, this.paneMats, ox, oy, oz, dx, dy, dz, maxDist);
   }
 
   /** Height of the first surface below (x, z) starting at y, or -Infinity. */
@@ -230,4 +217,42 @@ export class CollisionWorld {
     }
     return best;
   }
+}
+
+function nearestHit(
+  s: Float64Array,
+  mats: readonly Mat[],
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  maxDist: number,
+): TraceHit | null {
+  let best = maxDist;
+  let bi = -1;
+  for (let i = 0; i < s.length; i += 6) {
+    const t = rayAabb(ox, oy, oz, dx, dy, dz, s[i], s[i + 1], s[i + 2], s[i + 3], s[i + 4], s[i + 5], best);
+    if (t >= 0 && t < best) {
+      best = t;
+      bi = i;
+    }
+  }
+  if (bi < 0) return null;
+  const hx = ox + dx * best;
+  const hy = oy + dy * best;
+  const hz = oz + dz * best;
+  // pick the face the hit point lies on
+  const faces = [
+    [Math.abs(hx - s[bi]), -1, 0, 0],
+    [Math.abs(hx - s[bi + 3]), 1, 0, 0],
+    [Math.abs(hy - s[bi + 1]), 0, -1, 0],
+    [Math.abs(hy - s[bi + 4]), 0, 1, 0],
+    [Math.abs(hz - s[bi + 2]), 0, 0, -1],
+    [Math.abs(hz - s[bi + 5]), 0, 0, 1],
+  ];
+  let f = faces[0];
+  for (const c of faces) if (c[0] < f[0]) f = c;
+  return { t: best, nx: f[1], ny: f[2], nz: f[3], mat: mats[bi / 6] ?? PROP_MAT };
 }

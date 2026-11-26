@@ -222,6 +222,7 @@ const STREAKS: Record<number, { text: string; sound: StreakSound }> = {
 
 const v3 = new THREE.Vector3();
 const v3b = new THREE.Vector3();
+const paneAt = new THREE.Vector3();
 const fxPoint = new THREE.Vector3();
 const shotOrigin = new THREE.Vector3();
 const shotMuzzle = new THREE.Vector3();
@@ -1668,6 +1669,7 @@ export class ClientGame {
       if (i / 3 < projectile.pelletsPerShot) {
         this.effects.projectile(origin, end, shotOrigin, projectile);
       }
+      if (!melee) this.ringPane(shot.ox, shot.oy, shot.oz, dx, dy, dz, dist);
       if (!hitPlayer && wall && wall.t <= dist + 0.01 && (!melee || wall.t < def.range)) {
         const surface = surfaceOf(wall.mat);
         this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz), surface);
@@ -1706,6 +1708,7 @@ export class ClientGame {
       const dir = v3.copy(end).sub(v3b.set(ox, oy, oz));
       const len = dir.length();
       dir.divideScalar(len || 1);
+      this.ringPane(ox, oy, oz, dir.x, dir.y, dir.z, len);
       const hit = this.collision.trace(ox, oy, oz, dir.x, dir.y, dir.z, len + 2);
       if (hit && Math.abs(hit.t - len) < 3) {
         const surface = surfaceOf(hit.mat);
@@ -1713,6 +1716,16 @@ export class ClientGame {
         this.sfx.impact(surface, end);
       }
     }
+  }
+
+  /** Bullets fly through glass and water, so the first pane on the way gets its own impact before the one where the round stops. */
+  private ringPane(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, dist: number): void {
+    const pane = this.collision.tracePane(ox, oy, oz, dx, dy, dz, dist);
+    if (!pane) return;
+    const at = paneAt.set(ox + dx * pane.t, oy + dy * pane.t, oz + dz * pane.t);
+    const surface = surfaceOf(pane.mat);
+    this.effects.impact(at, new THREE.Vector3(pane.nx, pane.ny, pane.nz), surface);
+    this.sfx.impact(surface, at);
   }
 
   private sample(r: Remote, t: number): Snap | null {

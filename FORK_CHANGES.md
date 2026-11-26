@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- In a rush hour the defenders' lunch countdown drops two seconds per second instead of one, so it shows the round at the normal pace (`lunchStatus` in `client/src/game/lunch.ts`); the round length itself is unchanged.
 - The ad columns carry shopping items up their masts (hanging bags, a sale pennant and a pendant lamp), and the lift has a level sign over each doorway (Térreo, 1º andar, Mirante) drawn from the new `floor` kind in `STORE_BRANDS` (`shopping-cover.ts`, `shopping-top.ts`, `store-signs.ts`).
 - Bobi's is now Bobo's and Samsong is Semsunga (display names and signs only, brand ids unchanged); the Semsunga sign is a tilted blue oval with a wide wordmark.
 - Every Shopping Sul Rio kitchen, ground floor shop and Mirante boutique has more trade-specific decor (phones, tablets and screens at Semsunga, fitting rooms at the clothes shops, shelves at the pharmacies, and so on), static boxes only (`shopping-kitchens.ts`, `shopping-stores.ts`, `shopping-boutiques.ts`).

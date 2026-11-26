@@ -151,16 +151,21 @@ function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   }
 
   // Clear the entire width of each storefront sign, including the mirrored facade.
-  for (const sign of base.boxes) {
-    if (!isBrandMat(sign.mat) || sign.max.z > FACADE_Z + 16 || sign.max.x - sign.min.x < 120) continue;
+  // A garland that would hang over a neighbouring sign is left off: the Mirante boutiques stand close together.
+  const signs = base.boxes.filter((box) => isBrandMat(box.mat));
+  for (const sign of signs) {
+    if (sign.max.z > FACADE_Z + 16 || sign.max.x - sign.min.x < 120) continue;
     if (![114, DECK + 110, DECK3 + 142].includes(sign.min.y)) continue;
     const foodCourt = sign.min.y === DECK + 110;
     const y = foodCourt ? DECK + 146 : sign.min.y + (sign.max.y - sign.min.y) * 0.55;
     const face = foodCourt ? sign.max.z + 1 : sign.min.z;
     const width = sign.min.y > DECK3 ? 16 : 48;
     const offset = width / 2 + 12;
-    garland(sign.min.x - offset, y, face + 2, width);
-    garland(sign.max.x + offset, y, face + 2, width);
+    for (const x of [sign.min.x - offset, sign.max.x + offset]) {
+      const clashes = signs.some((other) => other !== sign && other.min.x < x + width / 2 && other.max.x > x - width / 2 &&
+        other.min.y < y + 8 && other.max.y > y - 8 && other.min.z < face + 4 && other.max.z > face - 4);
+      if (!clashes) garland(x, y, face + 2, width);
+    }
   }
 
   // Balustrades and the atrium-facing sides of the pillars on all three levels.

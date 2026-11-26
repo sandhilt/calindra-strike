@@ -191,7 +191,7 @@ function riachuela(r: Room): void {
   clothingDisplay(r, NAVY, 0x1c2a5a);
 }
 
-const CHOCOLATES = [0x4a2513, 0x6a3a1c, 0xe9c27a, 0xd98a9a, 0x2b160b, 0xf5e6c8, 0x8a5a33];
+export const CHOCOLATES = [0x4a2513, 0x6a3a1c, 0xe9c27a, 0xd98a9a, 0x2b160b, 0xf5e6c8, 0x8a5a33];
 
 function cacauChou(r: Room): void {
   shell(r, { floor: 'desk', floorTint: 0x7a4e30, wall: 0x5a2f1b, trim: 0xe9c27a });

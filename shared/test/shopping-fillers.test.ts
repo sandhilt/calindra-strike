@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildShopping } from '../src/maps/shopping.ts';
 import { MIRROR_GLASS_TINT } from '../src/maps/room.ts';
-import { STORE_BRANDS, type ShopBrand } from '../src/maps/brands.ts';
-import { DECK, DECK3, Z } from '../src/maps/shopping-levels.ts';
-import { STORE_HALF_WIDTH } from '../src/maps/shopping-stores.ts';
+import { brandMat, STORE_BRANDS, type ShopBrand } from '../src/maps/brands.ts';
+import { DECK, DECK3, FACADE_Z, Z } from '../src/maps/shopping-levels.ts';
+import { CHOCOLATES, STORE_HALF_WIDTH } from '../src/maps/shopping-stores.ts';
 import type { Box } from '../src/maps/types.ts';
 
 const shopping = buildShopping();
@@ -20,6 +20,23 @@ function overlaps(a: Box, b: Box): boolean {
 
 function centre(box: Box): { x: number; z: number } {
   return { x: (box.min.x + box.max.x) / 2, z: (box.min.z + box.max.z) / 2 };
+}
+
+/** The bot browse spot of a Mirante shop, at its landmark, must have room for a player and nothing solid in its way. */
+function assertBrowseSpotClear(x: number, z: number): void {
+  const spot = shopping.interiors.find((i) => i.y === DECK3 && Math.abs(i.x - x) < 40 && Math.abs(i.z - z) < 20);
+  assert.ok(spot, 'a browse spot in front of the counter');
+  const blocker = shopping.boxes.find((box) => box.solid && box.min.y < DECK3 + 112 && box.max.y > DECK3 &&
+    box.min.x < spot.x + 16 && box.max.x > spot.x - 16 && box.min.z < spot.z + 16 && box.max.z > spot.z - 16);
+  assert.equal(blocker, undefined, `browse spot blocked by ${blocker?.mat}`);
+}
+
+/** The solid partition centred on `x`, which runs from the back wall (|z| = Z) to the storefront line (|z| = |FACADE_Z|). */
+function partitionAt(x: number): Box | undefined {
+  return shopping.boxes.find((box) => box.solid &&
+    Math.abs(box.min.x - (x - 8)) < 0.5 && Math.abs(box.max.x - (x + 8)) < 0.5 &&
+    Math.abs(Math.max(Math.abs(box.min.z), Math.abs(box.max.z)) - Z) < 1 &&
+    Math.abs(Math.min(Math.abs(box.min.z), Math.abs(box.max.z)) - Math.abs(FACADE_Z)) < 1);
 }
 
 function groundStoreCentre(brand: ShopBrand): number {
@@ -84,16 +101,53 @@ describe('Ray-Bão, the eyewear boutique of the Mirante', () => {
   });
 
   it('keeps the browse spot clear of the table and the displays', () => {
-    const spot = shopping.interiors.find((i) => i.y === DECK3 && Math.abs(i.x - cx) < 40 && Math.abs(i.z - landmark.z) < 20);
-    assert.ok(spot, 'a browse spot in front of the counter');
-    const blocker = shopping.boxes.find((box) => box.solid && box.min.y < DECK3 + 112 && box.max.y > DECK3 &&
-      box.min.x < spot.x + 16 && box.max.x > spot.x - 16 && box.min.z < spot.z + 16 && box.max.z > spot.z - 16);
-    assert.equal(blocker, undefined, `browse spot blocked by ${blocker?.mat}`);
+    assertBrowseSpotClear(landmark.x, landmark.z);
   });
 
   it('stands a try-on mirror on each side partition', () => {
     const mirrorsHere = mirrors.filter((m) => inShop(m) && Math.abs(centre(m).x - cx) > 200);
     assert.equal(mirrorsHere.length, 2);
     assert.deepEqual(mirrorsHere.map((m) => Math.sign(centre(m).x - cx)).sort(), [-1, 1]);
+  });
+});
+
+describe('the Cacau Chou chocolate shop in the gap of the Mirante', () => {
+  const name = `${STORE_BRANDS['cacau-chou'].name} (Mirante)`;
+  /** Two landmarks, one per half: a name shared by both is suffixed with its compass corner. */
+  const shops = shopping.features.filter((f) => f.kind === 'landmark' && f.name.startsWith(name));
+  const SHOP_EDGES = [90, 276, -90, -276] as const;
+
+  it('stands once in each half, between the corner boutique and the first large one', () => {
+    assert.equal(shops.length, 2);
+    for (const shop of shops) {
+      assert.ok(Math.abs(shop.x) > 90 && Math.abs(shop.x) < 276, `x ${shop.x} lies in the gap`);
+    }
+  });
+
+  it('is walled in by its neighbours partitions on both sides, so it adds no wall of its own', () => {
+    for (const x of SHOP_EDGES) {
+      assert.ok(partitionAt(x), `partition at x ${x}`);
+    }
+  });
+
+  it('has its sign over the doorway in each half', () => {
+    const signs = shopping.boxes.filter((box) => box.mat === brandMat('cacau-chou') && box.min.y >= DECK3);
+    assert.equal(signs.length, 2);
+  });
+
+  it('stacks chocolate boxes on the back shelves and lays them out in a display case', () => {
+    for (const shop of shops) {
+      // The back wall is at |z| = Z, so the shelves are the boxes deeper than the landmark, on whichever side the shop stands.
+      const chocolates = shopping.boxes.filter((box) => box.mat === 'white' && box.tint !== undefined && CHOCOLATES.includes(box.tint) &&
+        box.min.y >= DECK3 && Math.abs(centre(box).x - shop.x) < 90 && Math.abs(centre(box).z) > Math.abs(shop.z) + 60);
+      assert.ok(chocolates.length >= 40, `${chocolates.length} boxes on the shelves`);
+      const cabinet = shopping.boxes.find((box) => box.solid && box.tint === 0x3b1d0e && box.min.y >= DECK3 &&
+        Math.abs(centre(box).x - shop.x) < 10 && Math.abs(centre(box).z - shop.z) < 40);
+      assert.ok(cabinet, 'a display case in the middle of the shop');
+    }
+  });
+
+  it('keeps the browse spot in the aisle', () => {
+    for (const shop of shops) assertBrowseSpotClear(shop.x, shop.z);
   });
 });

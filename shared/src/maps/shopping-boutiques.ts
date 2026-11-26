@@ -2,7 +2,7 @@ import { brandMat, STORE_BRANDS, type BoutiqueBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { FACADE_Z, ROOF, DECK3, Z } from './shopping-levels.ts';
 import { Room } from './room.ts';
-import { wallShelves } from './shopping-stores.ts';
+import { CHOCOLATES, wallShelves } from './shopping-stores.ts';
 
 /**
  * The boutiques along the back wall of the Mirante: open storefronts like the pharmacy, smaller than a ground floor
@@ -15,6 +15,8 @@ export type SmallBoutique = 'pandorga' | 'loccitano';
 export type LoungeBoutique = 'pe-leve' | 'essencia';
 export type CornerBoutique = 'linha-fina' | 'papel-e-cor';
 export type LargeBoutique = 'samsong' | 'ray-bao' | 'sentauro' | 'brinco-center';
+/** Any shop on the Mirante's back wall: a boutique, or the Cacau Chou branch that fills the gap by the old cafe. */
+export type GalleryShopBrand = BoutiqueBrand | 'cacau-chou';
 
 /** Partitions and the storefront stand this tall; the doorway is the full width between the wall returns. */
 export const SHOP_WALL_HEIGHT = 176;
@@ -330,7 +332,23 @@ function stationery(r: Room, half: number, trim: Hex, colors: readonly Hex[]): v
   });
 }
 
-const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
+/** A small chocolate shop: chocolate boxes on the back shelves, a glass display case in the middle and the till. */
+function chocolates(r: Room, half: number): void {
+  wallShelves(r, 0, 10, 2 * half - 12, 14, 4, CHOCOLATES, 91, 0x6a3a1c);
+  till(r, 0, SMALL_TILL, 0xe9c27a);
+  r.solid(0, 182, 96, 40, 34, 0, 'wood', 0x3b1d0e);
+  r.box(0, 182, 98, 42, 1.4, 34, 'glass', 0xf3ead6);
+  [-36, -18, 0, 18, 36].forEach((x, i) => {
+    for (const z of [174, 190]) r.box(x, z, 13, 13, 6, 35.4, 'white', CHOCOLATES[(i + (z === 174 ? 0 : 3)) % CHOCOLATES.length]);
+  });
+  for (const side of [-1, 1]) {
+    r.solid(side * 66, 150, 24, 56, 30, 0, 'desk', 0x6a3a1c);
+    for (const z of [140, 160]) r.box(side * 66, z, 12, 12, 9, 30, 'white', CHOCOLATES[(side > 0 ? 2 : 0) + (z === 140 ? 0 : 3)]);
+  }
+}
+
+const BOUTIQUES: Record<GalleryShopBrand, Boutique> = {
+  'cacau-chou': { paint: 0x5a2f1b, trim: 0xe9c27a, floor: 0x7a4e30, browseX: 0, dress: chocolates },
   pandorga: { paint: 0xfaf3f6, trim: 0xe77aa6, floor: 0xf4eef1, browseX: 20, dress: pandorga },
   loccitano: { paint: 0xf6e9bd, trim: 0x1c3a6b, floor: 0xe7d6a2, browseX: 0, dress: loccitano },
   'pe-leve': { paint: 0xeef4ef, trim: 0x1f3d2b, floor: 0xdbe5dd, browseX: 0, dress: peLeve },
@@ -359,7 +377,7 @@ function shell(r: Room, half: number, spec: Boutique): void {
 }
 
 /** The lintel closes the gap between the doorway and the roof; the sign hangs on it, clear of the doorway. */
-function facade(b: MapBuilder, x1: number, x2: number, brand: BoutiqueBrand, spec: Boutique): void {
+function facade(b: MapBuilder, x1: number, x2: number, brand: GalleryShopBrand, spec: Boutique): void {
   const z = FACADE_Z + 8;
   const cx = (x1 + x2) / 2;
   const top = ROOF - DECK3;
@@ -375,7 +393,7 @@ export interface Walls {
 }
 
 /** A boutique between the partitions centred on `x1` and `x2`, whose short returns frame the open doorway. */
-export function boutiqueShop(b: MapBuilder, brand: BoutiqueBrand, x1: number, x2: number, walls: Walls): void {
+export function boutiqueShop(b: MapBuilder, brand: GalleryShopBrand, x1: number, x2: number, walls: Walls): void {
   const spec = BOUTIQUES[brand];
   const cx = (x1 + x2) / 2;
   const half = (x2 - x1) / 2 - WALL_THICK / 2;

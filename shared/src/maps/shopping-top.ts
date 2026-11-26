@@ -73,16 +73,7 @@ function supplyStand(b: MapBuilder): void {
   b.landmark('Suprimentos do Mirante', x, z);
 }
 
-/** The cafe counter sits between the corner boutique and the first large boutique. */
-const CAFE_X = 182;
-const CAFE_WIDTH = 160;
-
 function lounge(b: MapBuilder): void {
-  b.block(CAFE_X, -Z + 62, CAFE_WIDTH, 40, 44, 'desk', DECK3, { tint: 0xe2d6bf });
-  b.deco(CAFE_X - CAFE_WIDTH / 2 - 4, DECK3 + 44, -Z + 40, CAFE_X + CAFE_WIDTH / 2 + 4, DECK3 + 48, -Z + 84, 'white', 0x3a2a1c);
-  b.deco(CAFE_X - CAFE_WIDTH / 2 + 20, DECK3 + 110, -Z + 2, CAFE_X + CAFE_WIDTH / 2 - 20, DECK3 + 170, -Z + 4, brandMat('cacau-chou'));
-  b.landmark('Café do Mirante', CAFE_X, -Z + 62);
-  b.interior(CAFE_X, DECK3, -Z + 122);
   for (const [x, z, brand] of [[-1120, -1010, 'zarra'], [-340, -1090, 'cea']] as const) {
     board(b, x, z, 168, brand);
   }
@@ -186,7 +177,7 @@ function liftShaft(b: MapBuilder): void {
   b.landmark('Elevador panorâmico', 0, (LIFT_MIN_Z + LIFT_MAX_Z) / 2);
 }
 
-/** What each half's top floor sells along its back wall: the pharmacy, a small boutique past it, one more beside the cafe and two larger ones across the lounge. */
+/** What each half's top floor sells along its back wall: the pharmacy, a small boutique past it, one more beside the lounge and two larger ones across it. The Cacau Chou branch fills the gap between the corner boutique and the first large one. */
 export interface MiranteShops {
   readonly pharmacy: ShopBrand;
   readonly small: SmallBoutique;
@@ -210,12 +201,14 @@ const WALL_FACE = STORE_HALF_WIDTH - 6;
 const PHARMACY_EDGE = STORE_HALF_WIDTH + 8;
 /** Clear walkway between the stair bay's exit and the gallery, so a shop never closes the way off the escalator. */
 const BAY_EXIT_WIDTH = 100;
-/** The small boutique stands between that walkway and the pharmacy's wall; two larger ones stand between the partitions at these x, past the cafe counter. */
+/** The small boutique stands between that walkway and the pharmacy's wall; two larger ones stand between the partitions at these x. */
 const SMALL_SLOT = [-TOP_X + BAY_EXIT_WIDTH, PHARMACY_X - PHARMACY_EDGE] as const;
 const LARGE_PARTITIONS = [276, 732, 1188] as const;
 /** Between the pharmacy's right wall and the adjacent stationery shop. */
 const LOUNGE_SLOT = [PHARMACY_X + PHARMACY_EDGE, -90] as const;
 const CORNER_SLOT_END = 90;
+/** The gap between the corner boutique and the first large one. Both partitions belong to those neighbours. */
+const CHOCOLATE_SLOT = [CORNER_SLOT_END, LARGE_PARTITIONS[0]] as const;
 const POSTER_DEPTHS = [44, 178, 236] as const;
 
 /** A green cross of three adjoining rectangles (so no two faces share a plane), on a plane facing +z at `z` (centred on x, y). */
@@ -311,6 +304,7 @@ function boutiques(b: MapBuilder, shops: MiranteShops): void {
   boutiqueShop(b, shops.small, SMALL_SLOT[0], SMALL_SLOT[1], { left: true, right: false });
   boutiqueShop(b, shops.lounge, LOUNGE_SLOT[0], LOUNGE_SLOT[1], { left: false, right: true });
   boutiqueShop(b, shops.corner, LOUNGE_SLOT[1], CORNER_SLOT_END, { left: false, right: true });
+  boutiqueShop(b, 'cacau-chou', CHOCOLATE_SLOT[0], CHOCOLATE_SLOT[1], { left: false, right: false });
   boutiqueShop(b, shops.large[0], LARGE_PARTITIONS[0], LARGE_PARTITIONS[1], { left: true, right: true });
   boutiqueShop(b, shops.large[1], LARGE_PARTITIONS[1], LARGE_PARTITIONS[2], { left: false, right: true });
   planter(b, 1210, -1040, 110, 90, 58);

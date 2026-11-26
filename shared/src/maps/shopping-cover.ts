@@ -20,6 +20,11 @@ const PAINT = 0xe9edf2;
 const GALLERY_FLOOR = 0;
 /** Ad columns stay under the longest drop a walker takes (300 units, `MAX_DROP` in the nav grid). */
 const COLUMN = 280;
+/** The mast that carries an ad column on to the roof, and the sign that hangs from the roof on it (units). */
+const MAST_SIDE = 10;
+const MAST_PAINT = 0x303843;
+const HANGING_SIGN_DROP = 90;
+const HANGING_SIGN_DEPTH = 2;
 
 /** An ad panel is drawn whole on each of its faces, so one thin box carries the sign on both sides of a board. */
 function adPanel(b: MapBuilder, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, brand: StoreBrand): void {
@@ -32,10 +37,18 @@ function board(b: MapBuilder, x: number, z: number, length: number, y0: number, 
   adPanel(b, x - 10.6, y0 + height * 0.4, z - length * 0.45, x + 10.6, y0 + height * 0.4 + length * 0.45, z + length * 0.45, brand);
 }
 
-/** A square ad column well above a head, still low enough to drop from, so a glider that lands on top can get down. */
+/**
+ * A square ad column well above a head, still low enough to drop from, so a glider that lands on top can get down.
+ * A thin mast carries on from the top to the roof and ends in a hanging sign of the same brand, so the column reads as
+ * held up by the ceiling. The mast and sign are not solid, so the column top stays the walkable surface it was.
+ */
 function column(b: MapBuilder, x: number, z: number, side: number, top: number, brand: StoreBrand, tint = PAINT): void {
   b.block(x, z, side, side, top, 'white', 0, { tint });
   adPanel(b, x - side / 2 - 0.6, top - 110, z - side / 2 - 0.6, x + side / 2 + 0.6, top - 110 + side / 2, z + side / 2 + 0.6, brand);
+  const half = MAST_SIDE / 2;
+  b.deco(x - half, top, z - half, x + half, ROOF, z + half, 'metal', MAST_PAINT);
+  const signY = ROOF - HANGING_SIGN_DROP;
+  adPanel(b, x - side / 2, signY, z - HANGING_SIGN_DEPTH / 2, x + side / 2, signY + side / 2, z + HANGING_SIGN_DEPTH / 2, brand);
 }
 
 /**

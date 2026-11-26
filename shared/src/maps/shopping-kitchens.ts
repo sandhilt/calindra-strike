@@ -228,10 +228,64 @@ function softServe(r: Room, x: number, color: Hex): void {
 type Kitchen = { kind: 'fast'; spec: FastSpec } | { kind: 'grill'; spec: GrillSpec };
 
 const FAST_SPECS = {
-  kfg: { accent: 0xc8102e, fryers: 4, griddle: false, extras: (r: Room) => { bucketStack(r, 110); warmerCabinet(r, -118); range(r, 43, 'stock'); } },
-  'burguer-rei': { accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true, extras: (r: Room) => { toasterRack(r, 100); range(r, 18, 'stock'); r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a); } },
-  mequi: { accent: 0xda291c, fryers: 2, griddle: true, extras: (r: Room) => { drinks(r, 100, 0xda291c); softServe(r, 128, 0xffc72c); range(r, 43, 'stock'); } },
-  bobis: { accent: 0xe30613, fryers: 2, griddle: false, extras: (r: Room) => { softServe(r, -118, 0xe30613); drinks(r, 108, 0x1f5fbf); griddle(r, 60, 56); range(r, -28, 'pressure'); } },
+  kfg: {
+    accent: 0xc8102e, fryers: 4, griddle: false,
+    extras(r: Room) {
+      bucketStack(r, 110);
+      warmerCabinet(r, -118);
+      range(r, 43, 'stock');
+      for (const x of [-77, -63, -49]) {
+        r.box(x, 73, 10, 10, 15, 32, 'white', 0xc8102e);
+        r.box(x, 73, 12, 12, 3, 47, 'white', TILE_WHITE);
+      }
+      for (const y of [32, 35, 38]) r.box(32, 62, 18, 13, 2.5, y, 'white', 0xc8102e);
+    },
+  },
+  'burguer-rei': {
+    accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true,
+    extras(r: Room) {
+      toasterRack(r, 100);
+      range(r, 18, 'stock');
+      r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a);
+      shelf(r, 45, 50, 54, [0xd62300, 0xffc04b, 0xf0e5cb, 0x789548]);
+      for (const [x, tint] of [[26, 0x9dbd58], [36, 0xe34c2d], [46, 0xb5c375]]) {
+        r.box(x, 70, 9, 7, 4, 32, 'white', STEEL_DARK);
+        r.box(x, 70, 7, 5, 1.5, 36, 'white', tint);
+      }
+    },
+  },
+  mequi: {
+    accent: 0xda291c, fryers: 2, griddle: true,
+    extras(r: Room) {
+      drinks(r, 100, 0xda291c);
+      softServe(r, 128, 0xffc72c);
+      range(r, 43, 'stock');
+      for (const x of [29, 40]) {
+        r.box(x, 63, 6, 6, 14, 32, 'white', 0xffc72c);
+        r.box(x, 63, 8, 8, 4, 46, 'white', TILE_WHITE);
+      }
+      for (const x of [-74, -61, -48]) {
+        r.box(x, 73, 10, 8, 10, 32, 'white', 0xda291c);
+        for (const dx of [-3, 0, 3]) r.box(x + dx, 73, 2, 3, 4 + Math.abs(dx), 42, 'white', 0xffc752);
+      }
+      r.box(0, 92, 244, 1.2, 1.8, 116.2, 'screen');
+    },
+  },
+  bobis: {
+    accent: 0xe30613, fryers: 2, griddle: false,
+    extras(r: Room) {
+      softServe(r, -118, 0xe30613);
+      drinks(r, 108, 0x1f5fbf);
+      griddle(r, 60, 56);
+      range(r, -28, 'pressure');
+      for (const [x, tint] of [[-77, 0xf68bb2], [-65, 0xc88b65], [-53, 0xffdf94]]) {
+        r.box(x, 73, 6, 6, 10, 32, 'white', tint);
+        r.box(x, 73, 8, 8, 4, 42, 'white', TILE_WHITE);
+        r.box(x + 1, 73, 1.3, 1.3, 6, 46, 'white', 0xe30613);
+      }
+      shelf(r, 39, 54, 40, [0xeeb9d2, 0x9b6648, 0xe4c47f]);
+    },
+  },
 } satisfies Record<string, FastSpec>;
 
 /** Flames along the coal bed of a brick grill, under the skewers. */
@@ -305,10 +359,82 @@ function grillKitchen(r: Room, spec: GrillSpec): void {
 }
 
 const GRILL_SPECS = {
-  'mania-picanha': { accent: 0xe0261b, extras: (r: Room) => { brickGrill(r, -20, 100); range(r, 51, 'pressure'); doubleOven(r, 118); potRail(r, 100, 70); } },
-  parrilha: { accent: 0x5a3a22, extras: (r: Room) => { brickGrill(r, -22, 112); range(r, 52, 'stock'); doubleOven(r, 122); potRail(r, 96, 60); } },
-  outbaque: { accent: 0x7a2a1a, extras: (r: Room) => { brickGrill(r, -26, 84); range(r, 32, 'stock'); doubleOven(r, 120); wineRack(r, 70); } },
-  madeiro: { accent: 0x1b1b1b, extras: (r: Room) => { woodOven(r, -24); range(r, 23, 'pressure'); doubleOven(r, 120); potRail(r, 92, 60); } },
+  'mania-picanha': {
+    accent: 0xe0261b,
+    extras(r: Room) {
+      brickGrill(r, -20, 100);
+      range(r, 51, 'pressure');
+      doubleOven(r, 118);
+      potRail(r, 100, 70);
+      r.box(-74, 48, 68, 3, 3, 66, 'white', STEEL_DARK);
+      r.box(-104, 26, 3, 46, 3, 66, 'white', STEEL_DARK);
+      for (const [x, height] of [[-98, 13], [-82, 10], [-66, 15], [-50, 12]]) {
+        r.box(x, 48, 2, 2, 6, 60, 'white', STEEL);
+        r.box(x, 49, 10, 6, height, 58 - height, 'wood', 0xa3483a);
+        r.box(x, 49, 9, 5, 2, 58, 'white', 0xf2d1a1);
+      }
+    },
+  },
+  parrilha: {
+    accent: 0x5a3a22,
+    extras(r: Room) {
+      brickGrill(r, -22, 112);
+      range(r, 52, 'stock');
+      doubleOven(r, 122);
+      potRail(r, 96, 60);
+      for (const [x, height] of [[-94, 29], [-73, 23], [-52, 26]]) {
+        r.box(x, 60, 17, 12, height, 0, 'charcoal', 0x706969);
+        r.box(x, 60, 14, 9, 3, height, 'charcoal', 0x706969);
+        r.box(x, 66.2, 13, 0.4, 7, height - 12, 'white', 0xbfa378);
+      }
+      r.box(-68, 6, 36, 8, 2, 73, 'white', STEEL_DARK);
+      for (const x of [-80, -72, -64, -56]) {
+        r.box(x, 8, 1.5, 1.5, 25, 69, 'white', STEEL);
+        r.box(x, 8, 3, 3, 7, 62, 'wood');
+      }
+    },
+  },
+  outbaque: {
+    accent: 0x7a2a1a,
+    extras(r: Room) {
+      brickGrill(r, -26, 84);
+      range(r, 32, 'stock');
+      doubleOven(r, 120);
+      wineRack(r, 70);
+      r.box(-85, 60, 38, 18, 33, 0, 'wood', 0x63432d);
+      for (const x of [-97, -85, -73]) {
+        r.box(x, 60, 7, 7, 12, 33, 'white', 0x853627);
+        r.box(x, 60, 4, 4, 4, 45, 'white', TILE_WHITE);
+        r.box(x, 63.7, 5, 0.4, 5, 36, 'white', 0xe9ca95);
+      }
+      r.box(17, 64, 15, 12, 2, 32, 'white', STEEL_DARK);
+      for (const dx of [-4, 0, 4]) r.box(17 + dx, 64, 2, 9, 4, 34, 'wood', 0xae492d);
+    },
+  },
+  madeiro: {
+    accent: 0x1b1b1b,
+    extras(r: Room) {
+      woodOven(r, -24);
+      range(r, 23, 'pressure');
+      doubleOven(r, 120);
+      potRail(r, 92, 60);
+      for (const x of [-112, -90]) {
+        r.box(x, 4, 15, 4, 14, 62, 'wood', 0xd79e61);
+        r.box(x, 4, 3, 4, 24, 76, 'wood', 0xc18650);
+      }
+      const logRows = [[-97, -88, -79], [-92.5, -83.5], [-88]];
+      for (const [row, xs] of logRows.entries()) {
+        for (const x of xs) {
+          r.box(x, 45, 8, 21, 7, row * 7, 'wood', 0x81502b);
+          r.box(x, 55.7, 5, 0.4, 5, row * 7 + 1, 'wood', 0xe4b171);
+        }
+      }
+      for (const [x, height] of [[12, 14], [25, 11]]) {
+        r.box(x, 64, 11, 12, height, 32, 'white', 0xe2d0ac);
+        r.box(x, 64, 7, 8, 2.5, 32 + height, 'white', 0xe2d0ac);
+      }
+    },
+  },
 } satisfies Record<string, GrillSpec>;
 
 /** One entry per food brand: a brand added to STORE_BRANDS without a kitchen fails the typecheck. */

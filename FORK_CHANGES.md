@@ -10,6 +10,9 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- Bobi's is now Bobo's and Samsong is Semsunga (display names and signs only, brand ids unchanged); the Semsunga sign is a tilted blue oval with a wide wordmark.
+- Every Shopping Sul Rio kitchen, ground floor shop and Mirante boutique has more trade-specific decor (phones, tablets and screens at Semsunga, fitting rooms at the clothes shops, shelves at the pharmacies, and so on), static boxes only (`shopping-kitchens.ts`, `shopping-stores.ts`, `shopping-boutiques.ts`).
+- The gallery ad boards no longer stand in front of the store doors: they sit between stores now, three per half instead of four (`shared/src/maps/shopping-cover.ts`).
 - Each half of the Mirante gets one more boutique, Calçados Pé Leve and Perfumaria Essência, beside the cafe, whose counter is narrower now (`shared/src/maps/shopping-top.ts`, `shopping-boutiques.ts`, `client/src/game/render/store-signs.ts`).
 - Shopping Sul Rio atrium ad columns carry on to the roof with a thin non-solid mast and a hanging sign of the same brand, so they read as held up by the ceiling (`shared/src/maps/shopping-cover.ts`).
 - The lobby offers a fullscreen hint and a button on browsers that support fullscreen (`client/src/ui/lobby.ts`).

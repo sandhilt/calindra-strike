@@ -220,8 +220,8 @@ export const DAY_PHASES = ['day', 'afternoon', 'night'] as const;
 export type DayPhase = (typeof DAY_PHASES)[number];
 /** Length of each phase's slot, its closing transition included: 15 min for the whole cycle. */
 export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000, afternoon: 4 * 60_000, night: 4 * 60_000 };
-/** The last stretch of a slot is spent blending into the next phase. */
-export const DAY_TRANSITION_MS = 30_000;
+/** The last stretch of a slot is spent blending into the next phase (tuning value: 2 min, so the light drifts instead of snapping). */
+export const DAY_TRANSITION_MS = 120_000;
 
 export const CARRAPETA_PICKUP_TIMEOUT_SECONDS = 20;
 export const CARRAPETA_AIRDROP_CHANCE = 0.2;

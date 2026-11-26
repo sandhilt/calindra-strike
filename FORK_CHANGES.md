@@ -12,6 +12,7 @@ Changes made after the baseline, newest day first.
 ### 2026-11-26
 - Shopping Sul Rio clears its storefronts on all three floors and replaces the atrium ad masts with kiosks, planters, a bench and info totems. The Mirante gains two stationery shops, local shop ventilation sounds and staggered seating and cover (`shopping-cover.ts`, `shopping-top.ts`, `shopping-boutiques.ts`).
 - The lobby and Esc menu share an **issues?** link with the GitHub mark that opens the fork’s issue tracker (`client/src/ui/issues-link.ts`).
+- Day phases ease into each other over 2 minutes instead of 30 seconds, so dusk and dawn drift in rather than snapping (`DAY_TRANSITION_MS` in `shared/src/constants.ts`).
 - Capture the Flag objectives appear as team-colored tech backpacks with LED strips and visible gadgets. They ride on player avatars and stand upright at bases and drop points (`client/src/game/render/flags.ts`).
 - Shots through glass and water now ring off the pane with the glass impact sound, sparks and a bullet hole before the round stops behind it (`CollisionWorld.tracePane` in `shared/src/physics.ts`, `ClientGame.ringPane`). Before, bullets flew through panes silently and only the wall behind sounded.
 

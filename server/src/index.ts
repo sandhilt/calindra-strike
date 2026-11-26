@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomInt, timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import type { Duplex } from 'node:stream';
 import { KICK_CLOSE_CODE, MAX_SPECTATORS, MAX_MESSAGE_BYTES, PROTOCOL_VERSION, TICK_MS, parseClientMessage, sanitizeChat, sanitizeName } from '@calindra-strike/shared';
@@ -16,6 +16,7 @@ const game = new Game({
   warmupMinPlayers: cfg.warmupMinPlayers,
   modes: cfg.modes,
   maps: cfg.maps,
+  firstRotation: randomInt(1_000_000),
   tdmLimit: cfg.tdmLimit,
   ctfLimit: cfg.ctfLimit,
   carrapetaPickupTimeoutSeconds: cfg.carrapetaPickupTimeoutSeconds,

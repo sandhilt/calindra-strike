@@ -271,6 +271,8 @@ export interface GameOptions {
   botFill?: number; // keep at least this many players (bots fill the gap while someone is online)
   botSkill?: number; // 0..1
   random?: () => number;
+  /** Rotation entry the first match plays, taken modulo the rotation length (unset: the first entry). The server draws it at start so the first map and mode vary. */
+  firstRotation?: number;
   requireReady?: boolean; // new players wait on the "pronto" screen until they confirm (unset: they join in play)
   readyKickMs?: number; // pending players are kicked after this, and when the match ends (0 or unset: never)
   radio?: RadioLimits; // unset: the CS 1.6 gap only, no window cap
@@ -349,6 +351,7 @@ export class Game {
     const modes = resolveModes(opts.modes);
     this.rotation = rotationFor([...new Set(mapIdx)], modes);
     this.combos = this.rotation;
+    this.rotationIndex = (opts.firstRotation ?? 0) % this.rotation.length;
     this.map = getMap(0);
     this.world = this.worlds[0];
     this.applyRotation();

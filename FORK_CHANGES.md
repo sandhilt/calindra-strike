@@ -3,13 +3,18 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `1f9e7a0`
+- Covered through: `5406091`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+
+- Debug explorer (Konami code, **cenário**): a **sons do cenário** checkbox plays the map's ambient loops and speaker music, and a **movimento** row switches between flying and **andar**, where the walker moves, jumps and crouches under the match's rules and left click fires the selected **arma** with tracers, impacts and surface sounds. Key files: `client/src/debug/scenario-explorer.ts`, `client/src/debug/scenario-walk.ts`.
+- Shopping Sul Rio: the display car is red and more realistic (`shared/src/maps/shopping-cover.ts`).
+- Shopping Sul Rio: fast food kitchens have fitting stations instead of pots (`shared/src/maps/shopping-kitchens.ts`).
+- Shopping Sul Rio: Christmas map keeps the red car and adds a Santa watching the Mirante gift (`shared/src/maps/shopping-natal.ts`).
 - A winded player pants with deep breaths until the sprint meter refills, slowing and fading over 3 s after (`Panting`, `Sfx.breath`).
 - The display car of Shopping Sul Rio is red and more car-like (stepped windshield, side glass, pillars, bumpers, grille, mirrors, rounder wheels with arches), with the same cover solids (`carStand` in `shopping-cover.ts`).
 - Shopping air conditioning ducts are metal that stops bullets and leaks air for 2 s when shot (high tier only). The atrium ducts hang from a riser and the food court duct runs above the kitchen hoods instead of through them (`b.duct`, `onDuct`, `DuctLeaks`).

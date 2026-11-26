@@ -213,7 +213,7 @@ These moves are still being tested. Use the GitHub **issues?** link in the lobby
 
 ### Debug mode
 
-Enter `↑ ↑ ↓ ↓ ← → ← → B A` in the lobby to preview weapons or pick **cenário** to explore a map. Click the map to fly with the mouse, WASD, Space and Ctrl. Hold Shift to go faster and press Esc to reopen the panel. F3 toggles the FPS, frame timing and memory readout in both modes. Use **maximizar janela** in either mode to enter browser fullscreen and **sair da tela cheia** to leave it. Returning to the lobby exits debug fullscreen.
+Enter `↑ ↑ ↓ ↓ ← → ← → B A` in the lobby to preview weapons or pick **cenário** to explore a map. Click the map to fly with the mouse, WASD, Space and Ctrl. Hold Shift to go faster and press Esc to reopen the panel. Set **movimento** to **andar** to walk the map as a player: WASD moves, Space jumps, Ctrl crouches, Shift sprints, left click fires the **arma** you picked with its tracers, impacts and surface sounds, and R reloads. **sons do cenário** plays the map's ambient sounds and music, as in a match. F3 toggles the FPS, frame timing and memory readout in both modes. Use **maximizar janela** in either mode to enter browser fullscreen and **sair da tela cheia** to leave it. Returning to the lobby exits debug fullscreen.
 
 ### Graphics (modo desempenho)
 

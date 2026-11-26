@@ -185,7 +185,9 @@ const KIOSK_ROOF = 4;
 const KIOSK_STAFF_FORWARD = 14;
 
 /** How far the register stands to the attendant's side, clear of their body. */
-const KIOSK_REGISTER_X = 22;
+/** The attendant stands this far from the register side, so the arm on that side clears the screen (tuning value). */
+const KIOSK_STAFF_X = -4;
+const KIOSK_REGISTER_X = 27;
 
 /** A cash register on the serving counter, its screen turned to the attendant. */
 function kioskRegister(b: MapBuilder, x: number, front: number): void {
@@ -215,7 +217,7 @@ function smallKiosk(b: MapBuilder, x: number, z: number, brand: KioskBrand, role
   adPanel(b, x - 34, 100, front, x + 34, 134, front + 1, brand);
   adScreenOn(b, x, KIOSK_SCREEN_Y_FRONT, front, 1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
   adScreenOn(b, x, KIOSK_SCREEN_Y + 20, z - half, -1, KIOSK_SCREEN_WIDTH, KIOSK_SCREEN_HEIGHT);
-  b.prop({ kind: 'staff', x, y: 0, z: z + KIOSK_STAFF_FORWARD, yaw: Math.PI, role, uniform: brand });
+  b.prop({ kind: 'staff', x: x + KIOSK_STAFF_X, y: 0, z: z + KIOSK_STAFF_FORWARD, yaw: Math.PI, role, uniform: brand });
 }
 
 const AD_TOTEM_WIDTH = 64;

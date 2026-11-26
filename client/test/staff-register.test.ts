@@ -13,9 +13,9 @@ const CLEARANCE_UNITS = 3;
 /** Poses sampled across one work cycle of the server. */
 const SAMPLES = 48;
 /** A serving counter is the wide block topped by its cap, a fixed height above the staff's feet. */
-const COUNTER_MIN_WIDTH_UNITS = 100;
+const COUNTER_MIN_WIDTH_UNITS = 60;
 const COUNTER_TOP_MIN_UNITS = 38;
-const COUNTER_TOP_MAX_UNITS = 46;
+const COUNTER_TOP_MAX_UNITS = 60;
 
 function servers(map: MapDef): Server[] {
   return map.props.filter((p): p is Server => p.kind === 'staff' && p.role === 'server');
@@ -24,8 +24,7 @@ function servers(map: MapDef): Server[] {
 /** The counter and its cap, which the arms reach over. */
 function isCounter(box: Box, p: Server): boolean {
   const top = box.max.y - p.y;
-  return box.mat === 'white' && top >= COUNTER_TOP_MIN_UNITS && top <= COUNTER_TOP_MAX_UNITS &&
-    box.max.x - box.min.x >= COUNTER_MIN_WIDTH_UNITS;
+  return top >= COUNTER_TOP_MIN_UNITS && top <= COUNTER_TOP_MAX_UNITS && box.max.x - box.min.x >= COUNTER_MIN_WIDTH_UNITS;
 }
 
 /** Each arm part's world box, built from the same geometry the store mannequin draws. */

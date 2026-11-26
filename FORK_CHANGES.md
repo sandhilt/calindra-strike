@@ -19,6 +19,8 @@ Changes made after the baseline, newest day first.
 
 - Livraria da Travessura gets the counter and cash register the other ground floor stores have, so its cashier no longer works an empty desk (`travessura` in `shopping-stores.ts`). The same commit folds a bad merge: duplicated types in `staff.ts`, a duplicated line in `staff.test.ts` and duplicated Shopping bullets in `README.md`.
 
+- The food court servers' arms no longer go through the kitchen side wall or the register. The server moves in to `SERVER_X` -120 and its register to 34 units off it on an 18 unit stand (`shopping-kitchens.ts`); each kiosk's attendant steps 4 units toward the far side and its register moves to 27 units (`shopping-cover.ts`). `client/test/staff-register.test.ts` checks the arm clearance in every pose.
+
 - Shopping Sul Rio: Natal no longer hangs a garland in mid air past the end of a Mirante fascia board (beside the Pandorga and L'Occitano signs): a storefront garland goes up only where fascia or wall covers its whole width behind it, and `shopping-natal.test.ts` checks every garland strand hangs flush on a fascia, wall or rail.
 - The capture the flag mode is now shown as **Eu Entrego** instead of "capture a bandeira" (`MODE_LABEL` in `shared/src/protocol.ts`). The mode id `ctf`, `CTF_CAPTURE_LIMIT` and the rules are unchanged.
 

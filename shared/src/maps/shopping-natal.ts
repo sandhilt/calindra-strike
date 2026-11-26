@@ -34,6 +34,16 @@ const SNOWMEN = [
   [1500, -1418, 0.65],
 ] as const;
 
+/** True when the x extents of `boxes` together cover [from, to] without a gap. */
+export function covers(boxes: readonly { min: { x: number }; max: { x: number } }[], from: number, to: number): boolean {
+  let reach = from;
+  for (const box of boxes.toSorted((a, b) => a.min.x - b.min.x)) {
+    if (box.min.x > reach) break;
+    reach = Math.max(reach, box.max.x);
+  }
+  return reach >= to;
+}
+
 /**
  * Every piece is `deco` (non-solid, shot through), so nothing changes for movement, bots or the nav grid.
  * The builder is replayed through `mirrored`, so the authored north half and its 180 degree turn match.
@@ -173,6 +183,14 @@ function decorations(b: MapBuilder, base: MapDef): void {
     box(x, y - 10, z + 5, 4, 10, 3, bell);
   }
 
+  // A garland hangs only where a fascia or wall face lies flush behind its whole width: past the end of a
+  // Mirante fascia board it would float in the air beside the sign.
+  const backing = base.boxes.filter((box) => box.visible && !isBrandMat(box.mat));
+  function backed(x: number, y: number, face: number, width: number): boolean {
+    const behind = backing.filter((box) => Math.abs(box.max.z - face) <= 1 && box.min.y <= y && box.max.y >= y);
+    return covers(behind, x - width / 2, x + width / 2);
+  }
+
   // Clear the entire width of each storefront sign, including the mirrored facade.
   // A garland that would hang over a neighbouring sign is left off: the Mirante boutiques stand close together.
   const signs = base.boxes.filter((box) => isBrandMat(box.mat));
@@ -187,7 +205,7 @@ function decorations(b: MapBuilder, base: MapDef): void {
     for (const x of [sign.min.x - offset, sign.max.x + offset]) {
       const clashes = signs.some((other) => other !== sign && other.min.x < x + width / 2 && other.max.x > x - width / 2 &&
         other.min.y < y + 8 && other.max.y > y - 8 && other.min.z < face + 4 && other.max.z > face - 4);
-      if (!clashes) garland(x, y, face + 2, width);
+      if (!clashes && backed(x, y, face, width)) garland(x, y, face + 2, width);
     }
   }
 

@@ -132,7 +132,8 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.moveTo(170, 210);
     g.bezierCurveTo(170, 20, 270, 20, 270, 210);
     g.stroke();
-    label(g, 'Méqui', 390, 128, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 220);
+    label(g, 'Batatas', 390, 92, 66, '#ffffff', 'Arial Black, Arial, sans-serif', 220);
+    label(g, 'Douradas', 390, 168, 66, '#ffc72c', 'Arial Black, Arial, sans-serif', 220);
   },
   outbaque(g) {
     panel(g, '#5a1a12');
@@ -264,7 +265,7 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     panel(g, '#e4002b');
     g.fillStyle = '#161616';
     g.fillRect(0, 186, W, 22);
-    label(g, 'SENTAURO', W / 2, 108, 100, '#ffffff', 'Arial Black, Arial, sans-serif', W - 50, 'italic');
+    label(g, 'MINOTAURO', W / 2, 108, 100, '#ffffff', 'Arial Black, Arial, sans-serif', W - 50, 'italic');
     label(g, 'ESPORTES', W / 2, 226, 26, '#ffffff', 'Arial, sans-serif', W - 120, 'bold');
   },
   'brinco-center'(g) {

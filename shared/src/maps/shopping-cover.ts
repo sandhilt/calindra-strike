@@ -184,9 +184,9 @@ const KIOSK_ROOF = 4;
 /** The attendant stands this far toward the window from the kiosk's centre, so a reach brings the hands near the counter. */
 const KIOSK_STAFF_FORWARD = 14;
 
-/** How far the register stands to the attendant's side, clear of their body. */
-/** The attendant stands this far from the register side, so the arm on that side clears the screen (tuning value). */
+/** The attendant steps this far away from the register side, so the arm on that side clears the screen (tuning value). */
 const KIOSK_STAFF_X = -4;
+/** The register's offset from the kiosk's centre, toward the register side, inside the walls. */
 const KIOSK_REGISTER_X = 27;
 
 /** A cash register on the serving counter, its screen turned to the attendant. */

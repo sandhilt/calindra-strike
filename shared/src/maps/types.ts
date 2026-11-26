@@ -4,6 +4,8 @@ import type { SupplyPoint } from '../supply.ts';
 import type { Vec3 } from '../math.ts';
 import type { BrandMat, FoodBrand } from './brands.ts';
 
+import type { StationId } from './stations.ts';
+
 export type BaseMat =
   | 'ground'
   | 'concrete'
@@ -75,6 +77,7 @@ export interface LiftStopDoor {
  * The client keeps one builder per kind (`PROP_BUILDERS`), so a new kind fails the typecheck until it is drawn.
  */
 export type MapProp =
+  | { kind: 'speaker'; x: number; y: number; z: number; yaw: number; station: StationId }
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
   | { kind: 'clothesRack'; x: number; y: number; z: number; yaw: number; length: number; palette: readonly number[] }

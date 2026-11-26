@@ -3,13 +3,15 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `cba52de`
+- Covered through: `a6b0d8f`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+
+- Forja, Escritório and Shopping Sul Rio have client-side speaker props for optional positional tracks from `client/public/music/`, with a live `musicVolume` control. The protocol version stays the same because speakers are local scenery and use no wire fields.
 
 - The weapon viewer opens by URL (`?viewer&weapon=<tag>&skin=&aim=&reload=`), reports `viewer:ready` or `viewer:error` in the title and has a skin choice (`client/src/debug/`).
 - `AGENTS.md` and the `verify-calindra-strike` skill require every weapon to be in the weapon viewer and agents to test weapon changes there.

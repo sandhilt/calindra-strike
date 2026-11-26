@@ -30,3 +30,12 @@ test('the gun is on the right by default and moves to the left only for an expli
     assert.equal(loadSettings().leftHanded, false, String(bad));
   }
 });
+
+test('music volume defaults, preserves mute and clamps finite saved values', () => {
+  for (const [musicVolume, expected] of [
+    [undefined, 0.5], ['0.2', 0.5], [null, 0.5], [0, 0], [0.3, 0.3], [-0.1, 0], [1.1, 1],
+  ]) {
+    saved({ musicVolume });
+    assert.equal(loadSettings().musicVolume, expected);
+  }
+});

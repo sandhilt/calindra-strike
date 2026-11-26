@@ -60,6 +60,7 @@ export function buildEscritorio(): MapDef {
 
     // Desk cluster A (two facing rows) + monitors
     b.add(-1000, 0, -640, -664, 30, -512, 'desk');
+    b.prop({ kind: 'speaker', x: -884, y: 38, z: -534, yaw: 0, station: 'escritorio' });
     b.deco(-1000, 30, -578, -664, 52, -574, 'glass');
     for (const cx of [-944, -832, -720]) {
       b.add(cx - 20, 30, -604, cx + 20, 56, -600, 'screen', { solid: false });

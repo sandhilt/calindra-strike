@@ -84,6 +84,7 @@ import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
 import { Sfx } from './audio.ts';
 import { NearbyLoops, ambientEmitters } from './nearby-loops.ts';
+import { StationTracks } from './station-tracks.ts';
 import { radioMenuKey, type OpenRadioMenu, type RadioKeyResult } from './radio-menu.ts';
 import { RADIO_VOICE, createSpeaker } from './speech.ts';
 import type { StreakSound } from './sound-packs/types.ts';
@@ -236,6 +237,8 @@ const VIEWMODEL_MAGAZINE_FX_DISTANCE_UNITS = 22;
 const DEBRIS_PROBE_HALF_SIZE_UNITS = 2;
 /** The kill feed line when the light starts heading for a phase. */
 const DAY_PHASE_NOTICE: Readonly<Record<DayPhase, string>> = { day: 'amanheceu', afternoon: 'fim de tarde', night: 'anoitecendo…' };
+
+const stationTracks = new StationTracks<AudioBuffer>((src) => fetch(src));
 
 export class ClientGame {
   readonly renderer: THREE.WebGLRenderer;
@@ -408,6 +411,7 @@ export class ClientGame {
     this.input.onKey = (code, down, e) => this.onKey(code, down, e);
     this.hud = new Hud(container, settings.bindings);
     this.sfx = new Sfx(settings.volume, settings.soundPack);
+    this.sfx.setMusicVolume(settings.musicVolume);
     this.sfx.setAnnouncer(settings.announcer);
     this.effects = new Effects(this.scene);
     this.view = new ViewModel(PLAYER_COLORS[settings.color], settings.quality);
@@ -540,6 +544,7 @@ export class ClientGame {
     this.input.sensitivity = s.sensitivity;
     this.view.setLeftHanded(s.leftHanded);
     this.sfx.setVolume(s.volume);
+    this.sfx.setMusicVolume(s.musicVolume);
     this.sfx.setAnnouncer(s.announcer);
     if (this.sfx.setPack(s.soundPack)) this.sfx.shot(s.primary, null, false);
     if (!this.spectator) this.net.send({ t: 'loadout', primary: s.primary });
@@ -713,7 +718,12 @@ export class ClientGame {
     this.world?.dispose();
     this.world = buildWorld(this.map, this.scene, QUALITY[this.settings.quality]);
     this.nearbyLoops?.dispose();
-    this.nearbyLoops = new NearbyLoops(ambientEmitters(this.map.props), (at) => this.sfx.ambientLoop(at.voice, at));
+    this.nearbyLoops = new NearbyLoops(ambientEmitters(this.map.props), (at) => {
+      if (at.kind === 'noise') return this.sfx.ambientLoop(at.voice, at);
+      const track = stationTracks.get(at.station);
+      if (track.kind === 'ready') return this.sfx.trackLoop(track.buffer, at, at.station, this.serverNow());
+      if (track.kind === 'idle') void stationTracks.load(at.station, (data) => this.sfx.ctx.decodeAudioData(data));
+    });
     this.dayLooks = buildLooks(this.map.theme);
     this.dayLit = false;
     for (const a of this.airdrops.values()) {

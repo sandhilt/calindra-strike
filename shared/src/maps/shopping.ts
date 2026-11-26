@@ -188,6 +188,8 @@ export function buildShopping(): MapDef {
       b.block(px, PILLAR_Z, 40, 40, DECK - SLAB, 'white');
       b.block(px, PILLAR_Z, 40, 40, FOOD_CEILING - DECK, 'white', DECK);
     }
+    b.prop({ kind: 'speaker', x: PILLAR_XS[0], y: 72, z: PILLAR_Z + 28, yaw: 0, station: 'shopping' });
+    b.prop({ kind: 'speaker', x: PILLAR_XS[3], y: DECK + 72, z: PILLAR_Z + 28, yaw: 0, station: 'shopping' });
     topFloor(b, MIRANTE_SHOPS[half]);
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through

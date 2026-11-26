@@ -12,6 +12,7 @@ export interface Settings {
   code: string;
   sensitivity: number; // CS 1.6 scale (m_yaw 0.022)
   volume: number;
+  musicVolume: number;
   soundPack: string;
   /** Spoken kill-streak lines on top of the chosen sound pack. */
   announcer: boolean;
@@ -42,6 +43,7 @@ export const defaults = (): Settings => ({
   code: '',
   sensitivity: 2,
   volume: 0.7,
+  musicVolume: 0.5,
   soundPack: DEFAULT_SOUND_PACK,
   announcer: false,
   radioVoice: true,
@@ -76,6 +78,9 @@ export function loadSettings(): Settings {
     code: typeof o.code === 'string' ? o.code.slice(0, 64) : '',
     sensitivity: num(o.sensitivity, 0.1, 15, d.sensitivity),
     volume: num(o.volume, 0, 1, d.volume),
+    musicVolume: typeof o.musicVolume === 'number' && Number.isFinite(o.musicVolume)
+      ? Math.min(1, Math.max(0, o.musicVolume))
+      : d.musicVolume,
     soundPack: isSoundPackId(o.soundPack) ? o.soundPack : d.soundPack,
     // The announcer used to be a sound pack of its own; whoever picked it keeps the voice on top of the classic pack.
     announcer: typeof o.announcer === 'boolean' ? o.announcer : o.soundPack === 'announcer',

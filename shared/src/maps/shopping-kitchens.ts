@@ -113,6 +113,53 @@ function range(r: Room, x: number, style: Pot): void {
   burnerPot(r, x, 24, 34, style);
 }
 
+/** Base cabinet the counter-top stations below stand on, in the footprint a range takes. */
+function stationBase(r: Room, x: number): void {
+  r.box(x, 22, 28, 34, 34, 0, 'white', STEEL);
+}
+
+/** Fried chicken breading table: a tub of seasoned flour, a sieve and a tray of breaded pieces. */
+function breadingTable(r: Room, x: number): void {
+  stationBase(r, x);
+  r.box(x - 5, 22, 16, 26, 6, 34, 'white', STEEL_DARK);
+  r.box(x - 5, 22, 14, 24, 1, 39.5, 'white', 0xf1e2bf);
+  r.box(x + 9, 22, 9, 9, 3, 34, 'charcoal', IRON);
+  for (const dz of [-8, 0, 8]) r.box(x + 9, 22 + dz, 6, 5, 2, 37, 'desk', 0xc98a3c);
+}
+
+/** Fry station: a stainless dump under heat lamps, cartons of fries and a scoop. */
+function fryStation(r: Room, x: number, carton: Hex): void {
+  stationBase(r, x);
+  r.box(x, 22, 26, 30, 4, 34, 'white', STEEL_DARK);
+  r.box(x, 22, 22, 26, 2, 37.5, 'desk', 0xf2c14e);
+  r.box(x, 22, 26, 4, 2, 56, 'lamp');
+  for (const side of [-1, 1]) r.box(x + side * 12, 22, 2, 2, 18, 38, 'white', STEEL_DARK);
+  for (const dz of [-9, -3, 3, 9]) {
+    r.box(x - 10, 22 + dz, 4, 4, 6, 38, 'white', carton);
+    r.box(x - 10, 22 + dz, 3, 3, 2, 44, 'desk', 0xf2c14e);
+  }
+}
+
+/** Sandwich assembly board: a heated bun chute, a cutting board and wrapped burgers waiting to go. */
+function assemblyBoard(r: Room, x: number, wrap: Hex): void {
+  stationBase(r, x);
+  r.box(x, 22, 24, 30, 1.6, 34, 'wood', 0xd6a467);
+  r.box(x + 8, 22, 8, 20, 18, 35.6, 'white', STEEL_DARK);
+  r.box(x + 8, 13, 6, 1, 4, 44, 'desk', 0xe0a458);
+  for (const dz of [-8, 0, 8]) r.box(x - 6, 22 + dz, 7, 6, 3, 35.6, 'white', wrap);
+}
+
+/** Milkshake bar: spindle mixers with steel cups and a row of tall cups. */
+function shakeMixers(r: Room, x: number, color: Hex): void {
+  stationBase(r, x);
+  for (const dz of [-9, 0, 9]) {
+    r.box(x + 6, 22 + dz, 6, 6, 24, 34, 'white', color);
+    r.box(x + 4, 22 + dz, 6, 4, 3, 54, 'white', color);
+    r.box(x + 1.5, 22 + dz, 4, 4, 8, 40, 'white', STEEL);
+  }
+  for (const dz of [-8, 0, 8]) r.box(x - 8, 22 + dz, 5, 5, 9, 34, 'white', 0xfff4d6);
+}
+
 function griddle(r: Room, x: number, width: number): void {
   r.cook(x, 17, 36, 'griddle');
   r.box(x, 17, width, 32, 34, 0, 'white', STEEL);
@@ -233,7 +280,7 @@ const FAST_SPECS = {
     extras(r: Room) {
       bucketStack(r, 110);
       warmerCabinet(r, -118);
-      range(r, 43, 'stock');
+      breadingTable(r, 43);
       for (const x of [-77, -63, -49]) {
         r.box(x, 73, 10, 10, 15, 32, 'white', 0xc8102e);
         r.box(x, 73, 12, 12, 3, 47, 'white', TILE_WHITE);
@@ -245,7 +292,7 @@ const FAST_SPECS = {
     accent: 0xd62300, fryers: 1, griddle: true, flameGrilled: true,
     extras(r: Room) {
       toasterRack(r, 100);
-      range(r, 18, 'stock');
+      assemblyBoard(r, 18, 0xf0e5cb);
       r.box(60, 17, 50, 30, 8, 34, 'brick', 0xff7a3a);
       shelf(r, 45, 50, 54, [0xd62300, 0xffc04b, 0xf0e5cb, 0x789548]);
       for (const [x, tint] of [[26, 0x9dbd58], [36, 0xe34c2d], [46, 0xb5c375]]) {
@@ -259,7 +306,7 @@ const FAST_SPECS = {
     extras(r: Room) {
       drinks(r, 100, 0xda291c);
       softServe(r, 128, 0xffc72c);
-      range(r, 43, 'stock');
+      fryStation(r, 43, 0xda291c);
       for (const x of [29, 40]) {
         r.box(x, 63, 6, 6, 14, 32, 'white', 0xffc72c);
         r.box(x, 63, 8, 8, 4, 46, 'white', TILE_WHITE);
@@ -277,7 +324,7 @@ const FAST_SPECS = {
       softServe(r, -118, 0xe30613);
       drinks(r, 108, 0x1f5fbf);
       griddle(r, 60, 56);
-      range(r, -28, 'pressure');
+      shakeMixers(r, -28, 0xe30613);
       for (const [x, tint] of [[-77, 0xf68bb2], [-65, 0xc88b65], [-53, 0xffdf94]]) {
         r.box(x, 73, 6, 6, 10, 32, 'white', tint);
         r.box(x, 73, 8, 8, 4, 42, 'white', TILE_WHITE);

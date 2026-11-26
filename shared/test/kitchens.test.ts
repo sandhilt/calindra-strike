@@ -15,10 +15,21 @@ const OUTER_PLANES = [
   { name: 'front', axis: 'z', side: 'max', at: KITCHEN_DEPTH },
 ] as const;
 
+/** Fast food kitchens fry, griddle and assemble; only the grill restaurants keep a pot on the boil. */
+const FAST_FOOD: ReadonlySet<FoodBrand> = new Set(['kfg', 'burguer-rei', 'mequi', 'bobis']);
+
 const look = (box: Box) => `${box.mat}/${box.tint ?? 'plain'}`;
 
 describe('food court kitchens', () => {
-  for (const brand of FOOD_BRANDS) {
+  for (const brand of FOOD_BRANDS.filter((id) => FAST_FOOD.has(id))) {
+    it(`${brand} has no pot on the boil`, () => {
+      const b = new MapBuilder();
+      buildKitchen(new Room(b, 0, 0, 0), brand);
+      assert.equal(b.props.some((prop) => prop.kind === 'cook' && prop.voice === 'boil'), false);
+    });
+  }
+
+  for (const brand of FOOD_BRANDS.filter((id) => !FAST_FOOD.has(id))) {
     it(`${brand} has a visible pot above a burner with steam coming off its lid`, () => {
       const b = new MapBuilder();
       buildKitchen(new Room(b, 0, 0, 0), brand);

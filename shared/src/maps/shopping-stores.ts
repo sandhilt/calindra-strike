@@ -466,6 +466,7 @@ function bookRun(r: Room, x: number, z: number, y: number, width: number, depth:
 
 function travessura(r: Room): void {
   shell(r, { floor: 'desk', floorTint: 0xa07a52, wall: 0x2e5a3f, trim: 0xefe6cf });
+  counter(r, 0x4a2d18, 0xefe6cf);
   const rnd = seeded(61);
   const levels = [14, 36, 58, 80, 102, 124];
   r.solid(0, 8, 310, 16, 6, 0, 'desk', 0x4a2d18);

@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- Livraria da Travessura gets the counter and cash register the other ground floor stores have, so its cashier no longer works an empty desk (`travessura` in `shopping-stores.ts`). The same commit folds a bad merge: duplicated types in `staff.ts`, a duplicated line in `staff.test.ts` and duplicated Shopping bullets in `README.md`.
+
 - Shopping Sul Rio: Natal no longer hangs a garland in mid air past the end of a Mirante fascia board (beside the Pandorga and L'Occitano signs): a storefront garland goes up only where fascia or wall covers its whole width behind it, and `shopping-natal.test.ts` checks every garland strand hangs flush on a fascia, wall or rail.
 - The capture the flag mode is now shown as **Eu Entrego** instead of "capture a bandeira" (`MODE_LABEL` in `shared/src/protocol.ts`). The mode id `ctf`, `CTF_CAPTURE_LIMIT` and the rules are unchanged.
 

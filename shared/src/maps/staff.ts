@@ -1,5 +1,4 @@
-import type { FoodBrand, ShopBrand } from './brands.ts';
-import type { BoutiqueBrand, FoodBrand } from './brands.ts';
+import type { BoutiqueBrand, FoodBrand, ShopBrand } from './brands.ts';
 import { outfit } from './room.ts';
 import type { Outfit } from './types.ts';
 
@@ -10,8 +9,7 @@ import type { Outfit } from './types.ts';
 export type StaffRole = 'cashier' | 'cook' | 'server' | 'seller' | 'stocker' | 'pharmacist' | 'cleaner';
 
 /** Each uniform is named for the brand whose staff wear it, so every counter has its own look. */
-export type StaffUniform = FoodBrand | GalleryShopBrand | ShopBrand;
-export type StaffUniform = FoodBrand | BoutiqueBrand;
+export type StaffUniform = FoodBrand | BoutiqueBrand | ShopBrand;
 
 const WHITE = 0xf5f5f5;
 const BLACK = 0x1b1b1b;

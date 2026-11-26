@@ -187,7 +187,6 @@ describe('the shopping floor staff', () => {
   });
 
   it('puts a cashier behind every till on the Mirante', () => {
-    const tillNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'boutique' || b.name === 'Cacau Chou').map((b) => b.name);
     // Pharmacies have an open storefront and no till; every boutique does.
     const tillNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'boutique').map((b) => b.name);
     const landmarks = shopping.features.flatMap((f) => (f.kind === 'landmark' ? [f] : []));

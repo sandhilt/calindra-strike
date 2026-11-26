@@ -48,15 +48,21 @@ interface Boutique {
 /** The cashier's cubby: the space between the back wall and the till, closed on both sides so only the cashier stands in it. */
 const CUBBY_FRONT_Z = COUNTER_Z - 17;
 const CUBBY_MID_Z = (BACK_WALL_DEPTH + CUBBY_FRONT_Z) / 2;
-/** A cashier is 16 units deep, so stands clear of the back shelves (up to z 17) and of the till (from z 35). */
-const CASHIER_Z = CUBBY_FRONT_Z - 9;
+/** A cashier is 16 units deep: clear of the back shelves (to z 17) and of the till top, which starts at z 33. */
+const CASHIER_Z = CUBBY_FRONT_Z - 10;
+
+/**
+ * A till is taller than the 45 unit jump, so nobody can climb onto it from the floor and drop into the cubby behind.
+ * Standing on the aisle's bench or display (38 units) and jumping still reaches only 83, which is the one edge left.
+ */
+const TILL_HEIGHT = 50;
 
 function till(r: Room, x: number, width: number, tint: Hex): void {
-  r.solid(x, COUNTER_Z, width, 34, 40, 0, 'white', tint);
-  r.box(x, COUNTER_Z, width + 4, 38, 2, 40, 'white', 0xf5f5f5);
-  r.box(x - width / 4, COUNTER_Z - 2, 14, 10, 10, 42, 'charcoal', 0x1b1b1b);
-  r.box(x - width / 4, COUNTER_Z - 7.5, 12, 1, 7, 46, 'screen');
-  for (const side of [-1, 1]) r.solid(x + (side * width) / 2, CUBBY_MID_Z, 2, CUBBY_FRONT_Z - BACK_WALL_DEPTH, 40, 0, 'white', tint);
+  r.solid(x, COUNTER_Z, width, 34, TILL_HEIGHT, 0, 'white', tint);
+  r.box(x, COUNTER_Z, width + 4, 38, 2, TILL_HEIGHT, 'white', 0xf5f5f5);
+  r.box(x - width / 4, COUNTER_Z - 2, 14, 10, 10, TILL_HEIGHT + 2, 'charcoal', 0x1b1b1b);
+  r.box(x - width / 4, COUNTER_Z - 7.5, 12, 1, 7, TILL_HEIGHT + 6, 'screen');
+  for (const side of [-1, 1]) r.solid(x + (side * width) / 2, CUBBY_MID_Z, 2, CUBBY_FRONT_Z - BACK_WALL_DEPTH, TILL_HEIGHT, 0, 'white', tint);
 }
 
 const SMALL_TILL = 70;
@@ -121,7 +127,8 @@ function shoeWall(r: Room, x: number, width: number, levels: readonly number[]):
 }
 
 function peLeve(r: Room, half: number): void {
-  shoeWall(r, 0, 2 * half - 20, [68, 96, 124]);
+  // The shelves start above a standing cashier's head, which is 84 units high.
+  shoeWall(r, 0, 2 * half - 20, [90, 116, 142]);
   till(r, 0, 100, 0x1f3d2b);
   const benchX = half - 34;
   r.solid(benchX, 172, 50, 90, 16, 0, 'wood', 0xb98a58);
@@ -293,7 +300,8 @@ const TOYS = [0xe4002b, 0x1f6fd1, 0x2f9e44, 0xf2c200, 0xff7ab0, 0xff7a1a];
 function brincoCenter(r: Room, half: number): void {
   const displayX = half * 0.57;
   till(r, 0, 110, 0xe4002b);
-  for (const y of [74, 98, 122]) {
+  // The lowest shelf would stand behind the cashier's head, so the cubby keeps the two above it.
+  for (const y of [98, 122]) {
     r.box(0, 14, 2 * half - 24, 20, 3, y, 'wood', 0xfff3c4);
     for (const column of [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]) {
       const x = column * (half - 22) / 5;

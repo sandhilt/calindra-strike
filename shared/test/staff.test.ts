@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getMaps, type Box, type MapDef, type MapProp } from '../src/index.ts';
+import { DECK3 } from '../src/maps/shopping-levels.ts';
+import { getMaps, STORE_BRANDS, type Box, type MapDef, type MapProp } from '../src/index.ts';
 
 type Staff = Extract<MapProp, { kind: 'staff' }>;
 
 /** Staff face the way a prop does: forward is local -z, so yaw 0 looks toward -z and yaw pi toward +z. */
 const FIGURE_HALF_WIDTH = 12;
 const FIGURE_HALF_DEPTH = 8;
+const FIGURE_HEIGHT_UNITS = 84;
 /** How far a counter, partition or wall must stand in each direction to close a staff member in. */
 const ENCLOSURE_REACH_UNITS = 60;
 /** The chest of a staff member, where a wall or counter must be seen to block the ray. */
@@ -58,11 +60,23 @@ function closedIn(map: MapDef, p: Staff): boolean {
   return directions.every(([dx, dz]) => nearestSolid(map, p.x, p.z, dx, dz, p.y + CHEST_UNITS) <= ENCLOSURE_REACH_UNITS);
 }
 
-function bodyOverlapsSolid(map: MapDef, p: Staff): Box | undefined {
-  return map.boxes.find((box) => box.solid && box.mat !== 'clip' &&
-    box.min.x < p.x + FIGURE_HALF_WIDTH && box.max.x > p.x - FIGURE_HALF_WIDTH &&
+/** Kitchen walls, lids and counters span whole rooms; equipment and furniture are narrower than this. */
+const SCENERY_SPAN_UNITS = 120;
+
+function overlapsBody(box: Box, p: Staff): boolean {
+  return box.min.x < p.x + FIGURE_HALF_WIDTH && box.max.x > p.x - FIGURE_HALF_WIDTH &&
     box.min.z < p.z + FIGURE_HALF_DEPTH && box.max.z > p.z - FIGURE_HALF_DEPTH &&
-    box.min.y < p.y + 84 && box.max.y > p.y);
+    box.min.y < p.y + FIGURE_HEIGHT_UNITS && box.max.y > p.y;
+}
+
+function bodyOverlapsSolid(map: MapDef, p: Staff): Box | undefined {
+  return map.boxes.find((box) => box.solid && box.mat !== 'clip' && overlapsBody(box, p));
+}
+
+/** Equipment, furniture and goods a figure must not stand inside: any visible box that is not a whole room wall. */
+function bodyOverlapsScenery(map: MapDef, p: Staff): Box | undefined {
+  return map.boxes.find((box) => box.visible && box.mat !== 'clip' &&
+    Math.max(box.max.x - box.min.x, box.max.z - box.min.z) <= SCENERY_SPAN_UNITS && overlapsBody(box, p));
 }
 
 const maps = getMaps();
@@ -83,6 +97,13 @@ describe('store staff are scenery, never in the open', () => {
       }
     });
 
+    it(`${map.id}: no staff member stands inside equipment or furniture`, () => {
+      for (const p of staffOf(map)) {
+        const hit = bodyOverlapsScenery(map, p);
+        assert.equal(hit, undefined, `${p.role} at ${p.x}, ${p.z} inside a ${hit?.mat} box`);
+      }
+    });
+
     it(`${map.id}: no staff member stands on a bot browse spot`, () => {
       for (const p of staffOf(map)) {
         const spot = map.interiors.find((i) => Math.abs(i.x - p.x) < 40 && Math.abs(i.z - p.z) < 40);
@@ -98,21 +119,36 @@ describe('the shopping floor staff', () => {
   const staff = staffOf(shopping);
   const roles = (role: Staff['role']) => staff.filter((p) => p.role === role);
 
-  it('puts a cook at a station and a server at the window of each food court kitchen', () => {
-    assert.equal(roles('cook').length, shopping.restaurants.length);
-    assert.equal(roles('server').length, shopping.restaurants.length);
+  /** Each food court kitchen sits behind its restaurant's counter, 162 units in from the back wall, on the platform (28 units up). */
+  const KITCHEN_HALF_WIDTH = 160;
+  const KITCHEN_REACH_Z = 162;
+  const PLATFORM_UNITS = 28;
+  const kitchenStaffOf = (restaurant: (typeof shopping.restaurants)[number]) => staff.filter((p) =>
+    Math.abs(p.x - restaurant.x) <= KITCHEN_HALF_WIDTH && Math.abs(p.z - restaurant.z) <= KITCHEN_REACH_Z &&
+    Math.abs(p.y - (restaurant.y + PLATFORM_UNITS)) < 1);
+
+  it('finds a food court kitchen for every restaurant', () => {
+    assert.ok(shopping.restaurants.length > 0);
+  });
+
+  it('puts exactly one cook at a station and one server at the window of each food court kitchen', () => {
+    for (const restaurant of shopping.restaurants) {
+      const here = kitchenStaffOf(restaurant);
+      assert.deepEqual(here.map((p) => p.role).sort(), ['cook', 'server'], `staff of ${restaurant.name}`);
+      for (const p of here) assert.equal(p.uniform, restaurant.brand, `${p.role} of ${restaurant.name} wears its brand`);
+    }
   });
 
   it('puts a cashier behind every till on the Mirante', () => {
-    const tills = shopping.features.filter((f) => f.kind === 'landmark' && f.name.endsWith('(Mirante)'));
-    assert.equal(roles('cashier').length, tills.length);
+    // Pharmacies have an open storefront and no till; every boutique and the chocolate shop does.
+    const tillNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'boutique' || b.name === 'Cacau Chou').map((b) => b.name);
+    const landmarks = shopping.features.flatMap((f) => (f.kind === 'landmark' ? [f] : []));
+    const tills = landmarks.filter((f) => f.name.includes('(Mirante)') && tillNames.some((n) => f.name.startsWith(n)));
     assert.ok(tills.length > 0);
-  });
-
-  it('dresses the cook of each food court kitchen in that restaurant\'s brand', () => {
-    for (const restaurant of shopping.restaurants) {
-      const cook = roles('cook').find((p) => Math.abs(p.x - restaurant.x) <= 160 && p.uniform === restaurant.brand);
-      assert.ok(cook, `a ${restaurant.brand} cook at ${restaurant.name}`);
+    assert.equal(roles('cashier').length, tills.length);
+    for (const till of tills) {
+      const cashier = roles('cashier').find((p) => Math.abs(p.x - till.x) < 1 && p.y === DECK3);
+      assert.ok(cashier, `a cashier behind ${till.name}`);
     }
   });
 });

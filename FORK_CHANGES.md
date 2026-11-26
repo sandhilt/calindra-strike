@@ -3,7 +3,7 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `405f1c4`
+- Covered through: `1f9e7a0`
 
 ## Log
 
@@ -13,6 +13,10 @@ Changes made after the baseline, newest day first.
 - The display car of Shopping Sul Rio is red and more car-like (stepped windshield, side glass, pillars, bumpers, grille, mirrors, rounder wheels with arches), with the same cover solids (`carStand` in `shopping-cover.ts`).
 - Shopping air conditioning ducts are metal that stops bullets and leaks air for 2 s when shot (high tier only). The atrium ducts hang from a riser and the food court duct runs above the kitchen hoods instead of through them (`b.duct`, `onDuct`, `DuctLeaks`).
 - In Carrapeta Dourada only the Carrapeta holder's guns are gilded (the rest of the match keeps the normal finish), every hammer is drawn as a red and yellow squeaky toy hammer, look only (`GILDED` and `toyHammer` in `client/src/game/render/weapons3d.ts`).
+- Shopping Sul Rio: Natal replaces each display car with a reindeer-drawn sleigh and a seated Santa (`shopping-natal.ts`). Protocol 27 keeps client, server and MCP collision maps in sync after removing the car cover.
+- Standing and seated Santas share player avatar proportions and the static prop batch (`santa.ts`). The KFG mascot wears a Santa hat in Natal (`store-signs.ts`).
+- Natal adds garlands beside store logos, rails and pillars, and small Christmas displays inside shops and on food court counters (`shopping-natal.ts`).
+- The Natal canopy gains a frost frame and crossbars that anchor the star strings. The falling snow volume ends at the underside of the glass (`shopping-levels.ts`, `shopping-natal.ts`).
 - The food court burger chain is now called Batatas Douradas and the Mirante sports store Minotauro, on their signs and in the README (`brands.ts`, `store-signs.ts`).
 - Shopping Sul Rio clears its storefronts on all three floors and replaces the atrium ad masts with kiosks, planters, a bench and info totems. The Mirante gains two stationery shops, local shop ventilation sounds and staggered seating and cover (`shopping-cover.ts`, `shopping-top.ts`, `shopping-boutiques.ts`).
 - Added LMS and Gincana elimination rounds, a chase camera for eliminated players, and lead announcements across scoring modes. MCP reports round state and alive counts. Protocol 26 adds the two mode IDs.

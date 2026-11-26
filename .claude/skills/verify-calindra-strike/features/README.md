@@ -35,3 +35,4 @@ Maintained source for verifying user-facing behavior. Read this index, then the 
 - [Carrapeta Dourada](./carrapeta.md) covers possession, the Azeitadora and Batata Quente.
 - [Map speakers](./map-speakers.md) covers asset loading and the music control in an audio-capable browser.
 - [Weapon viewer](./weapon-viewer.md): weapon models, skins, aim and reload poses, in headless Chromium.
+- [Shopping Sul Rio: Natal](./shopping-natal.md) covers the sleigh display, storefront trim and glass canopy.

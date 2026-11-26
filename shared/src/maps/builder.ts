@@ -134,6 +134,7 @@ export class MapBuilder {
       case 'fountain':
         return { ...p, x, z };
       case 'speaker':
+      case 'santa':
       case 'mannequin':
       case 'clothesRack':
       case 'vent':

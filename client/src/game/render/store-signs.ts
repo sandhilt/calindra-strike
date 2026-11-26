@@ -47,8 +47,26 @@ function floorSign(g: G, badge: string, name: string, caption: string, color: st
   label(g, caption, 150 + (W - 150) / 2, 190, 26, '#3a4150', 'Arial, sans-serif', W - 190, 'bold');
 }
 
-const SIGNS: Record<StoreBrand, (g: G) => void> = {
-  kfg(g) {
+function santaHat(g: G): void {
+  g.fillStyle = '#c8102e';
+  g.beginPath();
+  g.moveTo(54, 68);
+  g.quadraticCurveTo(60, 12, 113, 13);
+  g.quadraticCurveTo(147, 12, 170, 49);
+  g.quadraticCurveTo(141, 34, 150, 65);
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#fff4ef';
+  g.beginPath();
+  g.roundRect(49, 59, 110, 16, 8);
+  g.fill();
+  g.beginPath();
+  g.arc(171, 49, 11, 0, Math.PI * 2);
+  g.fill();
+}
+
+const SIGNS: Record<StoreBrand, (g: G, christmas?: boolean) => void> = {
+  kfg(g, christmas) {
     panel(g, '#ffffff');
     g.fillStyle = '#c8102e';
     for (let i = 0; i < 4; i++) g.fillRect(24 + i * 44, 0, 26, H);
@@ -77,6 +95,7 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.lineTo(110, 186);
     g.lineTo(140, 174);
     g.fill();
+    if (christmas) santaHat(g);
     outlined(g, 'KFG', 360, 116, 150, '#c8102e', '#ffffff', 'Arial Black, Arial, sans-serif', 300, 'italic');
     label(g, 'Kentucky Frango Gostoso', 360, 210, 28, '#1b1b1b', 'Arial, sans-serif', 300, 'bold');
   },
@@ -313,7 +332,7 @@ export function signCanvas(brand: StoreBrand): HTMLCanvasElement {
 }
 
 /** Lit sign material so the logo reads in the shade under the food court. */
-export function signMaterial(brand: StoreBrand): THREE.Material {
-  const t = canvasTexture(W, (g) => SIGNS[brand](g), false, W, H);
+export function signMaterial(brand: StoreBrand, christmas = false): THREE.Material {
+  const t = canvasTexture(W, (g) => SIGNS[brand](g, christmas), false, W, H);
   return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.6, roughness: 0.5 });
 }

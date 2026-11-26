@@ -1,17 +1,20 @@
 import { LIFT_DOOR_HEIGHT_UNITS, type Lift } from '../lift.ts';
+import { isBrandMat } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { buildShopping } from './shopping.ts';
-import { DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_WALL, RAIL, ROOF } from './shopping-levels.ts';
+import { SUPPLY_STAND } from './shopping-top.ts';
+import { CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_WALL, RAIL, X } from './shopping-levels.ts';
 import type { MapDef, MapProp, Mat } from './types.ts';
 
 const RED = 0xc32038;
 const GREEN = 0x176448;
 const PINE = 0x227b55;
+// These tints identify the ribbon and its ornaments in the sign clearance test.
+export const GARLAND_TINTS = [0x23613c, 0xbc2636, 0xffc45b] as const;
 const GOLD = 0xffcc59;
 const WHITE = 0xf2f8ff;
 const BROWN = 0x9c5c36;
 const BLACK = 0x25212a;
-const SKIN = 0xf3ba95;
 const BLUE = 0x4184c4;
 
 /** Snow stops this far short of the solid roof on each side of the atrium (units). */
@@ -19,14 +22,14 @@ const SNOW_EDGE_UNITS = 100;
 /** Particle budget for the atrium around the camera. */
 const SNOW_FLAKES = 640;
 const SNOW_FLOOR_Y = 4;
-/** Garland height on the Mirante rail, measured from the rail top. */
+/** Garland height on a rail, measured from its top. */
 const GARLAND_DROP = 12;
 
 /**
  * Every piece is `deco` (non-solid, shot through), so nothing changes for movement, bots or the nav grid.
  * The builder is replayed through `mirrored`, so the authored north half and its 180 degree turn match.
  */
-function decorations(b: MapBuilder, northLift: Lift): void {
+function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, tint: number, mat: Mat = 'white') =>
     b.deco(x - w / 2, y, z - d / 2, x + w / 2, y + h, z + d / 2, mat, tint);
 
@@ -49,26 +52,6 @@ function decorations(b: MapBuilder, northLift: Lift): void {
       }
     }
     star(x, y + 96 * scale, z, 18 * scale, GOLD);
-  }
-
-  function santa(x: number, y: number, z: number): void {
-    for (const side of [-1, 1]) {
-      box(x + side * 9, y, z + 4, 14, 8, 22, BLACK);
-      box(x + side * 9, y + 8, z, 13, 20, 15, RED);
-      box(x + side * 21, y + 29, z + 3, 10, 24, 13, RED);
-      box(x + side * 21, y + 26, z + 4, 10, 5, 13, WHITE);
-    }
-    box(x, y + 26, z, 33, 29, 22, RED);
-    box(x, y + 26, z, 34, 4, 23, WHITE);
-    box(x, y + 35, z, 34, 6, 23, BLACK);
-    box(x, y + 35, z + 12, 8, 6, 2, GOLD);
-    box(x, y + 55, z, 20, 18, 18, SKIN);
-    box(x, y + 49, z + 10, 18, 13, 7, WHITE);
-    for (const side of [-1, 1]) box(x + side * 5, y + 66, z + 9, 2, 2, 2, BLACK);
-    box(x, y + 71, z, 24, 5, 22, WHITE);
-    box(x, y + 76, z - 2, 19, 9, 17, RED);
-    box(x + 5, y + 85, z - 4, 10, 6, 10, RED);
-    box(x + 9, y + 89, z - 4, 7, 7, 7, WHITE);
   }
 
   function reindeer(x: number, y: number, z: number): void {
@@ -98,17 +81,24 @@ function decorations(b: MapBuilder, northLift: Lift): void {
     }
   }
 
-  /** A sleigh on its runners, facing +x, with its load of gifts. */
-  function sleigh(x: number, z: number): void {
+  /** The sleigh faces +z, with two harness lines running to the reindeer. */
+  function sleigh(x: number, y: number, z: number): void {
     for (const side of [-1, 1]) {
-      box(x + side * 21, 2, z + 5, 5, 6, 84, GOLD);
-      box(x + side * 21, 6, z + 44, 5, 10, 6, GOLD);
-      box(x + side * 21, 15, z - 3, 5, 21, 63, RED);
-      box(x + side * 21, 36, z - 3, 6, 3, 63, GOLD);
+      box(x + side * 21, y, z, 5, 6, 69, GOLD);
+      box(x + side * 21, y + 4, z + 34, 5, 9, 8, GOLD);
+      box(x + side * 21, y + 5, z - 19, 5, 8, 8, GOLD);
+      box(x + side * 21, y + 12, z - 3, 5, 21, 59, RED);
+      box(x + side * 21, y + 33, z - 3, 6, 3, 59, GOLD);
+      box(x + side * 21, y + 26, z + 45, 2, 2, 44, GOLD);
+      box(x + side * 26, y + 26, z + 66, 16, 2, 2, GOLD);
+      reindeer(x + side * 33, y, z + 81);
+      box(x + side * 33, y + 21, z + 66, 3, 21, 4, RED);
     }
-    box(x, 9, z, 45, 7, 68, RED);
-    box(x, 16, z - 32, 45, 30, 5, RED);
-    gifts(x, 16, z - 4);
+    box(x, y + 11, z, 45, 7, 65, RED);
+    box(x, y + 18, z - 31, 45, 30, 5, RED);
+    box(x, y + 18, z + 25, 45, 13, 5, RED);
+    box(x, y + 18, z - 9, 38, 17, 19, RED);
+    b.prop({ kind: 'santa', x, y: y + 35, z: z - 9, yaw: Math.PI, pose: 'seated' });
   }
 
   function wreath(x: number, y: number, z: number): void {
@@ -131,43 +121,86 @@ function decorations(b: MapBuilder, northLift: Lift): void {
   gifts(-540, 0, -200);
   tree(-240, 0, 240, 1);
 
-  // Santa and the reindeer beside the car on display, the sleigh behind them.
-  santa(640, 0, -160);
-  reindeer(790, 0, -70);
-  reindeer(850, 0, -40);
-  sleigh(960, -60);
-  drift(860, 68, -250, 110, 40);
+  // The sleigh and its team share the former car's plinth.
+  sleigh(860, 8, -292);
   drift(-800, 40, -320, 120, 56);
   drift(220, 18, -440, 110, 26);
   drift(-300, 108, -440, 60, 60);
 
   // Food court and Mirante: a tree and Santa on each level.
   tree(-1000, DECK, -900, 1);
-  santa(1000, DECK, -920);
+  b.prop({ kind: 'santa', x: 1000, y: DECK, z: -920, yaw: Math.PI, pose: 'standing' });
   tree(-400, DECK3, -1000, 1);
-  santa(-180, DECK3, -980);
+  b.prop({ kind: 'santa', x: -180, y: DECK3, z: -980, yaw: Math.PI, pose: 'standing' });
+  // Santa on the edge of the Mirante supply dais, turned to its gift box.
+  b.prop({ kind: 'santa', x: SUPPLY_STAND.x + 66, y: DECK3 + 10, z: SUPPLY_STAND.z, yaw: Math.PI / 2, pose: 'standing' });
 
   // Wreaths over the shop fronts and the lift doorways.
-  for (const x of [-1152, -384, 384, 1152]) wreath(x, 129, FACADE_Z + 12);
+  for (const x of [-1152, -384, 384, 1152]) wreath(x + 139, 139, FACADE_Z + 14);
   for (const door of northLift.doors) {
     const onGround = door.y === 0;
     wreath(0, door.y + LIFT_DOOR_HEIGHT_UNITS + 22, onGround ? northLift.maxZ + LIFT_WALL + 3 : GALLERY_Z - LIFT_WALL - 6);
   }
 
-  // Garlands with red bows along the Mirante rail, on the atrium side of the glass.
-  const railZ = GALLERY_Z + 5;
-  for (const x of [-1090, -830, -570, -310, 310, 570, 830, 1090]) {
-    const y = DECK3 + RAIL - GARLAND_DROP;
-    box(x, y, railZ, 174, 6, 5, GREEN);
-    box(x, y - 5, railZ + 1, 100, 6, 6, GREEN);
-    box(x, y - 10, railZ + 4, 22, 11, 4, RED);
-    box(x, y - 15, railZ + 6, 7, 17, 4, GOLD);
+  function garland(x: number, y: number, z: number, width: number): void {
+    const [fir, ribbon, bell] = GARLAND_TINTS;
+    box(x, y, z, width, 5, 4, fir);
+    box(x, y - 4, z + 1, width * 0.7, 5, 5, fir);
+    box(x, y - 8, z + 3, 14, 8, 3, ribbon);
+    box(x, y - 10, z + 5, 4, 10, 3, bell);
   }
 
-  // Stars hung from the glass canopy on strings.
+  // Clear the entire width of each storefront sign, including the mirrored facade.
+  for (const sign of base.boxes) {
+    if (!isBrandMat(sign.mat) || sign.max.z > FACADE_Z + 16 || sign.max.x - sign.min.x < 120) continue;
+    if (![114, DECK + 110, DECK3 + 142].includes(sign.min.y)) continue;
+    const foodCourt = sign.min.y === DECK + 110;
+    const y = foodCourt ? DECK + 146 : sign.min.y + (sign.max.y - sign.min.y) * 0.55;
+    const face = foodCourt ? sign.max.z + 1 : sign.min.z;
+    const width = sign.min.y > DECK3 ? 16 : 48;
+    const offset = width / 2 + 12;
+    garland(sign.min.x - offset, y, face + 2, width);
+    garland(sign.max.x + offset, y, face + 2, width);
+  }
+
+  // Balustrades and the atrium-facing sides of the pillars on all three levels.
+  for (const level of [DECK, DECK3]) {
+    for (const x of [-1090, -830, -310, 310, 830, 1090]) {
+      garland(x, level + RAIL - GARLAND_DROP, GALLERY_Z + 2, 156);
+    }
+  }
+  for (const level of [0, DECK, DECK3]) {
+    for (const x of [-760, -200, 200, 760]) garland(x, level + 130, -674, 38);
+  }
+
+  // Small displays along the back of the shops, clear of the doors and browse spots.
+  for (const [x, y, z] of [
+    [-1252, 0.5, -1500], [-484, 0.5, -1500], [484, 0.5, -1500], [1252, 0.5, -1500],
+    [-1043, DECK3 + 0.5, -1480], [-830, DECK3 + 0.5, -1500],
+    [-334, DECK3 + 0.5, -1500], [65, DECK3 + 0.5, -1500],
+    [404, DECK3 + 0.5, -1500], [1060, DECK3 + 0.5, -1500],
+  ] as const) {
+    tree(x, y, z, 0.32);
+    box(x + 11, y, z + 9, 8, 8, 8, RED);
+    box(x + 11, y + 8, z + 9, 2, 1, 8, GOLD);
+    garland(x, y + 66, -1533, 22);
+  }
+  // Counter displays sit behind the food court's public aisle.
+  for (const x of [-1152, -384, 384, 1152]) {
+    tree(x + 110, DECK + 42, -1420, 0.26);
+    box(x + 97, DECK + 42, -1424, 8, 8, 8, RED);
+    box(x + 97, DECK + 50, -1424, 2, 1, 8, GOLD);
+  }
+
+  // Frost at the edges and under the centre seam. Crossbars connect the two runs.
+  box(0, CANOPY_BOTTOM - 3, GALLERY_Z + 5, X * 2, 3, 10, WHITE);
+  box(0, CANOPY_BOTTOM - 3, -3, X * 2, 3, 6, WHITE);
   for (const [x, z, drop] of [[-1024, -310, 62], [-512, -240, 100], [512, -300, 78], [1024, -460, 120]] as const) {
-    box(x, ROOF - drop, z, 2, drop + 4, 2, WHITE);
-    star(x, ROOF - drop, z, 30, drop % 4 ? GOLD : WHITE);
+    box(x, CANOPY_BOTTOM - 3, GALLERY_Z / 2 + 2, 5, 3, -GALLERY_Z - 16, WHITE);
+    const starY = CANOPY_BOTTOM - drop;
+    const stringBottom = starY + 15;
+    box(x, stringBottom, z, 2, CANOPY_BOTTOM - 3 - stringBottom, 2, WHITE);
+    star(x, starY, z, 30, drop % 4 ? GOLD : WHITE);
   }
 
   // Gift stacks in the open atrium and at the food court tree.
@@ -185,11 +218,11 @@ function withSeasonStation(props: readonly MapProp[]): MapProp[] {
  * extended, so any change to Shopping Sul Rio shows up here.
  */
 export function buildShoppingNatal(): MapDef {
-  const base = buildShopping();
+  const base = buildShopping({ displayCar: false });
   const northLift = base.lifts.find((l) => l.minZ < 0);
   if (!northLift) throw new Error('Shopping Sul Rio has no north lift to decorate');
   const b = new MapBuilder();
-  b.mirrored(() => decorations(b, northLift));
+  b.mirrored(() => decorations(b, base, northLift));
 
   return {
     ...base,
@@ -199,7 +232,7 @@ export function buildShoppingNatal(): MapDef {
     boxes: [...base.boxes, ...b.boxes],
     lights: [...base.lights, ...b.lights],
     features: [...base.features, ...b.features],
-    props: withSeasonStation(base.props),
+    props: [...withSeasonStation(base.props), ...b.props],
     theme: {
       ...base.theme,
       skyTop: '#3b4c85',
@@ -207,10 +240,10 @@ export function buildShoppingNatal(): MapDef {
       skyBottom: '#e7efff',
       fog: '#dce8fa',
       hemiGround: '#878b9d',
-      // The glass canopy is shot through and open to the sky, so snow falls under it and never above it.
+      // Keep particles below the underside of the glass pane.
       snow: {
         min: { x: base.dropArea.minX, y: SNOW_FLOOR_Y, z: GALLERY_Z + SNOW_EDGE_UNITS },
-        max: { x: base.dropArea.maxX, y: ROOF, z: -(GALLERY_Z + SNOW_EDGE_UNITS) },
+        max: { x: base.dropArea.maxX, y: CANOPY_BOTTOM, z: -(GALLERY_Z + SNOW_EDGE_UNITS) },
         flakes: SNOW_FLAKES,
       },
     },

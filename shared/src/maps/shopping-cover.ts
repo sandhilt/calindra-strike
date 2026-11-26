@@ -63,8 +63,16 @@ function cart(b: MapBuilder, x: number, z: number, brand: StoreBrand, tint: numb
  * A red compact hatchback on a display stand. The two solids (body and cabin) are the cover; everything else is look only:
  * painted pillars and roof, glass set into the sides, bumpers, grille, lamps, mirrors and wheels rounded from two crossed boxes.
  */
-function carStand(b: MapBuilder, x: number, z: number): void {
+function carStand(b: MapBuilder, x: number, z: number, displayCar: boolean): void {
   b.block(x, z, 300, 170, 8, 'tile', 0, { tint: 0x2b2f36 });
+  if (displayCar) redHatchback(b, x, z);
+  b.block(x, z - 96, 300, 14, WALL, 'white', 0, { tint: 0x1d2330 });
+  adPanel(b, x - 110, 62, z - 88.6, x + 110, 62 + 110, z - 88.4, 'kfg');
+  b.block(x - 140, z + 80, 10, 10, 90, 'charcoal', 8);
+  b.block(x + 140, z + 80, 10, 10, 90, 'charcoal', 8);
+}
+
+function redHatchback(b: MapBuilder, x: number, z: number): void {
   const paint = 0xc4161c;
   const trim = 0x1b1d21;
   const glass = 0x2f4450;
@@ -110,10 +118,6 @@ function carStand(b: MapBuilder, x: number, z: number): void {
       b.deco(x + wx - 15, 30, wheelZ - 5, x + wx + 15, 32, wheelZ + 5, 'charcoal', trim);
     }
   }
-  b.block(x, z - 96, 300, 14, WALL, 'white', 0, { tint: 0x1d2330 });
-  adPanel(b, x - 110, 62, z - 88.6, x + 110, 62 + 110, z - 88.4, 'kfg');
-  b.block(x - 140, z + 80, 10, 10, 90, 'charcoal', 8);
-  b.block(x + 140, z + 80, 10, 10, 90, 'charcoal', 8);
 }
 
 /** An information desk with a tall pylon at its end. */
@@ -151,12 +155,12 @@ function kiosk(b: MapBuilder, x: number, z: number, w: number, d: number, brand:
   adPanel(b, x - 38, 92, front, x + 38, 130, front + 2, brand);
 }
 
-function atrium(b: MapBuilder): void {
+function atrium(b: MapBuilder, displayCar: boolean): void {
   kiosk(b, 370, -530, 96, 120, 'cacau-chou');
   planter(b, -1376, -316, 64, 112);
   infoTotem(b, 1440, -416, 'rener');
   bench(b, 672, -64, 96, 30, true);
-  carStand(b, 860, -250);
+  carStand(b, 860, -250, displayCar);
   infoDesk(b, -300, -560);
   cart(b, -90, -330, 'mequi', 0xd7263d);
   cart(b, 220, -600, 'cacau-chou', 0x6a3a1c);
@@ -266,9 +270,9 @@ function bins(b: MapBuilder): void {
   for (const [x, z] of FOOD_COURT_BINS) trashBin(b, x, z, DECK);
 }
 
-export function coverShopping(b: MapBuilder): void {
+export function coverShopping(b: MapBuilder, displayCar: boolean): void {
   gallery(b);
-  atrium(b);
+  atrium(b, displayCar);
   foodCourt(b);
   bins(b);
 }

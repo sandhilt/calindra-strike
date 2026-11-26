@@ -13,6 +13,8 @@ export const DECK3 = 384;
 export const FOOD_CEILING = DECK3 - SLAB;
 /** Underside of the roof slab, 240 units over the top floor. */
 export const ROOF = DECK3 + 240;
+/** Underside of the glass over the central atrium. */
+export const CANOPY_BOTTOM = ROOF + 8;
 /** Outer walls reach the top of the roof slab. */
 export const WALL = ROOF + SLAB;
 /** Skydive start altitude: the same distance over the roof top as before the top floor existed. */

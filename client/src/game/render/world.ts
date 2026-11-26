@@ -46,9 +46,9 @@ function faceUV(n: [number, number, number], p: number[], scale: number, b: Box,
   return [(p[0] * n[2]) / scale, p[1] / scale];
 }
 
-function materialFor(mat: Mat): THREE.Material {
+function materialFor(mat: Mat, christmas: boolean): THREE.Material {
   const brand = brandOfMat(mat);
-  if (brand) return signMaterial(brand);
+  if (brand) return signMaterial(brand, christmas);
   switch (mat) {
     case 'lamp':
       return new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffe7b0', emissiveIntensity: 1.5, roughness: 0.5 });
@@ -306,7 +306,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     geo.setAttribute('color', new THREE.Float32BufferAttribute(bk.col, 3));
     geo.setIndex(bk.idx);
     geo.computeBoundingSphere();
-    const material = materialFor(mat);
+    const material = materialFor(mat, map.id === 'shopping-natal');
     materials.set(mat, material);
     const mesh = new THREE.Mesh(geo, material);
     const caster = !isBrandMat(mat) && !['glass', 'water', 'lime', 'lamp', 'screen', 'ground', 'carpet', 'eitri', 'logo'].includes(mat);

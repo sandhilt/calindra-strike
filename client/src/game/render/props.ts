@@ -24,7 +24,7 @@ import {
   type StepSlot,
   type WispPose,
 } from './prop-motion.ts';
-import { addClothesRack, addEscalatorBody, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
+import { addClothesRack, addEscalatorBody, addEscalatorGlass, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
 import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
@@ -183,7 +183,12 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
   const treads = instancedBoxes(total, ESCALATOR_STEP_COLOR, { roughness: 0.5, metalness: 0.2 });
   const nosings = instancedBoxes(total, ESCALATOR_NOSING_COLOR, { roughness: 0.6, emissive: ESCALATOR_NOSING_COLOR, emissiveIntensity: 0.25 });
   const risers = instancedBoxes(total, ESCALATOR_RISER_COLOR, { roughness: 0.7 });
-  for (const e of items) addEscalatorBody(ctx.statics, e, stepGeometry(e).rise);
+  const panes = new Parts();
+  for (const e of items) {
+    addEscalatorBody(ctx.statics, e, stepGeometry(e).rise);
+    addEscalatorGlass(panes, e, stepGeometry(e).rise);
+  }
+  const glass = new THREE.Mesh(panes.merge() ?? new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.35, depthWrite: false }));
   const slot: StepSlot = newStepSlot();
   const position = new THREE.Vector3();
   const scale = new THREE.Vector3();
@@ -228,7 +233,7 @@ function buildEscalators(items: readonly PropOf<'escalator'>[], ctx: PropContext
   };
   pose();
   return {
-    object: groupOf(treads, nosings, risers),
+    object: groupOf(treads, nosings, risers, glass),
     update(dt) {
       seconds += dt;
       pose();

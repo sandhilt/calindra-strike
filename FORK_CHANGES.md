@@ -13,7 +13,8 @@ Changes made after the baseline, newest day first.
 - Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
 - The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
 - Shooting water splashes: `water` is its own surface (splash sound, pale blue spray) instead of ringing as glass, and still gets the pane impact on the way through (`isPane` in `shared/src/surface.ts`).
-- The shopping air ducts are painted light again (the `white` look they had before), while still ringing as metal (`buildWorld`).
+- The shopping air ducts are drawn as light galvanised sheet metal (a `duct` look in `buildWorld`: metal texture, low metalness), not dark metal or plaster, and still ring as metal.
+- Escalator sides are one straight glass pane and handrail per side along the incline (`addEscalatorGlass` and `addEscalatorBody` in `prop-models.ts`); the stepped glass boxes stay as invisible blockers.
 - The lobby and pause menu **issues?** link opens a new issue with the build commit (`__BUILD_COMMIT__`, set in `client/vite.config.ts`), protocol version, browser, window size and language prefilled in the body (`newIssueUrl` in `client/src/feedback.ts`).
 - The cafe counter on each Mirante is gone: its gap holds a Cacau Chou chocolate shop with chocolate shelves, a glass display case and the till (`chocolates` in `shopping-boutiques.ts`, placed in `topFloor` in `shopping-top.ts`). Natal garlands skip any that would hang over a neighbouring sign (`shopping-natal.ts`).
 - Ray-Bão, the Mirante eyewear boutique, fills with three shelves of frames on its back wall, a central table of open glasses and a try-on mirror on each side wall (`rayBao` in `shopping-boutiques.ts`).

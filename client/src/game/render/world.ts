@@ -46,7 +46,13 @@ function faceUV(n: [number, number, number], p: number[], scale: number, b: Box,
   return [(p[0] * n[2]) / scale, p[1] / scale];
 }
 
-function materialFor(mat: Mat, christmas: boolean): THREE.Material {
+/** What a box is drawn as: its map material, or the bright galvanised sheet of an air duct. */
+type Look = Mat | 'duct';
+
+function materialFor(look: Look, christmas: boolean): THREE.Material {
+  // Ducts ring as metal but need a light, low-metalness sheet so they do not read as dark concrete indoors.
+  if (look === 'duct') return new THREE.MeshStandardMaterial({ map: TEX.metal(), roughness: 0.35, metalness: 0.2, vertexColors: true });
+  const mat = look;
   const brand = brandOfMat(mat);
   if (brand) return signMaterial(brand, christmas);
   switch (mat) {
@@ -266,19 +272,18 @@ function glowSprite(color: string): THREE.SpriteMaterial {
 
 export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProfile): WorldView {
   const group = new THREE.Group();
-  const buckets = new Map<Mat, Bucket>();
-  const materials = new Map<Mat, THREE.Material>();
+  const buckets = new Map<Look, Bucket>();
+  const materials = new Map<Look, THREE.Material>();
 
   for (const b of map.boxes) {
     if (!b.visible || b.mat === 'clip') continue;
-    // Ducts ring as metal but are painted like the light plaster they were before.
-    const look: Mat = b.duct ? 'white' : b.mat;
+    const look: Look = b.duct ? 'duct' : b.mat;
     let bk = buckets.get(look);
     if (!bk) {
       bk = { pos: [], nrm: [], uv: [], col: [], idx: [] };
       buckets.set(look, bk);
     }
-    const scale = isBrandMat(look) ? 0 : TEX_SCALE[look] ?? 128;
+    const scale = look === 'duct' ? TEX_SCALE.metal ?? 128 : isBrandMat(look) ? 0 : TEX_SCALE[look] ?? 128;
     const tint = b.tint === undefined ? WHITE : TINT.set(b.tint);
     const h = b.max.y - b.min.y;
     for (const f of FACES) {

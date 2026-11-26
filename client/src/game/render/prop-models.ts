@@ -93,6 +93,22 @@ export function addVentFrame(parts: Parts, v: Of<'vent'>): void {
  * The body under a moving staircase, which stands still while the steps travel over it: a dark wedge between
  * the glass sides and, on each side, a steel apron that follows the nose line of the steps.
  */
+/** Height of the glass balustrade over the escalator apron, matching the stepped collision panes of the map (units). */
+export const ESCALATOR_GLASS_UNITS = 80;
+
+/** Outline of one balustrade band in the escalator frame: `lift` over the apron top, `band` tall, straight along the incline. */
+function balustrade(e: Of<'escalator'>, rise: number, lift: number, band: number): [number, number][] {
+  const flatFrom = (e.height - rise) / (e.height / e.length);
+  const bottom: [number, number][] = [[0, rise + lift], [flatFrom, e.height + lift], [e.length, e.height + lift]];
+  return [...bottom, ...bottom.toReversed().map(([u, v]): [number, number] => [u, v + band])];
+}
+
+/** The see-through sides of each escalator, one straight pane per side instead of the stepped collision boxes. */
+export function addEscalatorGlass(parts: Parts, e: Of<'escalator'>, rise: number): void {
+  parts.at(e.x, e.y, e.z, Math.atan2(-e.dirZ, e.dirX));
+  for (const side of [-1, 1]) parts.prism(balustrade(e, rise, 0, ESCALATOR_GLASS_UNITS), 6, 0xbfd6e0, { x: 0, y: 0, z: (side * (e.width + 6)) / 2 });
+}
+
 export function addEscalatorBody(parts: Parts, e: Of<'escalator'>, rise: number): void {
   const yaw = Math.atan2(-e.dirZ, e.dirX);
   parts.at(e.x, e.y, e.z, yaw);
@@ -100,5 +116,9 @@ export function addEscalatorBody(parts: Parts, e: Of<'escalator'>, rise: number)
   const slope = e.height / e.length;
   const flatFrom = (e.height - rise) / slope;
   const apron = [[0, 0], [e.length, 0], [e.length, e.height], [flatFrom, e.height], [0, rise]] as const;
-  for (const side of [-1, 1]) parts.prism(apron, 6, 0x41454c, { x: 0, y: 0, z: (side * (e.width + 6)) / 2 });
+  for (const side of [-1, 1]) {
+    const z = (side * (e.width + 6)) / 2;
+    parts.prism(apron, 6, 0x41454c, { x: 0, y: 0, z });
+    parts.prism(balustrade(e, rise, ESCALATOR_GLASS_UNITS, 4), 10, 0x25262a, { x: 0, y: 0, z });
+  }
 }

@@ -35,8 +35,8 @@ export function bayEscalator(b: MapBuilder, x1: number, x2: number, travel: Esca
     const near = BAY_FOOT_Z - depth * i;
     const far = near - depth;
     for (const [a, c] of [[x1 - 6, x1], [x2, x2 + 6]] as const) {
-      b.add(a, top, far, c, top + ESCALATOR_SIDE, near, 'glass', { shoot: true });
-      b.deco(a - 2, top + ESCALATOR_SIDE, far, c + 2, top + ESCALATOR_SIDE + 4, near, 'charcoal');
+      // The client draws the sides as straight panes over these stepped blockers.
+      b.add(a, top, far, c, top + ESCALATOR_SIDE, near, 'glass', { shoot: true, visible: false });
     }
   }
 }

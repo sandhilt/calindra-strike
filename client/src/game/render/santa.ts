@@ -39,7 +39,6 @@ export function addSanta(parts: Parts, { x, y, z, yaw, pose }: Extract<MapProp, 
   }
   parts.cylinder(3, 3.4, 4, 8, SKIN, { x: 0, y: y0 + 60, z: 0 });
   parts.box(14, 12, 14, SKIN, { x: 0, y: y0 + 68, z: 0 });
-  parts.box(12, 4.4, 2, BLACK, { x: 0, y: y0 + 68, z: -7.3 });
   parts.prism([[-7, 6], [7, 6], [6, 0], [0, -5], [-6, 0]], 3, WHITE, { x: 0, y: y0 + 59, z: -8 });
   parts.box(15, 3, 15, WHITE, { x: 0, y: y0 + 75, z: 0 });
   parts.prism([[-7, 0], [7, 0], [8, 6], [4, 12]], 12, RED, { x: 0, y: y0 + 76.5, z: 0 });

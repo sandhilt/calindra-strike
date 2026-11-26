@@ -127,8 +127,8 @@ function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   drift(220, 18, -440, 110, 26);
   drift(-300, 108, -440, 60, 60);
 
-  // Food court and Mirante: a tree and Santa on each level.
-  tree(-1000, DECK, -900, 1);
+  // Food court and Mirante: a tree and Santa on each level. The food court tree stands in the corner by the rail, off the escalator approaches.
+  tree(-1290, DECK, -790, 1);
   b.prop({ kind: 'santa', x: 1000, y: DECK, z: -920, yaw: Math.PI, pose: 'standing' });
   tree(-400, DECK3, -1000, 1);
   b.prop({ kind: 'santa', x: -180, y: DECK3, z: -980, yaw: Math.PI, pose: 'standing' });
@@ -204,7 +204,7 @@ function decorations(b: MapBuilder, base: MapDef, northLift: Lift): void {
   }
 
   // Gift stacks in the open atrium and at the food court tree.
-  gifts(-1020, DECK, -1000);
+  gifts(-1290, DECK, -760);
   gifts(340, 0, -40);
 }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CollisionWorld, DEG, WEAPONS, applyCmd, eyePosition, getMaps, giveWeapon, magCapacity, onDuct, shellsToLoad, TICK_MS, WEAPON, weaponDef, type Cmd, type MapDef, type PlayerState, type ShotInfo, type WeaponId } from '@calindra-strike/shared';
+import { CollisionWorld, DEG, STANCE, WEAPONS, applyCmd, eyePosition, getMaps, giveWeapon, magCapacity, onDuct, shellsToLoad, TICK_MS, WEAPON, weaponDef, type Cmd, type MapDef, type PlayerState, type ShotInfo, type WeaponId } from '@calindra-strike/shared';
 import { Sfx, type AmbientLoop } from '../game/audio.ts';
 import { mouseBinding } from '../game/bindings.ts';
 import { NearbyLoops, ambientEmitters, type Emitter } from '../game/nearby-loops.ts';
@@ -23,6 +23,7 @@ const FAR_PLANE_UNITS = 12000;
 const MOUSE_YAW_DEGREES = 0.022;
 /** Any simulation seed: the explorer is single-player, so its spread only needs to vary between shots. */
 const WALK_SEED = 1;
+const MELEE_SLOT = 3;
 /** The explorer shoots as the local player, so its tracers and shots carry the same shooter id as the match. */
 const LOCAL_SHOOTER = -1;
 type Mode = 'fly' | 'walk';
@@ -86,6 +87,8 @@ export function createScenarioExplorer(
   function setMode(next: Mode) {
     if (next === mode) return;
     mode = next;
+    pendingWeapon = 0;
+    reload.end();
     if (mode === 'walk') spawnPlayer();
   }
 
@@ -93,9 +96,11 @@ export function createScenarioExplorer(
   function stepWalk(now: number, dt: number) {
     const due = ticksDue(carry, dt);
     carry = due.carry;
-    collision.liftTick = Math.round(now / TICK_MS);
+    // The cab clock advances one tick per simulated command and ends on the frame's clock, the one the cab is drawn with.
+    collision.liftTick = Math.round(now / TICK_MS) - due.ticks;
     const buttons = walkButtons(pressed, settings.bindings);
     for (let i = 0; i < due.ticks; i++) {
+      collision.liftTick += 1;
       const cmd: Cmd = { seq: player.tick, buttons, yaw: pose.yaw, pitch: pose.pitch, weapon: pendingWeapon, interp: 0 };
       pendingWeapon = 0;
       const shot = applyCmd(collision, player, cmd, WALK_SEED);
@@ -103,13 +108,22 @@ export function createScenarioExplorer(
     }
     weapon = player.weapon;
     syncReload(player);
+    // The camera sits at the eye the shots leave from, so a lean moves the view with the shot.
     const eye = eyePosition(player);
-    pose = { ...pose, x: player.x, y: eye.y, z: player.z };
+    pose = { ...pose, x: eye.x, y: eye.y, z: eye.z };
   }
 
   function selectWeapon(id: WeaponId) {
     weapon = id;
     if (mode === 'walk') giveWeapon(player, id);
+  }
+
+  /** Where a shot's tracer leaves the gun, as the client places it: a little ahead of the camera and below it. */
+  function muzzlePoint(): THREE.Vector3 {
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const down = new THREE.Vector3(0, -1, 0).applyQuaternion(camera.quaternion);
+    return camera.position.clone().addScaledVector(fwd, 30).addScaledVector(right, 7).addScaledVector(down, 6);
   }
 
   /** Plays the reload sounds at the tick they come due, the way the client plays the local player's reload. */
@@ -129,12 +143,13 @@ export function createScenarioExplorer(
     const fx = effects;
     getGun().fire(shot.heavy);
     audio().shot(shot.weapon, null, shot.heavy);
-    const origin = new THREE.Vector3(shot.ox, shot.oy, shot.oz);
-    fx.muzzleFlash(origin);
+    const eye = new THREE.Vector3(shot.ox, shot.oy, shot.oz);
+    const muzzle = muzzlePoint();
+    if (weaponDef(shot.weapon).slot !== MELEE_SLOT) fx.muzzleFlash(muzzle);
     const pattern = fx.gun.projectile(LOCAL_SHOOTER, shot.weapon);
     shotPaths(collision, shot).forEach((path, pellet) => {
       const end = new THREE.Vector3(path.end.x, path.end.y, path.end.z);
-      if (pellet < pattern.pelletsPerShot) fx.projectile(origin, end, origin, pattern);
+      if (pellet < pattern.pelletsPerShot) fx.projectile(muzzle, end, eye, pattern);
       for (const impact of path.impacts) {
         const at = new THREE.Vector3(impact.at.x, impact.at.y, impact.at.z);
         const normal = new THREE.Vector3(impact.normal.x, impact.normal.y, impact.normal.z);
@@ -169,6 +184,28 @@ export function createScenarioExplorer(
     });
   }
 
+  /** The gun at rest while flying, so a pose from walking does not stay on screen. */
+  function animateIdle(gun: ViewModel, dt: number) {
+    aimT = stepBlend(aimT, false, dt, ADS_BLEND_SECONDS);
+    gun.update({
+      speed: 0,
+      stance: STANCE.STAND,
+      sprinting: false,
+      sliding: false,
+      firing: false,
+      onGround: true,
+      dt,
+      lookDX: 0,
+      lookDY: 0,
+      reloadElapsed: -1,
+      reloadShells: 0,
+      deployFrac: -1,
+      aim: aimT,
+      lean: 0,
+      hidden: false,
+    });
+  }
+
   function orientSun() {
     const { x, y, z } = map.theme.sunDir;
     sunDir.set(x, y, z).normalize();
@@ -176,8 +213,22 @@ export function createScenarioExplorer(
 
   /** Created on first use, so the audio context starts from a click or key press. */
   function audio(): Sfx {
-    sfx ??= new Sfx(settings.volume, settings.soundPack);
+    if (!sfx) {
+      sfx = new Sfx(settings.volume, settings.soundPack);
+      sfx.setMusicVolume(settings.musicVolume);
+    }
     return sfx;
+  }
+
+  /** A track decoded after the explorer closed must not reopen an audio context, so it decodes in a throwaway one. */
+  async function decodeTrack(data: ArrayBuffer): Promise<AudioBuffer> {
+    if (sfx) return sfx.ctx.decodeAudioData(data);
+    const ctx = new AudioContext();
+    try {
+      return await ctx.decodeAudioData(data);
+    } finally {
+      void ctx.close();
+    }
   }
 
   function startLoop(at: Emitter): AmbientLoop | undefined {
@@ -185,7 +236,7 @@ export function createScenarioExplorer(
     if (settings.musicVolume === 0) return undefined;
     const track = stationTracks.get(at.station);
     if (track.kind === 'ready') return audio().trackLoop(track.buffer, at, at.station, performance.now());
-    if (track.kind === 'idle') void stationTracks.load(at.station, (data) => audio().ctx.decodeAudioData(data));
+    if (track.kind === 'idle') void stationTracks.load(at.station, decodeTrack);
     return undefined;
   }
 
@@ -209,6 +260,7 @@ export function createScenarioExplorer(
     if (next === map) return;
     disposeWorld();
     map = next;
+    effects?.clear();
     collision = new CollisionWorld(map);
     world = buildWorld(map, scene, QUALITY[quality]);
     orientSun();
@@ -252,6 +304,7 @@ export function createScenarioExplorer(
 
   document.addEventListener('pointerlockchange', () => {
     pressed.clear();
+    pendingWeapon = 0;
     onLock(locked());
   }, options);
   document.addEventListener('mousemove', (event) => {
@@ -261,12 +314,14 @@ export function createScenarioExplorer(
     if (!locked() || event.metaKey) return;
     event.preventDefault();
     pressed.add(event.code);
-    pendingWeapon = weaponRequest(event.code, settings.bindings) || pendingWeapon;
+    if (mode === 'walk') pendingWeapon = weaponRequest(event.code, settings.bindings) || pendingWeapon;
   }, options);
   window.addEventListener('mousedown', (event) => {
     if (!locked()) return;
     if (mode === 'walk') audio().resume();
-    pressed.add(mouseBinding(event.button));
+    const code = mouseBinding(event.button);
+    pressed.add(code);
+    if (mode === 'walk') pendingWeapon = weaponRequest(code, settings.bindings) || pendingWeapon;
   }, options);
   window.addEventListener('mouseup', (event) => pressed.delete(mouseBinding(event.button)), options);
   window.addEventListener('keyup', (event) => pressed.delete(event.code), options);
@@ -333,6 +388,7 @@ export function createScenarioExplorer(
         gun.camera.updateProjectionMatrix();
       }
       if (mode === 'walk') animateGun(gun, player, dt);
+      else animateIdle(gun, dt);
     },
     draw() {
       renderer.render(scene, camera);

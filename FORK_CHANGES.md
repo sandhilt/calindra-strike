@@ -3,7 +3,7 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `cba52de`
+- Covered through: `ec92b03`
 
 ## Log
 
@@ -11,6 +11,10 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-25
 
+- `ViewModel` releases owned weapon resources on weapon or skin changes and frees its remaining resources on exit (`client/src/game/render/viewmodel.ts`).
+- Restoring or selecting a weapon resets the reload slider to zero (`client/src/debug/weapon-viewer.ts`).
+- Weapon viewer graphics tiers apply pixel density and reflection resolution immediately (`client/src/debug/weapon-viewer.ts`).
+- The viewer verification recipe uses the sandbox client port, and the tag lookup test checks resolved weapon IDs directly (`weapon-viewer.md`, `debug-viewer.test.ts`).
 - The weapon viewer opens by URL (`?viewer&weapon=<tag>&skin=&aim=&reload=`), reports `viewer:ready` or `viewer:error` in the title and has a skin choice (`client/src/debug/`).
 - `AGENTS.md` and the `verify-calindra-strike` skill require every weapon to be in the weapon viewer and agents to test weapon changes there.
 - The Azeitadora uses dark materials with lime accents by default and keeps its gold and walnut skin in Carrapeta Dourada matches (`client/src/game/render/weapons3d.ts`).

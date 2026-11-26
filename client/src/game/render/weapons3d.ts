@@ -75,6 +75,10 @@ const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const roundGeo = new THREE.CylinderGeometry(0.42, 0.42, 2.6, 8).rotateZ(Math.PI / 2);
 const tracerTipGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.7, 8).rotateZ(Math.PI / 2);
 
+export const SHARED_WEAPON_RESOURCES: ReadonlySet<THREE.BufferGeometry | THREE.Material | THREE.Texture> = new Set([
+  ...Object.values(mats), rifleMagazineGeo, boxGeo, roundGeo, tracerTipGeo,
+]);
+
 function bx(g: THREE.Group, w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): THREE.Mesh {
   const mesh = new THREE.Mesh(boxGeo, m);
   mesh.scale.set(w, h, d);

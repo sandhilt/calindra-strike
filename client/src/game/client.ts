@@ -2306,6 +2306,7 @@ export class ClientGame {
     this.nearbyLoops?.dispose();
     this.lightRt?.dispose();
     this.effects.water.setEnabled(false);
+    this.view.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();

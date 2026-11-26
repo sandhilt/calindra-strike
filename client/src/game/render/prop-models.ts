@@ -13,7 +13,7 @@ const BASE_UNITS = 2.5;
  * A shop mannequin cut like the player's `Avatar` (legs 0 to 32, torso 32 to 58, head 58 to 72) in matte white,
  * dressed in the colours of its shop, standing on a round base. One pose: arms hanging a little apart.
  */
-export function addMannequin(parts: Parts, m: Of<'mannequin'>): void {
+export function addMannequin(parts: Parts, m: Pick<Of<'mannequin'>, 'x' | 'y' | 'z' | 'yaw' | 'outfit'>): void {
   const { top, legs, trim, dress } = m.outfit;
   const y = BASE_UNITS;
   parts.at(m.x, m.y, m.z, m.yaw);

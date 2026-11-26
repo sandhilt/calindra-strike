@@ -1,5 +1,7 @@
 import type { FoodBrand } from './brands.ts';
+import { outfit } from './room.ts';
 import type { GalleryShopBrand } from './shopping-boutiques.ts';
+import type { Outfit } from './types.ts';
 
 /** What a store employee does at their post: works the till, cooks at a station or passes orders over the counter. */
 export type StaffRole = 'cashier' | 'cook' | 'server';
@@ -7,39 +9,47 @@ export type StaffRole = 'cashier' | 'cook' | 'server';
 /** Each uniform is named for the brand whose staff wear it, so every counter has its own look. */
 export type StaffUniform = FoodBrand | GalleryShopBrand;
 
-export type StaffHat = 'toque' | 'cap' | 'none';
-
-export interface StaffUniformSpec {
-  readonly shirt: number;
-  readonly trousers: number;
-  /** An apron over the front of the trousers, or null for none. */
-  readonly apron: number | null;
-  readonly hat: StaffHat;
-  readonly hatTint: number;
-}
-
 const WHITE = 0xf5f5f5;
 const BLACK = 0x1b1b1b;
+const CHARCOAL = 0x222222;
 
-/** One row per brand: a brand without a uniform fails the typecheck. Colours are 0xRRGGBB. */
-export const STAFF_UNIFORMS: Readonly<Record<StaffUniform, StaffUniformSpec>> = {
-  kfg: { shirt: 0xc8102e, trousers: BLACK, apron: WHITE, hat: 'cap', hatTint: 0xc8102e },
-  'burguer-rei': { shirt: 0xe8a317, trousers: 0x222222, apron: 0x222222, hat: 'cap', hatTint: 0xe8a317 },
-  mequi: { shirt: 0x2c7a3e, trousers: BLACK, apron: WHITE, hat: 'cap', hatTint: 0x2c7a3e },
-  bobis: { shirt: 0xe30613, trousers: BLACK, apron: WHITE, hat: 'cap', hatTint: 0x1f5fbf },
-  'mania-picanha': { shirt: WHITE, trousers: 0x222222, apron: 0xe0261b, hat: 'toque', hatTint: WHITE },
-  parrilha: { shirt: WHITE, trousers: 0x222222, apron: 0x5a3a22, hat: 'toque', hatTint: WHITE },
-  outbaque: { shirt: WHITE, trousers: 0x222222, apron: 0x7a2a1a, hat: 'toque', hatTint: WHITE },
-  madeiro: { shirt: WHITE, trousers: 0x222222, apron: BLACK, hat: 'toque', hatTint: WHITE },
-  pandorga: { shirt: 0xe77aa6, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  loccitano: { shirt: 0x1c3a6b, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'pe-leve': { shirt: 0x1f3d2b, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  essencia: { shirt: 0x7a2f5a, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  samsong: { shirt: 0x1428a0, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'ray-bao': { shirt: 0xd71f26, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'linha-fina': { shirt: 0x30544e, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'papel-e-cor': { shirt: 0x7b3d54, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  sentauro: { shirt: 0xe4002b, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'brinco-center': { shirt: 0x1f6fd1, trousers: BLACK, apron: null, hat: 'none', hatTint: 0 },
-  'cacau-chou': { shirt: 0xe9c27a, trousers: 0x5a2f1b, apron: 0x5a2f1b, hat: 'none', hatTint: 0 },
+/**
+ * The store mannequin's outfit (`Outfit`, the same one a clothing store dresses its mannequins in) for each brand's
+ * staff: shirt, trousers and the brand's accent as trim (belt, collar, cuffs). A brand without a row fails the
+ * typecheck. Colours are 0xRRGGBB.
+ */
+export const STAFF_UNIFORMS: Readonly<Record<StaffUniform, Outfit>> = {
+  kfg: outfit(0xc8102e, BLACK, WHITE),
+  'burguer-rei': outfit(0x4a2a1a, CHARCOAL, 0xf28c28),
+  mequi: outfit(0x8ec5e8, BLACK, 0x1d2f5a),
+  bobis: outfit(0xe30613, BLACK, 0x1f5fbf),
+  'mania-picanha': outfit(WHITE, CHARCOAL, 0xe0261b),
+  parrilha: outfit(WHITE, CHARCOAL, 0x5a3a22),
+  outbaque: outfit(WHITE, CHARCOAL, 0x7a2a1a),
+  madeiro: outfit(WHITE, CHARCOAL, BLACK),
+  pandorga: outfit(0xe77aa6, BLACK, WHITE),
+  loccitano: outfit(0x1c3a6b, BLACK, 0xf6e9bd),
+  'pe-leve': outfit(0x1f3d2b, BLACK, WHITE),
+  essencia: outfit(0x7a2f5a, BLACK, WHITE),
+  samsong: outfit(0x1428a0, BLACK, WHITE),
+  'ray-bao': outfit(0xd71f26, BLACK, WHITE),
+  'linha-fina': outfit(0x30544e, BLACK, 0xf2eee4),
+  'papel-e-cor': outfit(0x7b3d54, BLACK, 0xf6efe4),
+  sentauro: outfit(0xe4002b, BLACK, WHITE),
+  'brinco-center': outfit(0x1f6fd1, BLACK, 0xf2c200),
+  'cacau-chou': outfit(0xe9c27a, 0x5a2f1b, 0x5a2f1b),
 };
+
+/** Kitchen cooks wear a white chef jacket over dark trousers, trimmed in their brand's shirt colour. */
+const CHEF_JACKET = WHITE;
+
+/**
+ * What a staff member wears: a cook in a chef jacket with the brand's colour as trim, everyone else the brand's
+ * polo from `STAFF_UNIFORMS`. Uniforms of real chains (light blue stripes at Mequi, chocolate brown and orange at
+ * Burguer Rei) follow what those counters wear; the rest use their sign colours.
+ */
+export function staffOutfit(uniform: StaffUniform, role: StaffRole): Outfit {
+  const polo = STAFF_UNIFORMS[uniform];
+  if (role !== 'cook') return polo;
+  return outfit(CHEF_JACKET, CHARCOAL, polo.top === CHEF_JACKET ? polo.trim : polo.top);
+}

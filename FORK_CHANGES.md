@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- Store staff are now drawn with the store mannequin model itself (`addMannequin`), dressed as a mannequin `Outfit` in their brand's theme: a polo in the brand colour (Mequi light blue, Burguer Rei chocolate brown with orange, after those chains' real uniforms) and a white chef jacket trimmed in the brand colour for cooks (`STAFF_UNIFORMS`, `staffOutfit` in `shared/src/maps/staff.ts`). The separate staff body, the moving arms and the `staffMotion` quality column are gone.
 - `F2` (remappable, **tirar print**) saves a PNG of the 3D view (`client/src/screenshot.ts`). It is browser-only, so the MCP cover test accepts `browser-only` keys with a reason.
 - Store staff: a cashier behind each Mirante boutique till (in a cubby the till now closes with side panels), and a cook and a server in every food court kitchen, each in its brand's uniform. They are look only, placed where no player can reach (the boutique tills are 50 units tall, above the jump, and the Pé Leve shoe shelves and the lowest Brinco Center shelf sit clear of the cashier, and their arms move on the high and low tiers (`staff` prop in `types.ts`, `staff.ts` for the uniforms, `client/src/game/render/staff.ts` for the figures, `staffMotion` in `quality.ts`). `shared/test/staff.test.ts` pins the placement.
 - Mirrors are their own `mirror` material (shiny silver, opaque) that rings as glass when shot, instead of plaster (`Room.mirror`, `SURFACE_OF`).

@@ -1,4 +1,4 @@
-import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind, type StationId } from '@calindra-strike/shared';
+import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind, type StationId, staffOutfit } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import {
   CASCADE_DROP,
@@ -27,7 +27,6 @@ import {
 import { addClothesRack, addEscalatorBody, addEscalatorGlass, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
 import { addSanta } from './santa.ts';
-import { addStaffBody, StaffArms } from './staff.ts';
 import type { QualityProfile } from './quality.ts';
 import { canvasTexture } from './textures.ts';
 
@@ -161,20 +160,10 @@ function buildMannequins(items: readonly PropOf<'mannequin'>[], ctx: PropContext
   return still();
 }
 
-/** Staff bodies are static scenery; only their arms move, and only on the tiers that run staff motion. */
+/** Staff are the store mannequin model dressed in their brand's uniform (`staffOutfit`), merged into the static mesh. */
 function buildStaff(items: readonly PropOf<'staff'>[], ctx: PropContext): PropGroup {
-  if (items.length === 0) return still();
-  for (const s of items) addStaffBody(ctx.statics, s);
-  const arms = new StaffArms(items, ctx.profile.staffMotion);
-  return {
-    object: arms.object,
-    update(dt) {
-      arms.update(dt);
-    },
-    setQuality(profile) {
-      arms.setMoving(profile.staffMotion);
-    },
-  };
+  for (const s of items) addMannequin(ctx.statics, { x: s.x, y: s.y, z: s.z, yaw: s.yaw, outfit: staffOutfit(s.uniform, s.role) });
+  return still();
 }
 
 function buildClothesRacks(items: readonly PropOf<'clothesRack'>[], ctx: PropContext): PropGroup {

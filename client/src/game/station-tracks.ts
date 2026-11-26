@@ -4,6 +4,7 @@ export const STATION_TRACKS: Record<StationId, { src: string }> = {
   forja: { src: '/music/forja.ogg' },
   escritorio: { src: '/music/escritorio.ogg' },
   shopping: { src: '/music/shopping.ogg' },
+  'shopping-natal': { src: '/music/shopping-natal.ogg' },
 };
 
 export const SPEAKER_AUDIBLE_UNITS = 420;

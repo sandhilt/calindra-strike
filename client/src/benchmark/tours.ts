@@ -2,6 +2,15 @@ import { MAX_SPEED, STEP_SIZE, WALK_SPEED_MULT, type CollisionWorld, type MapDef
 
 export interface TourPoint { x: number; z: number; y?: number }
 
+const SHOPPING_TOUR: readonly TourPoint[] = [
+  { x: 250, z: 250 }, { x: 900, z: 250 }, { x: 1120, z: -280 },
+  { x: 1120, z: -760 }, { x: 650, z: -760 }, { x: 650, z: -285 },
+  { x: 528, z: -285 }, { x: 528, z: -352 }, { x: 528, z: -672, y: 192 },
+  { x: 528, z: -744, y: 192 }, { x: -528, z: -744, y: 192 },
+  { x: -528, z: -672, y: 192 }, { x: -528, z: -352 }, { x: -528, z: -220 },
+  { x: -230, z: -220 }, { x: -230, z: 250 },
+];
+
 export const TOURS: Record<string, readonly TourPoint[]> = {
   forja: [
     { x: 0, z: -465 }, { x: 465, z: -465 },
@@ -11,14 +20,8 @@ export const TOURS: Record<string, readonly TourPoint[]> = {
     { x: 0, z: -125 }, { x: 470, z: -125 },
     { x: 470, z: 125 }, { x: -470, z: 125 }, { x: -470, z: -125 },
   ],
-  shopping: [
-    { x: 250, z: 250 }, { x: 900, z: 250 }, { x: 1120, z: -280 },
-    { x: 1120, z: -760 }, { x: 650, z: -760 }, { x: 650, z: -285 },
-    { x: 528, z: -285 }, { x: 528, z: -352 }, { x: 528, z: -672, y: 192 },
-    { x: 528, z: -744, y: 192 }, { x: -528, z: -744, y: 192 },
-    { x: -528, z: -672, y: 192 }, { x: -528, z: -352 }, { x: -528, z: -220 },
-    { x: -230, z: -220 }, { x: -230, z: 250 },
-  ],
+  shopping: SHOPPING_TOUR,
+  'shopping-natal': SHOPPING_TOUR,
 };
 
 export const TOUR_EYE_HEIGHT = 64;

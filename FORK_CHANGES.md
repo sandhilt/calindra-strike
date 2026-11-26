@@ -3,13 +3,16 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `7cbde02`
+- Covered through: `23f3aa6`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- New map Shopping Sul Rio: Natal (`shopping-natal`): the Shopping Sul Rio layout with Christmas decoration (trees, Santas, reindeer, a sleigh, gifts, wreaths, garlands on the Mirante rail, stars hanging from the roof) built on top of the base map in `shared/src/maps/shopping-natal.ts`, with the same gameplay, its own radio station (`shopping-natal` in `shared/src/maps/stations.ts`, track `client/public/music/shopping-natal.ogg`) and its own rotation entry.
+- Falling snow in the Natal atrium, under the glass canopy: `MapTheme.snow` drives a client snow layer (`client/src/game/render/snow.ts`, pure motion in `snow-motion.ts`) built only on the `alta` and `leve` tiers (`QualityProfile.fallingSnow`).
+- `PROTOCOL_VERSION` 24 to 25 (`shared/src/constants.ts`): the rotation has a fourth map, and a client without it would read the new map index wrongly.
 - In a rush hour the defenders' lunch countdown drops two seconds per second instead of one, so it shows the round at the normal pace (`lunchStatus` in `client/src/game/lunch.ts`); the round length itself is unchanged.
 - The ad columns carry shopping items up their masts (hanging bags, a sale pennant and a pendant lamp), and the lift has a level sign over each doorway (Térreo, 1º andar, Mirante) drawn from the new `floor` kind in `STORE_BRANDS` (`shopping-cover.ts`, `shopping-top.ts`, `store-signs.ts`).
 - Bobi's is now Bobo's and Samsong is Semsunga (display names and signs only, brand ids unchanged); the Semsunga sign is a tilted blue oval with a wide wordmark.

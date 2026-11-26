@@ -28,7 +28,7 @@ describe('map and mode selection', () => {
     const cfg = loadConfig();
     assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']);
     const game = new Game({ ...base, modes: cfg.modes, maps: cfg.maps });
-    assert.equal((game.combos).length, 16); // hora de almoçar only on maps with a food court
+    assert.equal((game.combos).length, 22); // hora de almoçar only on maps with a food court
     assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']));
     assert.deepEqual(cfg.maps, []);
   });

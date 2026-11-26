@@ -1,8 +1,9 @@
-import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat } from '@calindra-strike/shared';
+import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat, type Vec3 } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
 import { buildProps } from './props.ts';
+import { SnowView } from './snow.ts';
 import { signMaterial } from './store-signs.ts';
 import { TEX, TEX_SCALE } from './textures.ts';
 
@@ -115,8 +116,8 @@ export interface WorldView {
   /** Paints the sky, lights, fog and glows with a look of the day cycle. Only writes values, nothing is allocated. */
   applyLook(look: DayLook): void;
   /** Advances the moving scenery (fans, escalator steps, fountain water, vent smoke) by dt seconds. */
-  /** `serverTick` is the server clock, which the lift cab runs on. */
-  update(dt: number, serverTick: number): void;
+  /** `serverTick` is the server clock, which the lift cab runs on; `camera` is where the falling snow gathers. */
+  update(dt: number, serverTick: number, camera?: Vec3): void;
   /** Takes a graphics tier chosen mid-match: starts or stops the ambient motion and builds or drops the vent smoke. */
   setQuality(profile: QualityProfile): void;
   dispose(): void;
@@ -335,6 +336,18 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
   }
 
   const t = map.theme;
+  let snow: SnowView | undefined;
+  function setSnowQuality(quality: QualityProfile): void {
+    if (t.snow && quality.fallingSnow) {
+      if (snow) return;
+      snow = new SnowView(t.snow);
+      group.add(snow.mesh);
+    } else {
+      snow?.dispose();
+      snow = undefined;
+    }
+  }
+  setSnowQuality(profile);
   const dome = skyDome(map);
   const sky = dome.mesh;
   group.add(sky);
@@ -396,13 +409,17 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
       for (const halo of halos) halo.opacity = Math.min(1, GLOW_OPACITY * look.glow);
       for (const s of silhouettes) s.mat.color.copy(s.base).multiplyScalar(look.scenery);
     },
-    update(dt, serverTick) {
+    update(dt, serverTick, camera) {
       props.update(dt, serverTick);
+      if (camera) snow?.update(dt, camera);
     },
     setQuality(next) {
       props.setQuality(next);
+      setSnowQuality(next);
     },
     dispose() {
+      snow?.dispose();
+      snow = undefined;
       scene.remove(group);
       group.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();

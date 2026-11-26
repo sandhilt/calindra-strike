@@ -4,7 +4,7 @@ export type ControlGroup = 'movimento' | 'combate' | 'interface';
 export type ActionId =
   | 'forward' | 'back' | 'left' | 'right' | 'jump' | 'crouch' | 'sprint' | 'walk' | 'leanLeft' | 'leanRight' | 'prone'
   | 'fire' | 'aim' | 'reload' | 'use' | 'primary' | 'secondary' | 'melee' | 'lastWeapon' | 'nextWeapon' | 'previousWeapon'
-  | 'spray' | 'scoreboard' | 'chat';
+  | 'spray' | 'scoreboard' | 'chat' | 'screenshot';
 
 export type Bindings = Partial<Record<ActionId, readonly string[]>>;
 
@@ -41,6 +41,7 @@ export const ACTIONS: Readonly<Record<ActionId, Action>> = {
   spray: { label: 'spray', group: 'interface', defaults: ['KeyG'] },
   scoreboard: { label: 'placar', group: 'interface', defaults: ['Tab'] },
   chat: { label: 'chat', group: 'interface', defaults: ['KeyY', 'KeyT', 'Enter'] },
+  screenshot: { label: 'tirar print', group: 'interface', defaults: ['F2'] },
 };
 
 function isActionId(id: string): id is ActionId {

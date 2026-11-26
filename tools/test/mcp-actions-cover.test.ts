@@ -73,6 +73,7 @@ const KEY_COVER: Record<ActionId, { by: string; why: string }> = {
   spray: { by: 'spray', why: 'places the decal on the wall ahead' },
   scoreboard: { by: 'get_state', why: 'scores in get_state' },
   chat: { by: 'say', why: 'chat line; radio sends the prepared lines' },
+  screenshot: { by: 'browser-only', why: 'saves a picture of the browser view; an agent has no screen to save' },
 };
 
 test('every remappable key is covered by an MCP tool or the pilot', () => {
@@ -84,7 +85,7 @@ test('every remappable key is covered by an MCP tool or the pilot', () => {
 test('every key-covering tool exists in the MCP tool list and says why', () => {
   const names = new Set(toolDefinitions.map((d) => d.name));
   for (const [id, { by, why }] of Object.entries(KEY_COVER)) {
-    assert.ok(by === 'brain' || names.has(by), `${id} names the tool "${by}", which tools/mcp/tools.ts does not define`);
+    assert.ok(by === 'brain' || by === 'browser-only' || names.has(by), `${id} names the tool "${by}", which tools/mcp/tools.ts does not define`);
     assert.ok(why.trim().length > 0, `${id} needs a reason`);
   }
 });

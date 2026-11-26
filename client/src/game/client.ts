@@ -131,6 +131,7 @@ import { weaponIcon } from './render/weapon-icons.ts';
 import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './render/movement-pose.ts';
 import { easeFov } from './render/zoom.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
+import { saveScreenshot } from '../screenshot.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
 const DEFUSE_DEATH_CAM_MS = 2_000;
@@ -265,6 +266,7 @@ export class ClientGame {
   private readonly dayLook = createLook();
   private readonly dayCycle: DayCycle = { phase: 'day', next: 'afternoon', blend: 0 };
   private dayLit = false;
+  private screenshotPending = false;
   private dayAnnounced: DayPhase | null = null;
 
   readonly myId: number;
@@ -642,6 +644,14 @@ export class ClientGame {
   }
 
   private drawScene(): void {
+    this.renderScene();
+    if (!this.screenshotPending) return;
+    this.screenshotPending = false;
+    // The drawing buffer is only readable in the frame that drew it, so the picture is taken right after the render.
+    saveScreenshot(this.renderer.domElement, new Date());
+  }
+
+  private renderScene(): void {
     if (this.lightRt) {
       try {
         this.lightRt.render();
@@ -1397,6 +1407,7 @@ export class ClientGame {
   private onBoundPress(code: string): void {
     if (!this.input.locked || this.menuOpen || this.podiumActive || this.spectator) return;
     if (this.input.matches('spray', code)) this.net.send({ t: 'spray' });
+    if (this.input.matches('screenshot', code)) this.screenshotPending = true;
     if (this.input.matches('chat', code)) {
       this.chatOpen = true;
       this.setRadioMenu(null);

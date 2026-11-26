@@ -12,6 +12,8 @@ Changes made after the baseline, newest day first.
 ### 2026-11-26
 
 - Shopping Sul Rio: Natal no longer hangs a garland in mid air past the end of a Mirante fascia board (beside the Pandorga and L'Occitano signs): a storefront garland goes up only where fascia or wall covers its whole width behind it, and `shopping-natal.test.ts` checks every garland strand hangs flush on a fascia, wall or rail.
+- The capture the flag mode is now shown as **Eu Entrego** instead of "capture a bandeira" (`MODE_LABEL` in `shared/src/protocol.ts`). The mode id `ctf`, `CTF_CAPTURE_LIMIT` and the rules are unchanged.
+
 - Shopping Sul Rio: Natal gets more Christmas: the glass lift cab carries garlands, wreaths and gifts that ride with it (`festive` on the `lift` prop, `addCabDecor` in `client/src/game/render/christmas.ts`, one merged mesh per cab), holly with baubles and a bow hangs beside each lift level sign with the sign face clear, and three snowmen (a new `snowman` prop, merged into the static props mesh) stand on a snow patch in the dead-end corner of each up escalator landing on the Mirante, clear of its exit. `shopping-natal.test.ts` and `client/test/christmas-props.test.ts` pin it.
 
 - The Mirante back wall wainscot (a pale green panel with a charcoal band) no longer runs behind every shop: it was drawn the full width of the gallery, on the same plane as the pharmacy's and boutiques' own back walls, so it showed through them as a flat glass-like slab and its band stood out over their shelves. It now covers only the walkway by the stair bay and the stretch past the last boutique (`lounge` in `shopping-top.ts`), and `shopping-storefronts.test.ts` fails when two panels overlap on that wall.

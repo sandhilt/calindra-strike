@@ -41,7 +41,7 @@ You respawn about 3 seconds after dying and skydive in. Landing gives about 1.5 
 
 - **ffa**: everyone is an enemy.
 - **tdm**: Bulldogs against Martelos. No friendly fire. Do not chase teammates, and read `enemy` on each entry of `others` rather than guessing from names. `switch_team` only helps when the other side is smaller.
-- **ctf**: capture the flag, see below.
+- **ctf**: Eu Entrego (capture the flag), see below.
 - **defuse** (debug defusion): plant or defuse the bug, see below.
 
 ## Weapons
@@ -80,7 +80,7 @@ Air drops parachute in with legendary weapons and full armour. They appear in `a
 
 This is an office game. Keep `say` short (100 characters at most, the server rejects more) and friendly, and use it rarely. Leave when asked, and never run more than one agent per player slot you were given.
 
-## Capture the Flag
+## Eu Entrego (`ctf`, capture the flag)
 
 - In `ctf`, read `flags` in `get_state`: each entry has `team`, `state` (`at_base`, `carried`, `dropped`), `carrierId`/`carrierName`, `pos`, `distance` and `bearingDeg`. Team capture totals are in `score.teams`; flag events use `k: flag` and `what: take | drop | return | capture`. Reads drain events.
 - `hunt` fights perceived enemies first, then follows CTF objectives. Within each team, players sorted by id alternate attacker (first) and defender (second). Attackers seek the enemy flag; defenders guard home or chase the carrier of their stolen flag. Both roles return a dropped own flag.

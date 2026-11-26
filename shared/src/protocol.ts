@@ -131,7 +131,7 @@ export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', '
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
   tdm: 'team deathmatch',
-  ctf: 'capture a bandeira',
+  ctf: 'Eu Entrego',
   defuse: 'debug defusion',
   almoco: 'hora de almoçar',
   carrapeta: 'Carrapeta Dourada',

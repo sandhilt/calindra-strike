@@ -8,6 +8,9 @@ import type { Outfit } from './types.ts';
  */
 export type StaffRole = 'cashier' | 'cook' | 'server' | 'seller' | 'stocker' | 'pharmacist' | 'cleaner';
 
+/** The brands of the small atrium kiosks, each with an attendant behind its serving window. */
+export type KioskBrand = 'bobis' | 'travessura' | 'mequi' | 'kfg';
+
 /** Each uniform is named for the brand whose staff wear it, so every counter has its own look. */
 export type StaffUniform = FoodBrand | BoutiqueBrand | ShopBrand;
 

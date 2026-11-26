@@ -26,6 +26,12 @@ export class Parts {
     return this;
   }
 
+  /** Everything added next is placed by this whole transform, for parts turned about more than the vertical. */
+  atMatrix(matrix: THREE.Matrix4): this {
+    this.base.copy(matrix);
+    return this;
+  }
+
   box(w: number, h: number, d: number, color: number, p: Placement): this {
     return this.add(new THREE.BoxGeometry(w, h, d), color, p);
   }

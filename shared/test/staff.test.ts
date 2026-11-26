@@ -219,6 +219,28 @@ describe('the shopping floor staff', () => {
   });
 });
 
+describe('the small atrium kiosks', () => {
+  const shopping = maps.find((m) => m.id === 'shopping');
+  assert.ok(shopping);
+  const KIOSK_BRANDS = ['bobis', 'travessura', 'mequi', 'kfg'];
+  /** The kiosks stand in the atrium; the ground floor stores' crews are against the far walls. */
+  const ATRIUM_HALF_DEPTH = 600;
+  const ground = staffOf(shopping).filter((p) => p.y === 0 && Math.abs(p.z) < ATRIUM_HALF_DEPTH);
+
+  it('puts one attendant in each kiosk, both halves, in the kiosk brand', () => {
+    assert.equal(ground.length, KIOSK_BRANDS.length * 2);
+    assert.deepEqual([...new Set(ground.map((p) => p.uniform))].sort(), [...KIOSK_BRANDS].sort());
+  });
+
+  it('keeps each attendant inside a solid clip box nobody can enter, facing the serving window', () => {
+    for (const p of ground) {
+      assert.ok(inKitchen(shopping, p), `${p.uniform} at ${p.x}, ${p.z}`);
+      const ahead = nearestSolid(shopping, p.x, p.z, -Math.sin(p.yaw), -Math.cos(p.yaw), p.y + 70);
+      assert.ok(ahead > 40, `${p.uniform} window blocked at ${ahead}`);
+    }
+  });
+});
+
 describe('staff uniforms', () => {
   it('dresses cooks in a white chef jacket in the brand colour and everyone else in the brand polo', () => {
     assert.equal(staffOutfit('kfg', 'cook').top, 0xf5f5f5);

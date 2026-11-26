@@ -6,6 +6,16 @@ export type Gaze = 'front' | 'back' | 'left' | 'right';
 
 const GAZE_YAW: Record<Gaze, number> = { back: 0, front: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 };
 
+/** The wall a mirror hangs on: `left` and `right` are the side walls at -x and +x, `back` the wall at z 0. */
+export type MirrorWall = 'back' | 'left' | 'right';
+/** Dark frame thickness, glass thickness and the frame's rim beyond the glass (units). */
+const MIRROR_FRAME_UNITS = 2;
+const MIRROR_GLASS_UNITS = 0.8;
+const MIRROR_RIM_UNITS = 2.4;
+/** Silver glass in the white material; the same tint marks every mirror, so tests can find them. */
+export const MIRROR_GLASS_TINT = 0xdfe8ee;
+const MIRROR_FRAME_TINT = 0x1f1f1f;
+
 /**
  * One room's authoring frame: x across, z as depth from the back wall (growing toward the door), y up from
  * the floor. Everything is placed relative to it, so a shop is written once and stands anywhere.
@@ -63,6 +73,22 @@ export class Room {
   /** The spot a cooking sound comes from. */
   cook(x: number, z: number, y: number, voice: CookVoice): void {
     this.b.prop({ kind: 'cook', x: this.ox + x, y: this.oy + y, z: this.oz + z, voice });
+  }
+
+  /**
+   * A full-length mirror hung flush on a wall: a silver panel in a dark frame. `(x, z)` is the frame's centre on the
+   * wall face and `y` its bottom. Look only, so it never blocks a walkway.
+   */
+  mirror(x: number, z: number, y: number, width: number, height: number, wall: MirrorWall): void {
+    const rim = MIRROR_RIM_UNITS;
+    if (wall === 'back') {
+      this.box(x, z, width + 2 * rim, MIRROR_FRAME_UNITS, height + 2 * rim, y - rim, 'charcoal', MIRROR_FRAME_TINT);
+      this.box(x, z + (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, width, MIRROR_GLASS_UNITS, height, y, 'white', MIRROR_GLASS_TINT);
+      return;
+    }
+    const inward = wall === 'left' ? 1 : -1;
+    this.box(x, z, MIRROR_FRAME_UNITS, width + 2 * rim, height + 2 * rim, y - rim, 'charcoal', MIRROR_FRAME_TINT);
+    this.box(x + inward * (MIRROR_FRAME_UNITS + MIRROR_GLASS_UNITS) / 2, z, MIRROR_GLASS_UNITS, width, height, y, 'white', MIRROR_GLASS_TINT);
   }
 
   /** A grille on a surface that faces `gaze`, centred at (x, y) on depth z. */

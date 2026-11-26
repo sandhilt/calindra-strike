@@ -558,8 +558,19 @@ const WINDOW_DISPLAY_X = 150;
 const WINDOW_DISPLAY_HEIGHT = 56;
 const CLOTHING = new Set<ShopBrand>(['zarra', 'cea', 'rener', 'hew', 'riachuela']);
 
+/** Full-length mirrors hang on both side walls of a clothing store, in the strip between the back wall and its first rack. */
+const SIDE_MIRROR_X = STORE_HALF_WIDTH - 3.5;
+const SIDE_MIRROR_Z = 28;
+const SIDE_MIRROR_WIDTH = 44;
+const SIDE_MIRROR_HEIGHT = 124;
+const SIDE_MIRROR_Y = 8;
+
 export function dressStore(r: Room, brand: ShopBrand): void {
   STORES[brand](r);
+  if (CLOTHING.has(brand)) {
+    r.mirror(-SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'left');
+    r.mirror(SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'right');
+  }
   const accent = ACCENT[brand];
   for (const side of [-1, 1]) {
     const displayCount = side > 0 && CLOTHING.has(brand) ? 3 : 4;

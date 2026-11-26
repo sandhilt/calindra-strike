@@ -34,6 +34,10 @@ export class Parts {
     return this.add(new THREE.CylinderGeometry(radiusTop, radiusBottom, h, segments), color, p);
   }
 
+  sphere(radius: number, color: number, p: Placement): this {
+    return this.add(new THREE.SphereGeometry(radius, 12, 8), color, p);
+  }
+
   /** A polygon in the (u, v) plane, v up, extruded `depth` along the third axis from -depth / 2. */
   prism(points: readonly (readonly [number, number])[], depth: number, color: number, p: Placement): this {
     const shape = new THREE.Shape(points.map(([u, v]) => new THREE.Vector2(u, v)));

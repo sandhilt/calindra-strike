@@ -28,6 +28,7 @@ import {
 } from './prop-motion.ts';
 import { addClothesRack, addEscalatorBody, addEscalatorGlass, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
+import { addCabDecor, addSnowman } from './christmas.ts';
 import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
 import { signCanvas } from './store-signs.ts';
@@ -588,6 +589,12 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
     mesh.position.set(x, y, z);
     return mesh;
   };
+  /** One merged mesh per cab, so the Christmas dress rides with it at the cost of a single draw call. */
+  const cabDecor = (width: number, depth: number): THREE.Mesh => {
+    const parts = new Parts();
+    addCabDecor(parts, width, depth, LIFT_DOOR_HEIGHT_UNITS);
+    return new THREE.Mesh(parts.merge() ?? new THREE.BufferGeometry(), newPropMaterial());
+  };
   const shafts = items.map((lift) => {
     const place = new THREE.Group();
     place.position.set(lift.x, 0, lift.z);
@@ -632,6 +639,7 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
           doors[side].push(door);
         }
       }
+      if (lift.festive) group.add(cabDecor(lift.width, lift.depth));
       const lamps = lift.stops.map((_, i) => {
         const lamp = new THREE.MeshBasicMaterial({ color: LIFT_LAMP_OFF });
         group.add(box(6, 6, 1.2, lamp, (i - (lift.stops.length - 1) / 2) * 10, LIFT_DOOR_HEIGHT_UNITS - 10, half.z - 4));
@@ -756,6 +764,10 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   staff: buildStaff,
   santa(items, { statics }) {
     for (const item of items) addSanta(statics, item);
+    return still();
+  },
+  snowman(items, { statics }) {
+    for (const item of items) addSnowman(statics, item);
     return still();
   },
   clothesRack: buildClothesRacks,

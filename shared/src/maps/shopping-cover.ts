@@ -49,6 +49,29 @@ function column(b: MapBuilder, x: number, z: number, side: number, top: number, 
   b.deco(x - half, top, z - half, x + half, ROOF, z + half, 'metal', MAST_PAINT);
   const signY = ROOF - HANGING_SIGN_DROP;
   adPanel(b, x - side / 2, signY, z - HANGING_SIGN_DEPTH / 2, x + side / 2, signY + side / 2, z + HANGING_SIGN_DEPTH / 2, brand);
+  mastItems(b, x, z, top, signY, side);
+}
+
+/** Paper bag colours; a column picks one from its position so the map stays deterministic. */
+const BAG_TINTS = [0xd7263d, 0x2a6fdb, 0xf2b632, 0x3aa56b, 0x8e4fc7] as const;
+
+/**
+ * Shopping items on the bare stretch of a mast: a stack of hanging bags, a sale pennant and a pendant lamp under the
+ * ceiling. All of it is thin decoration around the mast, so nothing changes for collision or the nav grid.
+ */
+function mastItems(b: MapBuilder, x: number, z: number, top: number, signY: number, side: number): void {
+  const pick = Math.abs(Math.round(x / 8 + z / 4));
+  const bagTop = top + 150;
+  for (let i = 0; i < 3; i++) {
+    const tint = BAG_TINTS[(pick + i) % BAG_TINTS.length];
+    const y = bagTop - i * 58;
+    const dx = i % 2 === 0 ? 7 : -7;
+    b.deco(x + dx - 11, y - 30, z - 5, x + dx + 11, y, z + 5, 'white', tint);
+    b.deco(x + dx - 4, y, z - 1, x + dx + 4, y + 12, z + 1, 'white', 0xf4f2eb);
+  }
+  const pennantY = signY - 46;
+  b.deco(x - side / 2, pennantY, z - 1, x + side / 2, pennantY + 18, z + 1, 'white', BAG_TINTS[pick % BAG_TINTS.length]);
+  b.deco(x - 13, ROOF - 38, z - 13, x + 13, ROOF - 12, z + 13, 'glass', 0xfff1c4);
 }
 
 /**

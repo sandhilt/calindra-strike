@@ -1,4 +1,4 @@
-import { brandMat, STORE_BRANDS, type ShopBrand, type StoreBrand } from './brands.ts';
+import { brandMat, STORE_BRANDS, type FloorBrand, type ShopBrand, type StoreBrand } from './brands.ts';
 import { boutiqueShop, DOORWAY_HEIGHT, SHOP_WALL_HEIGHT, type LargeBoutique, type LoungeBoutique, type SmallBoutique } from './shopping-boutiques.ts';
 import type { MapBuilder } from './builder.ts';
 import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
@@ -134,6 +134,23 @@ function bay(b: MapBuilder, x1: number, x2: number, travel: EscalatorTravel, sig
   }
 }
 
+const LEVEL_SIGN_WIDTH = 110;
+/** Gap between a doorway's top and the level sign above it (units). */
+const LEVEL_SIGN_GAP = 10;
+
+/** A sign over each doorway of the lift naming the floor it opens on, facing the walkway that leads to it. */
+function levelSigns(b: MapBuilder, x0: number, x1: number, zFront: number, zBack: number): void {
+  const cx = (x0 + x1) / 2;
+  const half = LEVEL_SIGN_WIDTH / 2;
+  const sign = (floor: number, z: number, brand: FloorBrand): void => {
+    const y = floor + LIFT_DOOR_HEIGHT_UNITS + LEVEL_SIGN_GAP;
+    b.deco(cx - half, y, z - 1, cx + half, y + half, z + 1, brandMat(brand));
+  };
+  sign(0, zBack + 1, 'piso-terreo');
+  sign(DECK, zFront - 1, 'piso-1');
+  sign(DECK3, zFront - 1, 'piso-mirante');
+}
+
 /**
  * The glass lift: a shaft of glass walls against the atrium edge, the field that carries riders, and the prop that
  * draws the cab. Ground floor riders get in from the atrium; the doorways of the food court and the Mirante open
@@ -152,6 +169,7 @@ function liftShaft(b: MapBuilder): void {
   wall(x0, zFront, x1, LIFT_MIN_Z, 0, DECK);
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK + doorTop, DECK3);
   wall(x0, zFront, x1, LIFT_MIN_Z, DECK3 + doorTop, ROOF);
+  levelSigns(b, x0, x1, zFront, zBack);
   b.deco(x0 - 2, ROOF, zFront - 2, x1 + 2, ROOF + 4, zBack + 2, 'charcoal');
   // The shaft has no floor at the upper stops: each doorway is shut across (see LiftDoor) unless the cab waits there.
   const door = (y: number, minZ: number, maxZ: number) => ({ y, minX: x0, maxX: x1, minZ, maxZ });

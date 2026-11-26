@@ -1,7 +1,7 @@
 /**
  * Parody storefronts for the Shopping Sul Rio map. Each brand is drawn by the client as a sign texture;
  * `food` brands are the food court restaurants, `shop` brands the ground floor stores and `boutique` brands
- * the smaller shops along the back wall of the Mirante.
+ * the smaller shops along the back wall of the Mirante, and `floor` brands the level signs at the lift.
  */
 export const STORE_BRANDS = {
   kfg: { name: 'KFG', kind: 'food' },
@@ -30,13 +30,17 @@ export const STORE_BRANDS = {
   loccitano: { name: "L'Occitano", kind: 'boutique' },
   'pe-leve': { name: 'Calçados Pé Leve', kind: 'boutique' },
   essencia: { name: 'Perfumaria Essência', kind: 'boutique' },
-} as const satisfies Record<string, { name: string; kind: 'food' | 'shop' | 'boutique' }>;
+  'piso-terreo': { name: 'Térreo', kind: 'floor' },
+  'piso-1': { name: '1º andar', kind: 'floor' },
+  'piso-mirante': { name: 'Mirante', kind: 'floor' },
+} as const satisfies Record<string, { name: string; kind: 'food' | 'shop' | 'boutique' | 'floor' }>;
 
 export type StoreBrand = keyof typeof STORE_BRANDS;
-type BrandsOfKind<K extends 'food' | 'shop' | 'boutique'> = { [B in StoreBrand]: (typeof STORE_BRANDS)[B]['kind'] extends K ? B : never }[StoreBrand];
+type BrandsOfKind<K extends 'food' | 'shop' | 'boutique' | 'floor'> = { [B in StoreBrand]: (typeof STORE_BRANDS)[B]['kind'] extends K ? B : never }[StoreBrand];
 export type FoodBrand = BrandsOfKind<'food'>;
 export type ShopBrand = BrandsOfKind<'shop'>;
 export type BoutiqueBrand = BrandsOfKind<'boutique'>;
+export type FloorBrand = BrandsOfKind<'floor'>;
 export type BrandMat = `brand:${StoreBrand}`;
 
 export function brandMat(brand: StoreBrand): BrandMat {

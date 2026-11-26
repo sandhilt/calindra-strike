@@ -35,6 +35,18 @@ function outlined(g: G, text: string, x: number, y: number, size: number, fill: 
 
 const SERIF = 'Georgia, "Times New Roman", serif';
 
+/** A level sign: a coloured badge with the floor's letter or number, its name and what is up there. */
+function floorSign(g: G, badge: string, name: string, caption: string, color: string): void {
+  panel(g, '#f4f4f2');
+  g.fillStyle = color;
+  g.fillRect(0, 0, 150, H);
+  label(g, badge, 75, H / 2, 150, '#ffffff', 'Arial Black, Arial, sans-serif', 110);
+  label(g, name, 150 + (W - 150) / 2, 96, 70, '#1d2330', 'Arial Black, Arial, sans-serif', W - 190);
+  g.fillStyle = color;
+  g.fillRect(180, 142, W - 210, 4);
+  label(g, caption, 150 + (W - 150) / 2, 190, 26, '#3a4150', 'Arial, sans-serif', W - 190, 'bold');
+}
+
 const SIGNS: Record<StoreBrand, (g: G) => void> = {
   kfg(g) {
     panel(g, '#ffffff');
@@ -267,6 +279,15 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.fillStyle = '#1c3a6b';
     g.fillRect(70, 152, W - 140, 4);
     label(g, 'EM PROVENÇA', W / 2, 196, 34, '#1c3a6b', SERIF, W - 120, 'italic');
+  },
+  'piso-terreo'(g) {
+    floorSign(g, 'T', 'TÉRREO', 'LOJAS · ATRIO · FONTE', '#1b4d8f');
+  },
+  'piso-1'(g) {
+    floorSign(g, '1', '1º ANDAR', 'PRAÇA DE ALIMENTAÇÃO', '#c8102e');
+  },
+  'piso-mirante'(g) {
+    floorSign(g, 'M', 'MIRANTE', 'BOUTIQUES · CAFÉ · VISTA', '#2f7d4f');
   },
 };
 

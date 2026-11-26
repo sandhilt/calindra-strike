@@ -3,7 +3,7 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `ec92b03`
+- Covered through: `7cbde02`
 
 ## Log
 
@@ -13,8 +13,7 @@ Changes made after the baseline, newest day first.
 - The lobby offers a fullscreen hint and a button on browsers that support fullscreen (`client/src/ui/lobby.ts`).
 - Both Konami debug views can enter and exit browser fullscreen from the panel (`client/src/debug/weapon-viewer.ts`).
 - The Konami debug mode now lets players fly through any map and shows FPS, CPU and supported GPU frame timings, JS heap when available, and renderer counts in both views (`client/src/debug/weapon-viewer.ts`).
-
-- Forja, Escritório and Shopping Sul Rio have client-side speaker props for optional positional tracks from `client/public/music/`, with a live `musicVolume` control. The protocol version stays the same because speakers are local scenery and use no wire fields.
+- Forja, Escritório and Shopping Sul Rio have client-side speaker props for optional positional tracks from `client/public/music/`, with a live `musicVolume` control (tracks are not loaded or played while it is 0). The protocol version stays the same because speakers are local scenery and use no wire fields.
 - Hurt server bots and the MCP hunt pilot can charge nearby enemies with the hammer and return to a gun when the rush ends (`server/src/bot-temper.ts`, `server/src/bot.ts`).
 - `ViewModel` releases owned weapon resources on weapon or skin changes and frees its remaining resources on exit (`client/src/game/render/viewmodel.ts`).
 - Restoring or selecting a weapon resets the reload slider to zero (`client/src/debug/weapon-viewer.ts`).

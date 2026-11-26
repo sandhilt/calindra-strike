@@ -200,14 +200,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
   samsong(g) {
     panel(g, '#ffffff');
     g.fillStyle = '#1428a0';
-    g.beginPath();
-    g.ellipse(W / 2, H / 2, 236, 96, 0, 0, Math.PI * 2);
-    g.fill();
     g.save();
-    g.translate(W / 2, H / 2 + 4);
-    g.scale(1.25, 1);
-    label(g, 'SEMSUNGA', 0, 0, 84, '#ffffff', 'Arial Black, Arial, sans-serif', 330);
+    g.translate(W / 2, H / 2 - 12);
+    g.rotate(-0.07);
+    g.beginPath();
+    g.ellipse(0, 0, 232, 88, 0, 0, Math.PI * 2);
+    g.fill();
+    g.scale(1.3, 1);
+    label(g, 'SEMSUNGA', 0, 3, 74, '#ffffff', 'Arial Black, Arial, sans-serif', 300);
     g.restore();
+    label(g, 'ELETRÔNICOS · CELULARES · TABLETS', W / 2, 228, 22, '#1428a0', 'Arial, sans-serif', W - 80, 'bold');
   },
   'ray-bao'(g) {
     panel(g, '#161616');

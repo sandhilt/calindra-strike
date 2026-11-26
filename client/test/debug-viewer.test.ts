@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SPRINT_SPEED_MULT, WEAPON, WEAPONS, weaponDef } from '@calindra-strike/shared';
 import { KONAMI_CODE, sequenceMatcher } from '../src/easter-egg.ts';
 import { formatPlacement, placementFor } from '../src/game/render/weapon-placement.ts';
-import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, viewerRequest, type ReloadScrub } from '../src/debug/weapon-debug.ts';
+import { autoFireShots, previewMovementSpeed, reloadTotal, scrubTo, startReload, stepReload, viewerRequest, weaponByTag, type ReloadScrub } from '../src/debug/weapon-debug.ts';
 
 const feed = (match: (code: string) => boolean, codes: readonly string[]) => codes.map(match);
 
@@ -35,8 +35,10 @@ test('every weapon has a placement, and it prints as the line to paste back', ()
 
 test('the viewer URL accepts every weapon tag, including unaccented lowercase tags', () => {
   for (const { id, tag } of WEAPONS) {
+    assert.equal(weaponByTag(tag), id, tag);
     assert.equal(viewerRequest('?viewer&weapon=' + encodeURIComponent(tag))?.weapon, id);
   }
+  assert.equal(weaponByTag('unknown'), undefined, 'no fallback, so the loop above cannot pass by default');
   assert.equal(viewerRequest('?viewer&weapon=faisca')?.weapon, WEAPON.PISTOL);
   assert.equal(viewerRequest('?viewer&weapon=trovao')?.weapon, WEAPON.SHOTGUN);
   assert.equal(viewerRequest('?viewer&weapon=ragnarok')?.weapon, WEAPON.LMG);

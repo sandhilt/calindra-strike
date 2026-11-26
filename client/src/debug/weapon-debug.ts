@@ -13,14 +13,18 @@ export const DEFAULT_VIEWER_WEAPON = WEAPONS[WEAPONS.length - 1].id;
 
 const normalizeTag = (tag: string): string => tag.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
+export function weaponByTag(tag: string): WeaponId | undefined {
+  const wanted = normalizeTag(tag);
+  return WEAPONS.find((def) => normalizeTag(def.tag) === wanted)?.id;
+}
+
 export function viewerRequest(search: string): ViewerRequest | null {
   const params = new URLSearchParams(search);
   if (!params.has('viewer')) return null;
 
-  const tag = normalizeTag(params.get('weapon') ?? '');
   const reload = Number(params.get('reload')?.trim() || NaN);
   return {
-    weapon: WEAPONS.find((def) => normalizeTag(def.tag) === tag)?.id ?? DEFAULT_VIEWER_WEAPON,
+    weapon: weaponByTag(params.get('weapon') ?? '') ?? DEFAULT_VIEWER_WEAPON,
     skin: params.get('skin') === 'carrapeta' ? 'carrapeta' : 'standard',
     aim: params.get('aim') === '1',
     reload: Number.isFinite(reload) ? Math.min(1, Math.max(0, reload)) : null,

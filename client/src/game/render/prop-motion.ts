@@ -234,12 +234,15 @@ export const STAFF_CYCLE_SECONDS: Readonly<Record<StaffRole, number>> = { cook: 
 
 const TAU = Math.PI * 2;
 
+function smoothstep(u: number): number {
+  return u * u * (3 - 2 * u);
+}
+
 /** 0 to 1 and back over a serving cycle: reach out, hold the order over the counter, draw back, wait. */
 function reachOf(phase: number): number {
-  const ease = (u: number) => u * u * (3 - 2 * u);
-  if (phase < 0.3) return ease(phase / 0.3);
+  if (phase < 0.3) return smoothstep(phase / 0.3);
   if (phase < 0.5) return 1;
-  if (phase < 0.8) return ease((0.8 - phase) / 0.3);
+  if (phase < 0.8) return smoothstep((0.8 - phase) / 0.3);
   return 0;
 }
 

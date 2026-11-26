@@ -14,7 +14,7 @@ const BASE_UNITS = 2.5;
 /** Where a mannequin's shoulder pivot sits on its body: out to the side and over the feet (units). */
 const SHOULDER_X = 15.5;
 const SHOULDER_Y = BASE_UNITS + 56;
-/** The rest pose hangs each arm a little off the vertical, top out and hand in. */
+/** The arm model hangs a little off the vertical, top out and hand in: each part leans about its own centre (rad). */
 const ARM_TILT = -0.1;
 
 export type ArmSide = 1 | -1;
@@ -32,7 +32,7 @@ const scratchEuler = new THREE.Euler();
 export function armMatrix(out: THREE.Matrix4, m: Placed, side: ArmSide, pose: ArmPose): THREE.Matrix4 {
   out.makeRotationY(m.yaw).setPosition(m.x, m.y, m.z);
   out.multiply(scratch.makeTranslation(side * SHOULDER_X, SHOULDER_Y, 0));
-  scratchEuler.set(pose.pitch, 0, side * (ARM_TILT + pose.roll), 'ZXY');
+  scratchEuler.set(pose.pitch, 0, side * pose.roll, 'ZXY');
   out.multiply(scratch.makeRotationFromQuaternion(scratchQuat.setFromEuler(scratchEuler)));
   if (side < 0) out.multiply(scratch.makeRotationY(Math.PI));
   return out;
@@ -40,12 +40,12 @@ export function armMatrix(out: THREE.Matrix4, m: Placed, side: ArmSide, pose: Ar
 
 /** The upper arm of a mannequin in the shirt colour, around its shoulder pivot. */
 export function addMannequinSleeve(parts: Parts, color: number): void {
-  parts.box(6.4, 12, 7.4, color, { x: 0, y: -6, z: 0 });
+  parts.box(6.4, 12, 7.4, color, { x: 0, y: -6, z: 0, rot: [0, 0, ARM_TILT] });
 }
 
 /** The bare forearm and hand of a mannequin, around its shoulder pivot. */
 export function addMannequinHand(parts: Parts): void {
-  parts.box(5.2, 12, 6, SKIN, { x: 1.4, y: -17, z: 0 });
+  parts.box(5.2, 12, 6, SKIN, { x: 1.4, y: -17, z: 0, rot: [0, 0, ARM_TILT] });
 }
 
 /** Both arms of a mannequin, fixed in a pose, into a static mesh. */

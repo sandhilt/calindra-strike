@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import { QUALITY } from '../src/game/render/quality.ts';
@@ -84,4 +85,32 @@ test('switching to performance mid-match puts the arms back at rest', () => {
   view.update(0.4, 0);
   view.setQuality(QUALITY.performance);
   assert.deepEqual(matrices(view.group), rest);
+});
+
+/**
+ * The store mannequin as d0e329b drew it, before its arms were split off to move: sha256 of its sorted vertex
+ * positions (rounded to 0.01) and its bounds, for a kfg cook at (40, 28, -20) turned 2.5 rad. Captured from that
+ * commit's `addMannequin`, so a change to the shared arm model that moves the rest pose fails here.
+ */
+const BEFORE_ARMS_MOVED = {
+  sha256: '028f9250d000cc9d7cf7e44eda7de5e854ca560b3dd798d5a7f005ca7db50abe',
+  vertices: 768,
+  min: [22.11, 28, -35.7],
+  max: [57.89, 104.5, -4.3],
+};
+
+function positionDigest(group: THREE.Object3D): { sha256: string; vertices: number; min: number[]; max: number[] } {
+  const keys = corners(group).map((k) => k.split('|')[0]);
+  const box = new THREE.Box3();
+  for (const k of keys) box.expandByPoint(new THREE.Vector3(...k.split(',').map(Number)));
+  const round = (v: THREE.Vector3) => v.toArray().map((n) => Math.round(n * 100) / 100);
+  return { sha256: createHash('sha256').update(keys.join('\n')).digest('hex'), vertices: keys.length, min: round(box.min), max: round(box.max) };
+}
+
+test('the store mannequin and a staff member at rest keep the geometry they had before the arms could move', () => {
+  const turned: Staff = { ...cook, yaw: 2.5 };
+  for (const tier of ['high', 'performance'] as const) {
+    assert.deepEqual(positionDigest(buildProps([asMannequin(turned)], () => undefined, QUALITY[tier]).group), BEFORE_ARMS_MOVED, `mannequin ${tier}`);
+  }
+  assert.deepEqual(positionDigest(buildProps([turned], () => undefined, QUALITY.performance).group), BEFORE_ARMS_MOVED, 'staff');
 });

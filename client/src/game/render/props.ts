@@ -189,19 +189,27 @@ function buildStaff(items: readonly PropOf<'staff'>[], ctx: PropContext): PropGr
     mesh.castShadow = true;
     mesh.frustumCulled = false;
   }
-  const sides = [1, -1] as const;
   const color = new THREE.Color();
-  items.forEach((_, i) => sides.forEach((_side, k) => sleeves.setColorAt(i * 2 + k, color.setHex(outfits[i].top))));
+  for (let i = 0; i < items.length; i++) {
+    color.setHex(outfits[i].top);
+    sleeves.setColorAt(i * 2, color);
+    sleeves.setColorAt(i * 2 + 1, color);
+  }
   const seeds = items.map((s) => seedOf(s.x, s.z));
   const matrix = new THREE.Matrix4();
   const pose: ArmPose = { ...ARM_REST };
+  const placeArm = (index: number, s: PropOf<'staff'>, side: 1 | -1, at: Readonly<ArmPose>): void => {
+    armMatrix(matrix, s, side, at);
+    sleeves.setMatrixAt(index, matrix);
+    hands.setMatrixAt(index, matrix);
+  };
+  // Runs every frame: plain loops over the scratch matrix and pose above, nothing allocated.
   const place = (seconds: number | null): void => {
-    items.forEach((s, i) => sides.forEach((side, k) => {
-      const at = seconds === null ? ARM_REST : staffArmPose(pose, s.role, side, seconds, seeds[i]);
-      armMatrix(matrix, s, side, at);
-      sleeves.setMatrixAt(i * 2 + k, matrix);
-      hands.setMatrixAt(i * 2 + k, matrix);
-    }));
+    for (let i = 0; i < items.length; i++) {
+      const s = items[i];
+      placeArm(i * 2, s, 1, seconds === null ? ARM_REST : staffArmPose(pose, s.role, 1, seconds, seeds[i]));
+      placeArm(i * 2 + 1, s, -1, seconds === null ? ARM_REST : staffArmPose(pose, s.role, -1, seconds, seeds[i]));
+    }
     sleeves.instanceMatrix.needsUpdate = true;
     hands.instanceMatrix.needsUpdate = true;
   };

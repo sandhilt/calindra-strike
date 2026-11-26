@@ -110,7 +110,8 @@ export class StaffArms {
   }
 
   private pose(): void {
-    this.items.forEach((s, k) => {
+    for (let k = 0; k < this.items.length; k++) {
+      const s = this.items[k];
       this.yaw.setFromAxisAngle(Y_AXIS, s.yaw);
       this.base.set(s.x, s.y, s.z);
       const seed = seedOf(s.x, s.z) * 6;
@@ -122,7 +123,7 @@ export class StaffArms {
         this.sleeves.setMatrixAt(2 * k + side, this.matrix);
         this.forearms.setMatrixAt(2 * k + side, this.matrix);
       }
-    });
+    }
     this.sleeves.instanceMatrix.needsUpdate = true;
     this.forearms.instanceMatrix.needsUpdate = true;
   }

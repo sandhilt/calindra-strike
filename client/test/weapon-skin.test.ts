@@ -27,10 +27,13 @@ test('the Carrapeta Azeitadora retains gold and walnut', () => {
   for (const color of ['d9a520', '8a6a1a', '4a2a14', 'a5fa00', 'c9a227']) assert.ok(colors.has(color), `missing #${color}`);
 });
 
-test('only Carrapeta Dourada selects the Carrapeta skin', () => {
+test('gold is the Carrapeta holder\'s alone and the toy hammer is the whole match\'s', () => {
   for (const mode of GAME_MODES) {
-    assert.equal(weapons.weaponSkin(mode), mode === 'carrapeta' ? 'carrapeta' : 'standard', mode);
+    assert.equal(weapons.weaponSkin(mode, true), mode === 'carrapeta' ? 'carrapeta' : 'standard', mode);
+    assert.equal(weapons.weaponSkin(mode, false), mode === 'carrapeta' ? 'toy' : 'standard', mode);
   }
+  assert.ok(!meshColors(weapons.buildWeapon(WEAPON.RIFLE, 0, 'toy').group).has('d9a520'), 'no gold without the Carrapeta');
+  assert.ok(meshColors(weapons.buildWeapon(WEAPON.HAMMER, 0, 'toy').group).has('e0261b'), 'toy hammer without it too');
 });
 
 test('Carrapeta Dourada gilds every gun and leaves no lime or dark metal', () => {

@@ -28,10 +28,12 @@ const mats = {
   pipOff: new THREE.MeshStandardMaterial({ color: '#17191c', roughness: 0.6 }),
 };
 
-export type WeaponSkin = 'standard' | 'carrapeta';
+/** `carrapeta` is the holder's gilded arsenal; `toy` is everyone else in a Carrapeta Dourada match, whose only change is the toy hammer. */
+export type WeaponSkin = 'standard' | 'carrapeta' | 'toy';
 
-export function weaponSkin(mode: GameMode): WeaponSkin {
-  return mode === 'carrapeta' ? 'carrapeta' : 'standard';
+export function weaponSkin(mode: GameMode, holdsCarrapeta: boolean): WeaponSkin {
+  if (mode !== 'carrapeta') return 'standard';
+  return holdsCarrapeta ? 'carrapeta' : 'toy';
 }
 
 /** In Carrapeta Dourada every gun is gilded: dark metal turns to gold, polymer to walnut, the lime accents to bright gold. */
@@ -81,6 +83,7 @@ const LAUNCHER_SKINS: Record<WeaponSkin, {
   emblem: boolean;
 }> = {
   standard: { furniture: mats.poly, trim: mats.lime, rings: mats.limeDim, darkTrim: mats.gun2, shells: mats.limeDim, emblem: false },
+  toy: { furniture: mats.poly, trim: mats.lime, rings: mats.limeDim, darkTrim: mats.gun2, shells: mats.limeDim, emblem: false },
   carrapeta: { furniture: mats.walnut, trim: mats.gold, rings: mats.gold, darkTrim: mats.goldDark, shells: mats.brass, emblem: true },
 };
 
@@ -485,7 +488,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0, skin: WeaponSkin = 'sta
       muzzle.position.set(0, 2, -34);
       break;
     case WEAPON.HAMMER:
-      if (skin === 'carrapeta') {
+      if (skin !== 'standard') {
         toyHammer(g);
         muzzle.position.set(0, 16, -3.5);
         break;

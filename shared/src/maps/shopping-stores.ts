@@ -191,7 +191,7 @@ function riachuela(r: Room): void {
   clothingDisplay(r, NAVY, 0x1c2a5a);
 }
 
-const CHOCOLATES = [0x4a2513, 0x6a3a1c, 0xe9c27a, 0xd98a9a, 0x2b160b, 0xf5e6c8, 0x8a5a33];
+export const CHOCOLATES = [0x4a2513, 0x6a3a1c, 0xe9c27a, 0xd98a9a, 0x2b160b, 0xf5e6c8, 0x8a5a33];
 
 function cacauChou(r: Room): void {
   shell(r, { floor: 'desk', floorTint: 0x7a4e30, wall: 0x5a2f1b, trim: 0xe9c27a });
@@ -558,8 +558,19 @@ const WINDOW_DISPLAY_X = 150;
 const WINDOW_DISPLAY_HEIGHT = 56;
 const CLOTHING = new Set<ShopBrand>(['zarra', 'cea', 'rener', 'hew', 'riachuela']);
 
+/** Full-length mirrors hang on both side walls of a clothing store, in the strip between the back wall and its first rack. */
+const SIDE_MIRROR_X = STORE_HALF_WIDTH - 3.5;
+const SIDE_MIRROR_Z = 28;
+const SIDE_MIRROR_WIDTH = 44;
+const SIDE_MIRROR_HEIGHT = 124;
+const SIDE_MIRROR_Y = 8;
+
 export function dressStore(r: Room, brand: ShopBrand): void {
   STORES[brand](r);
+  if (CLOTHING.has(brand)) {
+    r.mirror(-SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'left');
+    r.mirror(SIDE_MIRROR_X, SIDE_MIRROR_Z, SIDE_MIRROR_Y, SIDE_MIRROR_WIDTH, SIDE_MIRROR_HEIGHT, 'right');
+  }
   const accent = ACCENT[brand];
   for (const side of [-1, 1]) {
     const displayCount = side > 0 && CLOTHING.has(brand) ? 3 : 4;

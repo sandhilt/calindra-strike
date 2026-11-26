@@ -2,7 +2,7 @@ import { brandMat, STORE_BRANDS, type BoutiqueBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { FACADE_Z, ROOF, DECK3, Z } from './shopping-levels.ts';
 import { Room } from './room.ts';
-import { wallShelves } from './shopping-stores.ts';
+import { CHOCOLATES, wallShelves } from './shopping-stores.ts';
 
 /**
  * The boutiques along the back wall of the Mirante: open storefronts like the pharmacy, smaller than a ground floor
@@ -15,6 +15,8 @@ export type SmallBoutique = 'pandorga' | 'loccitano';
 export type LoungeBoutique = 'pe-leve' | 'essencia';
 export type CornerBoutique = 'linha-fina' | 'papel-e-cor';
 export type LargeBoutique = 'samsong' | 'ray-bao' | 'sentauro' | 'brinco-center';
+/** Any shop on the Mirante's back wall: a boutique, or the Cacau Chou branch that fills the gap by the old cafe. */
+export type GalleryShopBrand = BoutiqueBrand | 'cacau-chou';
 
 /** Partitions and the storefront stand this tall; the doorway is the full width between the wall returns. */
 export const SHOP_WALL_HEIGHT = 176;
@@ -204,25 +206,42 @@ function glasses(r: Room, x: number, z: number, y: number, tint: Hex): void {
   r.box(x, z, 3, 1.2, 1.2, y + 3, 'charcoal', 0x161616);
 }
 
+/** A pair of sunglasses lying on a table, lenses up. */
+function glassesFlat(r: Room, x: number, z: number, y: number, tint: Hex): void {
+  r.box(x - 4.5, z, 7, 5, 1.4, y, 'glass', tint);
+  r.box(x + 4.5, z, 7, 5, 1.4, y, 'glass', tint);
+  r.box(x, z, 3, 1.2, 1.2, y, 'charcoal', 0x161616);
+}
+
+const RAY_WOOD = 0x563530;
+/** Three shelves of frames along the back wall, and a pair of glasses every `RAY_PAIR_SPACING` units. */
+const RAY_SHELF_HEIGHTS = [40, 64, 88] as const;
+const RAY_PAIR_SPACING = 30;
+const RAY_SHELF_FRONT_Z = 15;
+/** The try-on mirrors stand on the side partitions, clear of the central table. */
+const RAY_MIRROR_Z = 196;
+
+/**
+ * Eyewear: frames on the back wall, a central table of glasses lying open, the till at the back and a try-on mirror
+ * on each side wall. The table stands forward of the browse spot, so bots browsing at the back stay in the aisle.
+ */
 function rayBao(r: Room, half: number): void {
   till(r, 0, 110, 0xd71f26);
-  for (const side of [-1, 1]) {
-    const x = side * half * 0.55;
-    r.solid(x, 142, 30, 30, 8, 0, 'charcoal');
-    r.box(x, 142, 4, 4, 68, 8, 'wood', 0xb7bcc6);
-    for (const y of [33, 47, 61]) {
-      r.box(x, 142, 28, 22, 2, y, 'white', 0xf4f1ee);
-      glasses(r, x, 151, y + 2, FRAMES[(y - 33) / 14]);
-      glasses(r, x, 133, y + 2, FRAMES[(y - 33) / 14 + 1]);
+  const span = 2 * half - 40;
+  const pairs = Math.floor(span / RAY_PAIR_SPACING);
+  RAY_SHELF_HEIGHTS.forEach((y, level) => {
+    r.box(0, 9, span, 10, 2, y, 'wood', RAY_WOOD);
+    for (let i = 0; i < pairs; i++) {
+      glasses(r, -span / 2 + RAY_PAIR_SPACING / 2 + i * RAY_PAIR_SPACING, RAY_SHELF_FRONT_Z, y + 2, FRAMES[(i + level) % FRAMES.length]);
     }
+  });
+  r.solid(0, 190, 120, 46, 30, 0, 'wood', RAY_WOOD);
+  r.box(0, 190, 124, 50, 2, 30, 'glass', 0xdfeaf2);
+  for (const z of [180, 200]) {
+    [-42, -14, 14, 42].forEach((x, i) => glassesFlat(r, x, z, 32, FRAMES[(i + (z === 180 ? 0 : 2)) % FRAMES.length]));
   }
-  for (const x of [-half / 2, half / 2]) {
-    r.box(x, 7, 58, 5, 85, 48, 'wood', 0x563530);
-    r.box(x, 10, 50, 1, 77, 52, 'metal', 0xe2efff);
-    r.box(x - 12, 10.7, 3, 0.4, 74, 54, 'white', 0xe9f3ff);
-    r.box(x, 17, 62, 18, 3, 42, 'wood', 0x563530);
-    glasses(r, x + 17, 21, 45, FRAMES[1]);
-  }
+  r.mirror(-half + 1, RAY_MIRROR_Z, 6, 46, 130, 'left');
+  r.mirror(half - 1, RAY_MIRROR_Z, 6, 46, 130, 'right');
 }
 
 const KIT = [0xe4002b, 0x161616, 0xf5f5f5, 0x2e2e2e];
@@ -313,7 +332,23 @@ function stationery(r: Room, half: number, trim: Hex, colors: readonly Hex[]): v
   });
 }
 
-const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
+/** A small chocolate shop: chocolate boxes on the back shelves, a glass display case in the middle and the till. */
+function chocolates(r: Room, half: number): void {
+  wallShelves(r, 0, 10, 2 * half - 12, 14, 4, CHOCOLATES, 91, 0x6a3a1c);
+  till(r, 0, SMALL_TILL, 0xe9c27a);
+  r.solid(0, 182, 96, 40, 34, 0, 'wood', 0x3b1d0e);
+  r.box(0, 182, 98, 42, 1.4, 34, 'glass', 0xf3ead6);
+  [-36, -18, 0, 18, 36].forEach((x, i) => {
+    for (const z of [174, 190]) r.box(x, z, 13, 13, 6, 35.4, 'white', CHOCOLATES[(i + (z === 174 ? 0 : 3)) % CHOCOLATES.length]);
+  });
+  for (const side of [-1, 1]) {
+    r.solid(side * 66, 150, 24, 56, 30, 0, 'desk', 0x6a3a1c);
+    for (const z of [140, 160]) r.box(side * 66, z, 12, 12, 9, 30, 'white', CHOCOLATES[(side > 0 ? 2 : 0) + (z === 140 ? 0 : 3)]);
+  }
+}
+
+const BOUTIQUES: Record<GalleryShopBrand, Boutique> = {
+  'cacau-chou': { paint: 0x5a2f1b, trim: 0xe9c27a, floor: 0x7a4e30, browseX: 0, dress: chocolates },
   pandorga: { paint: 0xfaf3f6, trim: 0xe77aa6, floor: 0xf4eef1, browseX: 20, dress: pandorga },
   loccitano: { paint: 0xf6e9bd, trim: 0x1c3a6b, floor: 0xe7d6a2, browseX: 0, dress: loccitano },
   'pe-leve': { paint: 0xeef4ef, trim: 0x1f3d2b, floor: 0xdbe5dd, browseX: 0, dress: peLeve },
@@ -342,7 +377,7 @@ function shell(r: Room, half: number, spec: Boutique): void {
 }
 
 /** The lintel closes the gap between the doorway and the roof; the sign hangs on it, clear of the doorway. */
-function facade(b: MapBuilder, x1: number, x2: number, brand: BoutiqueBrand, spec: Boutique): void {
+function facade(b: MapBuilder, x1: number, x2: number, brand: GalleryShopBrand, spec: Boutique): void {
   const z = FACADE_Z + 8;
   const cx = (x1 + x2) / 2;
   const top = ROOF - DECK3;
@@ -358,7 +393,7 @@ export interface Walls {
 }
 
 /** A boutique between the partitions centred on `x1` and `x2`, whose short returns frame the open doorway. */
-export function boutiqueShop(b: MapBuilder, brand: BoutiqueBrand, x1: number, x2: number, walls: Walls): void {
+export function boutiqueShop(b: MapBuilder, brand: GalleryShopBrand, x1: number, x2: number, walls: Walls): void {
   const spec = BOUTIQUES[brand];
   const cx = (x1 + x2) / 2;
   const half = (x2 - x1) / 2 - WALL_THICK / 2;

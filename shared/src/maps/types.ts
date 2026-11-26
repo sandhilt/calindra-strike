@@ -81,6 +81,7 @@ export interface LiftStopDoor {
 export type MapProp =
   | { kind: 'speaker'; x: number; y: number; z: number; yaw: number; station: StationId }
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
+  | { kind: 'santa'; x: number; y: number; z: number; yaw: number; pose: 'standing' | 'seated' }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
   | { kind: 'clothesRack'; x: number; y: number; z: number; yaw: number; length: number; palette: readonly number[] }
   /** A moving staircase over the foot-to-top `stairs` boxes: foot centre (at height `y`) and the unit direction that goes uphill. */

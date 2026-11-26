@@ -1,3 +1,4 @@
+import { AVATAR_HEAD_WIDTH, AVATAR_HEAD_Y, AVATAR_HIP_Y, AVATAR_LEG_OFFSET, AVATAR_TORSO_DEPTH, AVATAR_TORSO_WIDTH } from './avatar-proportions.ts';
 import { STANCE, STANCES, type Stance, WEAPON, type WeaponId } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
@@ -133,19 +134,19 @@ export class Avatar {
 
     // legs pivot at the hip
     for (const [leg, x] of [
-      [this.legL, -5.5],
-      [this.legR, 5.5],
+      [this.legL, -AVATAR_LEG_OFFSET],
+      [this.legR, AVATAR_LEG_OFFSET],
     ] as const) {
-      leg.position.set(x, 32, 0);
+      leg.position.set(x, AVATAR_HIP_Y, 0);
       part(leg, 9, 28, 10, pants, 0, -14, 0);
       part(leg, 10, 5, 13, boots, 0, -29.5, -1.5);
       part(leg, 9.4, 4, 2, dark, 0, -12, -5.2);
       this.root.add(leg);
     }
 
-    this.upper.position.y = 32;
+    this.upper.position.y = AVATAR_HIP_Y;
     part(this.upper, 24, 6, 14, dark, 0, 1, 0);
-    part(this.upper, 24, 21, 14, body, 0, 14, 0);
+    part(this.upper, AVATAR_TORSO_WIDTH, 21, AVATAR_TORSO_DEPTH, body, 0, 14, 0);
     part(this.upper, 19, 14, 2.4, dark, 0, 14, -8);
     part(this.upper, 19.2, 1.8, 2.6, lime, 0, 19, -8.2);
     part(this.upper, 17, 18, 7, dark, 0, 14, 10);
@@ -153,9 +154,9 @@ export class Avatar {
     part(this.upper, 7, 7, 8, body, 14, 22, 0);
     this.root.add(this.upper);
 
-    this.head.position.set(0, 26, 0);
+    this.head.position.set(0, AVATAR_HEAD_Y - AVATAR_HIP_Y, 0);
     part(this.head, 7, 4, 7, dark, 0, 1, 0);
-    part(this.head, 14, 12, 14, body, 0, 8.5, 0);
+    part(this.head, AVATAR_HEAD_WIDTH, 12, AVATAR_HEAD_WIDTH, body, 0, 8.5, 0);
     part(this.head, 15, 3, 15, dark, 0, 13.5, 0);
     part(this.head, 12, 5, 2, visor, 0, 8, -7.4);
     part(this.head, 12.2, 0.8, 2.2, lime, 0, 5.4, -7.5);

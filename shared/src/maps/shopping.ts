@@ -3,7 +3,7 @@ import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
 import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
-import { DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
+import { CANOPY_BOTTOM, DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressDeckWalls } from './shopping-deck-walls.ts';
 import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor, type MiranteShops } from './shopping-top.ts';
@@ -150,7 +150,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
  * the food court upstairs, the Mirante gallery above it, escalators and a glass lift between them.
  * North half authored once and mirrored 180 degrees.
  */
-export function buildShopping(): MapDef {
+export function buildShopping({ displayCar = true } = {}): MapDef {
   const b = new MapBuilder();
 
   b.add(-X - 64, -32, -Z - 64, X + 64, 0, Z + 64, 'tile');
@@ -193,7 +193,7 @@ export function buildShopping(): MapDef {
     topFloor(b, MIRANTE_SHOPS[half]);
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through
-    b.deco(-X, ROOF + 8, GALLERY_Z, X, ROOF + 12, 0, 'glass');
+    b.deco(-X, CANOPY_BOTTOM, GALLERY_Z, X, CANOPY_BOTTOM + 4, 0, 'glass');
 
     for (const { x1, x2, travel, name } of ESCALATORS) {
       escalator(b, x1, x2, travel);
@@ -217,7 +217,7 @@ export function buildShopping(): MapDef {
     b.deco(-X, 120, -560, -X + 2, 280, -400, 'logo');
     b.deco(-X, 100, -300, -X + 2, 260, -140, 'eitri');
 
-    coverShopping(b);
+    coverShopping(b, displayCar);
 
     b.point(0, -480);
     b.point(-1150, -200);

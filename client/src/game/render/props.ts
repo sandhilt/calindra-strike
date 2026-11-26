@@ -26,6 +26,7 @@ import {
 } from './prop-motion.ts';
 import { addClothesRack, addEscalatorBody, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
+import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
 import { canvasTexture } from './textures.ts';
 
@@ -85,13 +86,17 @@ class Spinners {
   private readonly spin = new THREE.Quaternion();
   private readonly yawAxis = new THREE.Vector3(0, 1, 0);
   private readonly matrix = new THREE.Matrix4();
+  private readonly slots: readonly SpinSlot[];
+  private readonly radPerSecond: number;
 
   constructor(
     geometry: THREE.BufferGeometry,
     material: THREE.Material,
-    private readonly slots: readonly SpinSlot[],
-    private readonly radPerSecond: number,
+    slots: readonly SpinSlot[],
+    radPerSecond: number,
   ) {
+    this.slots = slots;
+    this.radPerSecond = radPerSecond;
     this.mesh = new THREE.InstancedMesh(geometry, material, slots.length);
     this.mesh.frustumCulled = false;
     this.pose(0);
@@ -682,6 +687,10 @@ function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: Prop
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
   mannequin: buildMannequins,
+  santa(items, { statics }) {
+    for (const item of items) addSanta(statics, item);
+    return still();
+  },
   clothesRack: buildClothesRacks,
   escalator: buildEscalators,
   fountain: buildFountains,

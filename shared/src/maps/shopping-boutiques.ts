@@ -494,7 +494,7 @@ export function boutiqueShop(b: MapBuilder, brand: GalleryShopBrand, x1: number,
   shell(r, half, spec);
   spec.dress(r, half);
   r.staff(0, CASHIER_Z, 'front', 'cashier', brand);
-  r.vent(0, 152, BACK_WALL_DEPTH + 4, 'front');
+  r.vent(0, 152, BACK_WALL_DEPTH, 'front');
   facade(b, x1, x2, brand, spec);
   b.light(cx, DECK3 + LAMP_Y, -Z + 200, '#ffe9bd');
   b.interior(cx + spec.browseX, DECK3, -Z + 142);

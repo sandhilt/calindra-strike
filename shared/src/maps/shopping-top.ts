@@ -291,7 +291,6 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   b.block(cx, -Z + 52, 140, 36, 40, 'desk', DECK3);
   const room = new Room(b, cx, DECK3, -Z);
   dressStore(room, brand);
-  room.vent(0, 152, 8, 'front');
   pharmacyFacade(b, cx, brand);
   pharmacySideWalls(b, cx);
   pharmacyFloor(b, cx);

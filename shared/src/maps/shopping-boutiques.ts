@@ -244,6 +244,9 @@ function rayBao(r: Room, half: number): void {
   r.mirror(half - 1, RAY_MIRROR_Z, 6, 46, 130, 'right');
 }
 
+/** Depth of the sports shop try-on mirrors, between the back displays and the bike. */
+const SENTAURO_MIRROR_Z = 60;
+
 const KIT = [0xe4002b, 0x161616, 0xf5f5f5, 0x2e2e2e];
 
 function sentauro(r: Room, half: number): void {
@@ -279,6 +282,8 @@ function sentauro(r: Room, half: number): void {
   r.box(bikeX, 154, 24, 5, 4, 46, 'charcoal');
   r.box(bikeX, 174, 5, 5, 29, 6, 'wood', 0xa8b1c2);
   r.box(bikeX, 175, 14, 15, 4, 35, 'charcoal');
+  r.mirror(-half + 1, SENTAURO_MIRROR_Z, 6, 46, 130, 'left');
+  r.mirror(half - 1, SENTAURO_MIRROR_Z, 6, 46, 130, 'right');
 }
 
 const TOYS = [0xe4002b, 0x1f6fd1, 0x2f9e44, 0xf2c200, 0xff7ab0, 0xff7a1a];

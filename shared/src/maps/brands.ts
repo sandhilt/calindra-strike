@@ -12,7 +12,7 @@ export const STORE_BRANDS = {
   outbaque: { name: 'Outbaque', kind: 'food' },
   madeiro: { name: 'Madeiro', kind: 'food' },
   bobis: { name: "Bobo's", kind: 'food' },
-  zarra: { name: 'ZARRA', kind: 'shop' },
+  zarra: { name: 'ZORRA', kind: 'shop' },
   cea: { name: 'C&Á', kind: 'shop' },
   rener: { name: 'Rener', kind: 'shop' },
   hew: { name: 'H&W', kind: 'shop' },

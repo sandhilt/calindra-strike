@@ -10,6 +10,8 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
+- The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
 - Shooting water splashes: `water` is its own surface (splash sound, pale blue spray) instead of ringing as glass, and still gets the pane impact on the way through (`isPane` in `shared/src/surface.ts`).
 - The shopping air ducts are painted light again (the `white` look they had before), while still ringing as metal (`buildWorld`).
 - The lobby and pause menu **issues?** link opens a new issue with the build commit (`__BUILD_COMMIT__`, set in `client/vite.config.ts`), protocol version, browser, window size and language prefilled in the body (`newIssueUrl` in `client/src/feedback.ts`).

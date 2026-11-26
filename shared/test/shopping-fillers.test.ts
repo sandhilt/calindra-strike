@@ -67,8 +67,8 @@ describe('mirrors in the clothing stores', () => {
     });
   }
 
-  it('hangs two mirrors per clothing store and two try-on mirrors at Ray-Bão, and none anywhere else', () => {
-    assert.equal(mirrors.length, CLOTHING.length * 2 + 2);
+  it('hangs two mirrors per clothing store and two try-on mirrors each at Ray-Bão and Minotauro, and none anywhere else', () => {
+    assert.equal(mirrors.length, CLOTHING.length * 2 + 4);
   });
 
   it('keeps every mirror clear of every other box on the map', () => {

@@ -184,7 +184,7 @@ const SIGNS: Record<StoreBrand, (g: G, christmas?: boolean) => void> = {
     g.save();
     g.translate(W / 2, H / 2);
     g.scale(1.3, 1);
-    label(g, 'ZARRA', 0, 6, 120, '#111111', 'Didot, "Bodoni MT", ' + SERIF, 340);
+    label(g, 'ZORRA', 0, 6, 120, '#111111', 'Didot, "Bodoni MT", ' + SERIF, 340);
     g.restore();
   },
   cea(g) {

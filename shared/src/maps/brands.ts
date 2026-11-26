@@ -28,6 +28,8 @@ export const STORE_BRANDS = {
   sentauro: { name: 'Sentauro', kind: 'boutique' },
   'brinco-center': { name: 'Brinco Center', kind: 'boutique' },
   loccitano: { name: "L'Occitano", kind: 'boutique' },
+  'pe-leve': { name: 'Calçados Pé Leve', kind: 'boutique' },
+  essencia: { name: 'Perfumaria Essência', kind: 'boutique' },
 } as const satisfies Record<string, { name: string; kind: 'food' | 'shop' | 'boutique' }>;
 
 export type StoreBrand = keyof typeof STORE_BRANDS;

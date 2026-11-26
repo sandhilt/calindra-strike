@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- Each half of the Mirante gets one more boutique, Calçados Pé Leve and Perfumaria Essência, beside the cafe, whose counter is narrower now (`shared/src/maps/shopping-top.ts`, `shopping-boutiques.ts`, `client/src/game/render/store-signs.ts`).
 - Shopping Sul Rio atrium ad columns carry on to the roof with a thin non-solid mast and a hanging sign of the same brand, so they read as held up by the ceiling (`shared/src/maps/shopping-cover.ts`).
 - The lobby offers a fullscreen hint and a button on browsers that support fullscreen (`client/src/ui/lobby.ts`).
 - Both Konami debug views can enter and exit browser fullscreen from the panel (`client/src/debug/weapon-viewer.ts`).

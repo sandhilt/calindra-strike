@@ -226,6 +226,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     g.fill();
     label(g, 'JOIAS E CHARMS', W / 2, 192, 30, '#8d8d8d', 'Arial, sans-serif', W - 120, 'bold');
   },
+  'pe-leve'(g) {
+    panel(g, '#1f3d2b');
+    label(g, 'Pé Leve', W / 2, 104, 104, '#f4e3b0', SERIF, W - 60, 'italic bold');
+    label(g, 'CALÇADOS', W / 2, 196, 32, '#f4e3b0', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  essencia(g) {
+    panel(g, '#f3e6ef');
+    label(g, 'Essência', W / 2, 104, 100, '#7a2f5a', SERIF, W - 60, 'italic bold');
+    label(g, 'PERFUMARIA', W / 2, 196, 30, '#7a2f5a', 'Arial, sans-serif', W - 120, 'bold');
+  },
   sentauro(g) {
     panel(g, '#e4002b');
     g.fillStyle = '#161616';

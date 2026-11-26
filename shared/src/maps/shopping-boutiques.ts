@@ -11,6 +11,8 @@ import { wallShelves } from './shopping-stores.ts';
  */
 
 export type SmallBoutique = 'pandorga' | 'loccitano';
+/** The shops either side of the cafe's partition on the Mirante lounge, one per half. */
+export type LoungeBoutique = 'pe-leve' | 'essencia';
 export type LargeBoutique = 'samsong' | 'ray-bao' | 'sentauro' | 'brinco-center';
 
 /** Partitions and the storefront stand this tall; the doorway is the full width between the wall returns. */
@@ -89,6 +91,32 @@ function loccitano(r: Room, half: number): void {
   for (let i = 0; i < 4; i++) r.box(-(half - 36) - 12 + (i % 2) * 24, 160 + Math.floor(i / 2) * 20, 8, 8, 14, 32, 'white', PROVENCE[i % PROVENCE.length]);
 }
 
+const SHOES = [0xf4e3b0, 0x1f3d2b, 0xd7263d, 0xf5f5f5, 0x6b4a32, 0x1b1b1b];
+
+function peLeve(r: Room, half: number): void {
+  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, SHOES, 101, 0xe6efe8);
+  till(r, 0, 120, 0x1f3d2b);
+  for (const side of [-1, 1]) {
+    r.solid(side * 80, 150, 90, 34, 14, 0, 'wood', 0xb98a58);
+    for (let i = 0; i < 5; i++) r.box(side * 80 - 36 + i * 18, 150, 14, 24, 8, 14, 'white', SHOES[(i + (side > 0 ? 2 : 0)) % SHOES.length]);
+  }
+  r.solid(0, 205, 110, 28, 20, 0, 'sofa', 0x1f3d2b);
+  r.box(0, 190, 2 * half - 20, 60, 0.8, 0, 'carpet', 0xd9e6dc);
+}
+
+const SCENTS = [0xf3c6dd, 0x8a6fc0, 0xf2c200, 0x4fb0c6, 0xffffff, 0xd7263d];
+
+function essencia(r: Room, half: number): void {
+  wallShelves(r, 0, 8, 2 * half - 14, 14, 4, SCENTS, 102, 0xf6ecf2);
+  till(r, 0, 120, 0x7a2f5a);
+  for (const side of [-1, 1]) {
+    showcase(r, side * 85, 150, 90, 40, 0xf6ecf2, SCENTS, 103 + side);
+    r.solid(side * 85, 205, 40, 40, 36, 0, 'white', 0xe9d3e0);
+    for (let i = 0; i < 3; i++) r.box(side * 85 - 10 + i * 10, 205, 7, 7, 14, 36, 'glass', SCENTS[(i + 1) % SCENTS.length]);
+  }
+  r.box(0, 190, 2 * half - 20, 60, 0.8, 0, 'carpet', 0xe9c8d6);
+}
+
 const SCREENS = 5;
 
 function samsong(r: Room, half: number): void {
@@ -163,6 +191,8 @@ function brincoCenter(r: Room, half: number): void {
 const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
   pandorga: { paint: 0xfaf3f6, trim: 0xe77aa6, floor: 0xf4eef1, browseX: 20, dress: pandorga },
   loccitano: { paint: 0xf6e9bd, trim: 0x1c3a6b, floor: 0xe7d6a2, browseX: 0, dress: loccitano },
+  'pe-leve': { paint: 0xeef4ef, trim: 0x1f3d2b, floor: 0xdbe5dd, browseX: 0, dress: peLeve },
+  essencia: { paint: 0xf8eff4, trim: 0x7a2f5a, floor: 0xeedbe5, browseX: 0, dress: essencia },
   samsong: { paint: 0xeef1f8, trim: 0x1428a0, floor: 0xdfe3ec, browseX: 0, dress: samsong },
   'ray-bao': { paint: 0xf7f4f1, trim: 0xd71f26, floor: 0xe7e1da, browseX: 0, dress: rayBao },
   sentauro: { paint: 0xefefef, trim: 0xe4002b, floor: 0xcfcfcf, browseX: 0, dress: sentauro },

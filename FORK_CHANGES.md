@@ -12,6 +12,7 @@ Changes made after the baseline, newest day first.
 ### 2026-11-26
 
 - `F2` (remappable, **tirar print**) saves a PNG of the 3D view (`client/src/screenshot.ts`). It is browser-only, so the MCP cover test accepts `browser-only` keys with a reason.
+- Store staff: a cashier behind each Mirante boutique till (in a cubby the till now closes with side panels), and a cook and a server in every food court kitchen, each in its brand's uniform. They are look only, placed where no player can reach (the boutique tills are 50 units tall, above the jump, and the Pé Leve shoe shelves and the lowest Brinco Center shelf sit clear of the cashier, and their arms move on the high and low tiers (`staff` prop in `types.ts`, `staff.ts` for the uniforms, `client/src/game/render/staff.ts` for the figures, `staffMotion` in `quality.ts`). `shared/test/staff.test.ts` pins the placement.
 - Mirrors are their own `mirror` material (shiny silver, opaque) that rings as glass when shot, instead of plaster (`Room.mirror`, `SURFACE_OF`).
 - Santas wear the black visor band across the face again.
 - Debug explorer (Konami code, **cenário**): a **sons do cenário** checkbox plays the map's ambient loops and speaker music, and a **movimento** row switches between flying and **andar**, where the walker moves, jumps and crouches under the match's rules and left click fires the selected **arma** with tracers, impacts and surface sounds. Key files: `client/src/debug/scenario-explorer.ts`, `client/src/debug/scenario-walk.ts`.

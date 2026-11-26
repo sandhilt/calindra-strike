@@ -1,4 +1,5 @@
 import type { MapBuilder } from './builder.ts';
+import type { StaffRole, StaffUniform } from './staff.ts';
 import type { CookVoice, Mat, Outfit } from './types.ts';
 
 /** Where a prop looks: toward the viewer who comes in (+z in a room), or at the back wall. */
@@ -55,6 +56,11 @@ export class Room {
   mannequin(x: number, z: number, gaze: Gaze | number, outfit: Outfit, y = 0): void {
     const yaw = typeof gaze === 'number' ? gaze : GAZE_YAW[gaze];
     this.b.prop({ kind: 'mannequin', x: this.ox + x, y: this.oy + y, z: this.oz + z, yaw, outfit });
+  }
+
+  /** A store employee at (x, z) on height y, facing `gaze`: behind a till, or at a station inside a kitchen. */
+  staff(x: number, z: number, gaze: Gaze, role: StaffRole, uniform: StaffUniform, y = 0): void {
+    this.b.prop({ kind: 'staff', x: this.ox + x, y: this.oy + y, z: this.oz + z, yaw: GAZE_YAW[gaze], role, uniform });
   }
 
   rack(x: number, z: number, gaze: Gaze, length: number, palette: readonly number[], y = 0): void {

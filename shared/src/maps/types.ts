@@ -3,7 +3,7 @@ import type { Lift } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
 import type { Vec3 } from '../math.ts';
 import type { BrandMat, FoodBrand } from './brands.ts';
-
+import type { StaffRole, StaffUniform } from './staff.ts';
 import type { StationId } from './stations.ts';
 
 export type BaseMat =
@@ -84,6 +84,8 @@ export type MapProp =
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
   | { kind: 'santa'; x: number; y: number; z: number; yaw: number; pose: 'standing' | 'seated' }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
+  /** A store employee behind a till or inside a kitchen: a mannequin in a uniform. Scenery only, never a player, bot or target. */
+  | { kind: 'staff'; x: number; y: number; z: number; yaw: number; role: StaffRole; uniform: StaffUniform }
   | { kind: 'clothesRack'; x: number; y: number; z: number; yaw: number; length: number; palette: readonly number[] }
   /** A moving staircase over the foot-to-top `stairs` boxes: foot centre (at height `y`) and the unit direction that goes uphill. */
   | { kind: 'escalator'; travel: EscalatorTravel; y: number; x: number; z: number; dirX: number; dirZ: number; width: number; length: number; height: number }

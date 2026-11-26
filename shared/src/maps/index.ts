@@ -7,6 +7,7 @@ import type { MapDef } from './types.ts';
 export * from './types.ts';
 export * from './brands.ts';
 export * from './stations.ts';
+export * from './staff.ts';
 export { MapBuilder } from './builder.ts';
 export * from './water.ts';
 export * from './duct.ts';

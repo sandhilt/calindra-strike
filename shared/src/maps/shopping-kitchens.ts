@@ -228,7 +228,19 @@ function flameGrill(r: Room, x: number): void {
   for (const dx of [-14, 14]) r.flame(x + dx, 17, 35, 13);
 }
 
-function fastKitchen(r: Room, spec: FastSpec): void {
+/** Where the cook stands, clear of every kitchen's equipment, and where the server stands behind the serving window. */
+const COOK_X = -120;
+const COOK_Z = 52;
+const SERVER_X = -140;
+const SERVER_Z = 84;
+
+/** The people behind a food court counter, all inside the kitchen so players never reach them: a cook at a station and a server at the window. */
+function kitchenStaff(r: Room, brand: FoodBrand): void {
+  r.staff(COOK_X, COOK_Z, 'back', 'cook', brand);
+  r.staff(SERVER_X, SERVER_Z, 'front', 'server', brand);
+}
+
+function fastKitchen(r: Room, spec: FastSpec, brand: FoodBrand): void {
   shell(r, spec.accent);
   fridge(r, -138, spec.accent);
   fridge(r, 138, spec.accent);
@@ -246,6 +258,7 @@ function fastKitchen(r: Room, spec: FastSpec): void {
   shelf(r, -70, 56, 60, [spec.accent, 0xfff4d6, spec.accent, 0xfff4d6, spec.accent]);
   menuBoards(r, -112, 112);
   spec.extras(r);
+  kitchenStaff(r, brand);
 }
 
 function bucketStack(r: Room, x: number): void {
@@ -395,7 +408,7 @@ function wineRack(r: Room, x: number): void {
   }
 }
 
-function grillKitchen(r: Room, spec: GrillSpec): void {
+function grillKitchen(r: Room, spec: GrillSpec, brand: FoodBrand): void {
   shell(r, spec.accent);
   fridge(r, -142, spec.accent);
   prepTable(r, 24, 90, 66);
@@ -403,6 +416,7 @@ function grillKitchen(r: Room, spec: GrillSpec): void {
   shelf(r, 88, 56, 60, [0xf2e4c4, spec.accent, 0xf2e4c4, spec.accent]);
   menuBoards(r, -112, 112);
   spec.extras(r);
+  kitchenStaff(r, brand);
 }
 
 const GRILL_SPECS = {
@@ -502,8 +516,8 @@ const KITCHENS: Record<FoodBrand, Kitchen> = {
  */
 export function buildKitchen(r: Room, brand: FoodBrand): void {
   const kitchen = KITCHENS[brand];
-  if (kitchen.kind === 'fast') fastKitchen(r, kitchen.spec);
-  else grillKitchen(r, kitchen.spec);
+  if (kitchen.kind === 'fast') fastKitchen(r, kitchen.spec, brand);
+  else grillKitchen(r, kitchen.spec, brand);
 }
 
 /** Counter front colour of a food court kitchen: the brand's accent. */

@@ -245,6 +245,16 @@ const SIGNS: Record<StoreBrand, (g: G) => void> = {
     label(g, 'Pé Leve', W / 2, 104, 104, '#f4e3b0', SERIF, W - 60, 'italic bold');
     label(g, 'CALÇADOS', W / 2, 196, 32, '#f4e3b0', 'Arial, sans-serif', W - 120, 'bold');
   },
+  'linha-fina'(g) {
+    panel(g, '#30544e');
+    label(g, 'Linha Fina', W / 2, 104, 82, '#f2eee4', SERIF, W - 60, 'italic bold');
+    label(g, 'PAPELARIA', W / 2, 196, 30, '#f2eee4', 'Arial, sans-serif', W - 120, 'bold');
+  },
+  'papel-e-cor'(g) {
+    panel(g, '#7b3d54');
+    label(g, 'Papel & Cor', W / 2, 104, 76, '#f6efe4', SERIF, W - 60, 'bold');
+    label(g, 'PAPELARIA', W / 2, 196, 30, '#f6efe4', 'Arial, sans-serif', W - 120, 'bold');
+  },
   essencia(g) {
     panel(g, '#f3e6ef');
     label(g, 'Essência', W / 2, 104, 100, '#7a2f5a', SERIF, W - 60, 'italic bold');

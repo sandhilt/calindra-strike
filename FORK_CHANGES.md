@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- Shopping Sul Rio: Natal no longer hangs a garland in mid air past the end of a Mirante fascia board (beside the Pandorga and L'Occitano signs): a storefront garland goes up only where fascia or wall covers its whole width behind it, and `shopping-natal.test.ts` checks every garland strand hangs flush on a fascia, wall or rail.
 - Shopping Sul Rio: Natal gets more Christmas: the glass lift cab carries garlands, wreaths and gifts that ride with it (`festive` on the `lift` prop, `addCabDecor` in `client/src/game/render/christmas.ts`, one merged mesh per cab), holly with baubles and a bow hangs beside each lift level sign with the sign face clear, and three snowmen (a new `snowman` prop, merged into the static props mesh) stand on a snow patch in the dead-end corner of each up escalator landing on the Mirante, clear of its exit. `shopping-natal.test.ts` and `client/test/christmas-props.test.ts` pin it.
 
 - The Shopping Sul Rio atrium loses its tables (the wooden Quiosque and the low wood table) and is spread out more evenly: the central cart, planter and info totem cluster by the lift moves out, and four small closed kiosks (Bobo's, Livraria da Travessura, Méqui, KFG) and two slim LED totems per half fill the empty patches. Kiosks and totems carry digital ad screens that hold each ad and slide to the next, a new `adScreen` prop drawn as one merged mesh over one shared ad strip (`shopping-cover.ts`, `props.ts`, `adScroll` in `prop-motion.ts`), moving only where `ambientMotion` is on.

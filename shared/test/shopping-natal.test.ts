@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { getMaps } from '../src/index.ts';
 import { isBrandMat } from '../src/maps/brands.ts';
 import { buildShopping } from '../src/maps/shopping.ts';
-import { buildShoppingNatal, GARLAND_TINTS, SNOWMAN_EXIT_CLEARANCE } from '../src/maps/shopping-natal.ts';
+import { buildShoppingNatal, covers, GARLAND_TINTS, SNOWMAN_EXIT_CLEARANCE } from '../src/maps/shopping-natal.ts';
 import { BAY_ESCALATORS, BAY_TOP_Z, CANOPY_BOTTOM, DECK, DECK3, FACADE_Z, GALLERY_Z, TOP_X, X, Z } from '../src/maps/shopping-levels.ts';
 import type { Box } from '../src/maps/types.ts';
 
@@ -133,6 +133,18 @@ describe('Shopping Sul Rio: Natal', () => {
         b.min.y < sign.max.y && b.max.y > sign.min.y);
       assert.equal(hit, undefined, `decoration obscures ${sign.mat} at ${JSON.stringify(sign.min)}`);
     }
+  });
+
+  it('hangs every garland strand flush on a fascia, wall or rail, never in mid air', () => {
+    const strands = garlands.filter((box) => box.tint === GARLAND_TINTS[0] && box.max.y - box.min.y === 5 && box.max.z - box.min.z === 4);
+    assert.ok(strands.length > 0);
+    const backing = retained.filter((box) => box.visible && !isBrandMat(box.mat));
+    const floating = strands.filter((strand) => {
+      const midY = (strand.min.y + strand.max.y) / 2;
+      const behind = backing.filter((box) => box.min.z <= strand.max.z + 1 && box.max.z >= strand.min.z - 1 && box.min.y <= midY && box.max.y >= midY);
+      return !covers(behind, strand.min.x + SLACK_UNITS, strand.max.x - SLACK_UNITS);
+    });
+    assert.deepEqual(floating.map(ownKey), []);
   });
 
   it('keeps shop displays out of the first 64 units of public aisle', () => {

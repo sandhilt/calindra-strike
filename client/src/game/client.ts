@@ -1079,6 +1079,12 @@ export class ClientGame {
     }
   }
 
+  private readonly carrierBack = (id: number): THREE.Object3D | undefined => {
+    const remote = this.remotes.get(id);
+    if (remote?.avatar.root.visible) return remote.avatar.backMount;
+    return undefined;
+  };
+
   private readonly carrierPose = (id: number): CarrierPose | undefined => {
     if (id === this.myId && !this.spectator) return { x: this.me.x, y: this.me.y, z: this.me.z, yaw: this.input.yaw, firstPerson: true };
     const remote = this.remotes.get(id);
@@ -1792,7 +1798,7 @@ export class ClientGame {
     this.updateCarrapetaView();
     for (const a of this.airdrops.values()) a.update(dt, this.elapsed, this.camera.position);
     this.suppliesView?.update(this.supplyFull, this.elapsed);
-    this.flagRenderer?.update(this.flags, this.serverNow(), this.elapsed, this.carrierPose);
+    this.flagRenderer?.update(this.flags, this.serverNow(), this.carrierBack);
     this.colleaguesView?.update(this.lunch?.colleagues ?? [], dt);
     this.lunchTargetView?.update(this.lunchTarget(), this.elapsed);
     const site = this.bomb && bombPlaces(this.map, this.bombBases, this.bomb.attackers).site;
@@ -2235,7 +2241,7 @@ export class ClientGame {
       if (flag.team !== this.myTeam || flag.state === 'dropped') {
         if (flag.state === 'carried' && flag.carrier === this.myId) continue;
         const at = this.flagRenderer?.position(flag.team) ?? flag;
-        targets.push({ x: at.x, y: at.y + 100, z: at.z, label: 'bandeira dos ' + TEAMS[flag.team].name });
+        targets.push({ x: at.x, y: at.y + 100, z: at.z, label: 'mochila dos ' + TEAMS[flag.team].name });
       }
     }
     this.bombMarkers(targets);

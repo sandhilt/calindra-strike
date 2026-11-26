@@ -20,9 +20,9 @@ test('status uses carrier names and server deadline with nonnegative rounded sec
 });
 
 test('feed distinguishes all actions and automatic return', () => {
-  assert.equal(flagMessage('take', 0, 7, 'Ana'), 'Ana roubou a bandeira dos Bulldogs!');
-  assert.equal(flagMessage('drop', 1, 7, 'Ana'), 'Ana derrubou a bandeira dos Martelos!');
-  assert.equal(flagMessage('capture', 1, 7, 'Ana'), 'Ana capturou a bandeira dos Martelos!');
-  assert.equal(flagMessage('return', 0, 7, 'Ana'), 'Ana devolveu a bandeira dos Bulldogs!');
-  assert.equal(flagMessage('return', 0, -1, ''), 'bandeira dos Bulldogs voltou sozinha');
+  assert.equal(flagMessage('take', 0, 7, 'Ana'), 'Ana roubou a mochila dos Bulldogs!');
+  assert.equal(flagMessage('drop', 1, 7, 'Ana'), 'Ana derrubou a mochila dos Martelos!');
+  assert.equal(flagMessage('capture', 1, 7, 'Ana'), 'Ana capturou a mochila dos Martelos!');
+  assert.equal(flagMessage('return', 0, 7, 'Ana'), 'Ana devolveu a mochila dos Bulldogs!');
+  assert.equal(flagMessage('return', 0, -1, ''), 'mochila dos Bulldogs voltou sozinha');
 });

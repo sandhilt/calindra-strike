@@ -93,6 +93,8 @@ const AIM_LIFT_RAD = 0.32;
 /** Stylized soldier sized to the hitboxes: legs 0-32, torso 32-58, head 58-72. */
 export class Avatar {
   readonly root = new THREE.Group();
+  get backMount(): THREE.Object3D { return this.upper; }
+
   private readonly upper = new THREE.Group();
   private readonly legL = new THREE.Group();
   private readonly legR = new THREE.Group();

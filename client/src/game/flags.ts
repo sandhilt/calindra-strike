@@ -22,7 +22,7 @@ export function flagStatus(flag: FlagView, now: number, name: (id: number) => st
 }
 
 export function flagMessage(what: FlagAction, team: number, by: number, name: string): string {
-  const target = `bandeira dos ${TEAMS[team].name}`;
+  const target = `mochila dos ${TEAMS[team].name}`;
   if (by < 0) return `${target} voltou sozinha`;
   const verbs = { take: 'roubou', drop: 'derrubou', return: 'devolveu', capture: 'capturou' };
   return `${name} ${verbs[what]} a ${target}!`;

@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- The Shopping Sul Rio atrium loses its tables (the wooden Quiosque and the low wood table) and is spread out more evenly: the central cart, planter and info totem cluster by the lift moves out, and four small closed kiosks (Bobo's, Livraria da Travessura, Méqui, KFG) and two slim LED totems per half fill the empty patches. Kiosks and totems carry digital ad screens that hold each ad and slide to the next, a new `adScreen` prop drawn as one merged mesh over one shared ad strip (`shopping-cover.ts`, `props.ts`, `adScroll` in `prop-motion.ts`), moving only where `ambientMotion` is on.
 - The lift level signs are no longer covered: the Natal wreaths over the lift doorways are gone, the signs sit 14 units over the doorway so the drawn lintel and lamp clear them, and `shopping-natal.test.ts` now checks every decoration, not only garlands, against every sign face.
 - The Batatas Douradas (`mequi`) sign has narrower arches and a clear gap before its words.
 - `F2` (remappable, **tirar print**) saves a PNG of the 3D view (`client/src/screenshot.ts`). It is browser-only, so the MCP cover test accepts `browser-only` keys with a reason.

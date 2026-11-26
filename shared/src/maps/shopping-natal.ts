@@ -122,8 +122,6 @@ function decorations(b: MapBuilder, base: MapDef): void {
 
   // The sleigh and its team share the former car's plinth.
   sleigh(860, 8, -292);
-  drift(-800, 40, -320, 120, 56);
-  drift(220, 18, -440, 110, 26);
   drift(-300, 108, -440, 60, 60);
 
   // Food court and Mirante: a tree and Santa on each level. The food court tree stands in the corner by the rail, off the escalator approaches.

@@ -231,3 +231,19 @@ export function staffArmSwing(seconds: number, seed: number, role: StaffRole, si
   }
   return 0.35 + 0.2 * Math.sin(swingPhase(seconds, SERVE_PERIOD_S, seed));
 }
+
+/** How long an ad screen holds one ad, and how long it takes to slide to the next (seconds, tuning values). */
+export const AD_HOLD_SECONDS = 4;
+export const AD_SLIDE_SECONDS = 0.6;
+
+/**
+ * How far an ad screen has scrolled through its loop, in ads: a whole number while an ad holds, easing to the next
+ * whole number while it slides. It only grows, so the loop wraps by taking it modulo the number of ads.
+ */
+export function adScroll(seconds: number): number {
+  const cycle = AD_HOLD_SECONDS + AD_SLIDE_SECONDS;
+  const shown = Math.floor(seconds / cycle);
+  const sliding = (seconds - shown * cycle - AD_HOLD_SECONDS) / AD_SLIDE_SECONDS;
+  if (sliding <= 0) return shown;
+  return shown + sliding * sliding * (3 - 2 * sliding);
+}

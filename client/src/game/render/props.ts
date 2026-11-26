@@ -1,6 +1,8 @@
-import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind, type StationId } from '@calindra-strike/shared';
+import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind, type StationId, type StoreBrand } from '@calindra-strike/shared';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
+  adScroll,
   CASCADE_DROP,
   CEILING_FAN_RAD_PER_S,
   JET_DROP,
@@ -29,6 +31,7 @@ import { newPropMaterial, Parts } from './prop-parts.ts';
 import { addSanta } from './santa.ts';
 import { addStaffBody, StaffArms } from './staff.ts';
 import type { QualityProfile } from './quality.ts';
+import { signCanvas } from './store-signs.ts';
 import { canvasTexture } from './textures.ts';
 
 type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
@@ -705,6 +708,58 @@ function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: Prop
   return still();
 }
 
+/** The ads every screen loops through, in order. Each screen starts at its own place in the loop. */
+const SCREEN_ADS: readonly StoreBrand[] = ['mequi', 'zarra', 'kfg', 'cacau-chou', 'amerikanas', 'bobis', 'rener', 'travessura'];
+const AD_PIXELS_WIDE = 256;
+const AD_PIXELS_HIGH = 128;
+
+/** All the ads stacked in one tall texture, top to bottom, so every screen shares one texture and one draw call. */
+function adStrip(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = AD_PIXELS_WIDE;
+  canvas.height = AD_PIXELS_HIGH * SCREEN_ADS.length;
+  const g = canvas.getContext('2d');
+  SCREEN_ADS.forEach((brand, i) => g?.drawImage(signCanvas(brand), 0, i * AD_PIXELS_HIGH, AD_PIXELS_WIDE, AD_PIXELS_HIGH));
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
+/**
+ * Ad screens: one merged mesh over the shared ad strip. Each screen's UVs frame one ad of the strip, a different one per
+ * screen, and the strip slides under all of them at once by moving the texture offset, so a slide costs nothing per
+ * screen. The slide runs with ambient motion (`QualityProfile.ambientMotion`); without it each screen holds its first ad.
+ */
+function buildAdScreens(items: readonly PropOf<'adScreen'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  const count = SCREEN_ADS.length;
+  const planes = items.map((item, i) => {
+    const plane = new THREE.PlaneGeometry(item.width, item.height);
+    plane.rotateY(Math.PI + item.yaw);
+    plane.translate(item.x, item.y, item.z);
+    const uv = plane.getAttribute('uv');
+    const first = i % count;
+    for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (first + 1 - uv.getY(k)) / count);
+    return plane;
+  });
+  const geometry = mergeGeometries(planes);
+  for (const plane of planes) plane.dispose();
+  if (!geometry) return still();
+  const texture = adStrip();
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: texture }));
+  const clock = new MotionClock(ctx.profile);
+  return {
+    object: mesh,
+    update(dt) {
+      if (clock.tick(dt)) texture.offset.y = -adScroll(clock.seconds) / count;
+    },
+    setQuality(profile) {
+      clock.running = profile.ambientMotion;
+    },
+  };
+}
+
 /** One builder per prop kind: a kind added to `MapProp` without one here fails the typecheck. */
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
@@ -723,6 +778,7 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   steam: buildSteam,
   cook: still,
   speaker: buildSpeakers,
+  adScreen: buildAdScreens,
 };
 
 function isPropKind(kind: string): kind is PropKind {

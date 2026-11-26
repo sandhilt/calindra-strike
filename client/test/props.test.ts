@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  AD_HOLD_SECONDS,
+  AD_SLIDE_SECONDS,
   ESCALATOR_SPEED_UNITS_PER_S,
+  adScroll,
   LIFT_DOOR_OPEN_UNITS,
   LIFT_DOOR_SHUT_UNITS,
   doorOpening,
@@ -168,4 +171,20 @@ test('the doors are open at a stop, shut between stops and ease in between', () 
   const mid = doorOpening((LIFT_DOOR_OPEN_UNITS + LIFT_DOOR_SHUT_UNITS) / 2);
   assert.ok(mid > 0.4 && mid < 0.6);
   assert.deepEqual(nearestStop(LIFT_SHAPE.stops, 170), { index: 1, distance: 22 });
+});
+
+test('an ad screen holds each ad, then slides to the next one', () => {
+  const cycle = AD_HOLD_SECONDS + AD_SLIDE_SECONDS;
+  assert.equal(adScroll(0), 0);
+  assert.equal(adScroll(AD_HOLD_SECONDS - 0.01), 0);
+  const midSlide = adScroll(AD_HOLD_SECONDS + AD_SLIDE_SECONDS / 2);
+  assert.ok(midSlide > 0 && midSlide < 1, `mid slide at ${midSlide}`);
+  assert.equal(adScroll(cycle), 1);
+  assert.equal(adScroll(cycle * 3 + 1), 3);
+  let last = 0;
+  for (let t = 0; t < cycle * 4; t += 0.05) {
+    const scroll = adScroll(t);
+    assert.ok(scroll >= last - 1e-9, `scroll went back at ${t}`);
+    last = scroll;
+  }
 });

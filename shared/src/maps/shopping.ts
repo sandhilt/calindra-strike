@@ -203,16 +203,11 @@ export function buildShopping({ displayCar = true } = {}): MapDef {
     storefronts(b, STORES[half]);
     foodCourt(b, FOOD_COURT[half]);
 
-    // atrium: a kiosk, an ATM, a planter and a bench
-    b.block(-800, -320, 128, 64, 40, 'wood');
-    b.deco(-800 - 64, 40, -320 - 32, -800 + 64, 44, -320 + 32);
-    b.add(-830, 40, -300, -770, 76, -296, 'screen', { solid: false });
-    b.landmark('Quiosque', -800, -320);
+    // atrium: an ATM and a planter
     b.block(1000, -360, 40, 32, 72, 'metal');
     b.add(990, 40, -376, 1010, 60, -375, 'screen', { solid: false });
     b.block(-300, -440, 48, 48, 36, 'charcoal');
     b.block(-300, -440, 72, 72, 72, 'plant', 36, { solid: false, shoot: true });
-    b.block(220, -440, 120, 32, 18, 'wood');
 
     b.deco(-X, 120, -560, -X + 2, 280, -400, 'logo');
     b.deco(-X, 100, -300, -X + 2, 260, -140, 'eitri');

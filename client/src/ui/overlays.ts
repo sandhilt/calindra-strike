@@ -83,6 +83,7 @@ const MENU_TABS: Record<MenuTabId, MenuTab> = {
     build: (s, r) =>
       h('div', { class: 'menu-rows' }, [
         r.slider('audio', 'volume', 0, 1, 0.05, () => s.volume, (v) => (s.volume = v), (v) => `${Math.round(v * 100)}%`),
+        r.slider('audio', 'música', 0, 1, 0.05, () => s.musicVolume, (v) => (s.musicVolume = v), (v) => `${Math.round(v * 100)}%`),
         r.seg('music', 'pacote de sons', SOUND_PACKS.map((p) => ({ v: p.id, label: p.label })), () => s.soundPack, (v) => (s.soundPack = v)),
         r.toggle('mic', 'anunciador', 'voz nas sequências de kills', () => s.announcer, (v) => (s.announcer = v), r.canSpeak),
         r.toggle('radio', 'voz do rádio', 'fala o rádio do seu time em voz alta', () => s.radioVoice, (v) => (s.radioVoice = v), r.canSpeak),

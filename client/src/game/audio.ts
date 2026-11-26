@@ -1,5 +1,5 @@
 import { flagVoice } from './sound-packs/classic.ts';
-import { SPRAY_EMPTY_BURSTS, WEAPON, type CookVoice, type ReloadCue, type WeaponId } from '@calindra-strike/shared';
+import { SPRAY_EMPTY_BURSTS, WEAPON, type CookVoice, type ReloadCue, type StationId, type WeaponId } from '@calindra-strike/shared';
 
 import { playReloadCue } from './reload-sounds.ts';
 import { announceStreak, browserSpeaker } from './sound-packs/announcer.ts';
@@ -9,6 +9,7 @@ import type { Pos, SoundKit, Sounds, StreakSound } from './sound-packs/types.ts'
 import { VOICES } from './sound-packs/voices.ts';
 import type { Surface } from './surface.ts';
 import { IMPACT_SOUND } from './surface-sound.ts';
+import { SPEAKER_AUDIBLE_UNITS, trackOffsetSeconds } from './station-tracks.ts';
 import { AIR_AUDIBLE_UNITS } from './render/prop-motion.ts';
 
 /** Longest sound (sniper tail) ends about 1.2 s after it starts; the margin covers timer jitter. */
@@ -18,6 +19,7 @@ const IMPACT_GAP_SECONDS = 0.02;
 
 /** Length of the shared noise buffer, in seconds. */
 const NOISE_BUFFER_SEC = 4;
+const MUSIC_BASE_GAIN = 0.04;
 const AMBIENT_FULL_LEVEL_UNITS = 40;
 const AMBIENT_FADE_SECONDS = 0.25;
 const NOISE_OFFSET_MARGIN_SECONDS = 0.5;
@@ -96,6 +98,10 @@ const MASTER_GAIN_PER_VOLUME = 0.9;
 export class Sfx {
   readonly ctx: AudioContext;
   private master: GainNode;
+  private readonly music: GainNode;
+  private readonly trackClocks = new Map<StationId, {
+    serverMs: number; audioSeconds: number; active: number; fadesUntil: number;
+  }>();
   private noise: AudioBuffer;
   private wind: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private listenerPos = { x: 0, y: 0, z: 0 };
@@ -110,6 +116,8 @@ export class Sfx {
   constructor(volume: number, packId: string) {
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
     this.master = this.ctx.createGain();
+    this.music = this.ctx.createGain();
+    this.music.connect(this.master);
     const comp = this.ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
@@ -156,6 +164,10 @@ export class Sfx {
 
   setVolume(v: number): void {
     this.master.gain.value = v * MASTER_GAIN_PER_VOLUME;
+  }
+
+  setMusicVolume(volume: number): void {
+    this.music.gain.value = volume * MUSIC_BASE_GAIN;
   }
 
   setListener(x: number, y: number, z: number, fx: number, fy: number, fz: number): void {
@@ -540,6 +552,58 @@ export class Sfx {
     };
   }
 
+  private ambientPanner(pos: NonNullable<Pos>, audibleUnits: number): PannerNode {
+    const panner = this.ctx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'linear';
+    panner.refDistance = AMBIENT_FULL_LEVEL_UNITS;
+    panner.maxDistance = audibleUnits;
+    panner.rolloffFactor = 1;
+    panner.positionX.value = pos.x;
+    panner.positionY.value = pos.y;
+    panner.positionZ.value = pos.z;
+    return panner;
+  }
+
+  trackLoop(buffer: AudioBuffer, pos: NonNullable<Pos>, station: StationId, serverMs: number): AmbientLoop {
+    const now = this.ctx.currentTime;
+    let clock = this.trackClocks.get(station);
+    if (!clock || (clock.active === 0 && now >= clock.fadesUntil)) {
+      clock = { serverMs, audioSeconds: now, active: 0, fadesUntil: now };
+      this.trackClocks.set(station, clock);
+    }
+    const timeline = clock;
+    timeline.active += 1;
+    // Keep overlaps sample-aligned even when network clock estimates are corrected.
+    const trackMs = timeline.serverMs + (now - timeline.audioSeconds) * 1000;
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const gain = this.ctx.createGain();
+    const panner = this.ambientPanner(pos, SPEAKER_AUDIBLE_UNITS);
+    source.connect(gain).connect(panner).connect(this.music);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(1, now + AMBIENT_FADE_SECONDS);
+    source.addEventListener('ended', () => {
+      for (const node of [source, gain, panner]) node.disconnect();
+    }, { once: true });
+    source.start(now, trackOffsetSeconds(trackMs, buffer.duration));
+    let stopped = false;
+    return {
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        const stopAt = this.ctx.currentTime;
+        const end = stopAt + AMBIENT_FADE_SECONDS;
+        timeline.active -= 1;
+        timeline.fadesUntil = end;
+        gain.gain.cancelAndHoldAtTime(stopAt);
+        gain.gain.linearRampToValueAtTime(0, end);
+        source.stop(end);
+      },
+    };
+  }
+
   ambientLoop(voice: AmbientVoice, pos: NonNullable<Pos>): AmbientLoop {
     const spec = AMBIENT_VOICES[voice];
     const src = this.ctx.createBufferSource();
@@ -549,15 +613,7 @@ export class Sfx {
     const second = this.ambientFilter(spec.filters[1]);
     const gain = this.ctx.createGain();
     gain.gain.value = 0;
-    const panner = this.ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'linear';
-    panner.refDistance = AMBIENT_FULL_LEVEL_UNITS;
-    panner.maxDistance = spec.audibleUnits;
-    panner.rolloffFactor = 1;
-    panner.positionX.value = pos.x;
-    panner.positionY.value = pos.y;
-    panner.positionZ.value = pos.z;
+    const panner = this.ambientPanner(pos, spec.audibleUnits);
     src.connect(first).connect(second);
     const modulation = this.ambientModulation(second, gain, spec.lfo);
     gain.connect(panner).connect(this.master);

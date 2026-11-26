@@ -145,6 +145,18 @@ it('builder turns props with the half being replayed, and escalators hide their 
   assert.ok(b.boxes.every((box) => box.solid && !box.visible && box.stair));
 });
 
+it('mirrors a speaker without adding collision boxes', () => {
+  const b = new MapBuilder();
+  b.mirrored(() => {
+    b.prop({ kind: 'speaker', x: 20, y: 72, z: -40, yaw: Math.PI / 2, station: 'shopping' });
+  });
+  assert.deepEqual(b.props, [
+    { kind: 'speaker', x: 20, y: 72, z: -40, yaw: Math.PI / 2, station: 'shopping' },
+    { kind: 'speaker', x: -20, y: 72, z: 40, yaw: -Math.PI / 2, station: 'shopping' },
+  ]);
+  assert.deepEqual(b.boxes, []);
+});
+
 describe('the shopping map props', () => {
   const shopping = getMaps().find((m) => m.id === 'shopping');
   assert.ok(shopping);

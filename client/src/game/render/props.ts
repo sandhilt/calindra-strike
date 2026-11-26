@@ -665,6 +665,19 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
   };
 }
 
+function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: PropContext): PropGroup {
+  const cases = { forja: 0x61503a, escritorio: 0xddd6c8, shopping: 0xe8e9e5 };
+  for (const { x, y, z, yaw, station } of speakers) {
+    statics.at(x, y, z, yaw)
+      .box(22, 16, 12, cases[station], { x: 0, y: 0, z: 0 })
+      .cylinder(6, 6, 1.5, 12, 0x303236, { x: -3, y: 0, z: 6.5, rot: [Math.PI / 2, 0, 0] })
+      .cylinder(3, 5, 1, 12, 0x50545a, { x: -3, y: 0, z: 7.5, rot: [Math.PI / 2, 0, 0] });
+    if (station !== 'escritorio') statics.box(14, 10, 4, 0x44464a, { x: 0, y: 0, z: -8 });
+    if (station === 'forja') statics.box(5, 2, 1, 0xcba564, { x: 6, y: 3, z: 6 });
+  }
+  return still();
+}
+
 /** One builder per prop kind: a kind added to `MapProp` without one here fails the typecheck. */
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
@@ -677,6 +690,7 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   flame: buildFlames,
   steam: buildSteam,
   cook: still,
+  speaker: buildSpeakers,
 };
 
 function isPropKind(kind: string): kind is PropKind {

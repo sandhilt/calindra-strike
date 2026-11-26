@@ -5,7 +5,7 @@ import { AMBIENT_VOICES } from '../src/game/audio.ts';
 import { MAX_AMBIENT_LOOPS, NearbyLoops, ambientEmitters, nearestEmitters, type Emitter } from '../src/game/nearby-loops.ts';
 
 function airEmitters(xs: number[]): Emitter[] {
-  return xs.map((x) => ({ x, y: 0, z: 0, voice: 'air', within: 420 }));
+  return xs.map((x) => ({ kind: 'noise', x, y: 0, z: 0, voice: 'air', within: 420 }));
 }
 
 test('only nearby emitters are selected, in distance order', () => {
@@ -16,10 +16,10 @@ test('only nearby emitters are selected, in distance order', () => {
 
 test('the five nearest audible emitters qualify by their individual radii', () => {
   const emitters: Emitter[] = [
-    { x: 20, y: 0, z: 0, voice: 'wood', within: 19 },
-    { x: 640, y: 0, z: 0, voice: 'water', within: 640 },
+    { kind: 'noise', x: 20, y: 0, z: 0, voice: 'wood', within: 19 },
+    { kind: 'noise', x: 640, y: 0, z: 0, voice: 'water', within: 640 },
     ...airEmitters([410, 300, 200, 100]),
-    { x: 650, y: 0, z: 0, voice: 'water', within: 640 },
+    { kind: 'noise', x: 650, y: 0, z: 0, voice: 'water', within: 640 },
   ];
   const origin = { x: 0, y: 0, z: 0 };
   assert.deepEqual(nearestEmitters(emitters, origin), [5, 4, 3, 2, 1]);
@@ -27,8 +27,8 @@ test('the five nearest audible emitters qualify by their individual radii', () =
 });
 
 test('a kitchen is heard on its own floor only, the fountain across floors', () => {
-  const kitchen: Emitter = { x: 0, y: 248, z: 0, voice: 'fryer', within: 380, sameFloor: true };
-  const fountain: Emitter = { x: 0, y: 108, z: 0, voice: 'water', within: 640 };
+  const kitchen: Emitter = { kind: 'noise', x: 0, y: 248, z: 0, voice: 'fryer', within: 380, sameFloor: true };
+  const fountain: Emitter = { kind: 'noise', x: 0, y: 108, z: 0, voice: 'water', within: 640 };
   assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 248, z: 0 }), [0], 'on the deck');
   assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 56, z: 0 }), [], 'in the shop below');
   assert.deepEqual(nearestEmitters([kitchen], { x: 100, y: 440, z: 0 }), [], 'on the Mirante above');
@@ -59,24 +59,24 @@ test('Shopping emits air, fountain water, fan hum and each cooking voice at its 
   const fountains = props.filter((prop) => prop.kind === 'fountain');
   const cooks = props.filter((prop) => prop.kind === 'cook');
   const fans = props.filter((prop) => prop.kind === 'ceilingFan');
-  const emitters = ambientEmitters(props);
+  const emitters = ambientEmitters(props).filter((emitter) => emitter.kind === 'noise');
   assert.ok(fans.length > 0);
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'fan'),
-    fans.map(({ x, y, z }) => ({ x, y, z, voice: 'fan', within: 210, sameFloor: true })));
+    fans.map(({ x, y, z }) => ({ kind: 'noise', x, y, z, voice: 'fan', within: 210, sameFloor: true })));
   assert.ok(vents.length > 0);
   assert.equal(fountains.length, 1);
   assert.deepEqual(new Set(cooks.map(({ voice }) => voice)), new Set(['boil', 'fryer', 'griddle', 'charcoal', 'wood']));
   assert.equal(emitters.length, vents.length + fountains.length + cooks.length + fans.length);
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'air'),
-    vents.map(({ x, y, z }) => ({ x, y, z, voice: 'air', within: 420 })));
+    vents.map(({ x, y, z }) => ({ kind: 'noise', x, y, z, voice: 'air', within: 420 })));
   assert.deepEqual(emitters.filter(({ voice }) => voice === 'water'),
-    fountains.map(({ x, y, z }) => ({ x, y, z, voice: 'water', within: 640 })));
+    fountains.map(({ x, y, z }) => ({ kind: 'noise', x, y, z, voice: 'water', within: 640 })));
   assert.deepEqual(emitters.filter(({ voice }) => voice !== 'air' && voice !== 'water' && voice !== 'fan'),
-    cooks.map(({ x, y, z, voice }) => ({ x, y, z, voice, within: 380, sameFloor: true })));
+    cooks.map(({ x, y, z, voice }) => ({ kind: 'noise', x, y, z, voice, within: 380, sameFloor: true })));
 });
 
-test('a map without ambient props has no emitters', () => {
-  assert.deepEqual(ambientEmitters(getMap(0).props), []);
+test('an empty prop list has no emitters', () => {
+  assert.deepEqual(ambientEmitters([]), []);
 });
 
 test('fan hum shares the loop budget and stays on the floor under the blades', () => {
@@ -106,4 +106,15 @@ test('ambient beds are about 25–33% softer and fan hum has the lowest gain', (
   const { fan, boil, ...otherVoices } = AMBIENT_VOICES;
   assert.ok(boil.gain > fan.gain);
   assert.ok(Object.values(otherVoices).every(({ gain }) => gain > fan.gain));
+});
+
+test('speakers have their own budget and stay on their floor', () => {
+  const speakers = ambientEmitters([10, 20, 30].map((x) => ({
+    kind: 'speaker', x, y: 72, z: 0, yaw: 0, station: 'shopping',
+  })));
+  assert.partialDeepStrictEqual(speakers[0], { kind: 'track', station: 'shopping', sameFloor: true });
+  const emitters = [...speakers, ...airEmitters([40, 50, 60, 70, 80, 90])];
+  assert.deepEqual(nearestEmitters(emitters, { x: 0, y: 56, z: 0 }), [0, 1, 3, 4, 5, 6, 7]);
+  assert.deepEqual(nearestEmitters(speakers, { x: 0, y: 204, z: 0 }), []);
+  assert.deepEqual(nearestEmitters(speakers, { x: 0, y: -136, z: 0 }), []);
 });

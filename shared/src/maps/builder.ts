@@ -123,6 +123,7 @@ export class MapBuilder {
       case 'ceilingFan':
       case 'fountain':
         return { ...p, x, z };
+      case 'speaker':
       case 'mannequin':
       case 'clothesRack':
       case 'vent':

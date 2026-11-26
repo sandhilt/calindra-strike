@@ -59,6 +59,7 @@ export function buildForja(): MapDef {
     const h = 200;
     const t = 16;
     b.wallX(x1, x2, z1 + t / 2, t, h, 'charcoal');
+    b.prop({ kind: 'speaker', x: 960, y: 96, z: z1 + t + 8, yaw: 0, station: 'forja' });
     b.wallX(x1, x2, z2 - t / 2, t, h, 'charcoal', [
       { from: 880, to: 976, bottom: 0, top: 128 },
       { from: 1056, to: 1152, bottom: 64, top: 112 },

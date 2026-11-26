@@ -53,6 +53,12 @@ node --run typecheck
 
 The local client uses `ws://127.0.0.1:7350/ws`. Set `VITE_GAME_SERVER` at build time to use a different backend. Outside localhost, the default is `/ws` on the same origin as the frontend.
 
+### Map speakers
+
+Forja, Escritório and Shopping Sul Rio have world speakers that play their map's station when you come within range. Adjust **música** next to **volume** in the pause menu. Music starts at 50%, follows the master volume and is muted at 0%. Station playback is browser ambience and is absent from MCP `get_state.sounds`.
+
+To supply your own music, create `client/public/music/` and place an Ogg audio file at `forja.ogg`, `escritorio.ogg` or `shopping.ogg` for the corresponding map. Deploy the client with those files so they are served at `/music/<station>.ogg`. The game ships with no music files. A missing or unreadable track leaves its station silent until you reload the page.
+
 ### Sound packs
 
 Choose clássico or sound-new in the in-game sound pack menu. The separate anunciador checkbox adds a voice on top of either pack: original Portuguese kill-streak lines through the browser's speech synthesis (no audio files; silent where the browser has none). It only speaks, so shots and flags sound the same with it on or off. Packs live in `client/src/game/sound-packs/`: add a file exporting a SoundPack and register it in SOUND_PACKS in index.ts. Omitted voices fall back to classic. Runtime-loaded mods are not supported.

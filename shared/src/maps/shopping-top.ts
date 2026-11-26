@@ -261,6 +261,7 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   const cx = PHARMACY_X;
   const edge = PHARMACY_EDGE;
   const returnWidth = 64;
+  b.prop({ kind: 'speaker', x: cx - edge + returnWidth / 2, y: DECK3 + 72, z: FACADE_Z + 16, yaw: 0, station: 'shopping' });
   for (const side of [-1, 1]) {
     const wallX = cx + side * edge;
     b.wallZ(-Z, FACADE_Z, wallX, 16, SHOP_WALL_HEIGHT, 'white', [], DECK3);

@@ -1,11 +1,11 @@
 import { brandMat, type StoreBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { trimSolid } from './shopping-deck-walls.ts';
-import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, DROP_HEIGHT, FACADE_Z, GALLERY_Z, ROOF, ROOF_CLIP_MARGIN, X } from './shopping-levels.ts';
+import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, X } from './shopping-levels.ts';
 
 /**
  * Cover that breaks the long clean shots of Shopping Sul Rio: ad boards in the covered gallery, a car promotion, an
- * information desk, planters and ad columns in the atrium, menu boards and hedges in the food court.
+ * information desk, planters and info totems in the atrium, menu boards and hedges in the food court.
  * Authored for the north half, inside `b.mirrored`, so the south half gets the same pieces turned 180 degrees.
  * `sightlines.test.ts` pins how open the map stays.
  */
@@ -18,14 +18,6 @@ const HEDGE = 70;
 const PAINT = 0xe9edf2;
 
 const GALLERY_FLOOR = 0;
-/** Ad columns stay under the longest drop a walker takes (300 units, `MAX_DROP` in the nav grid). */
-const COLUMN = 280;
-/** The mast that carries an ad column on to the roof, and the sign that hangs from the roof on it (units). */
-const MAST_SIDE = 10;
-const MAST_PAINT = 0x303843;
-const HANGING_SIGN_DROP = 90;
-const HANGING_SIGN_DEPTH = 2;
-
 /** An ad panel is drawn whole on each of its faces, so one thin box carries the sign on both sides of a board. */
 function adPanel(b: MapBuilder, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, brand: StoreBrand): void {
   b.deco(x1, y1, z1, x2, y2, z2, brandMat(brand));
@@ -37,52 +29,12 @@ function board(b: MapBuilder, x: number, z: number, length: number, y0: number, 
   adPanel(b, x - 10.6, y0 + height * 0.4, z - length * 0.45, x + 10.6, y0 + height * 0.4 + length * 0.45, z + length * 0.45, brand);
 }
 
-/**
- * A square ad column well above a head, still low enough to drop from, so a glider that lands on top can get down.
- * A thin mast carries on from the top to the roof and ends in a hanging sign of the same brand, so the column reads as
- * held up by the ceiling. The mast and sign are not solid, so the column top stays the walkable surface it was.
- */
-function column(b: MapBuilder, x: number, z: number, side: number, top: number, brand: StoreBrand, tint = PAINT): void {
-  b.block(x, z, side, side, top, 'white', 0, { tint });
-  adPanel(b, x - side / 2 - 0.6, top - 110, z - side / 2 - 0.6, x + side / 2 + 0.6, top - 110 + side / 2, z + side / 2 + 0.6, brand);
-  const half = MAST_SIDE / 2;
-  b.deco(x - half, top, z - half, x + half, ROOF, z + half, 'metal', MAST_PAINT);
-  const signY = ROOF - HANGING_SIGN_DROP;
-  adPanel(b, x - side / 2, signY, z - HANGING_SIGN_DEPTH / 2, x + side / 2, signY + side / 2, z + HANGING_SIGN_DEPTH / 2, brand);
-  mastItems(b, x, z, top, signY, side);
-}
-
-/** Paper bag colours; a column picks one from its position so the map stays deterministic. */
-const BAG_TINTS = [0xd7263d, 0x2a6fdb, 0xf2b632, 0x3aa56b, 0x8e4fc7] as const;
-
-/**
- * Shopping items on the bare stretch of a mast: a stack of hanging bags, a sale pennant and a pendant lamp under the
- * ceiling. All of it is thin decoration around the mast, so nothing changes for collision or the nav grid.
- */
-function mastItems(b: MapBuilder, x: number, z: number, top: number, signY: number, side: number): void {
-  const pick = Math.abs(Math.round(x / 8 + z / 4));
-  const bagTop = top + 150;
-  for (let i = 0; i < 3; i++) {
-    const tint = BAG_TINTS[(pick + i) % BAG_TINTS.length];
-    const y = bagTop - i * 58;
-    const dx = i % 2 === 0 ? 7 : -7;
-    b.deco(x + dx - 11, y - 30, z - 5, x + dx + 11, y, z + 5, 'white', tint);
-    b.deco(x + dx - 4, y, z - 1, x + dx + 4, y + 12, z + 1, 'white', 0xf4f2eb);
-  }
-  const pennantY = signY - 46;
-  b.deco(x - side / 2, pennantY, z - 1, x + side / 2, pennantY + 18, z + 1, 'white', BAG_TINTS[pick % BAG_TINTS.length]);
-  b.deco(x - 13, ROOF - 38, z - 13, x + 13, ROOF - 12, z + 13, 'glass', 0xfff1c4);
-}
-
-/**
- * A column from the floor to the roof, with its ad at the height of the shorter columns. An invisible block over its top
- * keeps a glider from landing there, where it could not get down.
- */
-function roofColumn(b: MapBuilder, x: number, z: number, side: number, brand: StoreBrand): void {
-  b.block(x, z, side, side, ROOF, 'white', 0, { tint: PAINT });
-  const adY = COLUMN - 110;
-  adPanel(b, x - side / 2 - 0.6, adY, z - side / 2 - 0.6, x + side / 2 + 0.6, adY + side / 2, z + side / 2 + 0.6, brand);
-  b.block(x, z, side, side, DROP_HEIGHT + ROOF_CLIP_MARGIN - ROOF, 'clip', ROOF, { visible: false, shoot: true });
+/** A freestanding directory with an ad above its screen. */
+function infoTotem(b: MapBuilder, x: number, z: number, brand: StoreBrand): void {
+  b.block(x, z, 56, 48, 12, 'tile');
+  b.block(x, z, 46, 36, 200, 'white', 12, { tint: PAINT });
+  b.deco(x - 20, 60, z - 18.6, x + 20, 106, z + 18.6, 'screen');
+  adPanel(b, x - 20, 118, z - 18.6, x + 20, 138, z + 18.6, brand);
 }
 
 /** Planter walls: a tiled base with a hedge on top that stops bullets. */
@@ -145,32 +97,36 @@ function infoDesk(b: MapBuilder, x: number, z: number): void {
   b.landmark('Informações', x, z);
 }
 
-/**
- * Ad boards that cross the covered walkway, one in front of the blank stretch of facade between two stores (the benchmark tour owns the other one). None
- * stands in front of a shop window or a door: the glass is what the walkway is for, so a board there only hid the
- * display and made a maze of walls before the entrances.
- */
+/** Ad boards and benches set back into the covered promenade. */
 function gallery(b: MapBuilder): void {
-  const edge = GALLERY_Z;
-  const run = 110;
-  const boards: readonly (readonly [number, StoreBrand])[] = [
-    [-690, 'cea'],
-  ];
+  kiosk(b, -1280, -880, 112, 210, 'zarra');
+  kiosk(b, 860, -900, 112, 180, 'hew');
   for (const [x, brand] of [[-768, 'zarra'], [0, 'rener'], [768, 'hew']] as const) {
-    const z = FACADE_Z + (x < 0 ? 144 : 232);
+    const z = FACADE_Z + (x < 0 ? 208 : 232);
     board(b, x, z, 144, GALLERY_FLOOR, WALL, brand);
     bench(b, x + 64, z, 28, 96, false);
   }
-  for (const [x, z] of [[-1248, -912], [-560, -976], [160, -856], [1280, -960]] as const) {
+  for (const [x, z] of [[-1120, -1024], [-560, -976], [160, -856], [1280, -960]] as const) {
     b.block(x, z, 220, 20, WALL, 'white', GALLERY_FLOOR, { tint: PAINT });
   }
   b.landmark('Galeria das lojas', 0, FACADE_Z + 160);
-  for (const [x, brand] of boards) board(b, x, edge - 8 - run / 2, run, GALLERY_FLOOR, WALL, brand);
+  board(b, -690, GALLERY_Z - 63, 110, GALLERY_FLOOR, WALL, 'cea');
+}
+
+/** A closed kiosk with shutters and a sign on its aisle side. */
+function kiosk(b: MapBuilder, x: number, z: number, w: number, d: number, brand: StoreBrand): void {
+  const front = z + d / 2;
+  b.block(x, z, w, d, 136, 'white', 0, { tint: PAINT });
+  b.deco(x - w / 2 - 3, 136, z - d / 2 - 3, x + w / 2 + 3, 140, front + 3, 'charcoal');
+  b.deco(x - w / 2 + 8, 38, front, x + w / 2 - 8, 88, front + 2, 'metal');
+  adPanel(b, x - 38, 92, front, x + 38, 130, front + 2, brand);
 }
 
 function atrium(b: MapBuilder): void {
-  for (const [x, z, brand] of [[-1376, -316, 'zarra'], [1440, -416, 'rener']] as const) roofColumn(b, x, z, 64, brand);
-  column(b, 672, -64, 64, COLUMN, 'hew');
+  kiosk(b, 370, -530, 96, 120, 'cacau-chou');
+  planter(b, -1376, -316, 64, 112);
+  infoTotem(b, 1440, -416, 'rener');
+  bench(b, 672, -64, 96, 30, true);
   carStand(b, 860, -250);
   infoDesk(b, -300, -560);
   cart(b, -90, -330, 'mequi', 0xd7263d);
@@ -190,7 +146,7 @@ function atrium(b: MapBuilder): void {
   for (const [x, z, brand] of [
     [-1160, -380, 'zarra'], [-700, -600, 'hew'], [-140, -470, 'riachuela'], [350, -360, 'travessura'],
     [1260, -560, 'amerikanas'], [-640, -100, 'cea'], [1250, -60, 'rener'],
-  ] as const) column(b, x, z, 52, COLUMN, brand);
+  ] as const) infoTotem(b, x, z, brand);
 }
 
 const MENU_BOARD_HEIGHT = 140;

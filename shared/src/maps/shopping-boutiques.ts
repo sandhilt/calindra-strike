@@ -13,6 +13,7 @@ import { wallShelves } from './shopping-stores.ts';
 export type SmallBoutique = 'pandorga' | 'loccitano';
 /** The shops either side of the cafe's partition on the Mirante lounge, one per half. */
 export type LoungeBoutique = 'pe-leve' | 'essencia';
+export type CornerBoutique = 'linha-fina' | 'papel-e-cor';
 export type LargeBoutique = 'samsong' | 'ray-bao' | 'sentauro' | 'brinco-center';
 
 /** Partitions and the storefront stand this tall; the doorway is the full width between the wall returns. */
@@ -302,6 +303,16 @@ function brincoCenter(r: Room, half: number): void {
   r.box(displayX + 25, 177, 3, 3, 5, 42, 'charcoal');
 }
 
+function stationery(r: Room, half: number, trim: Hex, colors: readonly Hex[]): void {
+  wallShelves(r, 0, 10, 2 * half - 12, 14, 2, colors, 102, 0xf4efe4);
+  till(r, 0, SMALL_TILL, trim);
+  const shelfX = half - 20;
+  r.solid(shelfX, 186, 28, 88, 34, 0, 'wood', trim);
+  colors.forEach((color, index) => {
+    r.box(shelfX, 154 + index * 12, 20, 10, 5 + index, 34, 'white', color);
+  });
+}
+
 const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
   pandorga: { paint: 0xfaf3f6, trim: 0xe77aa6, floor: 0xf4eef1, browseX: 20, dress: pandorga },
   loccitano: { paint: 0xf6e9bd, trim: 0x1c3a6b, floor: 0xe7d6a2, browseX: 0, dress: loccitano },
@@ -309,6 +320,14 @@ const BOUTIQUES: Record<BoutiqueBrand, Boutique> = {
   essencia: { paint: 0xf8eff4, trim: 0x7a2f5a, floor: 0xeedbe5, browseX: 0, dress: essencia },
   samsong: { paint: 0xeef1f8, trim: 0x1428a0, floor: 0xdfe3ec, browseX: 0, dress: samsong },
   'ray-bao': { paint: 0xf7f4f1, trim: 0xd71f26, floor: 0xe7e1da, browseX: 0, dress: rayBao },
+  'linha-fina': {
+    paint: 0xf2eee4, trim: 0x30544e, floor: 0xe4e0d4, browseX: 0,
+    dress: (r, half) => stationery(r, half, 0x30544e, [0x30544e, 0xd1a465, 0xb45d53, 0xe4e0d4]),
+  },
+  'papel-e-cor': {
+    paint: 0xf6efe4, trim: 0x7b3d54, floor: 0xf0dfcf, browseX: 0,
+    dress: (r, half) => stationery(r, half, 0x7b3d54, [0x7b3d54, 0xedb454, 0x448da3, 0xe58f79]),
+  },
   sentauro: { paint: 0xefefef, trim: 0xe4002b, floor: 0xcfcfcf, browseX: 0, dress: sentauro },
   'brinco-center': { paint: 0xfff8d9, trim: 0x1f6fd1, floor: 0xf2c200, browseX: 0, dress: brincoCenter },
 };
@@ -351,6 +370,7 @@ export function boutiqueShop(b: MapBuilder, brand: BoutiqueBrand, x1: number, x2
   const r = new Room(b, cx, DECK3, -Z);
   shell(r, half, spec);
   spec.dress(r, half);
+  r.vent(0, 152, BACK_WALL_DEPTH + 4, 'front');
   facade(b, x1, x2, brand, spec);
   b.light(cx, DECK3 + LAMP_Y, -Z + 200, '#ffe9bd');
   b.interior(cx + spec.browseX, DECK3, -Z + 142);

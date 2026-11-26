@@ -29,6 +29,8 @@ export const STORE_BRANDS = {
   'brinco-center': { name: 'Brinco Center', kind: 'boutique' },
   loccitano: { name: "L'Occitano", kind: 'boutique' },
   'pe-leve': { name: 'Calçados Pé Leve', kind: 'boutique' },
+  'linha-fina': { name: 'Linha Fina', kind: 'boutique' },
+  'papel-e-cor': { name: 'Papel & Cor', kind: 'boutique' },
   essencia: { name: 'Perfumaria Essência', kind: 'boutique' },
   'piso-terreo': { name: 'Térreo', kind: 'floor' },
   'piso-1': { name: '1º andar', kind: 'floor' },

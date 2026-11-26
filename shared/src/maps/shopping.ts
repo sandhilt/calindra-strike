@@ -9,11 +9,10 @@ import { dressStore, storeAccent } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor, type MiranteShops } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
-/** The out-of-bounds column over the solid roof reaches this far above the skydive altitude (units). */
 /** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
 const STORE_LAMP_Y = 160;
-/** The skydive start stays this far from the end walls, clear of the roof high columns at the ends of the atrium and the invisible blocks over them. */
-const END_COLUMN_CLEARANCE = 208;
+/** The skydive start stays this far from the end walls, with room to steer before reaching the perimeter. */
+const DROP_END_MARGIN = 208;
 const STORE_XS = [-3, -1, 1, 3].map((bay) => bay * X / 4);
 const STORE_PARTITIONS = [-X / 2, 0, X / 2];
 const ESCALATORS = [
@@ -33,8 +32,8 @@ const FOOD_COURT: readonly (readonly FoodBrand[])[] = [
 ];
 /** The shops on each half's top floor, beside the ones on the ground floor, so every brand stands once. */
 const MIRANTE_SHOPS: readonly MiranteShops[] = [
-  { pharmacy: 'pague-pouco', small: 'pandorga', lounge: 'pe-leve', large: ['samsong', 'ray-bao'] },
-  { pharmacy: 'droga-raio', small: 'loccitano', lounge: 'essencia', large: ['sentauro', 'brinco-center'] },
+  { pharmacy: 'pague-pouco', small: 'pandorga', lounge: 'pe-leve', corner: 'linha-fina', large: ['samsong', 'ray-bao'] },
+  { pharmacy: 'droga-raio', small: 'loccitano', lounge: 'essencia', corner: 'papel-e-cor', large: ['sentauro', 'brinco-center'] },
 ];
 const STORES: readonly (readonly ShopBrand[])[] = [
   ['zarra', 'cea', 'rener', 'hew'],
@@ -128,7 +127,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     b.restaurant(cx, DECK, -Z + 162, brand);
   });
   const tables = [
-    ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -Z + 248] as const),
+    ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -Z + 272] as const),
     ...[-1136, -720, -280, 96, 496, 912].map((x) => [x, -1136] as const),
     ...[-1060, -880, -200, 200, 880, 1060].map((x) => [x, -800] as const),
   ];
@@ -194,8 +193,6 @@ export function buildShopping(): MapDef {
 
     // glass roof over the atrium: light comes in, airdrops and skydivers fall through
     b.deco(-X, ROOF + 8, GALLERY_Z, X, ROOF + 12, 0, 'glass');
-    for (const z of [-512, -256]) b.deco(-X, ROOF + 4, z, X, ROOF + 8, z + 8, 'charcoal');
-    for (const x of [-1024, -512, 0, 512, 1024]) b.deco(x, ROOF + 4, GALLERY_Z, x + 8, ROOF + 8, 0, 'charcoal');
 
     for (const { x1, x2, travel, name } of ESCALATORS) {
       escalator(b, x1, x2, travel);
@@ -233,7 +230,7 @@ export function buildShopping(): MapDef {
     name: 'Shopping Sul Rio',
     subtitle: 'escada rolante, chafariz e praça de alimentação',
     bounds: { minX: -X, maxX: X, minZ: -Z, maxZ: Z },
-    dropArea: { minX: -X + END_COLUMN_CLEARANCE, maxX: X - END_COLUMN_CLEARANCE, minZ: -600, maxZ: 600 },
+    dropArea: { minX: -X + DROP_END_MARGIN, maxX: X - DROP_END_MARGIN, minZ: -600, maxZ: 600 },
     defuseSite: { x: 0, y: 0, z: 0 },
     defuseBases: [{ x: -1090, y: DECK3, z: -1020 }, { x: 1090, y: DECK3, z: 1020 }],
     flagBases: [{ x: -1000, z: -480 }, { x: 1000, z: 480 }],

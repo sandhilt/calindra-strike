@@ -53,6 +53,10 @@ import {
   type DayCycle,
   type DayPhase,
   dayCycleAt,
+  eclipseAt,
+  moonPhaseAt,
+  type Eclipse,
+  type MoonPhase,
   dayCycleTarget,
   cycleWeaponSlot,
   TICK_MS,
@@ -112,7 +116,7 @@ import { Effects } from './render/effects.ts';
 import { FPS_HINT_TEXT, FpsHintWatch } from './fps-hint.ts';
 import { LightRt, readGpuFacts } from './render/light-rt.ts';
 import { QUALITY, renderPixelRatio, type Quality } from './render/quality.ts';
-import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, lookAt } from './render/day-look.ts';
+import { DAY_EXPOSURE, type DayLook, buildLooks, createLook, dimForSolarEclipse, lookAt } from './render/day-look.ts';
 import { RtGovernor } from './render/rt-governor.ts';
 import { AUTO_RT_START, INTEGRATED_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
 import { INTEGRATED_GPU_TIP, lightRtSupported } from './render/rt-support.ts';
@@ -266,6 +270,8 @@ export class ClientGame {
   private readonly dayLook = createLook();
   private readonly dayCycle: DayCycle = { phase: 'day', next: 'afternoon', blend: 0 };
   private dayLit = false;
+  private readonly eclipse: Eclipse = { kind: null, depth: 0, progress: 0 };
+  private moonShown: MoonPhase | null = null;
   private screenshotPending = false;
   private dayAnnounced: DayPhase | null = null;
 
@@ -626,12 +632,21 @@ export class ClientGame {
     const cycle = this.dayCycle;
     const settled = this.dayLit && cycle.blend === 0;
     const before = cycle.phase;
-    dayCycleAt(this.serverNow(), cycle);
+    const now = this.serverNow();
+    dayCycleAt(now, cycle);
     this.announceDayPhase(dayCycleTarget(cycle));
-    if (settled && cycle.blend === 0 && cycle.phase === before) return;
+    const eclipse = this.eclipse;
+    const wasEclipsed = eclipse.depth > 0;
+    eclipseAt(now, eclipse);
+    const moon = moonPhaseAt(now);
+    if (settled && cycle.blend === 0 && cycle.phase === before && !wasEclipsed && eclipse.depth === 0 && moon === this.moonShown) return;
+    this.moonShown = moon;
     this.dayLit = true;
     const look = this.dayLook;
     lookAt(look, looks, cycle);
+    const solar = eclipse.kind === 'solar' ? eclipse.depth : 0;
+    dimForSolarEclipse(look, solar);
+    world.setSky(moon, eclipse.kind === 'lunar' ? eclipse.depth : 0, solar, eclipse.progress);
     world.applyLook(look);
     this.renderer.toneMappingExposure = look.exposure;
     this.view.setLighting(look.hemiSky, look.hemiGround, look.sun, look.sunIntensity, look.hemiIntensity / looks.day.hemiIntensity);

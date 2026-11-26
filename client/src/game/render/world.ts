@@ -1,4 +1,4 @@
-import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat, type Vec3 } from '@calindra-strike/shared';
+import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat, type MoonPhase, type Vec3 } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
@@ -121,6 +121,8 @@ export interface WorldView {
   sunDir: THREE.Vector3;
   /** Paints the sky, lights, fog and glows with a look of the day cycle. Only writes values, nothing is allocated. */
   applyLook(look: DayLook): void;
+  /** Draws the moon of the night and the depth (0..1) of a lunar or solar eclipse in the sky dome. Writes uniforms only. */
+  setSky(moon: MoonPhase, lunarEclipse: number, solarEclipse: number, solarProgress: number): void;
   /** Advances the moving scenery (fans, escalator steps, fountain water, vent smoke) by dt seconds. */
   /** `serverTick` is the server clock, which the lift cab runs on; `camera` is where the falling snow gathers. */
   update(dt: number, serverTick: number, camera?: Vec3): void;
@@ -139,7 +141,24 @@ type SkyUniforms = {
   sunColor: { value: THREE.Color };
   sunDir: { value: THREE.Vector3 };
   stars: { value: number };
+  moonPhase: { value: number };
+  lunarEclipse: { value: number };
+  solarEclipse: { value: number };
+  solarProgress: { value: number };
 };
+
+/**
+ * Where each moon phase sits on the lunation, as a fraction of it (0 new, 0.5 full). The sky shader lights the disc
+ * from this; the 2D pose stays a table instead of a branch on the phase.
+ */
+const MOON_LUNATION: Readonly<Record<MoonPhase, number>> = { new: 0, waxing: 0.25, full: 0.5, waning: 0.75 };
+/**
+ * -1 mirrors the lit side for the southern hemisphere: seen from Brazil the waxing moon is lit on the left (a "C")
+ * and the waning one on the right. 1 would be the northern sky.
+ */
+const MOON_HEMISPHERE = -1;
+/** Angular radius of the moon and of the sun's disc in the sky shader, radians (tuning value). */
+const MOON_RADIUS_RAD = 0.035;
 
 function skyDome(map: MapDef): { mesh: THREE.Mesh; uniforms: SkyUniforms } {
   const t = map.theme;
@@ -151,6 +170,10 @@ function skyDome(map: MapDef): { mesh: THREE.Mesh; uniforms: SkyUniforms } {
     sunColor: { value: new THREE.Color(t.sun) },
     sunDir: { value: sd },
     stars: { value: 0 },
+    moonPhase: { value: MOON_LUNATION.full },
+    lunarEclipse: { value: 0 },
+    solarEclipse: { value: 0 },
+    solarProgress: { value: 0 },
   };
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -166,6 +189,9 @@ function skyDome(map: MapDef): { mesh: THREE.Mesh; uniforms: SkyUniforms } {
       }`,
     fragmentShader: /* glsl */ `
       uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunColor; uniform vec3 sunDir; uniform float stars;
+      uniform float moonPhase; uniform float lunarEclipse; uniform float solarEclipse; uniform float solarProgress;
+      const float MOON_R = ${MOON_RADIUS_RAD.toFixed(4)};
+      const float HEMI = ${MOON_HEMISPHERE.toFixed(1)};
       varying vec3 vDir;
       float hash31(vec3 p) {
         p = fract(p * 0.1031);
@@ -177,7 +203,32 @@ function skyDome(map: MapDef): { mesh: THREE.Mesh; uniforms: SkyUniforms } {
         float h = d.y;
         vec3 c = h > 0.0 ? mix(horizon, top, pow(clamp(h, 0.0, 1.0), 0.55)) : mix(horizon, bottom, pow(clamp(-h, 0.0, 1.0), 0.35));
         float s = max(dot(d, sunDir), 0.0);
-        c += sunColor * (pow(s, 900.0) * 6.0 + pow(s, 18.0) * 0.35 + pow(s, 3.0) * 0.08);
+        // Disc-local coordinates around the light: x to the viewer's right, y up, 1 at the rim.
+        vec3 ref = abs(sunDir.y) > 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+        vec3 right = normalize(cross(sunDir, ref));
+        vec3 up = cross(right, sunDir);
+        vec2 q = vec2(dot(d, right), dot(d, up)) / MOON_R;
+        float inDisc = s > 0.0 ? 1.0 - smoothstep(0.92, 1.0, length(q)) : 0.0;
+        // Solar eclipse: a dark disc slides across the sun, a faint corona shows at totality.
+        vec2 occ = q - vec2((1.0 - 2.0 * solarProgress) * 2.2, 0.0);
+        float covered = solarEclipse > 0.0 && s > 0.0 ? 1.0 - smoothstep(0.92, 1.0, length(occ)) : 0.0;
+        float core = pow(s, 900.0) * 6.0 * (1.0 - covered) * (1.0 - stars);
+        float glow = (pow(s, 18.0) * 0.35 + pow(s, 3.0) * 0.08) * (1.0 - 0.8 * solarEclipse);
+        c += sunColor * (core + glow);
+        c += sunColor * solarEclipse * solarEclipse * (1.0 - smoothstep(1.0, 1.6, length(q))) * step(0.0, dot(d, sunDir)) * (1.0 - covered) * 0.6;
+        c = mix(c, c * 0.15, covered * solarEclipse);
+        // The moon: the disc at the night light's direction, lit up to the terminator for its phase.
+        if (stars > 0.0 && inDisc > 0.0) {
+          float w = sqrt(max(1.0 - q.y * q.y, 0.0));
+          float k = cos(6.2831853 * moonPhase) * w;
+          float x = q.x * HEMI;
+          float lit = moonPhase < 0.5 ? smoothstep(k - 0.06, k + 0.06, x) : 1.0 - smoothstep(-k - 0.06, -k + 0.06, x);
+          vec3 moonCol = mix(vec3(0.95, 0.95, 0.88), vec3(0.75, 0.22, 0.1), lunarEclipse);
+          float bright = mix(1.6, 0.55, lunarEclipse);
+          vec3 earthshine = c * 0.55 + vec3(0.02, 0.025, 0.04);
+          c = mix(c, mix(earthshine, moonCol * bright, lit), inDisc * stars);
+        }
+        if (stars > 0.0) c += vec3(0.75, 0.8, 1.0) * pow(s, 400.0) * 0.6 * stars * (1.0 - step(moonPhase, 0.01)) * (1.0 - 0.7 * lunarEclipse);
         if (stars > 0.0 && h > 0.04) {
           vec3 p = d * 170.0;
           vec3 cell = floor(p);
@@ -415,6 +466,13 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
       for (const e of emissives) e.mat.emissiveIntensity = e.base * look.glow;
       for (const halo of halos) halo.opacity = Math.min(1, GLOW_OPACITY * look.glow);
       for (const s of silhouettes) s.mat.color.copy(s.base).multiplyScalar(look.scenery);
+    },
+    setSky(moon, lunarEclipse, solarEclipse, solarProgress) {
+      const u = dome.uniforms;
+      u.moonPhase.value = MOON_LUNATION[moon];
+      u.lunarEclipse.value = lunarEclipse;
+      u.solarEclipse.value = solarEclipse;
+      u.solarProgress.value = solarProgress;
     },
     update(dt, serverTick, camera) {
       props.update(dt, serverTick);

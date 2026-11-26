@@ -3,13 +3,14 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `1f9e7a0`
+- Covered through: `5406091`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Debug explorer (Konami code, **cenário**): a **sons do cenário** checkbox plays the map's ambient loops and speaker music, and a **movimento** row switches between flying and **andar**, where the walker moves, jumps and crouches under the match's rules and left click fires the selected **arma** with tracers, impacts and surface sounds. Key files: `client/src/debug/scenario-explorer.ts`, `client/src/debug/scenario-walk.ts`.
 - Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
 - The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
 - Shooting water splashes: `water` is its own surface (splash sound, pale blue spray) instead of ringing as glass, and still gets the pane impact on the way through (`isPane` in `shared/src/surface.ts`).

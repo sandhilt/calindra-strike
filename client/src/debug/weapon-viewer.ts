@@ -242,7 +242,7 @@ export function openWeaponViewer(root: HTMLElement, settings: Settings, onExit: 
     perf.reset();
     if (mode === 'scenario') {
       scopeHost.className = 'scope';
-      scenario = createScenarioExplorer(renderer, quality, settings.sensitivity, getScenarioGun, (locked) => {
+      scenario = createScenarioExplorer(renderer, quality, settings, getScenarioGun, (locked) => {
         panel.hidden = locked;
       }, perf.reset);
       scenarioHost.replaceChildren(scenario.controls);

@@ -24,3 +24,5 @@ export * from './supply.ts';
 export * from './idle.ts';
 export * from './carrapeta.ts';
 export * from './blast.ts';
+export * from './elimination.ts';
+export * from './lead.ts';

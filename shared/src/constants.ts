@@ -2,7 +2,7 @@
  * World units follow the GoldSrc convention (1 unit ~ 1 inch) so movement
  * numbers read like a CS 1.6 server config.
  */
-export const PROTOCOL_VERSION = 25;
+export const PROTOCOL_VERSION = 26;
 
 export const TICK_RATE = 60;
 export const TICK_DT = 1 / TICK_RATE;
@@ -240,3 +240,7 @@ export const BATATA_DOUBLE_EVERY_SECONDS = 5;
 export const BATATA_MAX_MULTIPLIER = 8;
 export const BATATA_KILL_POINTS = 3;
 export const BATATA_BOUNTY_POINTS = 5;
+
+export const ELIMINATION_WIN_ROUNDS = 5;
+export const ELIMINATION_PAUSE_MS = 4_000;
+export const LEAD_ANNOUNCEMENT_INTERVAL_MS = 45_000;

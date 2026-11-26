@@ -7,6 +7,7 @@ import {
   magCapacity,
   WEAPON,
   type CarrapetaSnapshot,
+  type EliminationSnapshot,
   type CarrapetaState,
   createPlayerState,
   CollisionWorld,
@@ -76,6 +77,7 @@ export type ViewEvent =
   | (Extract<GameEvent, { k: 'kill' }> & { byName?: string; toName?: string })
   | (Extract<GameEvent, { k: 'join' | 'leave' }> & { name?: string })
   | (Extract<GameEvent, { k: 'flag' | 'bomb' }> & { byName?: string })
+  | Extract<GameEvent, { k: 'lead' }>
   | (Extract<GameEvent, { k: 'carrapeta' | 'blast' }> & { byName?: string })
   | Extract<GameEvent, { k: 'frenzy' }>
   | (LunchEvent & { byName?: string; colleague?: string })
@@ -123,6 +125,7 @@ export interface WorldView {
   lunch: number[];
   colleagues: number[][];
   carrapeta?: CarrapetaSnapshot;
+  elimination?: EliminationSnapshot;
   scores: number[][];
   events: ViewEvent[];
   sounds: ViewSound[];
@@ -163,6 +166,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
     }
   }
   v.carrapeta = m.ca;
+  v.elimination = m.el;
   const carrapeta = carrapetaState(v);
   const team = v.roster.find((r) => r[0] === v.id)?.[3];
   const peers = m.ps
@@ -175,7 +179,7 @@ export function decodeSnapshot(v: WorldView, m: Extract<ServerMsg, { t: 'snap' }
         team: r?.[3] ?? -1,
         enemy: v.match.mode === 'carrapeta'
           ? carrapetaEnemies(carrapeta, v.id, p[0])
-          : v.match.mode === 'ffa' || r?.[3] !== team,
+          : !isTeamMode(v.match.mode) || r?.[3] !== team,
         alive: !!(p[6] & RF_ALIVE),
         x: p[1],
         y: p[2],
@@ -263,6 +267,7 @@ export function renderView(
       })),
     phase: v.match.phase,
     mode: v.match.mode,
+    elimination: v.elimination ?? null,
     map: getMap(v.match.map).name,
     timeOfDay: timeOfDay(v.time),
     endsInMs: v.match.phase === 'warmup' ? null : Math.max(0, v.match.endsAt - v.time),
@@ -347,7 +352,7 @@ export function renderView(
       ...describeRelative({ x: row[2], z: row[4] }),
     })),
     score: {
-      me: { kills: score?.[1] ?? 0, deaths: score?.[2] ?? 0 },
+      me: { kills: score?.[1] ?? 0, deaths: score?.[2] ?? 0, ...(v.match.mode === 'lms' ? { roundsWon: score?.[6] ?? 0 } : {}) },
       ...(isTeamMode(v.match.mode) ? { teams: v.match.teams } : {}),
     },
     events: v.events.splice(0),

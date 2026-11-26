@@ -109,7 +109,7 @@ describe('respawn time by mode', () => {
   it('keeps the quick respawn in the deathmatches and waits longer in every objective mode', () => {
     assert.equal(respawnTicksOf('ffa'), RESPAWN_TICKS);
     assert.equal(respawnTicksOf('tdm'), RESPAWN_TICKS);
-    for (const mode of GAME_MODES.filter((m) => m !== 'ffa' && m !== 'tdm')) assert.equal(respawnTicksOf(mode), RESPAWN_OBJECTIVE_TICKS, mode);
+    for (const mode of GAME_MODES.filter(mode => MODE_RULES[mode].objective)) assert.equal(respawnTicksOf(mode), RESPAWN_OBJECTIVE_TICKS, mode);
     assert.ok(RESPAWN_OBJECTIVE_TICKS > RESPAWN_TICKS);
   });
 

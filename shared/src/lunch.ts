@@ -33,7 +33,7 @@ export interface LunchEvent { k: 'lunch'; what: LunchAction; team: number; by: n
 export type LunchOutcome = 'served' | 'full';
 export interface LunchStep { colleagues: Colleague[]; events: LunchEvent[]; outcome?: LunchOutcome }
 
-/** Only maps with a food court can play the mode. */
+/** Lunch needs a food court. All other modes, including elimination, fit every map. */
 export function modeFitsMap(mode: GameMode, map: MapDef): boolean {
   return mode !== 'almoco' || map.restaurants.length > 0;
 }

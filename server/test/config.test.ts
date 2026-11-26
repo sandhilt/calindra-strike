@@ -21,15 +21,15 @@ afterEach(() => {
 const base = { maxPlayers: 24, matchMs: 300_000, podiumMs: 5000, warmupMinPlayers: 2 };
 
 describe('map and mode selection', () => {
-  it('plays every map with TDM, FFA, CTF and debug defusion by default, and hora de almoçar where there is a food court', () => {
+  it('plays every mode on every map by default, with lunch limited to food courts', () => {
     stubEnv('GAME_MODES', '');
     stubEnv('GAME_MODE', '');
     stubEnv('GAME_MAPS', '');
     const cfg = loadConfig();
-    assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']);
+    assert.deepEqual(cfg.modes, ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta', 'lms', 'gincana']);
     const game = new Game({ ...base, modes: cfg.modes, maps: cfg.maps });
-    assert.equal((game.combos).length, 22); // hora de almoçar only on maps with a food court
-    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']));
+    assert.equal((game.combos).length, 30); // hora de almoçar only on maps with a food court
+    assert.deepEqual(new Set(game.combos.map((combo) => combo.mode)), new Set(['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta', 'lms', 'gincana']));
     assert.deepEqual(cfg.maps, []);
   });
 
@@ -37,7 +37,7 @@ describe('map and mode selection', () => {
     assert.deepEqual(modeList('ffa, tdm', undefined), ['ffa', 'tdm']);
     assert.deepEqual(modeList(undefined, 'mixed'), ['tdm', 'ffa']); // older single setting still works
     assert.deepEqual(modeList(undefined, 'ffa'), ['ffa']);
-    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta']);
+    assert.deepEqual(modeList('all', undefined), ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta', 'lms', 'gincana']);
     assert.deepEqual(mapList('escritorio'), ['escritorio']);
     assert.deepEqual(mapList('forja,escritorio,forja'), ['forja', 'escritorio']);
     assert.throws(() => modeList('tdm,zombies', undefined), /Invalid game mode: zombies/);

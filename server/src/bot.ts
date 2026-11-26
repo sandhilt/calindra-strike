@@ -1,5 +1,5 @@
 import {
-  carrapetaEnemies, type CarrapetaState,
+  carrapetaEnemies, isTeamMode, type CarrapetaState,
   BOMB_SITE_RADIUS_UNITS,
   BTN,
   DEFUSE_RADIUS_UNITS,
@@ -540,7 +540,7 @@ export class BotBrain {
   private isEnemy(self: BotAgent, q: BotAgent, env: BotEnv): boolean {
     if (q === self || !q.alive) return false;
     if (env.mode === 'carrapeta') return carrapetaEnemies(env.carrapeta ?? { kind: 'none' }, self.id, q.id);
-    return env.mode === 'ffa' || q.team !== self.team;
+    return !isTeamMode(env.mode) || q.team !== self.team;
   }
 
   private scan(self: BotAgent, env: BotEnv): BotAgent | null {

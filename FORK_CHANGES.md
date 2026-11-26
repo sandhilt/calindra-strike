@@ -3,13 +3,14 @@
 What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabriel-accetta/calindra-strike`). Kept up to date by the project skill `.claude/skills/record-fork-changes`. This file says what differs and since when. How each feature works is in `README.md` and `AGENTS.md`.
 
 - Upstream compared: `310567f` (`upstream/main`)
-- Covered through: `5fd11db`
+- Covered through: `405f1c4`
 
 ## Log
 
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Added LMS and Gincana elimination rounds, a chase camera for eliminated players, and lead announcements across scoring modes. MCP reports round state and alive counts. Protocol 26 adds the two mode IDs.
 - The lobby and Esc menu share an **issues?** link with the GitHub mark that opens the fork’s issue tracker (`client/src/ui/issues-link.ts`).
 - Capture the Flag objectives appear as team-colored tech backpacks with LED strips and visible gadgets. They ride on player avatars and stand upright at bases and drop points (`client/src/game/render/flags.ts`).
 

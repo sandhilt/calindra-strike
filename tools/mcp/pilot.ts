@@ -64,7 +64,7 @@ export class Pilot {
       weapon: 0,
       interp: view.time,
     };
-    if (!state || !alive || intent.kind === 'idle' || (intent.kind === 'attack' && intent.ended)) return idle;
+    if (!state || !alive || (view.elimination && view.elimination.kind !== 'playing') || intent.kind === 'idle' || (intent.kind === 'attack' && intent.ended)) return idle;
     const self: BotAgent = {
       id: view.id,
       team: view.roster.find((r) => r[0] === view.id)?.[3] ?? -1,

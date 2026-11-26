@@ -4,7 +4,7 @@ import type { MapBuilder } from './builder.ts';
 import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
 import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
 import { Room } from './room.ts';
-import { dressStore, storeAccent, STORE_HALF_WIDTH } from './shopping-stores.ts';
+import { dressStore, storeAccent, STORE_HALF_WIDTH, TILL_HEIGHT } from './shopping-stores.ts';
 import type { EscalatorTravel } from './types.ts';
 
 /**
@@ -291,7 +291,7 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
     b.block(wallX - side * returnWidth / 2, FACADE_Z, returnWidth, 16, SHOP_WALL_HEIGHT, 'white', DECK3);
     pharmacyCounter(b, cx + side * 150, brand);
   }
-  b.block(cx, -Z + 52, 140, 36, 40, 'desk', DECK3);
+  b.block(cx, -Z + 52, 140, 36, TILL_HEIGHT, 'desk', DECK3);
   const room = new Room(b, cx, DECK3, -Z);
   dressStore(room, brand);
   pharmacyFacade(b, cx, brand);

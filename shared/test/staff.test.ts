@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { DECK3 } from '../src/maps/shopping-levels.ts';
-import { getMaps, STORE_BRANDS, type Box, type MapDef, type MapProp, STAFF_UNIFORMS, staffOutfit } from '../src/index.ts';
+import { getMaps, STORE_BRANDS, type Box, type MapDef, type MapProp, MALL_JANITOR, STAFF_UNIFORMS, staffOutfit } from '../src/index.ts';
 
 type Staff = Extract<MapProp, { kind: 'staff' }>;
 
@@ -187,16 +187,33 @@ describe('the shopping floor staff', () => {
   });
 
   it('puts a cashier behind every till on the Mirante', () => {
-    // Pharmacies have an open storefront and no till; every boutique and the chocolate shop does.
     const tillNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'boutique' || b.name === 'Cacau Chou').map((b) => b.name);
-    const landmarks = shopping.features.flatMap((f) => (f.kind === 'landmark' ? [f] : []));
     const tills = landmarks.filter((f) => f.name.includes('(Mirante)') && tillNames.some((n) => f.name.startsWith(n)));
     assert.ok(tills.length > 0);
-    assert.equal(roles('cashier').length, tills.length);
     for (const till of tills) {
       const cashier = roles('cashier').find((p) => Math.abs(p.x - till.x) < 1 && p.y === DECK3);
       assert.ok(cashier, `a cashier behind ${till.name}`);
     }
+  });
+
+  /** Ground floor stores and the Mirante pharmacies share `dressStore`: a cashier and a till mate behind the counter. */
+  const STORE_CREW_X = 34;
+  const landmarks = shopping.features.flatMap((f) => (f.kind === 'landmark' ? [f] : []));
+  const shopNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'shop').map((b) => b.name);
+  const stores = landmarks.filter((f) => shopNames.some((n) => f.name.startsWith(n)) && !f.name.startsWith('Cacau Chou (Mirante)'));
+
+  it('puts a cashier and a till mate behind the counter of every store and Mirante pharmacy', () => {
+    assert.ok(stores.length >= 10, `found ${stores.length} stores`);
+    for (const store of stores) {
+      const crew = staff.filter((p) => Math.abs(Math.abs(p.x - store.x) - STORE_CREW_X) < 1 && Math.abs(p.z - store.z) < 160);
+      assert.equal(crew.length, 2, `crew of ${store.name}`);
+      assert.ok(crew.some((p) => p.role === 'cashier'), `cashier at ${store.name}`);
+    }
+  });
+
+  it('staffs pharmacies with pharmacists and the stores with sellers, stockers and cleaners', () => {
+    for (const role of ['seller', 'stocker', 'pharmacist', 'cleaner'] as const) assert.ok(roles(role).length > 0, role);
+    for (const p of roles('pharmacist')) assert.ok(p.uniform === 'droga-raio' || p.uniform === 'pague-pouco');
   });
 });
 
@@ -207,5 +224,15 @@ describe('staff uniforms', () => {
     assert.equal(staffOutfit('mania-picanha', 'cook').trim, STAFF_UNIFORMS['mania-picanha'].trim);
     assert.deepEqual(staffOutfit('kfg', 'server'), STAFF_UNIFORMS.kfg);
     assert.deepEqual(staffOutfit('pandorga', 'cashier'), STAFF_UNIFORMS.pandorga);
+  });
+
+  it('puts pharmacists in a white lab coat, stockers in work denim and every cleaner in the mall uniform', () => {
+    assert.equal(staffOutfit('droga-raio', 'pharmacist').top, 0xfafafa);
+    assert.equal(staffOutfit('droga-raio', 'pharmacist').trim, STAFF_UNIFORMS['droga-raio'].top);
+    assert.equal(staffOutfit('amerikanas', 'stocker').top, STAFF_UNIFORMS.amerikanas.top);
+    assert.notEqual(staffOutfit('amerikanas', 'stocker').legs, STAFF_UNIFORMS.amerikanas.legs);
+    assert.deepEqual(staffOutfit('riachuela', 'cleaner'), MALL_JANITOR);
+    assert.deepEqual(staffOutfit('travessura', 'cleaner'), MALL_JANITOR);
+    assert.deepEqual(staffOutfit('zarra', 'seller'), STAFF_UNIFORMS.zarra);
   });
 });

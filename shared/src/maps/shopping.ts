@@ -5,7 +5,7 @@ import { Room } from './room.ts';
 import { buildKitchen, counterTint, KITCHEN_DEPTH, KITCHEN_FLOOR, KITCHEN_HEIGHT, KITCHEN_WIDTH } from './shopping-kitchens.ts';
 import { CANOPY_BOTTOM, DECK, DECK3, DROP_HEIGHT, FACADE_Z, FOOD_CEILING, GALLERY_Z, RAIL, ROOF, ROOF_CLIP_MARGIN, SLAB, WALL, X, Z } from './shopping-levels.ts';
 import { dressDeckWalls } from './shopping-deck-walls.ts';
-import { dressStore, storeAccent } from './shopping-stores.ts';
+import { dressStore, storeAccent, TILL_HEIGHT } from './shopping-stores.ts';
 import { LIFT_GAP_HALF, topFloor, type MiranteShops } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
@@ -89,7 +89,7 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
       b.block(cx + side * 150, -Z + 142, 120, 24, 56, 'white', 0, { tint: storeAccent(brand) });
     }
     b.deco(cx - 60, 114, FACADE_Z + 8, cx + 60, 174, FACADE_Z + 10, brandMat(brand));
-    b.block(cx, -Z + 52, 140, 36, 40, 'desk');
+    b.block(cx, -Z + 52, 140, 36, TILL_HEIGHT, 'desk');
     b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
     dressStore(new Room(b, cx, 0, -Z), brand);
     for (const lampZ of [60, 190]) b.light(cx, STORE_LAMP_Y, -Z + lampZ, '#ffe9bd');

@@ -31,9 +31,9 @@ Run `node --run test` and `node --run typecheck` before finishing a change.
 
 To see a change working in the real app, use the project skill `.claude/skills/verify-calindra-strike` (isolated server + client, doctor, dev bots, feature map). The MCP browser has no WebGL, so the in-game 3D view and HUD cannot be verified there; the skill says how to prove the server side instead.
 
-## Debug mode (weapon viewer)
+## Debug mode
 
-A hidden mode of the client for trying a weapon, its animations and its angle without joining a match. It is the way to debug and test weapons, for people and for agent harnesses.
+Enter the Konami code (`↑ ↑ ↓ ↓ ← → ← → B A`) in the lobby outside a text field. The **modo** row switches between the first-person weapon viewer and a free-flight scenario explorer. Both run without joining a match.
 
 - **Every weapon goes in it.** Each entry of `WEAPONS`, with each of its skins, must be selectable in the viewer and by its URL. A new weapon, skin or weapon-specific state is not finished until it can be looked at there. `client/test/debug-viewer.test.ts` checks that every weapon is reachable by its tag.
 - **Test weapons there.** A change to a weapon model, skin, reload or fire animation, or to where the gun sits in the view, is checked in the viewer before it is called done. Unit tests do not show what the player sees.
@@ -42,7 +42,12 @@ A hidden mode of the client for trying a weapon, its animations and its angle wi
 - **Controls.** Pick any weapon, skin and graphics tier, fire once or hold the trigger at the weapon's cadence, play a reload (speed 0.25× to 2×, loop) or drag the reload slider to hold one pose, turn the walking bob on, change the field of view, and move, rotate and scale the gun.
 - **Tuning an angle.** `copiar para o código` copies the current placement as one line to paste into `client/src/game/render/weapon-placement.ts`, the table the game reads. `restaurar` goes back to the weapon's own placement.
 - **Resource ownership.** `ViewModel` disposes the outgoing weapon’s owned resources on swap and preserves shared geometry, materials and textures. Register shared resources from `buildWeapon` in `SHARED_WEAPON_RESOURCES`.
-- **Where it lives.** The triggers are in `client/src/main.ts` with the code matcher in `client/src/easter-egg.ts`. The viewer is `client/src/debug/weapon-viewer.ts` (DOM and render loop) and `weapon-debug.ts` (pure URL parsing, reload and auto-fire logic, tested). The viewer is loaded with a dynamic import only when asked for, so the normal bundle does not carry it. Its rows come from `client/src/ui/controls.ts`, shared with the pause menu. Put new weapon-specific controls in the viewer, not in the game.
+- **Scenario explorer.** `scenario-explorer.ts` builds the selected map with `buildWorld` and starts at its first benchmark tour point. Click the canvas to lock the mouse and hide the panel. WASD moves, Space climbs, Ctrl descends and Shift speeds up. Esc brings back the panel, with map, graphics, FOV, reset position and first-person weapon controls. The explorer uses the map's daylight look and skips the day cycle and ray-traced contact shadow pass.
+- **Fullscreen.** Both views offer **maximizar janela** when the browser supports fullscreen. The debug stage resizes on `fullscreenchange` and the button changes to **sair da tela cheia**. Leaving debug exits stage fullscreen and removes the listener.
+- **Performance HUD.** F3 and **mostrar FPS** toggle the overlay in both modes. `perf-hud.ts` samples frame cadence, CPU render submission, GPU timer queries when supported, JS heap when available, and renderer draw and resource counts. The GPU percentage measures the share of frame time. WebGL cannot read device-wide GPU utilisation or VRAM usage.
+- **Where it lives.** `client/src/main.ts` uses the matcher in `client/src/easter-egg.ts` and dynamically imports `client/src/debug/weapon-viewer.ts` only after the code is entered. The panel uses `client/src/ui/controls.ts`, shared with the pause menu. The pure, Node-tested logic lives in `weapon-debug.ts` (reload and fire), `fly-camera.ts` (flight and mouse look) and `perf-stats.ts` (frame statistics and formatting). The explorer and HUD run only in debug mode and need no `QualityProfile` column.
+- **Needs WebGL.** Without it the viewer only shows a notice and the way back to the lobby, which is what the MCP browser gets. An agent cannot judge the animation there: ask the user to look, or render frames in software from `ViewModel` (stub `document.createElement('canvas')`, then rasterize `view.scene` with `view.camera`), which shows geometry and framing but not motion.
+- **When to use it.** Any change to a weapon model, a reload or fire animation, or where the gun sits in the view. Put new weapon-specific controls in the viewer, not in the game.
 
 ## Node standard library first
 
@@ -139,6 +144,8 @@ tools ──► server, shared
 - **Backend URL:** the client picks it at build time with `VITE_GAME_SERVER` (`client/src/config.ts`); the CSP `connect-src` in `vercel.json` must agree with it.
 - **Hosting and secrets stay out of the repo.** No production URLs, credentials or operator instructions; `.env` files are git-ignored except `.env.example`.
 - Game UI text is mostly Portuguese (a few terms such as kills and headshot stay in English); code, comments, commits and docs are in English.
+
+- **Lobby fullscreen.** The home screen offers **tela cheia** under the join actions. The button targets `document.documentElement` and the hint hides in fullscreen. `client/src/ui/fullscreen.ts` supplies the pure button label for the lobby and the lazy debug panel.
 
 - **Graphics benchmark** lives in `client/src/benchmark/`. Open it from the lobby, from the pause menu (the `benchmark` overlay hook leaves the match and calls `renderLobby(..., benchmark = true)`, so the test never runs beside a live match) or load `?benchmark` with optional `tiers`, `maps`, `rounds`, `ms` and loopback `report` parameters. Read `window.__benchmark` when the title reaches `benchmark:done`. The harness-only `high-no-rt` tier uses high graphics with the screen-space pass disabled. `tours.ts` defines closed walking routes with collision-followed ground height and eased yaw. Keep routes clear of movement solids when editing a map. The lobby overlay updates live FPS, frame timing, CPU and GPU timing, and browser hardware details about four times per second. Run rows and tier summaries expose median `cpuMs` and `gpuMs` per frame. GPU timing requires `EXT_disjoint_timer_query_webgl2` and is `null` when no valid query results are available.
 

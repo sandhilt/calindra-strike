@@ -10,6 +10,9 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-25
+- The lobby offers a fullscreen hint and a button on browsers that support fullscreen (`client/src/ui/lobby.ts`).
+- Both Konami debug views can enter and exit browser fullscreen from the panel (`client/src/debug/weapon-viewer.ts`).
+- The Konami debug mode now lets players fly through any map and shows FPS, CPU and supported GPU frame timings, JS heap when available, and renderer counts in both views (`client/src/debug/weapon-viewer.ts`).
 
 - Forja, Escritório and Shopping Sul Rio have client-side speaker props for optional positional tracks from `client/public/music/`, with a live `musicVolume` control. The protocol version stays the same because speakers are local scenery and use no wire fields.
 - Hurt server bots and the MCP hunt pilot can charge nearby enemies with the hammer and return to a gun when the rush ends (`server/src/bot-temper.ts`, `server/src/bot.ts`).

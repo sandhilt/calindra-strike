@@ -6,6 +6,7 @@ import { RT } from '../game/render/rt-levels.ts';
 import { lightRtSupported } from '../game/render/rt-support.ts';
 import { buildWorld, followShadow, type WorldView } from '../game/render/world.ts';
 import { benchmarkSetup, isRtVariant, type BenchmarkOptions, type BenchmarkTier } from './options.ts';
+import { gpuName, heapMb } from './perf-sources.ts';
 import { createGpuTimer, medianTiming } from './gpu-timer.ts';
 import { recommend, summarize } from './score.ts';
 import { buildTour, sampleTour, tourPoints } from './tours.ts';
@@ -58,19 +59,6 @@ function nextFrame(signal: AbortSignal): Promise<number> {
   });
 }
 
-function gpuName(renderer: THREE.WebGLRenderer): string {
-  const gl = renderer.getContext();
-  const info = gl.getExtension('WEBGL_debug_renderer_info');
-  return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'unknown';
-}
-
-function heapMb(): number | null {
-  if (!('memory' in performance)) return null;
-  const memory = performance.memory;
-  return memory && typeof memory === 'object' && 'usedJSHeapSize' in memory
-    && typeof memory.usedJSHeapSize === 'number' ? memory.usedJSHeapSize / (1024 * 1024) : null;
-}
-
 async function measure(
   tier: BenchmarkTier,
   map: MapDef,
@@ -115,8 +103,8 @@ async function measure(
     const sunDir = new THREE.Vector3(map.theme.sunDir.x, map.theme.sunDir.y, map.theme.sunDir.z).normalize();
     const collision = new CollisionWorld(map);
     const tour = buildTour(tourPoints(map));
-    const gpu = gpuName(renderer);
     const gl = renderer.getContext();
+    const gpu = gpuName(gl) ?? 'unknown';
     gpuTimer = gl instanceof WebGL2RenderingContext ? createGpuTimer(gl) : null;
     const draw = (elapsedMs: number, dtMs: number) => {
       const { x, y, z, yaw } = sampleTour(tour, collision, elapsedMs);

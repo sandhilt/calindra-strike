@@ -186,7 +186,7 @@ In the lobby the **controles** button opens a page with the same list in two col
 
 Open **controles** from the Esc menu. Select an action's current shortcut and press a key or mouse button. Weapon controls also accept the scroll wheel. A custom shortcut replaces all default shortcuts for that action. If another action already uses the shortcut, the menu names it and asks before sharing. Use **padrão** on a row to restore that action or **restaurar todos** to restore all defaults. Changes take effect when you resume and are saved in this browser.
 
-Esc stays fixed for the pause menu and capture cancellation. Radio menu keys and choices, chat submit and cancel, ready screen, votes, menu navigation, and spectator shortcuts are fixed in their own contexts. The Konami code still opens the weapon viewer from the lobby. Browsers and operating systems may intercept some shortcuts.
+Esc stays fixed for the pause menu and capture cancellation. Radio menu keys and choices, chat submit and cancel, ready screen, votes, menu navigation, and spectator shortcuts are fixed in their own contexts. Browsers and operating systems may intercept some shortcuts.
 
 ### Movimento experimental
 
@@ -203,7 +203,13 @@ New and still being tested: tell us how it feels: a GitHub button in the lobby o
 - **Silent walk** moved to `Alt`.
 - Bots do not use these moves. MCP agents press them with the `sprint`, `slide`, `lean` and `prone` tools and read the result in `get_state.you`.
 
+### Debug mode
+
+Enter `↑ ↑ ↓ ↓ ← → ← → B A` in the lobby to preview weapons or pick **cenário** to explore a map. Click the map to fly with the mouse, WASD, Space and Ctrl. Hold Shift to go faster and press Esc to reopen the panel. F3 toggles the FPS, frame timing and memory readout in both modes. Use **maximizar janela** in either mode to enter browser fullscreen and **sair da tela cheia** to leave it. Returning to the lobby exits debug fullscreen.
+
 ### Graphics (modo desempenho)
+
+The lobby's **Joga melhor em tela cheia** hint offers a **tela cheia** button in browsers that support fullscreen. The hint disappears while fullscreen is active.
 
 The lobby and the Esc menu have a **gráficos** setting with three tiers: `alta`, `leve` and `desempenho`. Use `desempenho` on weak machines such as laptops with integrated graphics: it draws at about 65% of the window resolution (the canvas still fills the window), turns off sun shadows and edge smoothing, and drops barrel smoke and ejected casings. Gameplay is the same on every tier, only visuals change. Everything applies at once except edge smoothing, which waits for the next join. The moving scenery follows the tier too: vent fans, the fountain's water and jet, the vent vapour, the ripples where feet meet water and the kitchen flames and steam run on `alta` and `leve` and stand still on `desempenho` (the vapour, the ripples, the flames and the steam are not even built there). The splash and wet footstep sounds play on every tier. The ceiling fans and the escalator steps keep moving on every tier. The vent and ceiling fan hum, the fountain's splash and the cooking sounds play on every tier. If a match stays under about 30 fps after the first seconds, a one-time hint suggests the performance tier. The per-tier values live in `client/src/game/render/quality.ts`.
 

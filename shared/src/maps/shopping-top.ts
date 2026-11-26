@@ -81,8 +81,11 @@ function lounge(b: MapBuilder): void {
   sofa(b, 954, -1032, -1);
   b.block(734, -1064, 100, 60, 26, 'wood', DECK3);
   b.interior(734, DECK3, -1118);
-  b.deco(-TOP_X, DECK3, -Z, TOP_X, DECK3 + 96, -Z + 2, 'white', 0xbfd8d0);
-  b.deco(-TOP_X, DECK3 + 96, -Z, TOP_X, DECK3 + 100, -Z + 3, 'charcoal');
+  // The shops dress their own back walls, so the wainscot runs only where no shop stands.
+  for (const [x1, x2] of [[-TOP_X, SMALL_SLOT[0]], [LARGE_PARTITIONS[2], TOP_X]] as const) {
+    b.deco(x1, DECK3, -Z, x2, DECK3 + 96, -Z + 2, 'white', 0xbfd8d0);
+    b.deco(x1, DECK3 + 96, -Z, x2, DECK3 + 100, -Z + 3, 'charcoal');
+  }
   for (const x of [-1000, -500, 0, 500, 1000]) b.deco(x - 120, ROOF - 3, -Z + 40, x + 120, ROOF, -700, 'white', 0xfff6df);
   b.deco(-X + 2, DECK3 + 90, -1000, -X + 4, DECK3 + 250, -820, 'logo');
   b.deco(X - 4, DECK3 + 90, -1000, X - 2, DECK3 + 250, -820, 'eitri');

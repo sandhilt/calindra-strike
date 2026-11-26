@@ -28,3 +28,21 @@ it('keeps solid cover out of the first 64 units of aisle in front of every store
     }
   }
 });
+
+it('never stacks two panels on the same stretch of the Mirante back wall', () => {
+  // The shops dress their own back walls; a gallery-wide wainscot over them fights with or hides those faces.
+  for (const side of [1, -1]) {
+    const panels = shopping.boxes.filter(({ visible, min, max }) => {
+      const wall = side * Z;
+      const touches = side > 0 ? max.z === wall : min.z === wall;
+      return visible && touches && max.z - min.z <= 4 && min.y < DECK3 + 100 && max.y > DECK3;
+    });
+    for (const [i, a] of panels.entries()) {
+      for (const b of panels.slice(i + 1)) {
+        const overlap = Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x) > 0 &&
+          Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y) > 0;
+        assert.ok(!overlap, `back wall panels overlap at x ${a.min.x}..${a.max.x} and ${b.min.x}..${b.max.x}`);
+      }
+    }
+  }
+});

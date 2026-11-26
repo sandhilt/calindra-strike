@@ -277,6 +277,13 @@ export class GameSession {
     }
     if (m.t === 'ev')
       for (const e of m.e) {
+        if (e.k === 'hit' && e.to === v.id && e.by !== v.id && v.self) {
+          const attacker = v.roster.find(row => row[0] === e.by);
+          const self = v.roster.find(row => row[0] === v.id);
+          if (!isTeamMode(v.match.mode) || (attacker && self && attacker[3] !== self[3])) {
+            this.state.pilot.noteEnemyHit(Math.hypot(v.self.x - e.from[0], v.self.y - e.from[1], v.self.z - e.from[2]));
+          }
+        }
         if (e.k === 'shot' || e.k === 'hit') v.sounds.push(...this.soundsOf(e, v));
         if (e.k === 'spray') {
           v.sprays.push({ id: e.id, by: this.names.get(e.id) ?? String(e.id),
@@ -368,7 +375,7 @@ export class GameSession {
     try {
       const { view, nav, world, pilot } = this.state;
       const commands = Array.from({ length: 2 }, () =>
-        this.actions.apply(pilot.nextCmd(view, this.intent, nav, world, ++this.seq), view.self),
+        this.actions.apply(pilot.nextCmd(view, this.intent, nav, world, ++this.seq, this.actions.manualWeaponControl), view.self),
       );
       this.send({ t: 'in', c: commands }, JSON.stringify({ t: 'in', c: commands.map(encodeCmd) }));
     } catch (e) {

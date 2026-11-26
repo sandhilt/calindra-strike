@@ -12,7 +12,7 @@ Changes made after the baseline, newest day first.
 ### 2026-11-25
 
 - Forja, Escritório and Shopping Sul Rio have client-side speaker props for optional positional tracks from `client/public/music/`, with a live `musicVolume` control. The protocol version stays the same because speakers are local scenery and use no wire fields.
-
+- Hurt server bots and the MCP hunt pilot can charge nearby enemies with the hammer and return to a gun when the rush ends (`server/src/bot-temper.ts`, `server/src/bot.ts`).
 - The weapon viewer opens by URL (`?viewer&weapon=<tag>&skin=&aim=&reload=`), reports `viewer:ready` or `viewer:error` in the title and has a skin choice (`client/src/debug/`).
 - `AGENTS.md` and the `verify-calindra-strike` skill require every weapon to be in the weapon viewer and agents to test weapon changes there.
 - The Azeitadora uses dark materials with lime accents by default and keeps its gold and walnut skin in Carrapeta Dourada matches (`client/src/game/render/weapons3d.ts`).

@@ -1524,6 +1524,9 @@ export class Game {
     const { hp, armorLoss } = absorbArmor(dmg, s.armor, def.armorPen);
     s.armor = Math.max(0, s.armor - armorLoss);
     s.health -= hp;
+    if (victim.brain && victim !== attacker && !this.sameTeam(victim, attacker) && hp > 0) {
+      victim.brain.noteEnemyHit(Math.hypot(s.x - attacker.state.x, s.y - attacker.state.y, s.z - attacker.state.z));
+    }
     const from = [round(attacker.state.x, 1), round(attacker.state.y, 1), round(attacker.state.z, 1)];
     const ev: GameEvent = { k: 'hit', by: attacker.id, to: victim.id, dmg: Math.round(hp), zone, hp: Math.max(0, Math.ceil(s.health)), from };
     attacker.events.push(ev);

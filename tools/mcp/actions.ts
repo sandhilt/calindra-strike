@@ -74,6 +74,11 @@ export class ActionOverlay {
     return queued || this.ack < this.awaySeq;
   }
 
+  get manualWeaponControl(): boolean {
+    return this.use || this.reloadPending || this.fireTicks > 0
+      || this.weaponPending !== null || this.ack < this.weaponSeq;
+  }
+
   requestJump(): void {
     this.jumpPending = true;
   }

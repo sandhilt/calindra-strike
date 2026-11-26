@@ -32,6 +32,7 @@ import {
   weaponDef,
   wrapAngle,
 } from '@calindra-strike/shared';
+import { BOT_TEMPER, calmTemper, meleeChoice, stepTemper } from './bot-temper.ts';
 import type { NavGrid, NavNode } from './nav.ts';
 
 export interface BotAgent {
@@ -46,6 +47,7 @@ export interface BotEnv {
   world: CollisionWorld;
   nav: NavGrid;
   tick: number;
+  manualWeaponControl?: boolean;
   now: number;
   mode: GameMode;
   random: () => number;
@@ -499,6 +501,15 @@ export class BotBrain {
   private lastCheck = { x: 0, y: 0, z: 0, tick: 0 };
   private stuck = 0;
   private prevButtons = 0;
+  private temper = calmTemper();
+  private previousHealth: number | null = null;
+  private temperTick = 0;
+  private closeHitTick = -Infinity;
+  private hammerRush: { tick: number; distanceUnits: number } | null = null;
+
+  noteEnemyHit(distanceUnits: number): void {
+    if (distanceUnits <= BOT_TEMPER.closeHitUnits) this.closeHitTick = this.temperTick;
+  }
 
   private readonly aim: AimSkill;
 
@@ -508,6 +519,10 @@ export class BotBrain {
 
   /** Called when the bot (re)spawns so it forgets the previous life. */
   reset(): void {
+    this.temper = calmTemper();
+    this.previousHealth = null;
+    this.closeHitTick = -Infinity;
+    this.hammerRush = null;
     this.aimInit = false;
     this.targetId = -1;
     this.path = [];
@@ -650,6 +665,18 @@ export class BotBrain {
     this.waypointClosest = Infinity;
   }
 
+  private updateTemper(health: number, tick: number): void {
+    const damage = Math.max(0, (this.previousHealth ?? health) - health);
+    if (damage > 0 || this.temper.healthPoints > 0) {
+      // An MCP hit event can arrive before the health snapshot that reflects it.
+      const closeHit = tick - this.closeHitTick <= BOT_TEMPER.closeHitSampleSeconds * TICK_RATE;
+      this.temper = stepTemper(this.temper, damage, closeHit, (tick - this.temperTick) / TICK_RATE);
+    }
+    this.previousHealth = health;
+    this.temperTick = tick;
+    if (damage > 0) this.closeHitTick = -Infinity;
+  }
+
   think(self: BotAgent, env: BotEnv): Cmd {
     const s = self.state;
     if (this.directive?.kind === 'engage') {
@@ -661,7 +688,8 @@ export class BotBrain {
       }
     }
     this.reached = this.directive?.kind === 'goto' && atPoint(s, this.directive);
-    const dt = 1 / 60;
+    const dt = 1 / TICK_RATE;
+    this.updateTemper(s.health, env.tick);
     if (!this.aimInit) {
       this.yaw = s.yaw;
       this.pitch = 0;
@@ -717,6 +745,47 @@ export class BotBrain {
       }
     }
 
+    if (env.manualWeaponControl && def.slot !== 3) this.hammerRush = null;
+    const rushing = this.hammerRush !== null;
+    let rushForward = false;
+    let returning = false;
+    if (holding) weapon = 0;
+    else if (!env.manualWeaponControl && (rushing || this.temper.kind === 'angry')) {
+      const distanceUnits = target ? distance3(s, target.state) : null;
+      if (this.hammerRush && distanceUnits !== null) {
+        this.hammerRush.tick = env.tick;
+        this.hammerRush.distanceUnits = distanceUnits;
+      }
+      const recentlySeen = this.hammerRush && env.tick - this.hammerRush.tick < BOT_TEMPER.lostTargetSeconds * TICK_RATE;
+      const choice = meleeChoice(this.temper, {
+        distanceUnits: distanceUnits ?? (recentlySeen ? this.hammerRush?.distanceUnits ?? null : null),
+        currentSlot: def.slot,
+        hasHammer: true,
+        rushing,
+        carryingObjective: (env.flags?.some(flag => flag.kind === 'carried' && flag.carrier === self.id) ?? false)
+          || (env.carrapeta?.kind === 'held' && env.carrapeta.holder === self.id)
+          || bombRole(self, env) === 'carrier',
+        canSwitch: s.reload === 0,
+      });
+      if (choice === 'hammer' && distanceUnits !== null) {
+        this.hammerRush = { tick: env.tick, distanceUnits };
+        weapon = 3;
+        rushForward = true;
+      } else if (choice === 'primary') {
+        const bestGun = s.mag[s.primary] > 0 || s.reserve[s.primary] > 0 ? 1
+          : s.mag[WEAPON.PISTOL] > 0 || s.reserve[WEAPON.PISTOL] > 0 ? 2 : 0;
+        returning = bestGun !== 0;
+        if (returning && s.tick >= s.nextFire) {
+          weapon = bestGun;
+          this.hammerRush = null;
+        }
+      } else if (def.slot !== 3) {
+        this.hammerRush = null;
+      } else {
+        rushForward = rushing;
+      }
+    }
+
     if (target) {
       // --- combat
       const t = target.state;
@@ -738,9 +807,17 @@ export class BotBrain {
       const ready = env.tick >= this.reactAt;
       const cur = weaponDef(s.weapon);
 
+      if (rushForward) {
+        this.path = [];
+        this.repathAt = 0;
+        if (cur.slot === 3 && distance3(s, t) < BOT_TEMPER.swingReachUnits && ready) buttons |= BTN.ATTACK;
+        return this.cmd(buttons | BTN.FWD, weapon, env);
+      }
       if (cur.slot === 3) {
-        buttons |= BTN.FWD;
-        if (dist < 80 && ready) buttons |= BTN.ATTACK;
+        if (!returning) {
+          buttons |= BTN.FWD;
+          if (dist < BOT_TEMPER.swingReachUnits && ready) buttons |= BTN.ATTACK;
+        }
       } else if (cur.zoomFov.length && s.zoom === 0 && s.resumeZoom === 0 && dist > 350 && !(this.prevButtons & BTN.ATTACK2)) {
         buttons |= BTN.ATTACK2; // scope in before taking an AWP shot
       } else if (ready && off < tolerance && env.tick >= this.pauseUntil) {
@@ -791,6 +868,7 @@ export class BotBrain {
 
     // --- navigation
     if (holding) return this.cmd(BTN.USE, weapon, env);
+    if (returning && weapon) return this.cmd(0, weapon, env);
     if (this.reached || settledNear(s, bombGoal)) {
       if (this.wantsReload(s, def)) buttons |= BTN.RELOAD;
       return this.cmd(buttons, weapon, env);

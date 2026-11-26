@@ -32,3 +32,18 @@ test('only Carrapeta Dourada selects the Carrapeta skin', () => {
     assert.equal(weapons.weaponSkin(mode), mode === 'carrapeta' ? 'carrapeta' : 'standard', mode);
   }
 });
+
+test('Carrapeta Dourada gilds every gun and leaves no lime or dark metal', () => {
+  for (const id of Object.values(WEAPON)) {
+    if (id === WEAPON.HAMMER || id === WEAPON.MGL) continue;
+    const colors = meshColors(weapons.buildWeapon(id, 0, 'carrapeta').group);
+    assert.ok(colors.has('d9a520'), `weapon ${id} is not gold`);
+    for (const color of ['242427', 'a5fa00', '7fbf12']) assert.ok(!colors.has(color), `weapon ${id} keeps #${color}`);
+  }
+});
+
+test('Carrapeta Dourada swings a red and yellow toy hammer', () => {
+  const toy = meshColors(weapons.buildWeapon(WEAPON.HAMMER, 0, 'carrapeta').group);
+  assert.deepEqual(toy, new Set(['e0261b', 'ffd21f']));
+  assert.ok(!meshColors(weapons.buildWeapon(WEAPON.HAMMER).group).has('e0261b'), 'the standard hammer stays steel');
+});

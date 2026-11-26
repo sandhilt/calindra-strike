@@ -22,6 +22,9 @@ const mats = {
   gold: new THREE.MeshStandardMaterial({ color: '#d9a520', emissive: '#6b4a00', emissiveIntensity: 0.3, roughness: 0.28, metalness: 0.85 }),
   goldDark: new THREE.MeshStandardMaterial({ color: '#8a6a1a', roughness: 0.4, metalness: 0.75 }),
   walnut: new THREE.MeshStandardMaterial({ color: '#4a2a14', roughness: 0.7 }),
+  // Glossy toy plastic of the squeaky hammer the Carrapeta Dourada skin swings.
+  toyRed: new THREE.MeshStandardMaterial({ color: '#e0261b', roughness: 0.35 }),
+  toyYellow: new THREE.MeshStandardMaterial({ color: '#ffd21f', roughness: 0.35 }),
   pipOff: new THREE.MeshStandardMaterial({ color: '#17191c', roughness: 0.6 }),
 };
 
@@ -29,6 +32,44 @@ export type WeaponSkin = 'standard' | 'carrapeta';
 
 export function weaponSkin(mode: GameMode): WeaponSkin {
   return mode === 'carrapeta' ? 'carrapeta' : 'standard';
+}
+
+/** In Carrapeta Dourada every gun is gilded: dark metal turns to gold, polymer to walnut, the lime accents to bright gold. */
+const GILDED = new Map<THREE.Material, THREE.Material>([
+  [mats.gun, mats.gold], [mats.gun2, mats.goldDark], [mats.steel, mats.gold], [mats.poly, mats.walnut],
+  [mats.lime, mats.gold], [mats.limeDim, mats.goldDark],
+]);
+
+function gild(g: THREE.Object3D): void {
+  g.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const gold = GILDED.get(mesh.material as THREE.Material);
+    if (gold) mesh.material = gold;
+  });
+}
+
+/** A squeaky toy hammer: a red bellows head with yellow faces on a yellow handle, grip at the origin like the steel one. */
+function toyHammer(g: THREE.Group): void {
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 22, 12), mats.toyYellow);
+  handle.position.set(0, 3, 0);
+  g.add(handle);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 11, 16), mats.toyRed);
+  head.rotation.z = Math.PI / 2;
+  head.position.set(0, 16, 0);
+  g.add(head);
+  for (const x of [-6.2, 6.2]) {
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 1.6, 16), mats.toyYellow);
+    face.rotation.z = Math.PI / 2;
+    face.position.set(x, 16, 0);
+    g.add(face);
+  }
+  for (const x of [-2.6, 0, 2.6]) {
+    const pleat = new THREE.Mesh(new THREE.CylinderGeometry(4.85, 4.85, 0.6, 16), mats.toyYellow);
+    pleat.rotation.z = Math.PI / 2;
+    pleat.position.set(x, 16, 0);
+    g.add(pleat);
+  }
 }
 
 const LAUNCHER_SKINS: Record<WeaponSkin, {
@@ -444,6 +485,11 @@ export function buildWeapon(id: WeaponId, beltLinks = 0, skin: WeaponSkin = 'sta
       muzzle.position.set(0, 2, -34);
       break;
     case WEAPON.HAMMER:
+      if (skin === 'carrapeta') {
+        toyHammer(g);
+        muzzle.position.set(0, 16, -3.5);
+        break;
+      }
       // Upright shaft: grip at the origin, shared by first- and third-person hands.
       bx(g, 1.8, 19, 1.8, mats.wood, 0, 2.5, 0);
       bx(g, 2.2, 10, 2.2, mats.poly, 0, -1.6, 0);
@@ -484,6 +530,7 @@ export function buildWeapon(id: WeaponId, beltLinks = 0, skin: WeaponSkin = 'sta
       break;
   }
   g.add(muzzle);
+  if (skin === 'carrapeta' && id !== WEAPON.HAMMER && id !== WEAPON.MGL) gild(g);
   if (rig.magazine) rig.handTarget.copy(rig.magazine.position).add(new THREE.Vector3(0, -3.2, 0));
   if (rig.supportHandReach) rig.handTarget.copy(rig.supportHandReach);
   g.traverse((o) => {

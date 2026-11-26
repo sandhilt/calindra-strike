@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- In Carrapeta Dourada every gun is gilded and the hammer is drawn as a red and yellow squeaky toy hammer, look only (`GILDED` and `toyHammer` in `client/src/game/render/weapons3d.ts`).
 - The food court burger chain is now called Batatas Douradas and the Mirante sports store Minotauro, on their signs and in the README (`brands.ts`, `store-signs.ts`).
 - Shopping Sul Rio clears its storefronts on all three floors and replaces the atrium ad masts with kiosks, planters, a bench and info totems. The Mirante gains two stationery shops, local shop ventilation sounds and staggered seating and cover (`shopping-cover.ts`, `shopping-top.ts`, `shopping-boutiques.ts`).
 - Added LMS and Gincana elimination rounds, a chase camera for eliminated players, and lead announcements across scoring modes. MCP reports round state and alive counts. Protocol 26 adds the two mode IDs.

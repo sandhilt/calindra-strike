@@ -45,7 +45,11 @@ export class Pilot {
     return this.brain.directiveEnded;
   }
 
-  nextCmd(view: WorldView, intent: Intent, nav: NavGrid, world: CollisionWorld, seq: number): Cmd {
+  noteEnemyHit(distanceUnits: number): void {
+    this.brain.noteEnemyHit(distanceUnits);
+  }
+
+  nextCmd(view: WorldView, intent: Intent, nav: NavGrid, world: CollisionWorld, seq: number, manualWeaponControl = false): Cmd {
     const state = view.self;
     const alive = state !== null && state.health > 0;
     if ((alive && !this.alive) || (state?.dropping && !this.dropping)) this.brain.reset();
@@ -99,6 +103,7 @@ export class Pilot {
       world,
       nav,
       tick: this.tick,
+      manualWeaponControl: manualWeaponControl || intent.kind !== 'hunt',
       now: view.time,
       mode: view.match.mode,
       random: this.random,

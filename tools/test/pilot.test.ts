@@ -12,6 +12,7 @@ import {
   RF_DROP,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
+import { ActionOverlay } from '../mcp/actions.ts';
 import { Pilot } from '../mcp/pilot.ts';
 import { welcome } from '../mcp/view.ts';
 
@@ -207,4 +208,27 @@ test('move_to a point on the top floor rides the glass lift, and move_to the gro
   }
   assert.ok(pilot.arrived, `Stopped at ${s.x},${s.y},${s.z}`);
   assert.ok(Math.abs(s.y) <= 20, 'back on the ground, at ' + s.y);
+});
+
+test('hunt can start a hammer rush after a close hit, with manual reload taking priority', () => {
+  const { world, nav, view, s, pilot } = fixture();
+  view.id = 6;
+  view.roster = [[6, 'agent', 0, 0, 0]];
+  view.peers = [{
+    id: 2, name: 'enemy', team: 1, enemy: true, alive: true, x: s.x, y: s.y, z: s.z - 150,
+    yaw: 0, pitch: 0, flags: RF_ALIVE, weapon: WEAPON.RIFLE, lean: 0,
+  }];
+  const intent = { kind: 'hunt' } as const;
+  for (let seq = 1; seq <= 6; seq++) {
+    assert.equal(pilot.nextCmd(view, intent, nav, world, seq).weapon, 0);
+  }
+  pilot.noteEnemyHit(100);
+  pilot.nextCmd(view, intent, nav, world, 7);
+  s.health -= 20;
+  const actions = new ActionOverlay();
+  actions.requestReload();
+  const manual = actions.apply(pilot.nextCmd(view, intent, nav, world, 8, actions.manualWeaponControl), s);
+  assert.equal(manual.weapon, 0);
+  assert.ok(manual.buttons & BTN.RELOAD);
+  assert.equal(pilot.nextCmd(view, intent, nav, world, 9, actions.manualWeaponControl).weapon, 3);
 });

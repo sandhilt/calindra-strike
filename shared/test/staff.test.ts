@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { DECK3 } from '../src/maps/shopping-levels.ts';
-import { getMaps, STORE_BRANDS, type Box, type MapDef, type MapProp } from '../src/index.ts';
+import { getMaps, STORE_BRANDS, type Box, type MapDef, type MapProp, STAFF_UNIFORMS, staffOutfit } from '../src/index.ts';
 
 type Staff = Extract<MapProp, { kind: 'staff' }>;
 
@@ -150,5 +150,15 @@ describe('the shopping floor staff', () => {
       const cashier = roles('cashier').find((p) => Math.abs(p.x - till.x) < 1 && p.y === DECK3);
       assert.ok(cashier, `a cashier behind ${till.name}`);
     }
+  });
+});
+
+describe('staff uniforms', () => {
+  it('dresses cooks in a white chef jacket in the brand colour and everyone else in the brand polo', () => {
+    assert.equal(staffOutfit('kfg', 'cook').top, 0xf5f5f5);
+    assert.equal(staffOutfit('kfg', 'cook').trim, STAFF_UNIFORMS.kfg.top);
+    assert.equal(staffOutfit('mania-picanha', 'cook').trim, STAFF_UNIFORMS['mania-picanha'].trim);
+    assert.deepEqual(staffOutfit('kfg', 'server'), STAFF_UNIFORMS.kfg);
+    assert.deepEqual(staffOutfit('pandorga', 'cashier'), STAFF_UNIFORMS.pandorga);
   });
 });

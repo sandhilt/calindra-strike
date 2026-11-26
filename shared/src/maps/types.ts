@@ -97,6 +97,14 @@ export type MapProp =
 
 export type PropKind = MapProp['kind'];
 
+/** A volume exposed to falling snow, in world units. */
+export interface SnowTheme {
+  min: Vec3;
+  max: Vec3;
+  /** Particle budget for the area around the camera. */
+  flakes: number;
+}
+
 export interface MapTheme {
   skyTop: string;
   skyHorizon: string;
@@ -110,8 +118,9 @@ export interface MapTheme {
   hemiSky: string;
   hemiGround: string;
   hemiIntensity: number;
+  snow?: SnowTheme;
   /** Replaces what the day cycle would derive from this day theme for the afternoon or the night. */
-  phases?: Partial<Record<'afternoon' | 'night', Partial<Omit<MapTheme, 'phases'>>>>;
+  phases?: Partial<Record<'afternoon' | 'night', Partial<Omit<MapTheme, 'phases' | 'snow'>>>>;
 }
 
 export interface MapLight {

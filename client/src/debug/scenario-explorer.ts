@@ -151,7 +151,7 @@ export function createScenarioExplorer(
       camera.rotation.set(pose.pitch, pose.yaw, 0, 'YXZ');
       followShadow(world.sun, pose.x, pose.z, sunDir);
       world.sky.position.copy(camera.position);
-      world.update(dt, Math.round(now / TICK_MS));
+      world.update(dt, Math.round(now / TICK_MS), camera.position);
       if (!showGun) return;
       const gun = getGun();
       gun.setQuality(quality);

@@ -27,7 +27,7 @@ test('recommendation prefers quality at 90% and smoothness below 90%', () => {
   assert.equal(recommend({}), null);
 });
 
-const mapIds = ['forja', 'escritorio', 'shopping'];
+const mapIds = ['forja', 'escritorio', 'shopping', 'shopping-natal'];
 
 test('benchmark parameters select known IDs and preserve explicit order', () => {
   const report = 'http://127.0.0.1:8000/report?key=value';

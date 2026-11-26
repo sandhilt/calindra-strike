@@ -1,4 +1,4 @@
-import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind } from '@calindra-strike/shared';
+import { LIFT_DOOR_CLOSE_TICKS, LIFT_DOOR_HEIGHT_UNITS, liftCab, type Lift, type MapProp, type Mat, type PropKind, type StationId } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import {
   CASCADE_DROP,
@@ -666,7 +666,7 @@ function buildLifts(items: readonly PropOf<'lift'>[], ctx: PropContext): PropGro
 }
 
 function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: PropContext): PropGroup {
-  const cases = { forja: 0x61503a, escritorio: 0xddd6c8, shopping: 0xe8e9e5 };
+  const cases: Record<StationId, number> = { forja: 0x61503a, escritorio: 0xddd6c8, shopping: 0xe8e9e5, 'shopping-natal': 0xe8e9e5 };
   for (const { x, y, z, yaw, station } of speakers) {
     statics.at(x, y, z, yaw)
       .box(22, 16, 12, cases[station], { x: 0, y: 0, z: 0 })

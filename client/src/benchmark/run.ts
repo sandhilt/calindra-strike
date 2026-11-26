@@ -112,7 +112,7 @@ async function measure(
       camera.rotation.set(TOUR_PITCH, yaw, 0, 'YXZ');
       followShadow(view.sun, x, z, sunDir);
       view.sky.position.copy(camera.position);
-      view.update(dtMs / 1000, Math.round(performance.now() / TICK_MS));
+      view.update(dtMs / 1000, Math.round(performance.now() / TICK_MS), camera.position);
       renderer.info.reset();
       if (rt) {
         try {

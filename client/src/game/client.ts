@@ -1804,7 +1804,7 @@ export class ClientGame {
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
     this.muzzleLight.position.copy(this.camera.position).add(v3.set(0, 0, -40).applyQuaternion(this.camera.quaternion));
     if (this.world) {
-      this.world.update(dt, this.liftTick());
+      this.world.update(dt, this.liftTick(), this.camera.position);
       this.updateDayLight(this.world);
       followShadow(this.world.sun, this.camera.position.x, this.camera.position.z, this.world.sunDir);
       this.world.sky.position.copy(this.camera.position);

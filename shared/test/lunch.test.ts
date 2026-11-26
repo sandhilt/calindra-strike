@@ -84,7 +84,7 @@ describe('hora de almoçar', () => {
 
   it('is only played on maps with a food court', () => {
     const playable = getMaps().filter((m) => modeFitsMap('almoco', m)).map((m) => m.id);
-    assert.deepEqual(playable, ['shopping']);
+    assert.deepEqual(playable, ['shopping', 'shopping-natal']);
     assert.ok(getMaps().every((m) => modeFitsMap('tdm', m)));
   });
 

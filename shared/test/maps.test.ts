@@ -21,7 +21,7 @@ for (const map of getMaps()) {
     });
 
     it('uses open, mirrored Mirante bases for Shopping defusion', () => {
-      if (map.id !== 'shopping') {
+      if (!map.id.startsWith('shopping')) {
         assert.equal(map.defuseBases, undefined);
         assert.equal(map.defuseSite, undefined);
         return;

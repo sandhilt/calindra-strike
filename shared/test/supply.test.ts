@@ -69,6 +69,7 @@ describe('supply stands', () => {
     const shopping = getMaps().find((m) => m.id === 'shopping');
     assert.ok(shopping);
     assert.deepEqual(shopping.supplies, [{ x: 0, y: 384, z: -880 }, { x: 0, y: 384, z: 880 }]);
-    for (const other of getMaps().filter((m) => m.id !== 'shopping')) assert.deepEqual(other.supplies, []);
+    for (const other of getMaps().filter((m) => !m.id.startsWith('shopping'))) assert.deepEqual(other.supplies, []);
+    assert.deepEqual(getMaps().find((m) => m.id === 'shopping-natal')?.supplies, shopping.supplies);
   });
 });

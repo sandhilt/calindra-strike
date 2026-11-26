@@ -27,6 +27,7 @@ import {
 import { addClothesRack, addEscalatorBody, addFanMount, addMannequin, addVentFrame } from './prop-models.ts';
 import { newPropMaterial, Parts } from './prop-parts.ts';
 import { addSanta } from './santa.ts';
+import { addStaffBody, StaffArms } from './staff.ts';
 import type { QualityProfile } from './quality.ts';
 import { canvasTexture } from './textures.ts';
 
@@ -158,6 +159,22 @@ function buildCeilingFans(fans: readonly PropOf<'ceilingFan'>[], ctx: PropContex
 function buildMannequins(items: readonly PropOf<'mannequin'>[], ctx: PropContext): PropGroup {
   for (const m of items) addMannequin(ctx.statics, m);
   return still();
+}
+
+/** Staff bodies are static scenery; only their arms move, and only on the tiers that run staff motion. */
+function buildStaff(items: readonly PropOf<'staff'>[], ctx: PropContext): PropGroup {
+  if (items.length === 0) return still();
+  for (const s of items) addStaffBody(ctx.statics, s);
+  const arms = new StaffArms(items, ctx.profile.staffMotion);
+  return {
+    object: arms.object,
+    update(dt) {
+      arms.update(dt);
+    },
+    setQuality(profile) {
+      arms.setMoving(profile.staffMotion);
+    },
+  };
 }
 
 function buildClothesRacks(items: readonly PropOf<'clothesRack'>[], ctx: PropContext): PropGroup {
@@ -687,6 +704,7 @@ function buildSpeakers(speakers: readonly PropOf<'speaker'>[], { statics }: Prop
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
   mannequin: buildMannequins,
+  staff: buildStaff,
   santa(items, { statics }) {
     for (const item of items) addSanta(statics, item);
     return still();

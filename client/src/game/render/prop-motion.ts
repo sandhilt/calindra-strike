@@ -1,4 +1,4 @@
-import { ESCALATOR_SPEED_UNITS, type EscalatorTravel } from '@calindra-strike/shared';
+import { ESCALATOR_SPEED_UNITS, type EscalatorTravel, type StaffRole } from '@calindra-strike/shared';
 
 /**
  * Pure motion rules of the animated scenery (escalator steps, fountain drops, vent wisps, fan spin).
@@ -202,4 +202,27 @@ export function doorOpening(distance: number): number {
   const t = (LIFT_DOOR_SHUT_UNITS - distance) / (LIFT_DOOR_SHUT_UNITS - LIFT_DOOR_OPEN_UNITS);
   const clamped = Math.min(1, Math.max(0, t));
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+/** Seconds for one stir of a cook, one tap of a cashier's scan and one hand-off of a server. */
+const STIR_PERIOD_S = 1.6;
+const SCAN_PERIOD_S = 3.2;
+const SERVE_PERIOD_S = 4.5;
+
+/**
+ * Forward swing of a store employee's arm in radians, positive toward the way they face. A cook stirs with the
+ * right arm and keeps the left one steady; a cashier only reaches the right arm to the till; a server passes orders
+ * with both. `seed` staggers staff so a row of them never moves in step. At `seconds` 0 it is the resting pose.
+ */
+export function staffArmSwing(seconds: number, seed: number, role: StaffRole, side: 'left' | 'right'): number {
+  const phase = (periodS: number) => (2 * Math.PI * seconds) / periodS + seed;
+  if (role === 'cook') {
+    return side === 'right' ? 0.25 + 0.45 * (0.5 + 0.5 * Math.sin(phase(STIR_PERIOD_S))) : 0.15 + 0.1 * (0.5 + 0.5 * Math.sin(phase(STIR_PERIOD_S) + Math.PI));
+  }
+  if (role === 'cashier') {
+    if (side === 'left') return 0;
+    const tap = Math.max(0, Math.sin(phase(SCAN_PERIOD_S)));
+    return 0.7 * tap * tap * tap;
+  }
+  return 0.35 + 0.2 * Math.sin(phase(SERVE_PERIOD_S));
 }

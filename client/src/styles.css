@@ -389,12 +389,15 @@ input:focus-visible {
 }
 
 .github-link {
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
   border: 1px solid var(--line-2);
-  border-radius: 50%;
+  border-radius: 999px;
+  font-size: 13px;
+  text-decoration: none;
   background: var(--bg-3);
   color: var(--text);
   transition: border-color 0.12s ease, color 0.12s ease, transform 0.12s ease;

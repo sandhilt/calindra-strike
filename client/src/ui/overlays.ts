@@ -1,3 +1,4 @@
+import { issuesLink } from './issues-link.ts';
 import { browserEngine } from '../game/speech.ts';
 import { checkRow, choiceRow, controlsList, rangeRow, withIcon } from './controls.ts';
 import { FIRST_MENU_TAB, MENU_TAB_IDS, type MenuTabId, menuTabForKey } from './menu-tabs.ts';
@@ -281,6 +282,7 @@ export class Overlays {
         h('button', { class: 'btn join-action', type: 'button', text: 'entrar no jogo', title: 'Entra na partida como jogador (J)', onclick: () => this.hooks.join() }),
         h('button', { class: 'btn spectate-action', type: 'button', text: 'assistir', title: 'Sai do jogo e entra só olhando', onclick: () => this.hooks.spectate() }),
         h('button', { class: 'btn', type: 'button', text: 'sair da partida', onclick: () => this.hooks.leave() }),
+        issuesLink(),
       ]),
     ]);
   }

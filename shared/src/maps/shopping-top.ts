@@ -1,5 +1,5 @@
 import { brandMat, STORE_BRANDS, type FloorBrand, type ShopBrand, type StoreBrand } from './brands.ts';
-import { boutiqueShop, DOORWAY_HEIGHT, SHOP_WALL_HEIGHT, type CornerBoutique, type LargeBoutique, type LoungeBoutique, type SmallBoutique } from './shopping-boutiques.ts';
+import { boutiqueShop, DOORWAY_HEIGHT, SHOP_WALL_HEIGHT, type CornerBoutique, type GiftBoutique, type LargeBoutique, type LoungeBoutique, type SmallBoutique } from './shopping-boutiques.ts';
 import type { MapBuilder } from './builder.ts';
 import { LIFT_DOOR_HEIGHT_UNITS } from '../lift.ts';
 import { BAY_ESCALATORS, BAY_FOOT_Z, BAY_TOP_Z, DECK, DECK3, FACADE_Z, GALLERY_Z, LIFT_MAX_X, LIFT_MAX_Z, LIFT_MIN_X, LIFT_MIN_Z, LIFT_WALL, RAIL, ROOF, SLAB, TOP_X, X, Z } from './shopping-levels.ts';
@@ -177,12 +177,13 @@ function liftShaft(b: MapBuilder): void {
   b.landmark('Elevador panorâmico', 0, (LIFT_MIN_Z + LIFT_MAX_Z) / 2);
 }
 
-/** What each half's top floor sells along its back wall: the pharmacy, a small boutique past it, one more beside the lounge and two larger ones across it. The Cacau Chou branch fills the gap between the corner boutique and the first large one. */
+/** What each half's top floor sells along its back wall: the pharmacy, a small boutique past it, one more beside the lounge and two larger ones across it. A design and gift shop fills the gap between the corner boutique and the first large one. */
 export interface MiranteShops {
   readonly pharmacy: ShopBrand;
   readonly small: SmallBoutique;
   readonly lounge: LoungeBoutique;
   readonly corner: CornerBoutique;
+  readonly gift: GiftBoutique;
   readonly large: readonly [LargeBoutique, LargeBoutique];
 }
 
@@ -208,7 +209,7 @@ const LARGE_PARTITIONS = [276, 732, 1188] as const;
 const LOUNGE_SLOT = [PHARMACY_X + PHARMACY_EDGE, -90] as const;
 const CORNER_SLOT_END = 90;
 /** The gap between the corner boutique and the first large one. Both partitions belong to those neighbours. */
-const CHOCOLATE_SLOT = [CORNER_SLOT_END, LARGE_PARTITIONS[0]] as const;
+const GIFT_SLOT = [CORNER_SLOT_END, LARGE_PARTITIONS[0]] as const;
 const POSTER_DEPTHS = [44, 178, 236] as const;
 
 /** A green cross of three adjoining rectangles (so no two faces share a plane), on a plane facing +z at `z` (centred on x, y). */
@@ -303,7 +304,7 @@ function boutiques(b: MapBuilder, shops: MiranteShops): void {
   boutiqueShop(b, shops.small, SMALL_SLOT[0], SMALL_SLOT[1], { left: true, right: false });
   boutiqueShop(b, shops.lounge, LOUNGE_SLOT[0], LOUNGE_SLOT[1], { left: false, right: true });
   boutiqueShop(b, shops.corner, LOUNGE_SLOT[1], CORNER_SLOT_END, { left: false, right: true });
-  boutiqueShop(b, 'cacau-chou', CHOCOLATE_SLOT[0], CHOCOLATE_SLOT[1], { left: false, right: false });
+  boutiqueShop(b, shops.gift, GIFT_SLOT[0], GIFT_SLOT[1], { left: false, right: false });
   boutiqueShop(b, shops.large[0], LARGE_PARTITIONS[0], LARGE_PARTITIONS[1], { left: true, right: true });
   boutiqueShop(b, shops.large[1], LARGE_PARTITIONS[1], LARGE_PARTITIONS[2], { left: false, right: true });
   planter(b, 1210, -1040, 110, 90, 58);

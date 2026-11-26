@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildShopping } from '../src/maps/shopping.ts';
 import { MIRROR_GLASS_TINT } from '../src/maps/room.ts';
-import { DUMBBELL_PLATE_TINT, SHOE_SOLE_TINT } from '../src/maps/shopping-boutiques.ts';
-import { brandMat, STORE_BRANDS, type ShopBrand } from '../src/maps/brands.ts';
+import { DUMBBELL_PLATE_TINT, GIFT_SHOPS, SHOE_SOLE_TINT } from '../src/maps/shopping-boutiques.ts';
+import { brandMat, STORE_BRANDS, type ShopBrand, type StoreBrand } from '../src/maps/brands.ts';
 import { DECK, DECK3, FACADE_Z, Z } from '../src/maps/shopping-levels.ts';
-import { CHOCOLATES, STORE_HALF_WIDTH } from '../src/maps/shopping-stores.ts';
+import { STORE_HALF_WIDTH } from '../src/maps/shopping-stores.ts';
 import type { Box } from '../src/maps/types.ts';
 
 const shopping = buildShopping();
@@ -137,14 +137,15 @@ describe('Minotauro, the sports shop of the Mirante', () => {
   });
 });
 
-describe('the Cacau Chou chocolate shop in the gap of the Mirante', () => {
-  const name = `${STORE_BRANDS['cacau-chou'].name} (Mirante)`;
-  /** Two landmarks, one per half: a name shared by both is suffixed with its compass corner. */
-  const shops = shopping.features.filter((f) => f.kind === 'landmark' && f.name.startsWith(name));
+describe('the design and gift shops in the gap of the Mirante', () => {
+  const gifts = ['imaginario', 'toc-toque'] as const;
+  const shops = gifts.flatMap((brand) => shopping.features.flatMap((f) =>
+    f.kind === 'landmark' && f.name === `${STORE_BRANDS[brand].name} (Mirante)` ? [{ brand, x: f.x, z: f.z }] : []));
   const SHOP_EDGES = [90, 276, -90, -276] as const;
 
-  it('stands once in each half, between the corner boutique and the first large one', () => {
+  it('stands once per half, a different shop in each, between the corner boutique and the first large one', () => {
     assert.equal(shops.length, 2);
+    assert.ok(Math.sign(shops[0].z) !== Math.sign(shops[1].z), 'one in each half');
     for (const shop of shops) {
       assert.ok(Math.abs(shop.x) > 90 && Math.abs(shop.x) < 276, `x ${shop.x} lies in the gap`);
     }
@@ -157,23 +158,47 @@ describe('the Cacau Chou chocolate shop in the gap of the Mirante', () => {
   });
 
   it('has its sign over the doorway in each half', () => {
-    const signs = shopping.boxes.filter((box) => box.mat === brandMat('cacau-chou') && box.min.y >= DECK3);
-    assert.equal(signs.length, 2);
+    for (const brand of gifts) {
+      const signs = shopping.boxes.filter((box) => box.mat === brandMat(brand) && box.min.y >= DECK3);
+      assert.equal(signs.length, 1, brand);
+    }
   });
 
-  it('stacks chocolate boxes on the back shelves and lays them out in a display case', () => {
+  it('stacks gifts on the back shelves and sets a display table in the middle', () => {
     for (const shop of shops) {
+      const giftTints: readonly number[] = GIFT_SHOPS[shop.brand].gifts;
       // The back wall is at |z| = Z, so the shelves are the boxes deeper than the landmark, on whichever side the shop stands.
-      const chocolates = shopping.boxes.filter((box) => box.mat === 'white' && box.tint !== undefined && CHOCOLATES.includes(box.tint) &&
+      const shelved = shopping.boxes.filter((box) => box.mat === 'white' && box.tint !== undefined && giftTints.includes(box.tint) &&
         box.min.y >= DECK3 && Math.abs(centre(box).x - shop.x) < 90 && Math.abs(centre(box).z) > Math.abs(shop.z) + 60);
-      assert.ok(chocolates.length >= 40, `${chocolates.length} boxes on the shelves`);
-      const cabinet = shopping.boxes.find((box) => box.solid && box.tint === 0x3b1d0e && box.min.y >= DECK3 &&
+      assert.ok(shelved.length >= 40, `${shelved.length} gifts on the shelves`);
+      const table = shopping.boxes.find((box) => box.solid && box.tint === GIFT_SHOPS[shop.brand].table && box.min.y >= DECK3 &&
         Math.abs(centre(box).x - shop.x) < 10 && Math.abs(centre(box).z - shop.z) < 40);
-      assert.ok(cabinet, 'a display case in the middle of the shop');
+      assert.ok(table, 'a display table in the middle of the shop');
     }
   });
 
   it('keeps the browse spot in the aisle', () => {
     for (const shop of shops) assertBrowseSpotClear(shop.x, shop.z);
+  });
+});
+
+describe('the stores of Shopping Sul Rio', () => {
+  /** A store landmark is its brand name, then " (Mirante)" on the top floor, then a compass corner when both halves share it. */
+  const brandOf = (landmark: string): StoreBrand | undefined => {
+    const name = landmark.replace(/ \([NS][OE]\)$/, '').replace(/ \(Mirante\)$/, '');
+    return (Object.keys(STORE_BRANDS) as StoreBrand[]).find((brand) => STORE_BRANDS[brand].name === name);
+  };
+
+  it('never repeats a brand in two stores of the same half', () => {
+    const stores = shopping.features.flatMap((f) => {
+      const brand = f.kind === 'landmark' ? brandOf(f.name) : undefined;
+      return brand ? [{ brand, half: Math.sign(f.z) }] : [];
+    });
+    assert.ok(stores.length >= 30, `${stores.length} stores`);
+    for (const half of [-1, 1]) {
+      const brands = stores.filter((store) => store.half === half).map((store) => store.brand);
+      const repeated = brands.filter((brand, index) => brands.indexOf(brand) !== index);
+      assert.deepEqual(repeated, [], `brands repeated in the half at z sign ${half}`);
+    }
   });
 });

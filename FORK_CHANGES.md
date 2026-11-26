@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 
+- The Mirante gap shop is a new design and gift boutique per half, Imaginário (north, teal and yellow) and Toc & Toque (south, home decor in charcoal and terracotta), with gifts on the shelves, a display table of mugs and desk lamps and plush cushions, instead of a second Cacau Chou on each half, which stays on the ground floor only. `GalleryShopBrand` is gone (the gap shop is a `GiftBoutique` in `MiranteShops.gift`), and `shopping-fillers.test.ts` fails any brand with two stores on the same half.
 - The Shopping Sul Rio atrium loses its tables (the wooden Quiosque and the low wood table) and is spread out more evenly: the central cart, planter and info totem cluster by the lift moves out, and four small closed kiosks (Bobo's, Livraria da Travessura, Méqui, KFG) and two slim LED totems per half fill the empty patches. Kiosks and totems carry digital ad screens that hold each ad and slide to the next, a new `adScreen` prop drawn as one merged mesh over one shared ad strip (`shopping-cover.ts`, `props.ts`, `adScroll` in `prop-motion.ts`), moving only where `ambientMotion` is on.
 - The lift level signs are no longer covered: the Natal wreaths over the lift doorways are gone, the signs sit 14 units over the doorway so the drawn lintel and lamp clear them, and `shopping-natal.test.ts` now checks every decoration, not only garlands, against every sign face.
 - The Batatas Douradas (`mequi`) sign has narrower arches and a clear gap before its words.

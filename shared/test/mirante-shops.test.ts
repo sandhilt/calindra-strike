@@ -8,8 +8,8 @@ assert.ok(shopping);
 const BOUTIQUES = Object.entries(STORE_BRANDS).flatMap(([id, brand]) => (brand.kind === 'boutique' ? [id as BoutiqueBrand] : []));
 
 describe('the shops of the Mirante', () => {
-  it('has ten boutiques', () => {
-    assert.equal(BOUTIQUES.length, 10);
+  it('has twelve boutiques', () => {
+    assert.equal(BOUTIQUES.length, 12);
   });
 
   for (const brand of BOUTIQUES) {
@@ -24,8 +24,8 @@ describe('the shops of the Mirante', () => {
     });
   }
 
-  it('puts five boutiques in the north half, the other five in the south one', () => {
+  it('puts six boutiques in the north half, the other six in the south one', () => {
     const north = BOUTIQUES.filter((brand) => shopping.features.some((f) => f.kind === 'landmark' && f.name === `${STORE_BRANDS[brand].name} (Mirante)` && f.z < 0));
-    assert.equal(north.length, 5, 'five boutiques in the north half');
+    assert.equal(north.length, 6, 'six boutiques in the north half');
   });
 });

@@ -1,13 +1,12 @@
-import type { FoodBrand } from './brands.ts';
+import type { BoutiqueBrand, FoodBrand } from './brands.ts';
 import { outfit } from './room.ts';
-import type { GalleryShopBrand } from './shopping-boutiques.ts';
 import type { Outfit } from './types.ts';
 
 /** What a store employee does at their post: works the till, cooks at a station or passes orders over the counter. */
 export type StaffRole = 'cashier' | 'cook' | 'server';
 
 /** Each uniform is named for the brand whose staff wear it, so every counter has its own look. */
-export type StaffUniform = FoodBrand | GalleryShopBrand;
+export type StaffUniform = FoodBrand | BoutiqueBrand;
 
 const WHITE = 0xf5f5f5;
 const BLACK = 0x1b1b1b;
@@ -37,7 +36,8 @@ export const STAFF_UNIFORMS: Readonly<Record<StaffUniform, Outfit>> = {
   'papel-e-cor': outfit(0x7b3d54, BLACK, 0xf6efe4),
   sentauro: outfit(0xe4002b, BLACK, WHITE),
   'brinco-center': outfit(0x1f6fd1, BLACK, 0xf2c200),
-  'cacau-chou': outfit(0xe9c27a, 0x5a2f1b, 0x5a2f1b),
+  imaginario: outfit(0x0f6e78, BLACK, 0xffc93c),
+  'toc-toque': outfit(0x3a3a3a, 0xcfb894, 0xd9773a),
 };
 
 /** Kitchen cooks wear a white chef jacket over dark trousers, trimmed in their brand's shirt colour. */

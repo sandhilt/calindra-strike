@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BTN, CollisionWorld, LIFT_CLOCK_SLACK_TICKS, LIFT_STOP_WAIT_TICKS, MapBuilder, WEAPON,
-  applyCmd, createPlayerState, getMaps, liftCab, packState, spawnState, unpackState, type Cmd, type Lift, type MapDef,
+  applyCmd, createPlayerState, getMaps, liftCab, liftDoorOpen, packState, spawnState, unpackState, type Cmd, type Lift, type MapDef,
 } from '../src/index.ts';
 
 const LIFT: Lift = { minX: -56, maxX: 56, minZ: 100, maxZ: 212, stops: [0, 192, 384], doors: [] };
@@ -140,4 +140,40 @@ describe('prediction and server agree on a ride', () => {
     }
     assert.equal(s.y, liftCab(LIFT, clock(139)).y);
   });
+});
+
+describe('boarding through a Mirante doorway', () => {
+  const map = getMaps().find((m) => m.lifts.length > 0);
+  assert.ok(map);
+  const lift = map.lifts[1];
+  const door = lift.doors.find((d) => d.y === 384);
+  assert.ok(door);
+  let lastOpen = 1;
+  while (!(liftDoorOpen(lift, door, lastOpen) && !liftDoorOpen(lift, door, lastOpen + 1))) lastOpen++;
+
+  function board(z: number, vz: number, buttons: number, clock: (i: number) => number): number {
+    const world = new CollisionWorld(map!);
+    const s = createPlayerState();
+    world.liftTick = clock(0);
+    spawnState(s, 0, 384, z, 0, WEAPON.RIFLE);
+    s.dropping = false;
+    s.onGround = true;
+    s.vz = vz;
+    for (let i = 0; i < 120; i++) {
+      world.liftTick = clock(i);
+      applyCmd(world, s, { seq: i, buttons: i < 10 ? buttons : 0, yaw: 0, pitch: 0, weapon: 0, interp: 0 }, 1);
+      const inShaft = s.z < lift.maxZ && s.z > lift.minZ;
+      if (inShaft && i > 0 && s.y < 383 && Math.abs(s.y - liftCab(lift, world.liftTick).y) > 0.01) return i;
+    }
+    return -1;
+  }
+
+  /** Walks (or crouch-jumps) in from the landing, starting at every tick of the last moments the doorway is open. */
+  const fromEveryStart = (buttons: number, jump: number): number[] =>
+    [...Array(40).keys()].filter((k) => board(lift.maxZ + 23, -250, buttons, (i) => lastOpen - 40 + k + i + (i > jump ? 24 : 0)) >= 0);
+
+  it('rides away after stepping in just before the doorway shuts, even when the next clock is 24 ticks on', () =>
+    assert.deepEqual(fromEveryStart(BTN.FWD, 6), []));
+  it('rides away after jumping in through the doorway', () =>
+    assert.deepEqual(fromEveryStart(BTN.FWD | BTN.JUMP | BTN.DUCK, 1000), []));
 });

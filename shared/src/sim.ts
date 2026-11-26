@@ -39,7 +39,7 @@ import {
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
-import { LIFT_DOOR_HEIGHT_UNITS, carriedBy, inFootprint, liftAt, liftCab, liftDoorOpen, type Lift } from './lift.ts';
+import { LIFT_DOOR_HEIGHT_UNITS, boards, inFootprint, liftAt, liftCab, liftDoorOpen, type Lift } from './lift.ts';
 import { escalatorDrift } from './escalator.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
@@ -434,7 +434,7 @@ function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number)
 
 /**
  * The shaft whose cab carries the player on this command. Riding is a state, not a distance: once the cab catches a
- * player (`carriedBy`), they ride it until their centre leaves the shaft, wherever the command's clock puts the cab, so
+ * player (`boards`), they ride it until their centre leaves the shaft, wherever the command's clock puts the cab, so
  * a clock that repeats, skips, steps back or falls back to the server's tick cannot leave the floor out of reach.
  */
 function ridden(w: CollisionWorld, s: PlayerState): Lift | undefined {
@@ -442,7 +442,7 @@ function ridden(w: CollisionWorld, s: PlayerState): Lift | undefined {
   if (riding && inFootprint(riding, s.x, s.z)) return riding;
   s.lift = -1;
   const shaft = liftAt(w.map.lifts, s.x, s.y, s.z);
-  if (!shaft || !carriedBy(liftCab(shaft, w.liftTick), s.y)) return undefined;
+  if (!shaft || !boards(liftCab(shaft, w.liftTick), s.y)) return undefined;
   s.lift = w.map.lifts.indexOf(shaft);
   return shaft;
 }
@@ -671,8 +671,9 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     const [driftX, driftZ] = escalatorDrift(w.map, s) ?? [0, 0];
     walkMove(w, s, dt, driftX, driftZ);
   } else airMove(w, s, dt);
-  if (riding) {
-    rideLift(w, s, riding);
+  const ride = riding ?? ridden(w, s); // boarded on this command's step through an open doorway
+  if (ride) {
+    rideLift(w, s, ride);
   } else {
     verticalMove(w, s, dt);
 

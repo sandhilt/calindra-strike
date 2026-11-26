@@ -114,7 +114,15 @@ export function inLiftCab(lifts: readonly Lift[], x: number, y: number, z: numbe
   return shaft !== undefined && Math.abs(liftCab(shaft, tick).y - y) <= LIFT_CARRY_UNITS;
 }
 
+/**
+ * Whether a player in the shaft with feet at `y` boards the cab: the cab carries them, or they are inside it above its
+ * floor, having walked or jumped in through a doorway. Jumping is off in the shaft, so nobody else is up there.
+ */
 /** Whether the cab carries a rider standing with feet at `y`: its floor is under them, or it moves and its floor is just ahead of them. */
+export function boards(cab: LiftCab, y: number): boolean {
+  return carriedBy(cab, y) || (y > cab.y && y <= cab.y + LIFT_DOOR_HEIGHT_UNITS);
+}
+
 export function carriedBy(cab: LiftCab, y: number): boolean {
   if (cab.moving === 0) return Math.abs(cab.y - y) <= LIFT_CARRY_UNITS;
   const ahead = (cab.y - y) * cab.moving;

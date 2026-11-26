@@ -60,6 +60,20 @@ function closedIn(map: MapDef, p: Staff): boolean {
   return directions.every(([dx, dz]) => nearestSolid(map, p.x, p.z, dx, dz, p.y + CHEST_UNITS) <= ENCLOSURE_REACH_UNITS);
 }
 
+/** How far a staff member's feet may sit from the solid floor players walk on (tuning value, units). */
+const FEET_TO_FLOOR_UNITS = 4;
+
+/** Top of the highest solid floor under (x, z) at or below height y: the level players stand on there. */
+function walkableFloor(map: MapDef, x: number, z: number, y: number): number {
+  let top = -Infinity;
+  for (const box of map.boxes) {
+    if (!box.solid || box.mat === 'clip') continue;
+    if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z) continue;
+    if (box.max.y <= y + FEET_TO_FLOOR_UNITS && box.max.y > top) top = box.max.y;
+  }
+  return top;
+}
+
 /** Kitchen walls, lids and counters span whole rooms; equipment and furniture are narrower than this. */
 const SCENERY_SPAN_UNITS = 120;
 
@@ -87,6 +101,13 @@ describe('store staff are scenery, never in the open', () => {
       for (const p of staffOf(map)) {
         const ok = inKitchen(map, p) || closedIn(map, p);
         assert.ok(ok, `${p.role} at ${p.x}, ${p.y}, ${p.z} stands in open space`);
+      }
+    });
+
+    it(`${map.id}: every staff member stands on the floor players walk on, so they are as tall as a player`, () => {
+      for (const p of staffOf(map)) {
+        const floor = walkableFloor(map, p.x, p.z, p.y);
+        assert.ok(Math.abs(p.y - floor) <= FEET_TO_FLOOR_UNITS, `${p.role} at ${p.x}, ${p.z} has feet at ${p.y}, floor at ${floor}`);
       }
     });
 
@@ -119,13 +140,12 @@ describe('the shopping floor staff', () => {
   const staff = staffOf(shopping);
   const roles = (role: Staff['role']) => staff.filter((p) => p.role === role);
 
-  /** Each food court kitchen sits behind its restaurant's counter, 162 units in from the back wall, on the platform (28 units up). */
+  /** Each food court kitchen sits behind its restaurant's counter, 162 units in from the back wall; its staff stand on the deck. */
   const KITCHEN_HALF_WIDTH = 160;
   const KITCHEN_REACH_Z = 162;
-  const PLATFORM_UNITS = 28;
   const kitchenStaffOf = (restaurant: (typeof shopping.restaurants)[number]) => staff.filter((p) =>
     Math.abs(p.x - restaurant.x) <= KITCHEN_HALF_WIDTH && Math.abs(p.z - restaurant.z) <= KITCHEN_REACH_Z &&
-    Math.abs(p.y - (restaurant.y + PLATFORM_UNITS)) < 1);
+    Math.abs(p.y - restaurant.y) < 1);
 
   it('finds a food court kitchen for every restaurant', () => {
     assert.ok(shopping.restaurants.length > 0);

@@ -206,9 +206,20 @@ function menuBoards(r: Room, x1: number, x2: number): void {
   }
 }
 
-/** What every kitchen has: a platform, a tiled back wall, side walls, a lid, a front fascia above the serving window. */
+/**
+ * The staff aisle: a strip at the left end of every kitchen, from just in front of the fridge to the serving window, where the
+ * platform is cut away. The cook and the server stand in it on the food court deck, so they are as tall as a player at the
+ * counter. No kitchen keeps equipment standing in it.
+ */
+const AISLE_MAX_X = -106;
+const AISLE_MIN_Z = 36;
+
+/** What every kitchen has: a platform with the staff aisle cut out, a tiled back wall, side walls, a lid, a front fascia above the serving window. */
 function shell(r: Room, accent: Hex): void {
-  r.box(0, SHELL_DEPTH / 2, SHELL_SPAN, SHELL_DEPTH, KITCHEN_FLOOR, -KITCHEN_FLOOR, 'tile', FLOOR_DARK);
+  r.box(0, AISLE_MIN_Z / 2, SHELL_SPAN, AISLE_MIN_Z, KITCHEN_FLOOR, -KITCHEN_FLOOR, 'tile', FLOOR_DARK);
+  const frontWidth = SHELL_SPAN / 2 - AISLE_MAX_X;
+  const frontDepth = SHELL_DEPTH - AISLE_MIN_Z;
+  r.box(AISLE_MAX_X + frontWidth / 2, AISLE_MIN_Z + frontDepth / 2, frontWidth, frontDepth, KITCHEN_FLOOR, -KITCHEN_FLOOR, 'tile', FLOOR_DARK);
   r.box(0, 1, SHELL_SPAN, 2, 112, 18, 'tile', TILE_WHITE);
   r.box(0, 1, SHELL_SPAN, 2, 18, 0, 'white', STEEL_DARK);
   for (const side of [-1, 1]) {
@@ -233,11 +244,13 @@ const COOK_X = -120;
 const COOK_Z = 52;
 const SERVER_X = -140;
 const SERVER_Z = 84;
+/** Staff stand in the aisle on the deck, below the platform the kitchen is authored on. */
+const STAFF_Y = -KITCHEN_FLOOR;
 
 /** The people behind a food court counter, all inside the kitchen so players never reach them: a cook at a station and a server at the window. */
 function kitchenStaff(r: Room, brand: FoodBrand): void {
-  r.staff(COOK_X, COOK_Z, 'back', 'cook', brand);
-  r.staff(SERVER_X, SERVER_Z, 'front', 'server', brand);
+  r.staff(COOK_X, COOK_Z, 'back', 'cook', brand, STAFF_Y);
+  r.staff(SERVER_X, SERVER_Z, 'front', 'server', brand, STAFF_Y);
 }
 
 function fastKitchen(r: Room, spec: FastSpec, brand: FoodBrand): void {

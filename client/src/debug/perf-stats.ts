@@ -30,8 +30,9 @@ export class FrameStats {
     const sorted = this.frames.toSorted((a, b) => a - b);
     if (!sorted.length) return { fps: null, frameMs: null, lowFps: null, worstMs: null };
     const frameMs = sorted.reduce((sum, ms) => sum + ms, 0) / sorted.length;
-    const p99 = sorted[Math.ceil(sorted.length * 0.99) - 1];
-    return { fps: MS_PER_SECOND / frameMs, frameMs, lowFps: MS_PER_SECOND / p99, worstMs: sorted[sorted.length - 1] };
+    const tail = sorted.slice(-Math.max(1, Math.ceil(sorted.length * 0.01)));
+    const tailMs = tail.reduce((sum, ms) => sum + ms, 0) / tail.length;
+    return { fps: MS_PER_SECOND / frameMs, frameMs, lowFps: MS_PER_SECOND / tailMs, worstMs: sorted[sorted.length - 1] };
   }
 }
 

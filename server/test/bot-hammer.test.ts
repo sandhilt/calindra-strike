@@ -97,3 +97,15 @@ test('a bot keeps its gun while holding USE to plant', () => {
   assert.ok(cmd.buttons & BTN.USE);
   assert.equal(cmd.buttons & BTN.FWD, 0);
 });
+
+test('a laptop carrier far from the site keeps walking instead of rushing', () => {
+  const { brain, self, env } = arena();
+  const site = { x: 0, y: 0, z: 300 };
+  env.mode = 'defuse';
+  env.bomb = { kind: 'carried', carrier: self.id };
+  env.bombPlaces = { home: site, site, attackers: self.team };
+  brain.think(self, env);
+  self.state.health -= 40;
+  env.tick++;
+  assert.notEqual(brain.think(self, env).weapon, 3);
+});

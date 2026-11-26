@@ -763,7 +763,8 @@ export class BotBrain {
         hasHammer: true,
         rushing,
         carryingObjective: (env.flags?.some(flag => flag.kind === 'carried' && flag.carrier === self.id) ?? false)
-          || (env.carrapeta?.kind === 'held' && env.carrapeta.holder === self.id),
+          || (env.carrapeta?.kind === 'held' && env.carrapeta.holder === self.id)
+          || bombRole(self, env) === 'carrier',
         canSwitch: s.reload === 0,
       });
       if (choice === 'hammer' && distanceUnits !== null) {

@@ -42,6 +42,8 @@ export interface Box {
   stair?: true;
   /** Multiplies the material's colours (0xRRGGBB), so one material paints many colours at no extra draw call. */
   tint?: number;
+  /** An air conditioning duct: bullets stop on it and a hit leaks a puff of air for a moment. */
+  duct?: true;
   min: Vec3;
   max: Vec3;
   mat: Mat;

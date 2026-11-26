@@ -9,6 +9,7 @@ export * from './brands.ts';
 export * from './stations.ts';
 export { MapBuilder } from './builder.ts';
 export * from './water.ts';
+export * from './duct.ts';
 
 let cache: MapDef[] | null = null;
 

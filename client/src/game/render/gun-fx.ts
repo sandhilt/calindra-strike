@@ -15,6 +15,7 @@ import {
   SMOKE_STYLES,
   SMOKE_BY_WEAPON,
 } from './fx-tuning.ts';
+import { DuctLeaks } from './duct-leak.ts';
 import { HeatTracker, SmokePool, puffsForHeat, smokeAlpha, smokeSize } from './smoke-sim.ts';
 import { QUALITY, type FxProfile, type Quality } from './quality.ts';
 import { TracerPolicy } from './tracer-policy.ts';
@@ -24,6 +25,9 @@ const CASING_COLORS: readonly THREE.Color[] = [new THREE.Color(CASING_BRASS.colo
 
 /** Soft blobs piled off-centre make a wisp with a ragged edge, not a perfect disc. */
 const SMOKE_TEXTURE_BLOBS = 14;
+
+/** Leak puffs are smaller than barrel smoke, a light hiss of air. */
+const DUCT_PUFF_SIZE = 0.6;
 
 function smokeTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -57,6 +61,7 @@ export class GunFx {
   private readonly magazines: DebrisPool;
   private readonly casings: DebrisPool;
   private readonly smoke: SmokePool;
+  private readonly leaks = new DuctLeaks();
   private readonly heat = new HeatTracker();
   private quality: Quality = 'high';
   private readonly tracers = new TracerPolicy();
@@ -130,6 +135,12 @@ export class GunFx {
     this.magazines.setCapacity(fx.magazines);
     this.casings.setCapacity(fx.casings);
     this.smoke.setCapacity(fx.smokePuffs);
+    if (!fx.ductLeak) this.leaks.clear();
+  }
+
+  /** A bullet hole in an air conditioning duct, hissing air along the face normal for a moment. */
+  leak(pos: THREE.Vector3, normal: THREE.Vector3): void {
+    if (this.fx.ductLeak) this.leaks.open(pos.x, pos.y, pos.z, normal.x, normal.y, normal.z);
   }
 
   projectile(shooter: number, weapon: WeaponId) {
@@ -180,6 +191,7 @@ export class GunFx {
   update(dt: number, groundAt: GroundAt): void {
     this.magazines.step(dt, groundAt);
     this.casings.step(dt, groundAt);
+    this.leaks.step(dt, (x, y, z, nx, ny, nz) => this.smoke.emit(x, y, z, nx, ny, nz, 0, DUCT_PUFF_SIZE));
     this.smoke.step(dt);
     this.drawDebris(this.magazineMesh, this.magazines, false);
     this.drawDebris(this.casingMesh, this.casings, true);

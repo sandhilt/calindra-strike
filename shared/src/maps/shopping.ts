@@ -140,8 +140,8 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
   for (const x of [-1150, -880, -520, -200, 200, 520, 880, 1150]) b.prop({ kind: 'ceilingFan', x, y: FOOD_CEILING - 44, z: -870, radius: 44 });
   for (const x of STORE_PARTITIONS) booth(b, x, 0xb8452f);
   const duct = new Room(b, 0, DECK, -Z);
-  duct.box(0, 16, 2 * (X - 28), 32, 36, 126, 'white', 0xc9ced6);
-  for (const x of [-X + 96, ...STORE_PARTITIONS, X - 96]) duct.vent(x, 144, 32, 'front');
+  duct.duct(0, 16, 2 * (X - 28), 32, 32, 142);
+  for (const x of [-X + 96, ...STORE_PARTITIONS, X - 96]) duct.vent(x, 158, 32, 'front');
   dressDeckWalls(b, { kitchenXs: STORE_XS, boothXs: STORE_PARTITIONS, pillars: PILLAR_XS.map((x) => [x, PILLAR_Z] as const), brands });
 }
 
@@ -168,8 +168,9 @@ export function buildShopping(): MapDef {
 
   let half = 0;
   b.mirrored(() => {
-    // ducts along the end walls, high above the atrium
-    b.deco(-X, 340, -520, -X + 30, 380, -120, 'white', 0xc9ced6);
+    // ducts along the end walls, high above the atrium, fed by a riser from the roof units over the wall top
+    b.duct(-X, 340, -520, -X + 30, 380, -120);
+    b.duct(-X, 380, -340, -X + 24, WALL, -300);
     b.prop({ kind: 'vent', x: -X + 30, y: 360, z: -420, yaw: -Math.PI / 2, width: 44, height: 30 });
     b.prop({ kind: 'vent', x: -X + 30, y: 360, z: -220, yaw: -Math.PI / 2, width: 44, height: 30 });
 

@@ -117,6 +117,7 @@ import { RtGovernor } from './render/rt-governor.ts';
 import { AUTO_RT_START, INTEGRATED_RT_START, RT, resolveRtChoice, rtLabel, type RtLevel } from './render/rt-levels.ts';
 import { INTEGRATED_GPU_TIP, lightRtSupported } from './render/rt-support.ts';
 import { surfaceOf } from './surface.ts';
+import { onDuct } from '@calindra-strike/shared';
 import { PodiumScene } from './render/podium.ts';
 import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
@@ -1691,6 +1692,7 @@ export class ClientGame {
         const surface = surfaceOf(wall.mat);
         this.effects.impact(end, new THREE.Vector3(wall.nx, wall.ny, wall.nz), surface);
         this.sfx.impact(surface, end);
+        this.leakDuct(end, wall);
       }
     }
   }
@@ -1731,8 +1733,13 @@ export class ClientGame {
         const surface = surfaceOf(hit.mat);
         this.effects.impact(end, new THREE.Vector3(hit.nx, hit.ny, hit.nz), surface);
         this.sfx.impact(surface, end);
+        this.leakDuct(end, hit);
       }
     }
+  }
+
+  private leakDuct(at: THREE.Vector3, face: { nx: number; ny: number; nz: number }): void {
+    if (onDuct(this.map, at.x, at.y, at.z)) this.effects.gun.leak(at, new THREE.Vector3(face.nx, face.ny, face.nz));
   }
 
   /** Bullets fly through glass and water, so the first pane on the way gets its own impact before the one where the round stops. */

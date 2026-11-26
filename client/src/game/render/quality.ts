@@ -26,6 +26,8 @@ export interface FxProfile {
   beltLinks: number;
   /** Impact sparks take the colour of the surface and add long yellow glints. Off draws the plain sparks. */
   sparkle: boolean;
+  /** Air hissing out of a shot air conditioning duct for two seconds. High only. */
+  ductLeak: boolean;
 }
 
 export interface QualityProfile {
@@ -85,7 +87,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: true,
     fallingSnow: true,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10, sparkle: true },
+    fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10, sparkle: true, ductLeak: true },
   },
   low: {
     label: 'leve',
@@ -104,7 +106,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: true,
     fallingSnow: true,
     laptopScreenRefreshMs: 100,
-    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6, sparkle: false },
+    fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6, sparkle: false, ductLeak: false },
   },
   performance: {
     label: 'desempenho',
@@ -123,7 +125,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: false,
     fallingSnow: false,
     laptopScreenRefreshMs: 250,
-    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4, sparkle: false },
+    fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4, sparkle: false, ductLeak: false },
   },
 };
 

@@ -7,11 +7,15 @@ import type { Box, EscalatorTravel, MapFeature, MapLight, MapProp, Mat } from '.
 /** Top of the invisible columns that keep gliders inside a map, above the drop height (units). */
 const CLIP_TOP = 3200;
 
+/** Galvanised steel colour of the air conditioning ducts. */
+export const DUCT_TINT = 0xc9ced6;
+
 export interface BoxOpts {
   solid?: boolean;
   shoot?: boolean;
   visible?: boolean;
   tint?: number;
+  duct?: boolean;
 }
 
 export interface Opening {
@@ -94,6 +98,7 @@ export class MapBuilder {
       shootThrough: o.shoot ?? false,
       visible: o.visible ?? true,
       ...(o.tint === undefined ? {} : { tint: o.tint }),
+      ...(o.duct ? { duct: true as const } : {}),
     });
   }
 
@@ -104,6 +109,11 @@ export class MapBuilder {
 
   crate(cx: number, cz: number, s: number, y0 = 0, mat: Mat = 'crate'): void {
     this.block(cx, cz, s, s, s, mat, y0);
+  }
+
+  /** Sheet metal air conditioning duct: walked through like scenery, but it stops bullets and rings as metal. */
+  duct(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): void {
+    this.add(x1, y1, z1, x2, y2, z2, 'metal', { solid: false, tint: DUCT_TINT, duct: true });
   }
 
   /** Non-solid decorative strip (neon trims etc). */

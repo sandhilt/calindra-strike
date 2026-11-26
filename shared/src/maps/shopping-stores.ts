@@ -23,7 +23,7 @@ function shell(r: Room, d: Dress): void {
   for (const side of [-1, 1]) r.box(side * (STORE_HALF_WIDTH - 1.5), STORE_DEPTH / 2, 2, STORE_DEPTH - 6, CEILING - 6, 0, 'white', d.wall);
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 6, 0, 'white', d.trim);
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 3, 112, 'white', d.trim);
-  r.box(0, 15, 2 * STORE_HALF_WIDTH - 8, 30, 30, CEILING - 36, 'white', STEEL);
+  r.duct(0, 15, 2 * STORE_HALF_WIDTH - 8, 30, 30, CEILING - 36);
   for (const x of [-200, 200]) r.vent(x, CEILING - 21, 30, 'front');
   for (const x of [-230, -80, 80, 230]) r.box(x, 150, 70, 6, 1.4, CEILING - 1.4, 'lamp');
 }

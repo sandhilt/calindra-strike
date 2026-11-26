@@ -28,6 +28,11 @@ export class Room {
     this.b.deco(this.ox + x - w / 2, this.oy + y, this.oz + z - d / 2, this.ox + x + w / 2, this.oy + y + h, this.oz + z + d / 2, mat, tint);
   }
 
+  /** Air conditioning duct by footprint centre (x, z), size and base height. */
+  duct(x: number, z: number, w: number, d: number, h: number, y: number): void {
+    this.b.duct(this.ox + x - w / 2, this.oy + y, this.oz + z - d / 2, this.ox + x + w / 2, this.oy + y + h, this.oz + z + d / 2);
+  }
+
   /** Solid box by footprint centre (x, z), size and base height. */
   solid(x: number, z: number, w: number, d: number, h: number, y: number, mat: Mat, tint?: number): void {
     this.b.add(this.ox + x - w / 2, this.oy + y, this.oz + z - d / 2, this.ox + x + w / 2, this.oy + y + h, this.oz + z + d / 2, mat, { tint });

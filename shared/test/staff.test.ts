@@ -163,6 +163,29 @@ describe('the shopping floor staff', () => {
     }
   });
 
+  /** How far a register's screen may stand from the server or cashier who works it (tuning value). */
+  const REGISTER_REACH_UNITS = 40;
+  /** The register's screen sits on the counter, between waist and head height of the figure. */
+  const REGISTER_MIN_UNITS = 8;
+  const REGISTER_MAX_UNITS = 72;
+
+  /** A register screen stands on or against the register's dark body (within 1 unit), never in the air. */
+  const restsOnCharcoal = (screen: Box) => shopping.boxes.some((body) => body.mat === 'charcoal' &&
+    screen.min.y >= body.min.y && screen.min.y <= body.max.y + 0.01 &&
+    body.min.x - 1 <= screen.max.x && body.max.x + 1 >= screen.min.x && body.min.z - 1 <= screen.max.z && body.max.z + 1 >= screen.min.z);
+
+  it('gives every food court server and every cashier a register on the counter within reach', () => {
+    const workers = staff.filter((p) => p.role === 'server' || p.role === 'cashier');
+    assert.ok(workers.length > 0);
+    for (const p of workers) {
+      const register: Box | undefined = shopping.boxes.find((box) => box.mat === 'screen' &&
+        Math.hypot((box.min.x + box.max.x) / 2 - p.x, (box.min.z + box.max.z) / 2 - p.z) <= REGISTER_REACH_UNITS &&
+        box.min.y >= p.y + REGISTER_MIN_UNITS && box.max.y <= p.y + REGISTER_MAX_UNITS && restsOnCharcoal(box));
+      assert.ok(register, `${p.role} at ${p.x}, ${p.z} has a register within ${REGISTER_REACH_UNITS} units`);
+      assert.equal(overlapsBody(register, p), false, `the register of the ${p.role} at ${p.x}, ${p.z} clips into them`);
+    }
+  });
+
   it('puts a cashier behind every till on the Mirante', () => {
     // Pharmacies have an open storefront and no till; every boutique and the chocolate shop does.
     const tillNames = Object.values(STORE_BRANDS).filter((b) => b.kind === 'boutique' || b.name === 'Cacau Chou').map((b) => b.name);

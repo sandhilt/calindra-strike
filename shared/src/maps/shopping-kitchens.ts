@@ -247,10 +247,30 @@ const SERVER_Z = 84;
 /** Staff stand in the aisle on the deck, below the platform the kitchen is authored on. */
 const STAFF_Y = -KITCHEN_FLOOR;
 
-/** The people behind a food court counter, all inside the kitchen so players never reach them: a cook at a station and a server at the window. */
+/** Top of the serving counter's cap above the kitchen platform: the cap is 42 units over the deck and reaches 4 units into the kitchen. */
+const COUNTER_TOP = 42 - KITCHEN_FLOOR;
+const COUNTER_CAP_Z = KITCHEN_DEPTH - 4;
+/** The register stands beside the server, at the window's edge and inside the kitchen, clear of the server's body. */
+const REGISTER_X = SERVER_X + 26;
+const REGISTER_Z = KITCHEN_DEPTH - 5;
+
+/**
+ * A cash register on a steel stand flush with the counter top, half on the counter cap: the stand rises from the platform
+ * behind the cap, so the register sits at counter height, the operator screen faces the server and a small display faces the customer.
+ */
+function register(r: Room, x: number, z: number): void {
+  r.box(x, (z - 5 + COUNTER_CAP_Z) / 2, 22, COUNTER_CAP_Z - (z - 5), COUNTER_TOP - STAFF_Y, STAFF_Y, 'white', STEEL_DARK);
+  r.box(x, z, 16, 8, 5, COUNTER_TOP, 'charcoal', 0x1b1b1b);
+  r.box(x, z - 1, 12, 4, 1.5, COUNTER_TOP + 5, 'charcoal', 0x3a3a3a);
+  r.box(x, z - 3.5, 12, 1, 8, COUNTER_TOP + 5, 'screen');
+  r.box(x + 4, z + 3.5, 6, 0.8, 4, COUNTER_TOP + 5, 'screen');
+}
+
+/** The people behind a food court counter, all inside the kitchen so players never reach them: a cook at a station and a server at the window with the register. */
 function kitchenStaff(r: Room, brand: FoodBrand): void {
   r.staff(COOK_X, COOK_Z, 'back', 'cook', brand, STAFF_Y);
   r.staff(SERVER_X, SERVER_Z, 'front', 'server', brand, STAFF_Y);
+  register(r, REGISTER_X, REGISTER_Z);
 }
 
 function fastKitchen(r: Room, spec: FastSpec, brand: FoodBrand): void {

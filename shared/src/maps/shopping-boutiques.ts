@@ -45,11 +45,18 @@ interface Boutique {
   dress(r: Room, half: number): void;
 }
 
+/** The cashier's cubby: the space between the back wall and the till, closed on both sides so only the cashier stands in it. */
+const CUBBY_FRONT_Z = COUNTER_Z - 17;
+const CUBBY_MID_Z = (BACK_WALL_DEPTH + CUBBY_FRONT_Z) / 2;
+/** A cashier is 16 units deep, so stands clear of the back shelves (up to z 17) and of the till (from z 35). */
+const CASHIER_Z = CUBBY_FRONT_Z - 9;
+
 function till(r: Room, x: number, width: number, tint: Hex): void {
   r.solid(x, COUNTER_Z, width, 34, 40, 0, 'white', tint);
   r.box(x, COUNTER_Z, width + 4, 38, 2, 40, 'white', 0xf5f5f5);
   r.box(x - width / 4, COUNTER_Z - 2, 14, 10, 10, 42, 'charcoal', 0x1b1b1b);
   r.box(x - width / 4, COUNTER_Z - 7.5, 12, 1, 7, 46, 'screen');
+  for (const side of [-1, 1]) r.solid(x + (side * width) / 2, CUBBY_MID_Z, 2, CUBBY_FRONT_Z - BACK_WALL_DEPTH, 40, 0, 'white', tint);
 }
 
 const SMALL_TILL = 70;
@@ -405,6 +412,7 @@ export function boutiqueShop(b: MapBuilder, brand: GalleryShopBrand, x1: number,
   const r = new Room(b, cx, DECK3, -Z);
   shell(r, half, spec);
   spec.dress(r, half);
+  r.staff(0, CASHIER_Z, 'front', 'cashier', brand);
   r.vent(0, 152, BACK_WALL_DEPTH + 4, 'front');
   facade(b, x1, x2, brand, spec);
   b.light(cx, DECK3 + LAMP_Y, -Z + 200, '#ffe9bd');

@@ -108,6 +108,10 @@ describe('store staff are scenery, never in the open', () => {
       for (const p of staffOf(map)) {
         const floor = walkableFloor(map, p.x, p.z, p.y);
         assert.ok(Math.abs(p.y - floor) <= FEET_TO_FLOOR_UNITS, `${p.role} at ${p.x}, ${p.z} has feet at ${p.y}, floor at ${floor}`);
+        const knee = p.y + FEET_TO_FLOOR_UNITS + 1;
+        const buried = map.boxes.find((box) => box.visible && box.mat !== 'clip' && p.x > box.min.x && p.x < box.max.x &&
+          p.z > box.min.z && p.z < box.max.z && box.min.y < knee && box.max.y > knee);
+        assert.equal(buried, undefined, `${p.role} at ${p.x}, ${p.z} has legs buried in a ${buried?.mat} box`);
       }
     });
 

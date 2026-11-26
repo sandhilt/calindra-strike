@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getMaps, type DayPhase, type MapTheme } from '@calindra-strike/shared';
-import { DAY_EXPOSURE, buildLooks, createLook, lookAt } from '../src/game/render/day-look.ts';
+import { DAY_EXPOSURE, buildLooks, copyLook, createLook, dimForSolarEclipse, lookAt } from '../src/game/render/day-look.ts';
 
 const phases: DayPhase[] = ['day', 'afternoon', 'night'];
 const elevation = (look: { sunDir: { y: number } }) => Math.asin(look.sunDir.y);
@@ -68,4 +68,19 @@ test('lookAt holds a settled phase and eases through a transition', () => {
   lookAt(out, looks, { phase: 'afternoon', next: 'night', blend: 1 });
   assert.equal(out.exposure, looks.night.exposure);
   assert.equal(out.stars, 1);
+});
+
+test('a total solar eclipse dims the day but stays as readable as the night', () => {
+  const reach = (hemi: number, exposure: number) => hemi * exposure;
+  for (const map of getMaps()) {
+    const { day } = buildLooks(map.theme);
+    const out = createLook();
+    copyLook(out, day);
+    dimForSolarEclipse(out, 0);
+    assert.equal(out.sunIntensity, day.sunIntensity);
+    dimForSolarEclipse(out, 1);
+    assert.ok(out.sunIntensity < 0.5 * day.sunIntensity, map.id);
+    assert.ok(reach(out.hemiIntensity, out.exposure) >= 0.6 * reach(day.hemiIntensity, day.exposure), map.id);
+    assert.equal(out.fogFar, day.fogFar);
+  }
 });

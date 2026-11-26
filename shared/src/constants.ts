@@ -222,6 +222,13 @@ export type DayPhase = (typeof DAY_PHASES)[number];
 export const DAY_SLOT_MS: Readonly<Record<DayPhase, number>> = { day: 7 * 60_000, afternoon: 4 * 60_000, night: 4 * 60_000 };
 /** The last stretch of a slot is spent blending into the next phase (tuning value: 2 min, so the light drifts instead of snapping). */
 export const DAY_TRANSITION_MS = 120_000;
+/** Moon phases in order, one per day cycle, so each night shows the next (tuning: a full lunation takes four cycles). */
+export const MOON_PHASES = ['new', 'waxing', 'full', 'waning'] as const;
+export type MoonPhase = (typeof MOON_PHASES)[number];
+/** Chance that a full-moon night has a lunar eclipse, or a new-moon day a solar one (tuning value). */
+export const MOON_ECLIPSE_CHANCE = 0.05;
+/** A solar eclipse darkens this stretch in the middle of the day slot (tuning value: 90 s). */
+export const SOLAR_ECLIPSE_MS = 90_000;
 
 export const CARRAPETA_PICKUP_TIMEOUT_SECONDS = 20;
 export const CARRAPETA_AIRDROP_CHANCE = 0.2;

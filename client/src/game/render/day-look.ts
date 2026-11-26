@@ -199,3 +199,22 @@ export function copyLook(out: DayLook, from: DayLook): void {
   for (const field of NUMBER_FIELDS) out[field] = from[field];
   out.sunDir.copy(from.sunDir);
 }
+
+// Tuning values: how far a total solar eclipse (depth 1) dims the day. The sky and the direct sun drop a lot, the
+// hemisphere light far less, so players stay at least as visible as at night.
+const SOLAR_ECLIPSE_SKY = 0.55;
+const SOLAR_ECLIPSE_SUN = 0.85;
+const SOLAR_ECLIPSE_HEMI = 0.3;
+
+/** Dims a look for a solar eclipse of `depth` (0..1) in place. Depth 0 leaves it untouched. */
+export function dimForSolarEclipse(look: DayLook, depth: number): void {
+  if (depth <= 0) return;
+  const sky = 1 - SOLAR_ECLIPSE_SKY * depth;
+  look.skyTop.multiplyScalar(sky);
+  look.skyHorizon.multiplyScalar(sky);
+  look.skyBottom.multiplyScalar(sky);
+  look.fog.multiplyScalar(sky);
+  look.sunIntensity *= 1 - SOLAR_ECLIPSE_SUN * depth;
+  look.hemiIntensity *= 1 - SOLAR_ECLIPSE_HEMI * depth;
+  look.stars = Math.max(look.stars, 0.35 * depth);
+}

@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import {
   BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, CARRAPETA_REDRAW_WAIT_SECONDS, TICK_RATE, ZONE_BODY,
+  ELIMINATION_PAUSE_MS, ELIMINATION_WIN_ROUNDS, eliminationOutcome, hasPlayerPoints, isEliminationMode, leadAnnouncement, outrightLeader,
+  type EliminationRound, type EliminationSnapshot, type LeadState,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
   dropCarrapeta, frenzyAtTicks, halveVitals, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
   type CarrapetaState, type CarrapetaSnapshot, type FrenzyState,
@@ -293,6 +295,8 @@ export class Game {
   phase: MatchPhase = 'warmup';
   phaseEnds = 0;
   mode: GameMode = 'ffa';
+  private elimination: EliminationRound = { kind: 'waiting', number: 0 };
+  private lead: LeadState = { announced: null, at: -Infinity };
   readonly teamScores = [0, 0];
   private flags: FlagState[] = [{ kind: 'home' }, { kind: 'home' }];
   private readonly bombBasesByMap = new Map<string, ReturnType<typeof defuseBases>>();
@@ -383,6 +387,7 @@ export class Game {
     if (this.mode === 'ctf') return this.ctfLimit;
     if (this.mode === 'defuse') return this.defuseLimit;
     if (this.mode === 'almoco') return LUNCH_WIN_ROUNDS;
+    if (isEliminationMode(this.mode)) return ELIMINATION_WIN_ROUNDS;
     return MODE_RULES[this.mode].killScore ? this.tdmLimit : 0;
   }
 
@@ -736,6 +741,7 @@ export class Game {
 
   switchTeam(p: ServerPlayer, team: number): void {
     if (!isTeamMode(this.mode) || this.phase === 'podium' || p.team === team || (team !== 0 && team !== 1)) return;
+    if (this.liveElimination()) return;
     // only toward the smaller side, like CS's team balance
     if (this.teamSize(team) >= this.teamSize(p.team)) return;
     this.dropObjective(p);
@@ -881,7 +887,7 @@ export class Game {
     this.broadcastRoster();
     this.emit({ k: 'join', id });
     this.scoreDirty = true;
-    if (this.phase !== 'podium') this.spawn(p);
+    if (this.phase !== 'podium' && !this.liveElimination()) this.spawn(p);
     this.fillBots();
     if (this.phase === 'warmup' && this.readyToStart()) this.startMatch();
     return p;
@@ -913,7 +919,7 @@ export class Game {
     if (!isPending(p) || this.players.get(p.id) !== p) return;
     p.ready = CONFIRMED;
     p.lastActiveAt = this.now();
-    if (this.phase !== 'podium') this.spawn(p);
+    if (this.phase !== 'podium' && !this.liveElimination()) this.spawn(p);
     if (this.phase === 'warmup' && this.readyToStart()) this.startMatch();
   }
 
@@ -1063,7 +1069,7 @@ export class Game {
     };
     this.players.set(id, p);
     this.emit({ k: 'join', id });
-    if (this.phase !== 'podium') this.spawn(p);
+    if (this.phase !== 'podium' && !this.liveElimination()) this.spawn(p);
   }
 
   private runBots(): void {
@@ -1246,6 +1252,69 @@ export class Game {
     this.scoreDirty = true;
   }
 
+  private liveElimination(): boolean {
+    return this.phase === 'live' && isEliminationMode(this.mode);
+  }
+
+  private updateElimination(): void {
+    if (!this.liveElimination()) return;
+    const round = this.elimination;
+    const teams = isTeamMode(this.mode);
+    if (round.kind !== 'playing') {
+      if (round.kind === 'pause' && this.now() < round.nextAt) return;
+      const ready = [...this.players.values()].filter(p => !isPending(p));
+      if (ready.length < 2) {
+        this.elimination = { kind: 'waiting', number: round.number };
+        for (const p of ready) p.alive = false;
+        return;
+      }
+      if (teams && ready.every(p => p.team === ready[0].team)) {
+        const player = ready[ready.length - 1];
+        player.team = 1 - player.team;
+        this.emit({ k: 'team', id: player.id, team: player.team, auto: 1 });
+        this.broadcastRoster();
+      }
+      this.elimination = { kind: 'playing', number: round.number + 1 };
+      for (const p of ready) {
+        p.queue.length = 0;
+        p.using = false;
+        this.spawn(p);
+      }
+      return;
+    }
+    const alive = [...this.players.values()].filter(p => p.alive);
+    const winner = eliminationOutcome(alive.map(p => teams ? p.team : p.id));
+    if (winner === undefined) return;
+    this.elimination = { kind: 'pause', number: round.number, winner, nextAt: this.now() + ELIMINATION_PAUSE_MS };
+    if (winner === null) return;
+    const player = this.players.get(winner);
+    const score = teams ? ++this.teamScores[winner] : player ? ++player.points : 0;
+    this.scoreDirty = true;
+    if (score >= ELIMINATION_WIN_ROUNDS) this.endPending = true;
+  }
+
+  private eliminationSnapshot(): EliminationSnapshot | undefined {
+    if (!this.liveElimination()) return;
+    const alive = [...this.players.values()].filter(p => p.alive);
+    return {
+      ...this.elimination,
+      alive: alive.length,
+      teamsAlive: isTeamMode(this.mode) ? [alive.filter(p => p.team === 0).length, alive.filter(p => p.team === 1).length] : null,
+    };
+  }
+
+  private updateLead(): void {
+    if (this.phase !== 'live') return;
+    const scores = isTeamMode(this.mode) ? this.teamScores.entries()
+      : [...this.players.values()].filter(p => !isPending(p))
+        .map(p => [p.id, hasPlayerPoints(this.mode) ? p.points : p.kills] as const);
+    const leader = outrightLeader(scores);
+    const announcement = leadAnnouncement(this.lead, leader, this.now());
+    if (!announcement) return;
+    this.lead = announcement;
+    this.emit({ k: 'lead', what: announcement.what, leader: announcement.announced });
+  }
+
   startMatch(): void {
     this.resetObjectives();
     this.syncSpectators();
@@ -1257,11 +1326,18 @@ export class Game {
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
     this.endPending = false;
     this.resetScores();
+    this.elimination = { kind: 'waiting', number: 0 };
+    this.lead = { announced: null, at: -Infinity };
     // Time idle in the warmup does not eat into the match's shorter idle timeout.
     for (const p of this.players.values()) p.lastActiveAt = this.now();
     this.balanceTeams();
     this.broadcastRoster();
-    for (const p of this.players.values()) this.spawn(p);
+    if (this.liveElimination()) {
+      for (const p of this.players.values()) p.alive = false;
+      this.updateElimination();
+    } else {
+      for (const p of this.players.values()) this.spawn(p);
+    }
     if (this.mode === 'carrapeta') {
       this.frenzyQueue = frenzyAtTicks(this.tick, Math.floor(this.opts.matchMs / TICK_MS), Array.from({ length: BATATA_PER_MATCH }, () => this.random()));
       this.updateCarrapeta();
@@ -1289,7 +1365,7 @@ export class Game {
         name: p.name,
         color: p.color,
         kills: p.kills,
-        points: this.mode === 'carrapeta' ? p.points : undefined,
+        points: hasPlayerPoints(this.mode) ? p.points : undefined,
         deaths: p.deaths,
         hs: p.headshots,
         best: p.bestStreak,
@@ -1300,9 +1376,9 @@ export class Game {
       p.alive = false;
       p.queue.length = 0;
     }
-    if (this.mode === 'carrapeta') {
+    if (hasPlayerPoints(this.mode)) {
       const [first, second] = this.results;
-      if (first && first.points !== second?.points) this.winner = first.id;
+      if (first && first.points !== second?.points && (this.mode !== 'lms' || first.points)) this.winner = first.id;
     }
     this.airdrops = [];
     this.buildVote();
@@ -1355,7 +1431,7 @@ export class Game {
     this.dropObjective(p);
     const a = this.map.dropArea;
     const teams = isTeamMode(this.mode);
-    if (teams) {
+    if (teams && !this.liveElimination()) {
       // CS-style autobalance: on respawn, move from a side that is 2+ players bigger
       if (p.team < 0 || this.teamSize(p.team) - this.teamSize(1 - p.team) >= 2) {
         const before = p.team;
@@ -1521,7 +1597,7 @@ export class Game {
   }
 
   private damage(victim: ServerPlayer, attacker: ServerPlayer, dmg: number, head: boolean, zone: number, weapon: WeaponId): void {
-    if (!victim.alive) return;
+    if (!victim.alive || (this.liveElimination() && this.elimination.kind !== 'playing')) return;
     const def = weaponDef(weapon);
     const s = victim.state;
     const { hp, armorLoss } = absorbArmor(dmg, s.armor, def.armorPen);
@@ -1695,7 +1771,7 @@ export class Game {
     // Respawns and supply drops.
     if (this.phase !== 'podium') {
       for (const p of this.players.values()) {
-        if (!p.alive && this.tick >= p.respawnAt) this.spawn(p);
+        if (!this.liveElimination() && !p.alive && this.tick >= p.respawnAt) this.spawn(p);
       }
       this.updateAirdrops();
       this.updateSupplies();
@@ -1704,6 +1780,8 @@ export class Game {
     this.updateFlags();
     this.updateBomb();
     this.updateLunch();
+    this.updateElimination();
+    this.updateLead();
     this.syncBombStand();
     this.recordHistory();
     this.flushEvents();
@@ -1716,7 +1794,8 @@ export class Game {
     const s = p.state;
     const b = this.map.bounds;
     if (s.y < -200 || s.x < b.minX - 64 || s.x > b.maxX + 64 || s.z < b.minZ - 64 || s.z > b.maxZ + 64) {
-      this.spawn(p);
+      if (!this.liveElimination()) this.spawn(p);
+      else if (this.elimination.kind === 'playing') this.kill(p, p, p.state.weapon, false);
     }
   }
 
@@ -1849,8 +1928,10 @@ export class Game {
     const lc = this.colleagues.map(colleagueRow);
     const su = this.supplySnapshot();
     const ca = this.carrapetaSnapshot();
+    const el = this.eliminationSnapshot();
+    const elimination = el ? `,"el":${JSON.stringify(el)}` : '';
     const objective = ca ? `,"ca":${JSON.stringify(ca)}` : '';
-    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)},"su":${JSON.stringify(su)}${objective}}`;
+    const shared = `,"ps":${JSON.stringify(ps)},"ad":${JSON.stringify(ad)},"fl":${JSON.stringify(fl)},"bm":${JSON.stringify(bm)},"lu":${JSON.stringify(lu)},"lc":${JSON.stringify(lc)},"su":${JSON.stringify(su)}${objective}${elimination}}`;
     const time = this.now();
     for (const p of this.recipients()) {
       const me = 'alive' in p && p.alive && this.phase !== 'podium' ? JSON.stringify(packState(p.state)) : 'null';
@@ -1861,7 +1942,7 @@ export class Game {
   private sendScores(): void {
     this.scoreDirty = false;
     this.lastScoreSent = this.now();
-    const s = [...this.players.values()].map((p) => [p.id, p.kills, p.deaths, p.ping, p.streak, p.headshots, ...(this.mode === 'carrapeta' ? [p.points] : [])]);
+    const s = [...this.players.values()].map((p) => [p.id, p.kills, p.deaths, p.ping, p.streak, p.headshots, ...(hasPlayerPoints(this.mode) ? [p.points] : [])]);
     const msg = JSON.stringify({ t: 'score', s, ts: this.teamScores });
     for (const p of this.recipients()) p.send(msg);
   }
@@ -1891,6 +1972,7 @@ export class Game {
       maps: [...new Set(this.combos.map((c) => getMap(c.map).name))],
       phase: this.phase,
       endsInMs: this.phase === 'warmup' ? null : Math.max(0, this.phaseEnds - this.now()),
+      elimination: this.eliminationSnapshot(),
       leaders,
     };
   }

@@ -50,6 +50,10 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 - After you die, `you.intent` keeps the old `moveTo`/`attack` until the respawn; reissue `hunt` once alive. Intent kinds: `hunt`, `attack`, `moveTo`, `stop`, `idle`.
 - Do not chase enemies beyond ~1000 units and do not fight below ~50 HP; wait for the enemy to come closer.
 
+## Elimination modes
+
+- In `lms`, every other player is a rival. In `gincana`, hunt the opposing team. Use `get_state.elimination` for the round number, state, alive counts and pause deadline. Once eliminated, wait for the next round. `hunt` resumes when you return. Lead announcements appear in recent events.
+
 ## Carrapeta Dourada
 
 - Read `get_state.carrapeta` for the holder, seconds until the holder loses it (`holdSecondsLeft`, null when nobody holds it), dropped position, redraw timer, Batata Quente countdown and your points. Use `hunt` to chase the perceived holder or walk over the dropped Carrapeta. If you hold it, stay alive and keep moving. Time spent in the glass lift earns no points.

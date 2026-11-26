@@ -5,7 +5,7 @@ import { FIRST_MENU_TAB, MENU_TAB_IDS, type MenuTabId, menuTabForKey } from './m
 import { QUALITY_OPTIONS } from '../game/render/quality.ts';
 import { RT_OPTIONS } from '../game/render/rt-levels.ts';
 import { SOUND_PACKS } from '../game/sound-packs/index.ts';
-import { MODE_LABEL, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
+import { MODE_LABEL, hasPlayerPoints, PRIMARY_CHOICES, isTeamMode, TEAMS, WEAPON, type VoteInfo, type WeaponId, getMap, weaponDef } from '@calindra-strike/shared';
 import type { PodiumData, TeamPanel } from '../game/client.ts';
 import { CROSSHAIR_COLORS, type Settings, saveSettings } from '../settings.ts';
 import { isReadyKey, weaponMenuKey } from '../game/weapon-menu.ts';
@@ -376,8 +376,8 @@ export class Overlays {
     this.nextMap = next;
     this.lastSeconds = -1;
     const tdm = isTeamMode(data.mode);
-    const carrapeta = data.mode === 'carrapeta';
-    const unit = carrapeta ? 'pontos' : 'kills';
+    const playerPoints = hasPlayerPoints(data.mode);
+    const unit = data.mode === 'lms' ? 'rodadas' : playerPoints ? 'pontos' : 'kills';
     this.finalScore.textContent = unit;
     this.podiumScore.classList.toggle('hidden', !tdm);
     if (tdm) {
@@ -390,9 +390,9 @@ export class Overlays {
         h('b', { text: `${data.teams[0] ?? 0} × ${data.teams[1] ?? 0}` }),
         h('span', { style: `color:${TEAMS[1].color}`, text: TEAMS[1].name }),
       );
-    } else if (carrapeta) {
+    } else if (playerPoints) {
       const winner = data.results.find((r) => r.id === data.winner);
-      this.podiumLabel.textContent = MODE_LABEL.carrapeta;
+      this.podiumLabel.textContent = MODE_LABEL[data.mode];
       this.podiumTitle.textContent = winner ? `${winner.name} venceu` : 'empate';
       this.podiumTitle.style.color = winner ? data.colorFor(winner) : '';
     } else {
@@ -410,7 +410,7 @@ export class Overlays {
         return h('div', { class: `pcard glass ${cls[i]}` }, [
           h('div', { class: 'place', text: place[i] }),
           h('div', { class: 'pname', style: `color:${data.colorFor(r)}`, text: r.name }),
-          h('div', { class: 'stats', text: `${carrapeta ? r.points ?? 0 : r.kills} ${unit} · ${r.deaths} mortes · ${r.hs} hs` }),
+          h('div', { class: 'stats', text: `${playerPoints ? r.points ?? 0 : r.kills} ${unit} · ${r.deaths} mortes · ${r.hs} hs` }),
         ]);
       }),
     );
@@ -423,7 +423,7 @@ export class Overlays {
             h('b', { style: `color:${data.colorFor(r)}`, text: r.name }),
             h('small', { text: [tdm && r.team >= 0 ? TEAMS[r.team].name : '', r.bot ? 'bot' : '', r.id === data.myId ? 'você' : ''].filter(Boolean).join(' · ') }),
           ]),
-          h('td', { class: 'final-kills', text: String(carrapeta ? r.points ?? 0 : r.kills) }),
+          h('td', { class: 'final-kills', text: String(playerPoints ? r.points ?? 0 : r.kills) }),
           h('td', { text: String(r.deaths) }),
           h('td', { text: String(r.hs) }),
         ]),

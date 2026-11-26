@@ -6,10 +6,10 @@ interface DeathSpectatePlayer {
   flags: number;
 }
 
-export function deathSpectateTargets(players: readonly DeathSpectatePlayer[], team: number): number[] {
-  if (team < 0) return [];
+export function deathSpectateTargets(players: readonly DeathSpectatePlayer[], team: number, everyone = false): number[] {
+  if (!everyone && team < 0) return [];
   return players
-    .filter(player => player.team === team && (player.flags & RF_ALIVE) !== 0)
+    .filter(player => (everyone || player.team === team) && (player.flags & RF_ALIVE) !== 0)
     .map(player => player.id)
     .sort((a, b) => a - b);
 }

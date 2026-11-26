@@ -10,11 +10,12 @@ import {
   BTN,
   RF_ALIVE,
   RF_DROP,
+  packState,
 } from '../../shared/src/index.ts';
 import { NavGrid } from '../../server/src/nav.ts';
 import { ActionOverlay } from '../mcp/actions.ts';
 import { Pilot } from '../mcp/pilot.ts';
-import { welcome } from '../mcp/view.ts';
+import { decodeSnapshot, welcome } from '../mcp/view.ts';
 
 function fixture() {
   const map = getMap(0);
@@ -232,3 +233,26 @@ test('hunt can start a hammer rush after a close hit, with manual reload taking 
   assert.ok(manual.buttons & BTN.RELOAD);
   assert.equal(pilot.nextCmd(view, intent, nav, world, 9, actions.manualWeaponControl).weapon, 3);
 });
+
+for (const mode of ['lms', 'gincana'] as const) {
+  test(`hunt targets the survivor in ${mode} and waits during the pause`, () => {
+    const { world, nav, view, s, pilot } = fixture();
+    const team = mode === 'lms' ? -1 : 0;
+    view.match.mode = mode;
+    view.roster = [[1, 'agent', 0, team, 0], [2, 'rival', 1, mode === 'lms' ? -1 : 1, 0]];
+    view.peers = decodeSnapshot(view, {
+      t: 'snap', time: 1000, ack: 0, me: packState(s),
+      ps: [[2, s.x, 0, s.z - 200, 0, 0, RF_ALIVE, WEAPON.RIFLE]],
+      ad: [], fl: [], bm: [], lu: [], lc: [], su: [],
+      el: { kind: 'playing', number: 1, alive: 2, teamsAlive: mode === 'lms' ? null : [1, 1] },
+    });
+    assert.equal(view.peers[0].enemy, true);
+    const intent = { kind: 'hunt' } as const;
+    pilot.setIntent(intent, 0);
+    let fired = false;
+    for (let seq = 1; seq < 120; seq++) fired ||= !!(pilot.nextCmd(view, intent, nav, world, seq).buttons & BTN.ATTACK);
+    assert.ok(fired);
+    view.elimination = { kind: 'pause', number: 1, alive: 1, teamsAlive: null, nextAt: 5000, winner: 1 };
+    assert.equal(pilot.nextCmd(view, intent, nav, world, 120).buttons, 0);
+  });
+}

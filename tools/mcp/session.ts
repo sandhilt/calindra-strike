@@ -1,6 +1,6 @@
 import { perceive } from './perception.ts';
 import {
-  isTeamMode,
+  hasPlayerPoints, isTeamMode,
   CollisionWorld,
   HEARING_REF_UNITS,
   anglesToward,
@@ -240,11 +240,12 @@ export class GameSession {
         v.sprays = [];
         v.bomb = [];
         v.lunch = [];
-        if (v.match.mode === 'carrapeta' || m.match.mode === 'carrapeta') v.scores = [];
+        if ([v.match.mode, m.match.mode].some(hasPlayerPoints)) v.scores = [];
         v.carrapeta = undefined;
         v.colleagues = [];
         this.state.world.setProp(null);
       }
+      if (m.match.phase !== 'live') v.elimination = undefined;
       const enteringPodium = v.match.phase !== 'podium' && m.match.phase === 'podium';
       if (v.match.map !== m.match.map) {
         const map = getMap(m.match.map);
@@ -292,6 +293,7 @@ export class GameSession {
         } else if (e.k === 'kill')
           v.events.push({ ...e, byName: this.names.get(e.by), toName: this.names.get(e.to) });
         else if (e.k === 'flag' || e.k === 'bomb') v.events.push({ ...e, byName: this.names.get(e.by) });
+        else if (e.k === 'lead') v.events.push(e);
         else if (e.k === 'carrapeta' || e.k === 'blast') v.events.push({ ...e, byName: this.names.get(e.by) });
         else if (e.k === 'frenzy') v.events.push(e);
         else if (e.k === 'lunch') v.events.push({ ...e, byName: this.names.get(e.by), colleague: LUNCH_COLLEAGUES[e.who] });

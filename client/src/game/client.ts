@@ -32,6 +32,7 @@ import {
   ZOOM_SENSITIVITY_RATIO,
   PROTOCOL_VERSION,
   type PlayerState,
+  hasPlayerPoints, type EliminationSnapshot,
   RF_ALIVE,
   RF_DROP,
   RF_GROUND,
@@ -352,6 +353,7 @@ export class ClientGame {
   private appliedQuality: Quality | null = null;
   private lastBeep = -1;
 
+  private elimination?: EliminationSnapshot;
   private deathAt = 0;
   /** The respawn delay the server announced with the kill, when it is longer than the mode's usual one. */
   private deathWaitMs: number | undefined;
@@ -701,7 +703,7 @@ export class ClientGame {
       if (t === this.myTeam) mine++;
       else if (t === 1 - this.myTeam) other++;
     }
-    return { kind: 'player', team: this.myTeam, canSwitch: this.match.phase !== 'podium' && other < mine };
+    return { kind: 'player', team: this.myTeam, canSwitch: this.match.phase !== 'podium' && !(this.match.phase === 'live' && this.match.mode === 'gincana') && other < mine };
   }
 
   switchTeam(): void {
@@ -834,6 +836,11 @@ export class ClientGame {
   }
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
+    if (m.el?.kind === 'playing' && m.el.number !== this.elimination?.number) {
+      this.alive = false;
+      this.dropAllAvatars();
+    }
+    this.elimination = m.el;
     this.flags = flagViews(m.fl);
     this.carrapeta = this.match.mode === 'carrapeta' && this.match.phase === 'live' ? m.ca ?? null : null;
     const state = this.carrapeta;
@@ -967,6 +974,13 @@ export class ClientGame {
       case 'lunch':
         this.onLunchEvent(e);
         break;
+      case 'lead': {
+        const leader = isTeamMode(this.match.mode) ? TEAMS[e.leader] : this.nameOf(e.leader);
+        const text = `${leader.name} ${e.what === 'takes' ? 'assumiu' : 'segue'} na liderança`;
+        this.hud.info(text, leader.color);
+        this.hud.announce(text);
+        break;
+      }
       case 'carrapeta':
         this.hud.info(carrapetaFeed(e.what, this.nameOf(e.by).name), CARRAPETA_GOLD);
         if (e.by === this.myId) {
@@ -1257,6 +1271,7 @@ export class ClientGame {
   private onMatch(info: MatchInfo): void {
     const before = this.match;
     this.match = info;
+    if (info.phase !== 'live' || info.mode !== before.mode || info.map !== before.map) this.elimination = undefined;
     if (!this.spectator && (info.phase !== before.phase || info.mode !== before.mode || info.map !== before.map)) {
       this.deathAt = 0;
       this.followedId = -1;
@@ -1289,6 +1304,8 @@ export class ClientGame {
       if (info.phase === 'live' && isTeamMode(info.mode)) {
         const t = TEAMS[this.myTeam];
         this.hud.announce(MODE_LABEL[info.mode], `${t ? `você é dos ${t.name}` : this.map.name} · ${info.limit ? `${info.limit} ${scoreUnit(info.mode)} ou ` : ''}${min} min`);
+      } else if (info.mode === 'lms' && info.phase === 'live') {
+        this.hud.announce(MODE_LABEL.lms, `seja o último a sobreviver · meta de ${info.limit} rodadas`);
       } else if (info.mode === 'carrapeta' && info.phase === 'live') {
         if (!this.announcedCarrapeta) this.hud.announce(MODE_LABEL.carrapeta, 'sobreviva com a Carrapeta para pontuar');
       } else if (info.phase === 'live') this.hud.announce('todos contra todos', `${this.map.name} · ${min} min · mais kills vence`);
@@ -1303,7 +1320,7 @@ export class ClientGame {
   private enterPodium(info: MatchInfo): void {
     const results = info.results ?? [];
     const tdm = isTeamMode(info.mode);
-    const winner = tdm || info.mode === 'carrapeta' ? (info.winner ?? -1) : -1;
+    const winner = tdm || hasPlayerPoints(info.mode) ? (info.winner ?? -1) : -1;
     const featured = tdm && winner >= 0 ? results.filter((r) => r.team === winner) : results;
     const colorFor = (r: ResultRow) => (tdm && r.team >= 0 ? TEAMS[r.team].color : (PLAYER_COLORS[r.color] ?? '#f0f0f0'));
     this.podiumActive = true;
@@ -1908,8 +1925,9 @@ export class ClientGame {
   }
 
   private canDeathSpectate(): boolean {
-    return !this.spectator && !this.alive && this.match.mode === 'defuse' && this.match.phase !== 'podium'
-      && this.deathAt > 0 && performance.now() - this.deathAt >= DEFUSE_DEATH_CAM_MS;
+    if (this.spectator || this.alive || this.match.phase === 'podium') return false;
+    if (this.elimination) return true;
+    return this.match.mode === 'defuse' && this.deathAt > 0 && performance.now() - this.deathAt >= DEFUSE_DEATH_CAM_MS;
   }
 
   private deathTargets(): number[] {
@@ -1919,7 +1937,7 @@ export class ClientGame {
       team: this.names.get(r.id)?.team,
       // Use the latest alive flag as well as the interpolated one so a death cannot linger in the chase view.
       flags: (r.buf.at(-1)?.flags ?? 0) & (this.sample(r, renderT)?.flags ?? 0),
-    })), this.myTeam);
+    })), this.myTeam, this.match.mode === 'lms');
   }
 
   private stepTarget(dir: 1 | -1): void {
@@ -2028,7 +2046,7 @@ export class ClientGame {
       if (k?.visible && !deathSpectate) {
         this.camera.lookAt(k.avatar.root.position.x, k.avatar.root.position.y + 50, k.avatar.root.position.z);
       } else {
-        const pitch = this.match.mode === 'defuse' ? 0 : -0.9 * rise - 0.2;
+        const pitch = deathSpectate || this.match.mode === 'defuse' ? 0 : -0.9 * rise - 0.2;
         this.camera.rotation.set(pitch, this.input.yaw, 0, 'YXZ');
       }
     }
@@ -2134,7 +2152,12 @@ export class ClientGame {
     if (this.match.phase === 'live') {
       const left = Math.max(0, this.match.endsAt - now);
       const sec = Math.ceil(left / 1000);
-      hud.setTimer(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, `${this.map.name} · ${MODE_LABEL[this.match.mode]}`, sec <= 30);
+      const round = this.elimination;
+      const status = round?.kind === 'waiting' ? 'esperando jogadores'
+        : round?.kind === 'pause' ? `próxima rodada em ${Math.max(0, Math.ceil((round.nextAt - now) / 1000))} s`
+        : round ? `rodada ${round.number} · ${round.teamsAlive?.join(' × ') ?? round.alive} vivos` : null;
+      const mode = MODE_LABEL[this.match.mode];
+      hud.setTimer(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, status ? `${mode} · ${status}` : `${this.map.name} · ${mode}`, sec <= 30);
       if (sec <= 10 && sec > 0 && sec !== this.lastBeep) {
         this.lastBeep = sec;
         this.sfx.beep(sec <= 3);
@@ -2179,9 +2202,9 @@ export class ClientGame {
 
     if (!this.alive) {
       const left = Math.max(0, (this.deathWaitMs ?? this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
-      if (this.deathAt > 0) {
+      if (this.deathAt > 0 || this.elimination) {
         const followed = this.followedId >= 0 ? this.nameOf(this.followedId).name : null;
-        hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…', followed);
+        hud.setRespawn(this.elimination ? 'aguardando a próxima rodada' : left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…', followed);
       }
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);
@@ -2309,7 +2332,7 @@ export class ClientGame {
     for (const id of this.online) {
       const n = this.nameOf(id);
       const sc = this.scores.get(id) ?? { kills: 0, deaths: 0, ping: 0, streak: 0, hs: 0, points: 0 };
-      const points = this.match.mode === 'carrapeta' ? sc.points : undefined;
+      const points = hasPlayerPoints(this.match.mode) ? sc.points : undefined;
       rows.push({ id, name: n.name, color: n.color, team: n.team, bot: this.names.get(id)?.bot ?? false, kills: sc.kills, points, deaths: sc.deaths, hs: sc.hs, ping: sc.ping, me: id === this.myId });
     }
     rows.sort(compareScoreRows);

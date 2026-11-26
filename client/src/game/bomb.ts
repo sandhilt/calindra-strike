@@ -144,7 +144,7 @@ export function bombMessage(what: BombAction, team: number, name: string): strin
 export function scoreUnit(mode: GameMode): string {
   if (mode === 'ctf') return 'capturas';
   if (mode === 'defuse' || mode === 'carrapeta') return 'pontos';
-  if (mode === 'almoco') return 'rodadas';
+  if (mode === 'almoco' || mode === 'lms' || mode === 'gincana') return 'rodadas';
   return 'kills';
 }
 

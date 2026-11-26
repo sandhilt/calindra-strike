@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-26
 - Shopping Sul Rio clears its storefronts on all three floors and replaces the atrium ad masts with kiosks, planters, a bench and info totems. The Mirante gains two stationery shops, local shop ventilation sounds and staggered seating and cover (`shopping-cover.ts`, `shopping-top.ts`, `shopping-boutiques.ts`).
+- Added LMS and Gincana elimination rounds, a chase camera for eliminated players, and lead announcements across scoring modes. MCP reports round state and alive counts. Protocol 26 adds the two mode IDs.
 - The lobby and Esc menu share an **issues?** link with the GitHub mark that opens the fork’s issue tracker (`client/src/ui/issues-link.ts`).
 - The first match after the server starts plays a random map and mode from the rotation instead of always the first one (`GameOptions.firstRotation`, drawn in `server/src/index.ts`).
 - Day phases ease into each other over 2 minutes instead of 30 seconds, so dusk and dawn drift in rather than snapping (`DAY_TRANSITION_MS` in `shared/src/constants.ts`).

@@ -1,3 +1,4 @@
+import type { EliminationSnapshot } from './elimination.ts';
 import type { CarrapetaEvent, CarrapetaPosition, FrenzyEvent } from './carrapeta.ts';
 import type { FlagEvent } from './ctf.ts';
 import type { BombEvent } from './defuse.ts';
@@ -124,8 +125,8 @@ export function encodeCmd(c: Cmd): number[] {
 // ------------------------------------------------------------ server -> client
 
 export type MatchPhase = 'warmup' | 'live' | 'podium';
-export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse' | 'almoco' | 'carrapeta';
-export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta'];
+export type GameMode = 'ffa' | 'tdm' | 'ctf' | 'defuse' | 'almoco' | 'carrapeta' | 'lms' | 'gincana';
+export const GAME_MODES: readonly GameMode[] = ['tdm', 'ffa', 'ctf', 'defuse', 'almoco', 'carrapeta', 'lms', 'gincana'];
 
 export const MODE_LABEL: Record<GameMode, string> = {
   ffa: 'todos contra todos',
@@ -134,9 +135,13 @@ export const MODE_LABEL: Record<GameMode, string> = {
   defuse: 'debug defusion',
   almoco: 'hora de almoçar',
   carrapeta: 'Carrapeta Dourada',
+  lms: 'Último homem a sair do escritório',
+  gincana: 'Gincana da Calindra',
 };
 
 export const MODE_RULES = {
+  lms: { label: MODE_LABEL.lms, teams: false, killScore: false, objective: false },
+  gincana: { label: MODE_LABEL.gincana, teams: true, killScore: false, objective: false },
   ffa: { label: MODE_LABEL.ffa, teams: false, killScore: false, objective: false },
   tdm: { label: MODE_LABEL.tdm, teams: true, killScore: true, objective: false },
   ctf: { label: MODE_LABEL.ctf, teams: true, killScore: false, objective: true },
@@ -144,6 +149,8 @@ export const MODE_RULES = {
   carrapeta: { label: MODE_LABEL.carrapeta, teams: false, killScore: false, objective: true },
   almoco: { label: MODE_LABEL.almoco, teams: true, killScore: false, objective: true },
 } as const;
+export function isEliminationMode(mode: GameMode): boolean { return mode === 'lms' || mode === 'gincana'; }
+export function hasPlayerPoints(mode: GameMode): boolean { return mode === 'carrapeta' || mode === 'lms'; }
 export function isTeamMode(mode: GameMode): boolean { return MODE_RULES[mode].teams; }
 /** Ticks a death costs: the objective modes wait longer, and an operator can tune that wait (`RESPAWN_OBJECTIVE_SECONDS`). */
 export function respawnTicksOf(mode: GameMode, objectiveTicks: number = RESPAWN_OBJECTIVE_TICKS): number { return MODE_RULES[mode].objective ? objectiveTicks : RESPAWN_TICKS; }
@@ -153,7 +160,7 @@ export interface ResultRow {
   name: string;
   color: number;
   kills: number;
-  /** Carrapeta match points, including frenzy bonuses. */
+  /** Carrapeta points or LMS round wins. */
   points?: number;
   deaths: number;
   hs: number;
@@ -170,7 +177,7 @@ export interface MatchInfo {
   teams: number[]; // team scores [bulldogs, martelos] (TDM kills, CTF captures or debug defusion rounds)
   limit: number; // TDM kill, CTF capture or defusion round limit, 0 = timer only
   results?: ResultRow[];
-  winner?: number; // winning team, or winning player ID in Carrapeta; -1 for a draw
+  winner?: number; // winning team, or winning player ID in an individual points mode; -1 for a draw
   next?: { map: number; mode: GameMode }; // podium: upcoming match if nobody votes
   vote?: VoteInfo; // podium: map vote for the next match
   respawnMs?: number; // what a death costs in this mode on this server (older servers omit it)
@@ -188,6 +195,7 @@ export interface VoteInfo {
 
 export type GameEvent =
   | { k: 'spray'; id: number; p: number[]; n: number[]; r: number; left: number }
+  | { k: 'lead'; what: 'takes' | 'continues'; leader: number }
   | FlagEvent
   | BombEvent
   | LunchEvent
@@ -232,10 +240,10 @@ export type ServerMsg =
   // ps rows: [id, x, y, z, yaw, pitch, flags (RF_*), weapon, lean]. lean (-1 left .. 1 right, 0.01 steps) is absent on older rows, read it with leanOfRow.
   // The stance is in the flags: RF_PRONE, else RF_DUCK (crouch), else standing; read it with stanceFromFlags. RF_SPRINT and RF_SLIDE mark the run and the slide, RF_AIM the held aim (RF_ZOOM is the AWP scope).
   // su: one entry per supply stand of the map, 0 while it is full or the server ms when it fills again.
-  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][]; su: number[]; ca?: CarrapetaSnapshot }
+  | { t: 'snap'; time: number; ack: number; me: number[] | null; ps: number[][]; ad: number[][]; fl: number[][]; bm: number[]; lu: number[]; lc: number[][]; su: number[]; ca?: CarrapetaSnapshot; el?: EliminationSnapshot }
   | { t: 'ev'; e: GameEvent[] }
   | { t: 'roster'; roster: RosterEntry[] }
-  // Score rows end in Carrapeta points when playing Carrapeta Dourada.
+  // Score rows end in points for Carrapeta and LMS.
   | { t: 'score'; s: number[][]; ts: number[] }
   | { t: 'match'; match: MatchInfo }
   | { t: 'pong'; c: number; s: number }

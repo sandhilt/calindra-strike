@@ -10,6 +10,7 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 Changes made after the baseline, newest day first.
 
 ### 2026-11-26
+- Minotauro, the Mirante sports shop, sells more shoes (a shoe table beside the shoe wall), dumbbells on a rack, rackets on a pegboard, footballs and basketballs, rolled yoga mats, water bottles and backpacks, all look-only (`sportsGoods` in `shopping-boutiques.ts`).
 - Minotauro, the Mirante sports shop, hangs a try-on mirror on each side wall (`sentauro` in `shopping-boutiques.ts`).
 - The ZARRA store is now ZORRA (`brands.ts`, `store-signs.ts`).
 - Shooting water splashes: `water` is its own surface (splash sound, pale blue spray) instead of ringing as glass, and still gets the pane impact on the way through (`isPane` in `shared/src/surface.ts`).

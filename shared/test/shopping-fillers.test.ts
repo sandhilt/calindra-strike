@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildShopping } from '../src/maps/shopping.ts';
 import { MIRROR_GLASS_TINT } from '../src/maps/room.ts';
+import { DUMBBELL_PLATE_TINT, SHOE_SOLE_TINT } from '../src/maps/shopping-boutiques.ts';
 import { brandMat, STORE_BRANDS, type ShopBrand } from '../src/maps/brands.ts';
 import { DECK, DECK3, FACADE_Z, Z } from '../src/maps/shopping-levels.ts';
 import { CHOCOLATES, STORE_HALF_WIDTH } from '../src/maps/shopping-stores.ts';
@@ -108,6 +109,31 @@ describe('Ray-Bão, the eyewear boutique of the Mirante', () => {
     const mirrorsHere = mirrors.filter((m) => inShop(m) && Math.abs(centre(m).x - cx) > 200);
     assert.equal(mirrorsHere.length, 2);
     assert.deepEqual(mirrorsHere.map((m) => Math.sign(centre(m).x - cx)).sort(), [-1, 1]);
+  });
+});
+
+describe('Minotauro, the sports shop of the Mirante', () => {
+  const name = `${STORE_BRANDS.sentauro.name} (Mirante)`;
+  const landmark = shopping.features.find((f) => f.kind === 'landmark' && f.name === name);
+  assert.ok(landmark && landmark.kind === 'landmark', 'a landmark on the Mirante');
+  const cx = landmark.x;
+  const inShop = (box: Box) => {
+    const c = centre(box);
+    return box.min.y >= DECK3 && Math.abs(c.x - cx) < 230 && c.z < landmark.z + 150 && c.z > landmark.z - 160;
+  };
+
+  it('shows the shoe wall and a shoe table of six more pairs', () => {
+    const soles = shopping.boxes.filter((box) => box.tint === SHOE_SOLE_TINT && inShop(box));
+    assert.equal(soles.length, 2 * 6 + 6, 'two shelves of six pairs on the wall and six on the table');
+  });
+
+  it('racks dumbbells on three shelves, two plates each', () => {
+    const plates = shopping.boxes.filter((box) => box.tint === DUMBBELL_PLATE_TINT && inShop(box));
+    assert.equal(plates.length, 3 * 7 * 2);
+  });
+
+  it('keeps the browse spot clear of the shoe table and the rack', () => {
+    assertBrowseSpotClear(landmark.x, landmark.z);
   });
 });
 

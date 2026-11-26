@@ -83,6 +83,8 @@ function counter(r: Room, tint: Hex, topTint: Hex): void {
 const CUBBY_BACK_Z = 2;
 const CUBBY_FRONT_Z = 34;
 const CUBBY_EDGE_X = 69;
+/** The back shelves stand on 8 unit solid bases; from one a 45 unit jump reaches 53, so the cubby walls stand well above that. */
+const CUBBY_WALL_HEIGHT = 72;
 /** Each half of the cubby holds one employee, 16 units deep, clear of the back shelves (to z 15) and of the counter. */
 const CREW_X = 34;
 const CREW_Z = 24;
@@ -102,13 +104,13 @@ const TILL_MATE: Readonly<Record<ShopBrand, StaffRole>> = {
 };
 
 /**
- * Closes the space behind the counter with solid side panels and a middle divider, as tall as the counter, so the
+ * Closes the space behind the counter with solid side panels and a middle divider, taller than a jump from the shelf bases, so the
  * cashier and the till mate each stand in a closed half that no player reaches.
  */
 function tillCrew(r: Room, brand: ShopBrand, tint: Hex): void {
   const depth = CUBBY_FRONT_Z - CUBBY_BACK_Z;
   const midZ = (CUBBY_BACK_Z + CUBBY_FRONT_Z) / 2;
-  for (const x of [-CUBBY_EDGE_X, 0, CUBBY_EDGE_X]) r.solid(x, midZ, 2, depth, TILL_HEIGHT, 0, 'white', tint);
+  for (const x of [-CUBBY_EDGE_X, 0, CUBBY_EDGE_X]) r.solid(x, midZ, 2, depth, CUBBY_WALL_HEIGHT, 0, 'white', tint);
   r.staff(-CREW_X, CREW_Z, 'front', 'cashier', brand);
   r.staff(CREW_X, CREW_Z, 'front', TILL_MATE[brand], brand);
 }
@@ -537,9 +539,9 @@ function pharmacy(r: Room, p: Pharmacy, seed: number): void {
       r.box(x, 16, 5, 5, 2, y + 10 + i, 'metal', STEEL);
     }
   }
-  r.box(46, 54, 36, 16, 9, 41.4, 'white', p.trim);
-  r.box(46, 55, 30, 12, 2, 50.4, 'white', 0xe8f4ee);
-  r.box(43, 55, 18, 9, 0.8, 52.4, 'white', 0xffffff);
+  r.box(46, 54, 36, 16, 9, TILL_HEIGHT + 1.4, 'white', p.trim);
+  r.box(46, 55, 30, 12, 2, TILL_HEIGHT + 10.4, 'white', 0xe8f4ee);
+  r.box(43, 55, 18, 9, 0.8, TILL_HEIGHT + 12.4, 'white', 0xffffff);
   r.box(20, 12, 2, 20, 2, 120, 'metal', STEEL);
   r.box(72, 12, 2, 20, 2, 120, 'metal', STEEL);
   r.box(46, 22, 78, 2, 12, 116, 'white', p.trim);

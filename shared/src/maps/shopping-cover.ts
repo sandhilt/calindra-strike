@@ -59,27 +59,56 @@ function cart(b: MapBuilder, x: number, z: number, brand: StoreBrand, tint: numb
   for (const sx of [-1, 1]) b.block(x + sx * 49, z - 24, 5, 5, 100, 'charcoal', 46);
 }
 
-/** A compact city hatchback with a short nose, tall glass cabin and wheels near the corners. */
+/**
+ * A red compact hatchback on a display stand. The two solids (body and cabin) are the cover; everything else is look only:
+ * painted pillars and roof, glass set into the sides, bumpers, grille, lamps, mirrors and wheels rounded from two crossed boxes.
+ */
 function carStand(b: MapBuilder, x: number, z: number): void {
   b.block(x, z, 300, 170, 8, 'tile', 0, { tint: 0x2b2f36 });
-  const paint = 0x8bd4ce;
-  b.block(x, z + 6, 140, 62, 22, 'metal', 14, { tint: paint });
-  b.deco(x - 73, 19, z - 21, x + 73, 31, z + 33, 'metal', paint);
-  b.block(x - 9, z + 6, 104, 52, 24, 'metal', 36, { tint: 0x303843 });
-  b.deco(x - 63, 36, z - 23, x + 49, 47, z + 35, 'glass', 0x577b89);
-  b.deco(x - 60, 47, z - 21, x + 39, 60, z + 33, 'glass', 0x577b89);
-  b.deco(x - 58, 60, z - 19, x + 34, 68, z + 31, 'white', 0xf4f2eb);
-  for (const wx of [-54, 54]) {
-    for (const side of [-1, 1]) {
-      const wheelZ = z + 6 + side * 29;
-      b.block(x + wx, wheelZ, 24, 10, 24, 'charcoal', 8);
-      const hubZ = wheelZ + side * 5;
-      b.deco(x + wx - 6, 14, hubZ - 0.5, x + wx + 6, 26, hubZ + 0.5, 'metal', 0xc4cbd0);
-    }
+  const paint = 0xc4161c;
+  const trim = 0x1b1d21;
+  const glass = 0x2f4450;
+  const zc = z + 6;
+  b.block(x, zc, 140, 62, 22, 'metal', 14, { tint: paint });
+  // hood sloping down to the nose and the hatch at the back
+  b.deco(x + 30, 36, zc - 30, x + 70, 39, zc + 30, 'metal', paint);
+  b.deco(x - 70, 36, zc - 30, x - 61, 44, zc + 30, 'metal', paint);
+  b.block(x - 9, zc, 104, 52, 24, 'metal', 36, { tint: paint });
+  // windshield and rear window stepped back like a rake, side glass set just proud of the cabin
+  b.deco(x + 43, 37, zc - 24, x + 47, 52, zc + 24, 'glass', glass);
+  b.deco(x + 38, 52, zc - 24, x + 43, 59, zc + 24, 'glass', glass);
+  b.deco(x - 62, 40, zc - 24, x - 60, 57, zc + 24, 'glass', glass);
+  for (const side of [-1, 1]) {
+    const face = zc + side * 26;
+    b.deco(x - 56, 40, face - 0.4, x - 12, 57, face + 0.4, 'glass', glass);
+    b.deco(x - 8, 40, face - 0.4, x + 38, 57, face + 0.4, 'glass', glass);
+    // door seam, handle and mirror
+    b.deco(x - 10.5, 16, face - 0.5 + side * 5, x - 9.5, 35, face + 0.5 + side * 5, 'charcoal', trim);
+    b.deco(x - 4, 31, face - 0.6 + side * 5, x + 4, 32.5, face + 0.6 + side * 5, 'metal', 0xc4cbd0);
+    b.deco(x + 30, 38, face + side * 1, x + 36, 43, face + side * 6, 'metal', paint);
+    // side skirt
+    b.deco(x - 44, 14, face - 0.5 + side * 5, x + 44, 17, face + 0.5 + side * 5, 'charcoal', trim);
   }
-  for (const dz of [-19, 19]) {
-    b.deco(x + 69, 28, z + 6 + dz - 6, x + 74, 33, z + 6 + dz + 6, 'white', 0xe7faff);
-    b.deco(x - 74, 27, z + 6 + dz - 6, x - 69, 33, z + 6 + dz + 6, 'white', 0xe63d4b);
+  b.deco(x - 61, 60, zc - 24, x + 38, 61.5, zc + 24, 'metal', paint);
+  // bumpers, grille and lamps
+  b.deco(x + 70, 14, zc - 31, x + 74, 22, zc + 31, 'charcoal', trim);
+  b.deco(x - 74, 14, zc - 31, x - 70, 22, zc + 31, 'charcoal', trim);
+  b.deco(x + 70, 24, zc - 14, x + 71.5, 31, zc + 14, 'charcoal', trim);
+  for (const side of [-1, 1]) {
+    b.deco(x + 69, 29, zc + side * 23 - 6, x + 71.5, 34, zc + side * 23 + 6, 'white', 0xe7faff);
+    b.deco(x - 71.5, 30, zc + side * 24 - 5, x - 69, 37, zc + side * 24 + 5, 'white', 0xe63d4b);
+  }
+  b.deco(x - 71.5, 24, zc - 8, x - 70, 28, zc + 8, 'white', 0xe9e9e9);
+  // two crossed boxes per tyre read as round at a glance, with a wheel arch over each
+  for (const wx of [-48, 50]) {
+    for (const side of [-1, 1]) {
+      const wheelZ = zc + side * 28;
+      b.block(x + wx, wheelZ, 26, 9, 18, 'charcoal', 9);
+      b.block(x + wx, wheelZ, 18, 9, 26, 'charcoal', 5);
+      const hubZ = wheelZ + side * 4.6;
+      b.deco(x + wx - 6, 12, hubZ - 0.5, x + wx + 6, 24, hubZ + 0.5, 'metal', 0xc4cbd0);
+      b.deco(x + wx - 15, 30, wheelZ - 5, x + wx + 15, 32, wheelZ + 5, 'charcoal', trim);
+    }
   }
   b.block(x, z - 96, 300, 14, WALL, 'white', 0, { tint: 0x1d2330 });
   adPanel(b, x - 110, 62, z - 88.6, x + 110, 62 + 110, z - 88.4, 'kfg');

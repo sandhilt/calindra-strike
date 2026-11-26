@@ -40,6 +40,6 @@ describe('anglesToward', () => {
 describe('surfaces', () => {
   it('give every material a surface, and every map box one it can sound as', () => {
     for (const map of getMaps()) for (const box of map.boxes) assert.ok(surfaceOf(box.mat), `${map.id} ${box.mat}`);
-    assert.equal(new Set(Object.values(SURFACE_OF)).size, 13);
+    assert.equal(new Set(Object.values(SURFACE_OF)).size, 14);
   });
 });

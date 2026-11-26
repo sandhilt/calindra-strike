@@ -20,6 +20,7 @@ export const IMPACT_SOUND: Readonly<Record<Surface, readonly ImpactLayer[]>> = {
   wood: [tone('triangle', 240, 130, 0.07, 0.2), noise('bandpass', 1300, 1.2, 0.06, 0.22), noise('bandpass', 3000, 2, 0.03, 0.2)],
   crate: [tone('triangle', 150, 85, 0.1, 0.24), noise('bandpass', 700, 1, 0.08, 0.24), noise('bandpass', 1700, 1.2, 0.035, 0.2), tone('triangle', 330, 200, 0.05, 0.08)],
   glass: [noise('bandpass', 5200, 3, 0.04, 0.22), tone('sine', 2600, 2500, 0.14, 0.08)],
+  water: [noise('bandpass', 1500, 0.7, 0.03, 0.3), noise('bandpass', 3600, 1.2, 0.05, 0.22), tone('sine', 760, 230, 0.16, 0.12)],
   screen: [noise('bandpass', 3200, 2, 0.03, 0.2), tone('square', 1400, 900, 0.05, 0.06), tone('sine', 2400, 2300, 0.08, 0.05)],
   cloth: [noise('lowpass', 450, 0.7, 0.07, 0.22), noise('bandpass', 1600, 0.9, 0.04, 0.2), tone('sine', 70, 50, 0.08, 0.08)],
   plant: [noise('bandpass', 4500, 0.8, 0.12, 0.22, 0.01), noise('bandpass', 2500, 0.6, 0.1, 0.12, 0.01)],

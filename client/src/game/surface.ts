@@ -20,6 +20,7 @@ export const SPARK_LOOK: Readonly<Record<Surface, SparkLook>> = {
   wood: { color: '#e8a860', sparks: 3, glints: 0 },
   crate: { color: '#d99a58', sparks: 3, glints: 0 },
   glass: { color: '#fff4c8', sparks: 5, glints: 1 },
+  water: { color: '#bfe8ff', sparks: 6, glints: 0 },
   screen: { color: '#cfe6ff', sparks: 4, glints: 1 },
   cloth: { color: '#c9b38a', sparks: 1, glints: 0 },
   plant: { color: '#b9c98a', sparks: 1, glints: 0 },

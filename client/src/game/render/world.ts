@@ -271,12 +271,14 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
 
   for (const b of map.boxes) {
     if (!b.visible || b.mat === 'clip') continue;
-    let bk = buckets.get(b.mat);
+    // Ducts ring as metal but are painted like the light plaster they were before.
+    const look: Mat = b.duct ? 'white' : b.mat;
+    let bk = buckets.get(look);
     if (!bk) {
       bk = { pos: [], nrm: [], uv: [], col: [], idx: [] };
-      buckets.set(b.mat, bk);
+      buckets.set(look, bk);
     }
-    const scale = isBrandMat(b.mat) ? 0 : TEX_SCALE[b.mat] ?? 128;
+    const scale = isBrandMat(look) ? 0 : TEX_SCALE[look] ?? 128;
     const tint = b.tint === undefined ? WHITE : TINT.set(b.tint);
     const h = b.max.y - b.min.y;
     for (const f of FACES) {

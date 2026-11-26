@@ -2,7 +2,7 @@ import { isBrandMat } from './maps/brands.ts';
 import type { BaseMat, Mat } from './maps/types.ts';
 
 /** What a bullet hits, grouped by how it sounds and sparks. The client plays it and the MCP reports it to agents. */
-export type Surface = 'ground' | 'concrete' | 'plaster' | 'brick' | 'tile' | 'metal' | 'container' | 'wood' | 'crate' | 'glass' | 'screen' | 'cloth' | 'plant';
+export type Surface = 'ground' | 'concrete' | 'plaster' | 'brick' | 'tile' | 'metal' | 'container' | 'wood' | 'crate' | 'glass' | 'water' | 'screen' | 'cloth' | 'plant';
 
 export const SURFACE_OF: Readonly<Record<BaseMat, Surface>> = {
   ground: 'ground',
@@ -26,9 +26,14 @@ export const SURFACE_OF: Readonly<Record<BaseMat, Surface>> = {
   carpet: 'cloth',
   sofa: 'cloth',
   plant: 'plant',
-  water: 'glass',
+  water: 'water',
 };
 
 export function surfaceOf(mat: Mat): Surface {
   return isBrandMat(mat) ? 'plaster' : SURFACE_OF[mat];
+}
+
+/** Surfaces a round flies through while still ringing where it crosses them. */
+export function isPane(surface: Surface): boolean {
+  return surface === 'glass' || surface === 'water';
 }

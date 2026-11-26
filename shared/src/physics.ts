@@ -2,7 +2,7 @@ import { PLAYER_RADIUS } from './constants.ts';
 import { LIFT_DOOR_HEIGHT_UNITS, liftDoorOpen, type Lift, type LiftDoor } from './lift.ts';
 import { rayAabb } from './math.ts';
 import type { Mat, MapDef } from './maps/types.ts';
-import { surfaceOf } from './surface.ts';
+import { isPane, surfaceOf } from './surface.ts';
 
 const EPS = 0.03125;
 
@@ -67,7 +67,7 @@ export class CollisionWorld {
     this.bullets = this.mapBullets;
     this.mapBulletMats = bullet.map((b) => b.mat);
     this.bulletMats = this.mapBulletMats;
-    const panes = map.boxes.filter((b) => b.visible && b.shootThrough && surfaceOf(b.mat) === 'glass');
+    const panes = map.boxes.filter((b) => b.visible && b.shootThrough && isPane(surfaceOf(b.mat)));
     this.panes = new Float64Array(panes.length * 6);
     panes.forEach((b, i) => this.panes.set([b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], i * 6));
     this.paneMats = panes.map((b) => b.mat);

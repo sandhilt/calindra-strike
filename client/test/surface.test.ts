@@ -28,6 +28,13 @@ test('every surface has a sound of its own and no two surfaces share one', () =>
   assert.equal(new Set(surfaces.map((surface) => JSON.stringify(IMPACT_SOUND[surface]))).size, surfaces.length);
 });
 
+test('every surface has a bright layer that is heard over the gunshot', () => {
+  for (const surface of Object.keys(SPARK_LOOK) as Surface[]) {
+    const bright = IMPACT_SOUND[surface].some((layer) => layer.gain >= 0.2 && (layer.kind === 'noise' ? layer.filter !== 'lowpass' && layer.hz >= 1500 && layer.decay >= 0.03 : layer.from >= 1500));
+    assert.ok(bright, surface);
+  }
+});
+
 test('wood, crates and metal drums each sound different from plain metal and concrete', () => {
   assert.equal(surfaceOf('wood'), 'wood');
   assert.equal(surfaceOf('desk'), 'wood');

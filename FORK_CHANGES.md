@@ -17,6 +17,7 @@ Changes made after the baseline, newest day first.
 - Shopping Sul Rio: Natal replaces each display car with a reindeer-drawn sleigh and a seated Santa (`shopping-natal.ts`). Protocol 27 keeps client, server and MCP collision maps in sync after removing the car cover.
 - Standing and seated Santas reuse the store mannequin body in a Santa suit and the static prop batch (`santa.ts`). The KFG mascot wears a Santa hat in Natal (`store-signs.ts`).
 - Natal: the food court tree and its gifts moved to the corner by the rail, off the escalator approaches. Santas drop the visor band, so they have no eyes, like the mannequins.
+- Bullet impacts: every surface now has a bright layer that cuts through the gunshot (concrete, plaster, ground, cloth, crate, container, wood, tile and plant were too low or too short to hear). `client/test/surface.test.ts` pins it.
 - Natal adds garlands beside store logos, rails and pillars, and small Christmas displays inside shops and on food court counters (`shopping-natal.ts`).
 - The Natal canopy gains a frost frame and crossbars that anchor the star strings. The falling snow volume ends at the underside of the glass (`shopping-levels.ts`, `shopping-natal.ts`).
 - The food court burger chain is now called Batatas Douradas and the Mirante sports store Minotauro, on their signs and in the README (`brands.ts`, `store-signs.ts`).

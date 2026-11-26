@@ -4,7 +4,7 @@ import { TICK_MS, TICK_RATE } from './constants.ts';
  * server, every client's prediction and the drawn cab agree without any state to send. It goes up through every
  * stop and back down, waits at each one long enough to walk out through that floor's doorway, and nobody
  * presses anything. A player whose centre is in the footprint and whose feet are on the cab's floor, or just
- * behind it in its direction of travel, rides with it. The shaft has no floor of its own at the upper stops, so
+ * behind it in its direction of travel, boards it, and rides it until their centre leaves the footprint. The shaft has no floor of its own at the upper stops, so
  * each doorway is shut (solid) except while the cab waits at it.
  */
 /** A doorway of the shaft: the wall slab across it, `LIFT_DOOR_HEIGHT_UNITS` high from the stop's floor. */
@@ -43,10 +43,13 @@ export const LIFT_DOOR_HEIGHT_UNITS = 96;
 export const liftBottom = (lift: Lift): number => lift.stops[0];
 export const liftTop = (lift: Lift): number => lift.stops[lift.stops.length - 1];
 
+/** Whether a centre at (x, z) is inside the shaft's footprint, at any height. */
+export const inFootprint = (lift: Lift, x: number, z: number): boolean => x > lift.minX && x < lift.maxX && z > lift.minZ && z < lift.maxZ;
+
 /** The lift that carries a player standing with feet at (x, y, z), if any. */
 export function liftAt(lifts: readonly Lift[], x: number, y: number, z: number): Lift | undefined {
   return lifts.find(
-    (lift) => x > lift.minX && x < lift.maxX && z > lift.minZ && z < lift.maxZ && y >= liftBottom(lift) - 1 && y <= liftTop(lift) + LIFT_TOP_SLACK_UNITS,
+    (lift) => inFootprint(lift, x, z) && y >= liftBottom(lift) - 1 && y <= liftTop(lift) + LIFT_TOP_SLACK_UNITS,
   );
 }
 

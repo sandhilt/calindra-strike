@@ -39,7 +39,7 @@ import {
   TICK_DT,
   WALK_SPEED_MULT,
 } from './constants.ts';
-import { carriedBy, liftAt, liftCab, type LiftCab } from './lift.ts';
+import { LIFT_DOOR_HEIGHT_UNITS, carriedBy, inFootprint, liftAt, liftCab, liftDoorOpen, type Lift } from './lift.ts';
 import { escalatorDrift } from './escalator.ts';
 import { DEG, clamp, dirFromAngles, hashSeed, mulberry32, rayAabb, wrapAngle } from './math.ts';
 import type { CollisionWorld } from './physics.ts';
@@ -82,6 +82,7 @@ export interface PlayerState {
   stanceLock: number; // ticks left before prone may change
   jumpHeld: boolean;
   dropping: boolean;
+  lift: number; // index in `map.lifts` of the cab the player rides, -1 when riding none
   attackHeld: boolean;
   attack2Held: boolean;
   health: number;
@@ -145,6 +146,7 @@ export function createPlayerState(): PlayerState {
     stanceLock: 0,
     jumpHeld: false,
     dropping: false,
+    lift: -1,
     attackHeld: false,
     attack2Held: false,
     health: MAX_HEALTH,
@@ -222,6 +224,7 @@ export function spawnState(s: PlayerState, x: number, y: number, z: number, yaw:
   s.lean = 0;
   s.stanceLock = 0;
   s.dropping = true;
+  s.lift = -1;
   s.health = MAX_HEALTH;
   s.armor = 0;
   s.halvedAmmo = false;
@@ -430,22 +433,58 @@ function skydive(w: CollisionWorld, s: PlayerState, buttons: number, dt: number)
 }
 
 /**
- * A rider the cab carries is set on its floor after walking across it, so nothing in the shaft pulls them down. They
- * can walk out of the doorway at a stop, where the cab waits, and then the floor is whatever is under the feet.
+ * The shaft whose cab carries the player on this command. Riding is a state, not a distance: once the cab catches a
+ * player (`carriedBy`), they ride it until their centre leaves the shaft, wherever the command's clock puts the cab, so
+ * a clock that repeats, skips, steps back or falls back to the server's tick cannot leave the floor out of reach.
  */
-function rideLift(w: CollisionWorld, s: PlayerState, cab: LiftCab): void {
-  if (!liftAt(w.map.lifts, s.x, s.y, s.z)) {
+function ridden(w: CollisionWorld, s: PlayerState): Lift | undefined {
+  const riding = w.map.lifts[s.lift];
+  if (riding && inFootprint(riding, s.x, s.z)) return riding;
+  s.lift = -1;
+  const shaft = liftAt(w.map.lifts, s.x, s.y, s.z);
+  if (!shaft || !carriedBy(liftCab(shaft, w.liftTick), s.y)) return undefined;
+  s.lift = w.map.lifts.indexOf(shaft);
+  return shaft;
+}
+
+/**
+ * A doorway that shuts on a player standing in it pushes them out across its thin side: into the shaft when their centre
+ * is in it (the cab still waits there, the doors shut `LIFT_DOOR_CLOSE_TICKS` before it leaves), onto the landing
+ * otherwise. Movement ignores a solid the hull already overlaps, so without this a player could walk through the shut
+ * door, or stand half on the landing slab while the cab left.
+ */
+function clearShutDoors(w: CollisionWorld, s: PlayerState): void {
+  const r = PLAYER_RADIUS;
+  for (const lift of w.map.lifts) {
+    for (const door of lift.doors) {
+      if (s.y >= door.y + LIFT_DOOR_HEIGHT_UNITS || s.y + hullHeight(s) <= door.y) continue;
+      if (s.x + r <= door.minX || s.x - r >= door.maxX || s.z + r <= door.minZ || s.z - r >= door.maxZ) continue;
+      if (liftDoorOpen(lift, door, w.liftTick)) continue;
+      const acrossX = door.maxX - door.minX < door.maxZ - door.minZ;
+      const [lo, hi] = acrossX ? [door.minX, door.maxX] : [door.minZ, door.maxZ];
+      const shaftLow = (acrossX ? lift.minX + lift.maxX : lift.minZ + lift.maxZ) / 2 < (lo + hi) / 2;
+      const toLow = inFootprint(lift, s.x, s.z) === shaftLow;
+      const pushed = toLow ? lo - r - 0.01 : hi + r + 0.01;
+      if (acrossX) s.x = pushed;
+      else s.z = pushed;
+    }
+  }
+}
+
+/**
+ * A rider is set on the cab floor after walking across it, so nothing in the shaft pulls them down. They can walk out of
+ * the doorway at a stop, where the cab waits, and then the floor is whatever is under the feet. A floor that would put
+ * the hull into a solid, above or below them, ends the ride where they stand.
+ */
+function rideLift(w: CollisionWorld, s: PlayerState, lift: Lift): void {
+  const floor = liftCab(lift, w.liftTick).y;
+  if (!inFootprint(lift, s.x, s.z) || (floor !== s.y && w.hullOverlaps(s.x, floor, s.z, hullHeight(s)))) {
+    s.lift = -1;
     s.vy = 0;
     s.onGround = checkGround(w, s);
     return;
   }
-  // a rider at the doorway edge stands partly on the floor slab: the cab leaving must not drag them down into it
-  if (cab.y < s.y && w.hullOverlaps(s.x, cab.y, s.z, hullHeight(s))) {
-    s.vy = 0;
-    s.onGround = checkGround(w, s);
-    return;
-  }
-  s.y = cab.y;
+  s.y = floor;
   s.vy = 0;
   s.onGround = true;
 }
@@ -568,10 +607,10 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     return;
   }
 
+  clearShutDoors(w, s);
   const shaft = liftAt(w.map.lifts, s.x, s.y, s.z);
-  const cab = shaft ? liftCab(shaft, w.liftTick) : null;
-  const carried = cab !== null && carriedBy(cab, s.y);
-  if (carried) s.onGround = true;
+  const riding = ridden(w, s);
+  if (riding) s.onGround = true;
 
   tryStartSlide(s, duckPressed);
   updateStance(w, s, buttons);
@@ -581,7 +620,7 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
   // --- jump (must re-press; CS 1.6 bunnyhop speed cap; none while prone) ---
   let jumped = false;
   if (buttons & BTN.JUMP) {
-    if (!shaft && s.onGround && !s.jumpHeld && s.stance !== STANCE.PRONE) {
+    if (!shaft && !riding && s.onGround && !s.jumpHeld && s.stance !== STANCE.PRONE) {
       const maxs = sprintWanted ? maxSpeedFor(s) * SPRINT_SPEED_MULT : maxSpeedFor(s);
       const spd = Math.hypot(s.vx, s.vz);
       const cap = BUNNYJUMP_MAX_FACTOR * maxs;
@@ -632,8 +671,8 @@ export function playerMove(w: CollisionWorld, s: PlayerState, buttons: number, d
     const [driftX, driftZ] = escalatorDrift(w.map, s) ?? [0, 0];
     walkMove(w, s, dt, driftX, driftZ);
   } else airMove(w, s, dt);
-  if (carried && cab) {
-    rideLift(w, s, cab);
+  if (riding) {
+    rideLift(w, s, riding);
   } else {
     verticalMove(w, s, dt);
 

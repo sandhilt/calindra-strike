@@ -319,12 +319,13 @@ export function packState(s: PlayerState): number[] {
     s.slide,
     s.lean,
     s.stanceLock,
+    s.lift,
     ...s.mag,
     ...s.reserve,
   ];
 }
 
-const PACKED_HEAD_LEN = 25;
+const PACKED_HEAD_LEN = 26;
 export const PACKED_STATE_LEN = PACKED_HEAD_LEN + WEAPON_COUNT * 2;
 
 export function unpackState(a: number[], s: PlayerState): void {
@@ -365,6 +366,7 @@ export function unpackState(a: number[], s: PlayerState): void {
   s.slide = a[22];
   s.lean = a[23];
   s.stanceLock = a[24];
+  s.lift = a[25];
   for (let i = 0; i < WEAPON_COUNT; i++) {
     s.mag[i] = a[PACKED_HEAD_LEN + i];
     s.reserve[i] = a[PACKED_HEAD_LEN + WEAPON_COUNT + i];

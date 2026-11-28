@@ -1,7 +1,7 @@
 import {
   BTN,
   IDLE_WARNING_LEAD_MS,
-  isActiveCommand,
+  isActiveCommand, waitsOutRound,
   type Readiness,
   isTeamMode,
   PLAYER_RADIUS,
@@ -87,6 +87,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Settings } from '../settings.ts';
 import { Hud, type FeedInvolvement, type LeaderRow, type Marker, type ScoreRow, type SpectatorBar } from '../ui/hud.ts';
+import { formatCountdown } from '../ui/countdown.ts';
 import { Sfx } from './audio.ts';
 import { NearbyLoops, ambientEmitters } from './nearby-loops.ts';
 import { StationTracks } from './station-tracks.ts';
@@ -1566,7 +1567,8 @@ export class ClientGame {
     const timeout = phase === 'warmup' ? this.idleKickWarmupMs : this.idleKickMs;
     const phaseChanged = phase !== this.idlePhase;
     this.idlePhase = phase;
-    if (active || phaseChanged || timeout === null || this.ready.kind === 'pending' || phase === 'podium') {
+    if (active || phaseChanged || timeout === null || this.ready.kind === 'pending' || phase === 'podium' ||
+        waitsOutRound(this.match.mode, phase, this.alive)) {
       this.lastActiveAt = now;
       this.idleWarned = false;
       return;
@@ -2191,16 +2193,22 @@ export class ClientGame {
     const def = weaponDef(s.weapon);
     const now = this.serverNow();
 
+    const round = this.elimination;
+    hud.setRoundTimer(this.match.phase === 'live' && round?.kind === 'playing' && Number.isFinite(round.endsAt)
+      ? Math.max(0, Math.ceil((round.endsAt - now) / 1000)) : null);
+
     // timer + leaders
     if (this.match.phase === 'live') {
       const left = Math.max(0, this.match.endsAt - now);
       const sec = Math.ceil(left / 1000);
-      const round = this.elimination;
-      const status = round?.kind === 'waiting' ? 'esperando jogadores'
+      const joinSeconds = round?.kind === 'waiting' && round.startsAt !== undefined
+        ? Math.ceil((round.startsAt - now) / 1000) : 0;
+      const status = round?.kind === 'waiting'
+        ? (joinSeconds > 0 ? `rodada começa em ${formatCountdown(joinSeconds)}` : 'esperando jogadores')
         : round?.kind === 'pause' ? `próxima rodada em ${Math.max(0, Math.ceil((round.nextAt - now) / 1000))} s`
         : round ? `rodada ${round.number} · ${round.teamsAlive?.join(' × ') ?? round.alive} vivos` : null;
       const mode = MODE_LABEL[this.match.mode];
-      hud.setTimer(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, status ? `${mode} · ${status}` : `${this.map.name} · ${mode}`, sec <= 30);
+      hud.setTimer(formatCountdown(sec), status ? `${mode} · ${status}` : `${this.map.name} · ${mode}`, sec <= 30);
       if (sec <= 10 && sec > 0 && sec !== this.lastBeep) {
         this.lastBeep = sec;
         this.sfx.beep(sec <= 3);

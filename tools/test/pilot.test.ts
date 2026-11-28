@@ -244,7 +244,7 @@ for (const mode of ['lms', 'gincana'] as const) {
       t: 'snap', time: 1000, ack: 0, me: packState(s),
       ps: [[2, s.x, 0, s.z - 200, 0, 0, RF_ALIVE, WEAPON.RIFLE]],
       ad: [], fl: [], bm: [], lu: [], lc: [], su: [],
-      el: { kind: 'playing', number: 1, alive: 2, teamsAlive: mode === 'lms' ? null : [1, 1] },
+      el: { kind: 'playing', number: 1, endsAt: 90_000, alive: 2, teamsAlive: mode === 'lms' ? null : [1, 1] },
     });
     assert.equal(view.peers[0].enemy, true);
     const intent = { kind: 'hunt' } as const;

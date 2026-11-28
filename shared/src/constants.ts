@@ -252,5 +252,7 @@ export const BATATA_KILL_POINTS = 3;
 export const BATATA_BOUNTY_POINTS = 5;
 
 export const ELIMINATION_WIN_ROUNDS = 5;
+export const ELIMINATION_JOIN_MS = 30_000; // tuning value
 export const ELIMINATION_PAUSE_MS = 4_000;
+export const ELIMINATION_ROUND_MS = 90_000; // tuning value
 export const LEAD_ANNOUNCEMENT_INTERVAL_MS = 45_000;

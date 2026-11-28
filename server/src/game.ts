@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   BATATA_PER_MATCH, CARRAPETA_ARMOR, CARRAPETA_AIRDROP_CHANCE, CARRAPETA_LOOSE_RESPAWN_EXTRA_TICKS, CARRAPETA_PICKUP_TIMEOUT_SECONDS, CARRAPETA_REDRAW_WAIT_SECONDS, TICK_RATE, ZONE_BODY,
-  ELIMINATION_PAUSE_MS, ELIMINATION_WIN_ROUNDS, eliminationOutcome, hasPlayerPoints, isEliminationMode, leadAnnouncement, outrightLeader,
+  ELIMINATION_JOIN_MS, ELIMINATION_PAUSE_MS, ELIMINATION_ROUND_MS, ELIMINATION_WIN_ROUNDS, canStartEliminationRound, eliminationOutcome, eliminationTimeoutOutcome, hasPlayerPoints, isEliminationMode, leadAnnouncement, outrightLeader,
   type EliminationRound, type EliminationSnapshot, type LeadState,
   eyeHeight, blastDamage, carrapetaEnemies, carrapetaKillPoints, carrapetaPointsPerSecond,
   dropCarrapeta, frenzyAtTicks, halveVitals, holdExpired, setHalvedAmmo, stepCarrapeta, stepFrenzy,
@@ -62,7 +62,7 @@ import {
   absorbArmor,
   applyCmd,
   inLiftCab,
-  isActiveCommand,
+  isActiveCommand, waitsOutRound,
   refillReserve,
   clamp,
   createPlayerState,
@@ -944,7 +944,7 @@ export class Game {
     if (!timeout) return;
     for (const p of [...this.players.values()]) {
       if (p.brain || isPending(p)) continue;
-      if (this.phase === 'podium') p.lastActiveAt = now;
+      if (this.phase === 'podium' || waitsOutRound(this.mode, this.phase, p.alive)) p.lastActiveAt = now;
       else if (now - p.lastActiveAt >= timeout) this.kick(p, 'idle');
     }
   }
@@ -1259,33 +1259,40 @@ export class Game {
   private updateElimination(): void {
     if (!this.liveElimination()) return;
     const round = this.elimination;
+    const now = this.now();
     const teams = isTeamMode(this.mode);
     if (round.kind !== 'playing') {
-      if (round.kind === 'pause' && this.now() < round.nextAt) return;
+      if (round.kind === 'pause' && now < round.nextAt) return;
       const ready = [...this.players.values()].filter(p => !isPending(p));
       if (ready.length < 2) {
-        this.elimination = { kind: 'waiting', number: round.number };
+        if (round.kind === 'pause') {
+          this.elimination = { kind: 'waiting', number: round.number, startsAt: now + ELIMINATION_JOIN_MS };
+        }
         for (const p of ready) p.alive = false;
         return;
       }
+      if (!canStartEliminationRound(round, ready.length, now)) return;
       if (teams && ready.every(p => p.team === ready[0].team)) {
         const player = ready[ready.length - 1];
         player.team = 1 - player.team;
         this.emit({ k: 'team', id: player.id, team: player.team, auto: 1 });
         this.broadcastRoster();
       }
-      this.elimination = { kind: 'playing', number: round.number + 1 };
+      this.elimination = { kind: 'playing', number: round.number + 1, endsAt: now + ELIMINATION_ROUND_MS };
       for (const p of ready) {
         p.queue.length = 0;
         p.using = false;
+        p.lastActiveAt = now; // the join window and the pause between rounds are not idle time
         this.spawn(p);
       }
       return;
     }
-    const alive = [...this.players.values()].filter(p => p.alive);
-    const winner = eliminationOutcome(alive.map(p => teams ? p.team : p.id));
-    if (winner === undefined) return;
-    this.elimination = { kind: 'pause', number: round.number, winner, nextAt: this.now() + ELIMINATION_PAUSE_MS };
+    const timedOut = now >= round.endsAt;
+    const aliveGroups = [...this.players.values()].filter(p => p.alive).map(p => teams ? p.team : p.id);
+    const outcome = eliminationOutcome(aliveGroups);
+    if (outcome === undefined && !timedOut) return;
+    const winner = outcome === undefined ? eliminationTimeoutOutcome(aliveGroups) : outcome;
+    this.elimination = { kind: 'pause', number: round.number, winner, nextAt: now + ELIMINATION_PAUSE_MS };
     if (winner === null) return;
     const player = this.players.get(winner);
     const score = teams ? ++this.teamScores[winner] : player ? ++player.points : 0;
@@ -1326,7 +1333,7 @@ export class Game {
     this.nextAirdropAt = this.now() + (this.opts.airdropFirstMs ?? 25_000);
     this.endPending = false;
     this.resetScores();
-    this.elimination = { kind: 'waiting', number: 0 };
+    this.elimination = { kind: 'waiting', number: 0, startsAt: this.now() + ELIMINATION_JOIN_MS };
     this.lead = { announced: null, at: -Infinity };
     // Time idle in the warmup does not eat into the match's shorter idle timeout.
     for (const p of this.players.values()) p.lastActiveAt = this.now();

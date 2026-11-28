@@ -697,6 +697,16 @@ input:focus-visible {
   letter-spacing: -0.02em;
 }
 
+.timer .round-timer {
+  color: var(--muted);
+  font: 12px var(--mono);
+  margin-top: 4px;
+}
+
+.timer .round-timer.urgent {
+  color: var(--danger);
+}
+
 .timer .s {
   font-family: var(--mono);
   font-size: 10px;

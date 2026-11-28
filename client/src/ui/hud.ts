@@ -12,6 +12,7 @@ import type { WeaponIcon } from '../game/render/weapon-icons.ts';
 import { ICONS, h, svg } from './dom.ts';
 import { STANCE, type Stance } from '@calindra-strike/shared';
 import { STANCE_VIEWS, leanTilt } from './stance-view.ts';
+import { formatCountdown } from './countdown.ts';
 import { STAMINA_RESUME_FRACTION, type StaminaLevel, staminaLevel } from './stamina-meter.ts';
 
 export interface LeaderRow {
@@ -69,7 +70,9 @@ export class Hud {
   readonly root = h('div', { class: 'hud' });
   private readonly timerT = h('div', { class: 't', text: '--:--' });
   private readonly timerS = h('div', { class: 's', text: '' });
-  private readonly timer = h('div', { class: 'timer glass' }, [this.timerT, this.timerS]);
+  private readonly roundTimer = h('div', { class: 'round-timer', hidden: true });
+  private roundSeconds: number | null = null;
+  private readonly timer = h('div', { class: 'timer glass' }, [this.timerT, this.roundTimer, this.timerS]);
   private readonly leadersLeft = h('div', { style: 'display:flex;gap:8px' });
   private readonly leadersRight = h('div', { style: 'display:flex;gap:8px' });
   private readonly flagStatus = h('div', { class: 'flag-status glass hidden' });
@@ -271,6 +274,15 @@ export class Hud {
     if (this.last.get(key) === v) return;
     this.last.set(key, v);
     apply();
+  }
+
+  setRoundTimer(seconds: number | null): void {
+    if (seconds === this.roundSeconds) return;
+    this.roundSeconds = seconds;
+    this.roundTimer.hidden = seconds === null;
+    if (seconds === null) return;
+    this.roundTimer.textContent = `rodada ${formatCountdown(seconds)}`;
+    this.roundTimer.classList.toggle('urgent', seconds <= 10);
   }
 
   setTimer(text: string, sub: string, urgent: boolean): void {

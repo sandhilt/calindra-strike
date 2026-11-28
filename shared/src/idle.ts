@@ -1,4 +1,5 @@
 import { BTN } from './constants.ts';
+import { isEliminationMode, type GameMode, type MatchPhase } from './protocol.ts';
 import type { Cmd } from './sim.ts';
 
 type Input = Pick<Cmd, 'buttons' | 'yaw' | 'pitch'>;
@@ -11,4 +12,8 @@ type Input = Pick<Cmd, 'buttons' | 'yaw' | 'pitch'>;
 export function isActiveCommand(cmd: Input & Pick<Cmd, 'weapon'>, last: Input): boolean {
   const proneChanged = ((cmd.buttons ^ last.buttons) & BTN.PRONE) !== 0;
   return (cmd.buttons & ~BTN.PRONE) !== 0 || proneChanged || cmd.weapon !== 0 || cmd.yaw !== last.yaw || cmd.pitch !== last.pitch;
+}
+
+export function waitsOutRound(mode: GameMode, phase: MatchPhase, alive: boolean): boolean {
+  return phase === 'live' && !alive && isEliminationMode(mode);
 }

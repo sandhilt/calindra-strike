@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { BTN, isActiveCommand } from '../src/index.ts';
+import { BTN, isActiveCommand, waitsOutRound } from '../src/index.ts';
 
 const still = { buttons: 0, yaw: 1, pitch: 0.5 };
 const cmd = (over: Partial<{ buttons: number; yaw: number; pitch: number; weapon: number }> = {}) => ({ ...still, weapon: 0, ...over });
@@ -34,4 +34,13 @@ describe('idle activity', () => {
     assert.equal(isActiveCommand(cmd({ yaw: 1.1 }), still), true);
     assert.equal(isActiveCommand(cmd({ pitch: 0.4 }), still), true);
   });
+});
+
+it('pauses the idle clock only for dead players in live elimination matches', () => {
+  assert.equal(waitsOutRound('lms', 'live', false), true);
+  assert.equal(waitsOutRound('gincana', 'live', false), true);
+  assert.equal(waitsOutRound('lms', 'live', true), false);
+  assert.equal(waitsOutRound('gincana', 'warmup', false), false);
+  assert.equal(waitsOutRound('gincana', 'podium', false), false);
+  assert.equal(waitsOutRound('tdm', 'live', false), false);
 });

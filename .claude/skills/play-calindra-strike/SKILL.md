@@ -52,7 +52,7 @@ Coordinates: -z is norte, +x is leste. Game time keeps running while you think, 
 
 ## Elimination modes
 
-- In `lms`, every other player is a rival. In `gincana`, hunt the opposing team. Use `get_state.elimination` for the round number, state, alive counts and pause deadline. Once eliminated, wait for the next round. `hunt` resumes when you return. Lead announcements appear in recent events.
+- In `lms`, every other player is a rival. In `gincana`, hunt the opposing team. Use `get_state.elimination` for the round number, state and alive counts. While waiting, `startsAt` is the earliest round start in server milliseconds when present. At least two players must be ready. While playing, `endsAt` is the round deadline in server milliseconds. At timeout the group with strictly the most survivors wins, and a tie is a draw. While paused, `nextAt` is the next round deadline. Once eliminated, wait for the next round. `hunt` resumes when you return. Lead announcements appear in recent events.
 
 ## Carrapeta Dourada
 

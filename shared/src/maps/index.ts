@@ -12,6 +12,7 @@ export { MapBuilder } from './builder.ts';
 export * from './water.ts';
 export * from './light-band.ts';
 export * from './duct.ts';
+export * from './sale.ts';
 
 let cache: MapDef[] | null = null;
 

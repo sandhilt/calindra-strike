@@ -189,6 +189,9 @@ export const BLACK_FRIDAY_WINDOW_TICKS = 30 * TICK_RATE;
 export const BLACK_FRIDAY_DISCOUNT_PERCENT = 50;
 export const BLACK_FRIDAY_FUSE_TICKS = (FUSE_TICKS * (100 - BLACK_FRIDAY_DISCOUNT_PERCENT)) / 100;
 export const BLACK_FRIDAY_FUSE_MS = (BLACK_FRIDAY_FUSE_TICKS * 1000) / TICK_RATE;
+
+export const SALE_SLOT_MS = 3 * 60 * 1000; // tuning value
+export const SALE_RIBBON_CHANCE = 0.35; // tuning value
 /** Default time the attackers get to plant before the laptop goes to the other team (server setting, 0 = no limit). */
 export const BOMB_PLANT_TIMEOUT_SECONDS = 60;
 // The bug rests on square, solid stands, so any quarter turn of the model keeps the same collision box.

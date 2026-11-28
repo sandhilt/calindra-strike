@@ -1,4 +1,4 @@
-import { brandOfMat, isBrandMat, lightBand, type Box, type MapDef, type Mat, type MoonPhase, type Vec3 } from '@calindra-strike/shared';
+import { brandOfMat, HALO_REACH_UNITS, isBrandMat, lightBand, type Box, type MapDef, type Mat, type MoonPhase, type Vec3 } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
@@ -391,7 +391,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
     halos.push(halo);
     const s = new THREE.Sprite(halo);
     s.position.set(l.x, l.y, l.z);
-    s.scale.set(140, 140, 1);
+    s.scale.set(HALO_REACH_UNITS * 2, HALO_REACH_UNITS * 2, 1);
     group.add(s);
   }
 

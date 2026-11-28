@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getMaps, lightBand, type Box } from '../src/index.ts';
+import { getMaps, HALO_REACH_UNITS, lightBand, type Box } from '../src/index.ts';
 
 function slab(minY: number, maxY: number, mat: Box['mat'] = 'white', visible = true): Box {
   return { min: { x: -100, y: minY, z: -100 }, max: { x: 100, y: maxY, z: 100 }, mat, solid: true, shootThrough: false, visible };
@@ -33,4 +33,20 @@ test('every shopping light sits inside its own band, and a lamp under a slab is 
   const groundLamp = shopping.lights.find((light) => light.y < FOOD_COURT_DECK && light.color === '#ffe9bd');
   assert.ok(groundLamp);
   assert.equal(lightBand(shopping.boxes, groundLamp).ceiling, FOOD_COURT_DECK_UNDERSIDE);
+});
+
+test('furniture narrower than the halo does not cut it', () => {
+  const anvil: Box = { min: { x: -24, y: 200, z: -24 }, max: { x: 24, y: 208, z: 24 }, mat: 'metal', solid: true, shootThrough: false, visible: true };
+  const band = lightBand([slab(-16, 0), anvil, slab(300, 316)], { x: 0, y: 160, z: 0, color: '#fff' });
+  assert.deepEqual(band, { floor: 0, ceiling: 300 });
+});
+
+test('a box narrower than the halo does not cut it, however far its slab-like top reaches', () => {
+  const strip: Box = { min: { x: -100, y: 176, z: -100 }, max: { x: -100 + 2 * HALO_REACH_UNITS - 1, y: 192, z: 100 }, mat: 'white', solid: true, shootThrough: false, visible: true };
+  assert.deepEqual(lightBand([strip], { x: -100 + HALO_REACH_UNITS, y: 160, z: 0, color: '#fff' }), { floor: -Infinity, ceiling: Infinity });
+});
+
+test('a wide slab that is not over the light does not cut it', () => {
+  const elsewhere: Box = { min: { x: 500, y: 176, z: -200 }, max: { x: 900, y: 192, z: 200 }, mat: 'white', solid: true, shootThrough: false, visible: true };
+  assert.deepEqual(lightBand([elsewhere], { x: 0, y: 160, z: 0, color: '#fff' }), { floor: -Infinity, ceiling: Infinity });
 });

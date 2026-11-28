@@ -31,6 +31,8 @@ export interface ReloadPose {
   supportBolt: number;
   /** The shell below the loading port, 1 far below .. 0 at the port. */
   shellLift: number;
+  /** How far the supporting hand is from the loading port along the shell's path, 0..1. */
+  shellHandLift: number;
   /** The spent cartridge thrown from the AWP's port, 0 as it leaves .. 1 when it has fallen out of view, -1 when none is in the air. */
   casing: number;
   shellVisible: boolean;
@@ -65,6 +67,7 @@ export const RESTING_RELOAD_POSE: Readonly<ReloadPose> = {
   boltHand: 0,
   supportBolt: 0,
   shellLift: 1,
+  shellHandLift: 0,
   shellVisible: false,
   casing: -1,
   hand: 0,
@@ -92,6 +95,8 @@ const SPARE_APPEARS_AT = RELOAD_CUE_AT.out + MAG_FALL_SPAN;
 const SPARE_ARRIVES_BELOW_WELL = 0.25;
 const TILT_WHILE_SEATING = 0.8;
 const SHELL_TILT = 0.55;
+/** Offset from the loading port to the pickup point, in local viewmodel units. */
+export const SHELL_PICKUP_OFFSET = [-2, -16, -6] as const;
 /**
  * Machine gun. Out: the cover opens, the belt end lifts off the tray and is swung out clear of the receiver, and only then does
  * the box fall with it. In: the fresh box seats first (the clack at RELOAD_CUE_AT.in), the belt end swings back over the tray,
@@ -180,7 +185,7 @@ function launcherReloadPose({ phase, t }: ReloadCursor): ReloadPose {
   return pose;
 }
 
-export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId): ReloadPose {
+export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId, reloadShells = 0): ReloadPose {
   if (!cursor) return RESTING_RELOAD_POSE;
   if (weapon === WEAPON.MGL) return launcherReloadPose(cursor);
   if (weapon === WEAPON.PISTOL || weapon === WEAPON.RIFLE) return exchangePose(cursor, weapon);
@@ -227,6 +232,7 @@ export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId): Relo
     case 'start': {
       pose.tilt = SHELL_TILT * ramp(t, 0, 1);
       pose.hand = ramp(t, 0, 1);
+      pose.shellHandLift = 1;
       break;
     }
     case 'shell': {
@@ -234,6 +240,8 @@ export function reloadPose(cursor: ReloadCursor | null, weapon?: WeaponId): Relo
       pose.hand = 1;
       pose.shellVisible = t < RELOAD_CUE_AT.shell;
       pose.shellLift = 1 - ramp(t, 0, RELOAD_CUE_AT.shell);
+      pose.shellHandLift = pose.shellLift;
+      if (cursor.shell + 1 < reloadShells) pose.shellHandLift += ramp(t, RELOAD_CUE_AT.shell, 1);
       pose.seatKick = 0.5 * pulse(t, RELOAD_CUE_AT.shell, 1);
       break;
     }

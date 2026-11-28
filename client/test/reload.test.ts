@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WEAPON, WEAPONS, reloadCursor, weaponDef } from '@calindra-strike/shared';
+import { RELOAD_CUE_AT, WEAPON, WEAPONS, reloadCursor, weaponDef } from '@calindra-strike/shared';
 import { ReloadPlayback } from '../src/game/reload-playback.ts';
-import { RESTING_RELOAD_POSE, reloadPose, boltCyclePose } from '../src/game/render/reload-anim.ts';
+import { RESTING_RELOAD_POSE, SHELL_PICKUP_OFFSET, type ReloadPose, reloadPose, boltCyclePose } from '../src/game/render/reload-anim.ts';
 import { playReloadCue } from '../src/game/reload-sounds.ts';
 import type { SoundKit } from '../src/game/sound-packs/types.ts';
 
@@ -109,6 +109,42 @@ test('the shotgun pose shows one shell going in per step and a pump at the end',
   const secondShell = at(timing.startTicks + timing.shellTicks * 1.5);
   assert.equal(secondShell.shellVisible, true);
   assert.ok(at(timing.startTicks + timing.shellTicks * 2 + timing.pumpTicks * 0.45).boltPull > 0.9);
+});
+
+test('every shotgun shell travels with the supporting hand and seats at the sound cue', () => {
+  const { mag, reloadTiming: timing } = weaponDef(WEAPON.SHOTGUN);
+  assert.ok(timing?.kind === 'shells');
+  const at = (tick: number): ReloadPose => reloadPose(reloadCursor(timing, tick, mag), WEAPON.SHOTGUN, mag);
+  const travel = Math.hypot(...SHELL_PICKUP_OFFSET);
+  assert.equal(at(timing.startTicks - 1).shellVisible, false);
+  for (let shell = 0; shell < mag; shell++) {
+    const start: number = timing.startTicks + shell * timing.shellTicks;
+    const atStep = (t: number): ReloadPose => at(start + t * timing.shellTicks);
+    let previous = atStep(0).shellLift * travel;
+    assert.ok(previous > 6);
+    for (let sample = 0; sample < 100; sample++) {
+      const pose = atStep(RELOAD_CUE_AT.shell * sample / 100);
+      const remaining = pose.shellLift * travel;
+      assert.equal(pose.shellVisible, true);
+      assert.equal(pose.shellHandLift, pose.shellLift);
+      assert.ok(remaining > 0 && remaining <= previous);
+      assert.ok(previous - remaining < travel * 0.02);
+      previous = remaining;
+    }
+    assert.ok(previous < travel * 0.01);
+    // Test the exact cue separately from fractional tick arithmetic.
+    const seated = reloadPose({ phase: 'shell', t: RELOAD_CUE_AT.shell, shell }, WEAPON.SHOTGUN, mag);
+    assert.equal(seated.shellVisible, false);
+    assert.equal(seated.shellLift, 0);
+    assert.equal(seated.shellHandLift, 0);
+    const returning = atStep((RELOAD_CUE_AT.shell + 1) / 2);
+    assert.equal(returning.shellVisible, false);
+    assert.ok(returning.seatKick > 0);
+    assert.ok(Math.abs(returning.shellHandLift - (shell + 1 < mag ? 0.5 : 0)) < 1e-9);
+  }
+  const pumping = at(timing.startTicks + mag * timing.shellTicks);
+  assert.equal(pumping.shellVisible, false);
+  assert.equal(pumping.shellHandLift, 0);
 });
 
 test('every reloadable weapon has a synthesized sound for each of its cues', () => {

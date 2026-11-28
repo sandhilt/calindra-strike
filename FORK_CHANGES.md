@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-27
 
+- The Trovão 12 reload shows the supporting hand guiding each shell into the underside of the receiver (`reload-anim.ts`).
+
 - Eliminated players in LMS and Gincana can use the spectator cameras and target controls until respawn (`client.ts`, `spectate/`). Gincana allows switching between teams locally, and the camera cycle includes a map overview.
 
 - LMS and Gincana open a 30-second join window before the first round and after a pause that ends with too few ready players. The HUD and MCP read the waiting deadline from `snap.el.startsAt`.

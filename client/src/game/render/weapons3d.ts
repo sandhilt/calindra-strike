@@ -407,14 +407,14 @@ export function buildWeapon(id: WeaponId, beltLinks = 0, skin: WeaponSkin = 'sta
       bx(pump, 2.9, 0.5, 7.2, mats.lime, 0, 1.75, -17);
       bx(g, 2.6, 4.5, 13, mats.wood, 0, -0.2, 10, 0.12);
       bx(g, 2.2, 5, 2.6, mats.wood, 0, -2.4, 3.5, -0.4);
-      const shell = part(g, 0, -0.6, -1);
+      const shell = part(g, -0.5, -2.3, -5);
       cyl(shell, 0.95, 3.4, mats.hull, 0, 0, 0);
       cyl(shell, 1.05, 1, mats.brass, 0, 0, 1.9);
       shell.visible = false;
       rig.bolt = pump;
       rig.boltPull.set(0, 0, 5);
       rig.shell = shell;
-      rig.handTarget.set(0, -3.4, -4);
+      rig.handTarget.set(0, -3.4, -7);
       muzzle.position.set(0, 2.1, -29.5);
       break;
     case WEAPON.SNIPER:

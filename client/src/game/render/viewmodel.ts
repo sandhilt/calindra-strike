@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { smoothBlend, stepBlend } from './movement-pose.ts';
 import { aimOffset, bobKeep } from './ads-view.ts';
 import { DrumView, type DrumRounds } from './drum-view.ts';
-import { RESTING_RELOAD_POSE, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
+import { RESTING_RELOAD_POSE, SHELL_PICKUP_OFFSET, type ReloadPose, boltCyclePose, reloadPose } from './reload-anim.ts';
 import { buildWeapon, poseFeed, SHARED_WEAPON_RESOURCES, type WeaponModel, type WeaponSkin } from './weapons3d.ts';
 import { disposeMeshes } from './dispose-meshes.ts';
 import { QUALITY, type Quality } from './quality.ts';
@@ -22,6 +22,9 @@ const MAG_FALL_UNITS = 12;
 /** Roll and pitch of the gun at full tilt while reloading, in radians. */
 const RELOAD_ROLL = 0.5;
 const RELOAD_PITCH = 0.12;
+const SHELL_PICKUP = new THREE.Vector3(...SHELL_PICKUP_OFFSET);
+/** Viewmodel units of rise at full tilt to keep the loading port in frame. */
+const SHOTGUN_RELOAD_RISE_UNITS = 7;
 /** Viewmodel units the gun lowers at full dip, and kick when a magazine or shell seats. */
 const RELOAD_DIP_UNITS = 6;
 const SEAT_KICK_UNITS = 1.2;
@@ -431,6 +434,7 @@ export class ViewModel {
     const pistolShot = pistolShotPose(this.pistolShotSeconds);
     const framing = (this.weaponId === -1 ? undefined : RELOAD_FRAMING[this.weaponId]) ?? FULL_RELOAD_FRAMING;
     let dip = reload.dip * RELOAD_DIP_UNITS * framing.dip;
+    if (this.weaponId === WEAPON.SHOTGUN) dip -= reload.tilt * SHOTGUN_RELOAD_RISE_UNITS;
     if (p.deployFrac >= 0) dip = Math.max(dip, (1 - p.deployFrac) * 14);
     const air = stepJumpPose(this.jump, p.onGround, dt);
 
@@ -482,7 +486,7 @@ export class ViewModel {
     if (weapon !== -1 && timing && p.reloadElapsed >= 0) {
       this.boltCycle = -1;
       this.pistolShotSeconds = Infinity;
-      return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells), weapon);
+      return reloadPose(reloadCursor(timing, p.reloadElapsed, p.reloadShells), weapon, p.reloadShells);
     }
     return this.boltCyclePose(p.dt);
   }
@@ -536,8 +540,7 @@ export class ViewModel {
     if (rig.casing) this.poseCasing(rig.casing, pose.casing);
     if (rig.shell) {
       rig.shell.visible = pose.shellVisible;
-      rig.shell.position.copy(this.shellRest);
-      rig.shell.position.y -= pose.shellLift * 6;
+      rig.shell.position.copy(this.shellRest).addScaledVector(SHELL_PICKUP, pose.shellLift);
     }
     const magazine = pose.spareVisible ? this.spareMagazine : rig.magazine;
     if (this.leftHand && magazine && rig.supportBoltGrip && rig.bolt &&
@@ -549,7 +552,11 @@ export class ViewModel {
     } else {
       this.leftHand?.position.copy(rig.handTarget).sub(this.handRest).multiplyScalar(pose.hand);
     }
-    if (rig.shell && rig.bolt) this.leftHand?.position.addScaledVector(rig.boltPull, pose.boltPull);
+    if (rig.shell && rig.bolt) {
+      this.leftHand?.position
+        .addScaledVector(SHELL_PICKUP, pose.shellHandLift * pose.hand)
+        .addScaledVector(rig.boltPull, pose.boltPull);
+    }
   }
 
   render(renderer: THREE.WebGLRenderer): void {

@@ -17,6 +17,8 @@ Changes made after the baseline, newest day first.
 
 - Shopping Sul Rio: Natal clears the four ground-floor atrium trees and their halo and callouts. High graphics adds twinkling Christmas strings to the atrium edges, canopy and storefronts (`shopping-natal.ts`).
 
+- Shopping Sul Rio and Natal move all recycling cabinets to food court tray return stations beside restaurant counters (`trayStation` in `shopping-scenery.ts`), replacing the three-floor placement recorded below.
+
 - LMS and Gincana show a 90-second round countdown and award timed-out rounds to the group with strictly the most survivors. Ties draw. `snap.el.endsAt` exposes the deadline to the HUD and MCP.
 
 - Dead players waiting for the next LMS or Gincana round are exempt from idle kicks and warnings through the shared rule in `idle.ts`.

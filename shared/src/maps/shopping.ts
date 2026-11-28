@@ -1,4 +1,4 @@
-import { recycleBin, saleEasel, saleRibbon } from './shopping-scenery.ts';
+import { saleEasel, saleRibbon, trayStation, TRAY_COUNTER_HEIGHT_UNITS } from './shopping-scenery.ts';
 import { brandMat, STORE_BRANDS, type FoodBrand, type ShopBrand } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
@@ -119,7 +119,7 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     const brand = brands[i];
     b.add(cx - KITCHEN_WIDTH / 2, DECK, -Z, cx + KITCHEN_WIDTH / 2, DECK + KITCHEN_HEIGHT, -Z + KITCHEN_DEPTH, 'clip', { visible: false, shoot: true });
     buildKitchen(new Room(b, cx, DECK + KITCHEN_FLOOR, -Z), brand);
-    b.add(cx - 150, DECK, -Z + KITCHEN_DEPTH, cx + 150, DECK + 40, -Z + 132, 'white', { tint: counterTint(brand) });
+    b.add(cx - 150, DECK, -Z + KITCHEN_DEPTH, cx + 150, DECK + TRAY_COUNTER_HEIGHT_UNITS, -Z + 132, 'white', { tint: counterTint(brand) });
     b.deco(cx - 154, DECK + 40, -Z + 92, cx + 154, DECK + 42, -Z + 136, 'white', 0xdfe3e8);
     b.deco(cx - 80, DECK + 110, -Z + KITCHEN_DEPTH, cx + 80, DECK + 190, -Z + 98, brandMat(brand));
     for (const side of [-1, 1]) b.deco(cx + side * 80, DECK + 146, -Z + KITCHEN_DEPTH, cx + side * 160, DECK + 150, -Z + 99);
@@ -127,6 +127,10 @@ function foodCourt(b: MapBuilder, brands: readonly FoodBrand[]): void {
     b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
     b.restaurant(cx, DECK, -Z + 162, brand);
   });
+  const trayStationZ = -Z + 118;
+  trayStation(b, -962, DECK, trayStationZ, 1);
+  trayStation(b, 198, DECK, trayStationZ, -1);
+  trayStation(b, 962, DECK, trayStationZ, -1);
   const tables = [
     ...[-1150, -880, -560, -200, 200, 560, 880, 1150].map((x) => [x, -Z + 272] as const),
     ...[-1136, -720, -280, 96, 496, 912].map((x) => [x, -1136] as const),
@@ -214,8 +218,6 @@ export function buildShopping({ displayCar = true } = {}): MapDef {
     b.deco(-X, 100, -300, -X + 2, 260, -140, 'eitri');
 
     coverShopping(b, displayCar);
-    recycleBin(b, 370, 0, -607, 0);
-    recycleBin(b, -1120, DECK, -1213);
 
     b.point(0, -480);
     b.point(-1150, -200);

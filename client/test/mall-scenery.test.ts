@@ -31,13 +31,18 @@ assert.ok(map);
 test('easels and bins share the scenery mesh and use one printed atlas per kind', (t) => {
   const art = captureCanvas(t);
   const props = map.props.filter(({ kind }) => kind === 'saleEasel' || kind === 'recycleBin');
+  const cabinets = props.filter((p): p is Extract<MapProp, { kind: 'recycleBin' }> => p.kind === 'recycleBin');
+  assert.deepEqual(cabinets.map(({ x, y, z }) => [x, y, z]), [
+    [-962, 192, -1418], [198, 192, -1418], [962, 192, -1418],
+    [962, 192, 1418], [-198, 192, 1418], [-962, 192, 1418],
+  ]);
   const { group } = buildProps(props, () => undefined, QUALITY.performance);
   const meshes = group.children.filter((child) => child instanceof THREE.Mesh);
   assert.equal(meshes.length, 3);
   const [solid, easels, bins] = meshes;
   assert.ok(solid.geometry.getAttribute('color'));
   assert.equal(easels.geometry.getAttribute('position').count, props.filter(({ kind }) => kind === 'saleEasel').length * 8);
-  assert.equal(bins.geometry.getAttribute('position').count, props.filter(({ kind }) => kind === 'recycleBin').length * 8);
+  assert.equal(bins.geometry.getAttribute('position').count, cabinets.length * 8);
   assert.equal(art.canvasCount(), 2);
   for (const label of ['PROMOÇÃO', '-30%', 'ORGÂNICO', 'SOBRA DE ALIMENTOS', 'RECICLÁVEL', '♻', 'PAPEL', 'PLÁSTICO', 'METAL', 'VIDRO']) {
     assert.ok(art.labels.includes(label), label);

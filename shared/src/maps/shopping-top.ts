@@ -1,4 +1,4 @@
-import { recycleBin, saleRibbon } from './shopping-scenery.ts';
+import { saleRibbon } from './shopping-scenery.ts';
 import { brandMat, STORE_BRANDS, type FloorBrand, type ShopBrand, type StoreBrand } from './brands.ts';
 import { boutiqueShop, DOORWAY_HEIGHT, SHOP_WALL_HEIGHT, type CornerBoutique, type GiftBoutique, type LargeBoutique, type LoungeBoutique, type SmallBoutique } from './shopping-boutiques.ts';
 import type { MapBuilder } from './builder.ts';
@@ -329,6 +329,5 @@ export function topFloor(b: MapBuilder, shops: MiranteShops): void {
   boutiques(b, shops);
   cover(b);
   pillars(b);
-  recycleBin(b, -570, DECK3, -973);
   for (const x of [-1100, 550, 1100]) b.prop({ kind: 'ceilingFan', x, y: ROOF - 48, z: -880, radius: 44 });
 }

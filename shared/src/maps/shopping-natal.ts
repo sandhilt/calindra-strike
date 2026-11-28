@@ -133,12 +133,8 @@ function decorations(b: MapBuilder, base: MapDef): void {
     box(x, y, z, w, 3, d, WHITE);
   }
 
-  // Ground floor: the tree by the fountain and the lost-and-found tree with its gifts.
-  tree(-640, 0, -240, 1.45);
-  b.light(-640, 139, -240, '#ffd27c');
-  b.landmark('Árvore de Natal', -640, -240);
+  // Ground floor: the atrium has no trees, only the lost-and-found gifts.
   gifts(-540, 0, -200);
-  tree(-240, 0, 240, 1);
 
   // The sleigh and its team share the former car's plinth.
   sleigh(860, 8, -292);
@@ -247,6 +243,24 @@ function decorations(b: MapBuilder, base: MapDef): void {
     const stringBottom = starY + 15;
     box(x, stringBottom, z, 2, CANOPY_BOTTOM - 3 - stringBottom, 2, WHITE);
     star(x, starY, z, 30, drop % 4 ? GOLD : WHITE);
+  }
+
+  function swag(x1: number, x2: number, y: number, z: number, sag: number, bulbs: number): void {
+    b.prop({ kind: 'twinkleLights', x: x1, y, z, x2, y2: y, z2: z, sag, bulbs });
+  }
+
+  for (const side of [-1, 1]) {
+    swag(side * 232, side * 388, DECK - 18, GALLERY_Z + 4, 12, 7);
+    for (const level of [DECK, DECK3]) {
+      swag(side * 232, side * 388, level + RAIL, GALLERY_Z + 4, 12, 7);
+    }
+  }
+  for (const [left, right] of [[-1024, -512], [-512, 512], [512, 1024]]) {
+    swag(left, right, CANOPY_BOTTOM - 3, GALLERY_Z / 2, 24, 7);
+  }
+  for (const sign of signs) {
+    if (sign.min.y !== 114 || sign.min.z < FACADE_Z || sign.max.z > FACADE_Z + 16) continue;
+    swag(sign.min.x - 192, sign.min.x - 30, 154, FACADE_Z + 12, 16, 7);
   }
 
   // Gift stacks in the open atrium and at the food court tree.

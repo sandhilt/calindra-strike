@@ -275,3 +275,25 @@ export function staffArmPose(out: ArmPose, role: StaffRole, side: 1 | -1, second
       return out;
   }
 }
+
+const TWINKLE_PATTERN_COUNT = 4;
+const CHASE_SECONDS = 1.6;
+const BLINK_SECONDS = 1.2;
+const FADE_SECONDS = 3.2;
+const SPARKLE_SECONDS = 2.4;
+
+export function twinkleLevel(bulbIndex: number, seconds: number): number {
+  const offset = Math.floor(bulbIndex / TWINKLE_PATTERN_COUNT);
+  switch (bulbIndex % TWINKLE_PATTERN_COUNT) {
+    case 0: {
+      const phase = (seconds / CHASE_SECONDS - offset * 0.21) % 1;
+      return Math.max(0, 1 - 3 * Math.abs((phase + 1) % 1 - 0.5));
+    }
+    case 1:
+      return (Math.floor(seconds / (BLINK_SECONDS / 2)) + offset) % 2 === 0 ? 1 : 0;
+    case 2:
+      return (1 + Math.cos(2 * Math.PI * (seconds / FADE_SECONDS + offset * 0.13))) / 2;
+    default:
+      return Math.pow(Math.max(0, Math.cos(2 * Math.PI * (seconds / SPARKLE_SECONDS + offset * 0.37))), 18);
+  }
+}

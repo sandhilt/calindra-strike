@@ -36,6 +36,7 @@ import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
 import { signCanvas } from './store-signs.ts';
 import { buildRecycleBins, buildSaleEasels, buildSaleRibbons } from './mall-scenery.ts';
+import { buildTwinkleLights } from './twinkle-lights.ts';
 import { canvasTexture } from './textures.ts';
 
 type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
@@ -820,6 +821,7 @@ function buildAdScreens(items: readonly PropOf<'adScreen'>[], ctx: PropContext):
 /** One builder per prop kind: a kind added to `MapProp` without one here fails the typecheck. */
 const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   ceilingFan: buildCeilingFans,
+  twinkleLights: buildTwinkleLights,
   mannequin: buildMannequins,
   staff: buildStaff,
   santa(items, { statics }) {

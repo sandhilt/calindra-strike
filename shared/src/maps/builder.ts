@@ -130,6 +130,10 @@ export class MapBuilder {
     const [x, z] = this.rotXZ(p.x, p.z);
     const turn = (this.rot * Math.PI) / 2;
     switch (p.kind) {
+      case 'twinkleLights': {
+        const [x2, z2] = this.rotXZ(p.x2, p.z2);
+        return { ...p, x, z, x2, z2 };
+      }
       case 'ceilingFan':
       case 'fountain':
         return { ...p, x, z };

@@ -100,3 +100,7 @@ test('the performance tier has no smoke or casings but keeps magazines and trace
 test('only the high and low tiers ripple the water', () => {
   assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].waterRipples), ['high', 'low']);
 });
+
+test('only the high tier twinkles', () => {
+  assert.deepEqual(QUALITY_TIERS.filter((tier) => QUALITY[tier].twinkleLights), ['high']);
+});

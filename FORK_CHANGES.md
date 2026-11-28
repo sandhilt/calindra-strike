@@ -15,6 +15,8 @@ Changes made after the baseline, newest day first.
 
 - LMS and Gincana open a 30-second join window before the first round and after a pause that ends with too few ready players. The HUD and MCP read the waiting deadline from `snap.el.startsAt`.
 
+- Shopping Sul Rio: Natal clears the four ground-floor atrium trees and their halo and callouts. High graphics adds twinkling Christmas strings to the atrium edges, canopy and storefronts (`shopping-natal.ts`).
+
 - LMS and Gincana show a 90-second round countdown and award timed-out rounds to the group with strictly the most survivors. Ties draw. `snap.el.endsAt` exposes the deadline to the HUD and MCP.
 
 - Dead players waiting for the next LMS or Gincana round are exempt from idle kicks and warnings through the shared rule in `idle.ts`.

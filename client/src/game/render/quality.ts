@@ -66,6 +66,8 @@ export interface QualityProfile {
   staffMotion: boolean;
   /** Falling snow where the map theme enables it. On for high and low; off for performance, where it is never built. */
   fallingSnow: boolean;
+  /** Christmas string lights and their glow (high only). */
+  twinkleLights: boolean;
   /** Minimum gap between redraws of the defuse laptop screen, in ms. */
   laptopScreenRefreshMs: number;
   fx: FxProfile;
@@ -89,6 +91,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: true,
     staffMotion: true,
     fallingSnow: true,
+    twinkleLights: true,
     laptopScreenRefreshMs: 100,
     fx: { magazines: 8, casings: 32, smokePuffs: 72, tracers: 48, casingChance: 1, beltLinks: 10, sparkle: true, ductLeak: true },
   },
@@ -109,6 +112,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: true,
     staffMotion: true,
     fallingSnow: true,
+    twinkleLights: false,
     laptopScreenRefreshMs: 100,
     fx: { magazines: 4, casings: 8, smokePuffs: 24, tracers: 16, casingChance: 0.4, beltLinks: 6, sparkle: false, ductLeak: false },
   },
@@ -129,6 +133,7 @@ export const QUALITY: Readonly<Record<Quality, QualityProfile>> = {
     kitchenFire: false,
     staffMotion: false,
     fallingSnow: false,
+    twinkleLights: false,
     laptopScreenRefreshMs: 250,
     fx: { magazines: 2, casings: 0, smokePuffs: 0, tracers: 12, casingChance: 0, beltLinks: 4, sparkle: false, ductLeak: false },
   },

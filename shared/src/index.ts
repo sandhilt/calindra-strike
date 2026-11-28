@@ -16,6 +16,7 @@ export * from './bot-chat.ts';
 export * from './bot-talk.ts';
 export * from './bot-radio.ts';
 export * from './maps/scenery.ts';
+export * from './maps/twinkle-lights.ts';
 export * from './lunch.ts';
 export * from './day-cycle.ts';
 export * from './lift.ts';

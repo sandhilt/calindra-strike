@@ -84,6 +84,7 @@ export type MapProp =
   | { kind: 'speaker'; x: number; y: number; z: number; yaw: number; station: StationId }
   | { kind: 'ceilingFan'; x: number; y: number; z: number; radius: number }
   | { kind: 'santa'; x: number; y: number; z: number; yaw: number; pose: 'standing' | 'seated' }
+  | { kind: 'twinkleLights'; x: number; y: number; z: number; x2: number; y2: number; z2: number; sag: number; bulbs: number }
   /** A snowman standing on (x, y, z), facing local -z, about 80 units tall at `scale` 1. Look only, never solid. */
   | { kind: 'snowman'; x: number; y: number; z: number; yaw: number; scale: number }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getMaps } from '../src/index.ts';
+import { getMaps, LIFT_DOOR_HEIGHT_UNITS, strandBulbs, strandPoint } from '../src/index.ts';
 import { isBrandMat } from '../src/maps/brands.ts';
 import { buildShopping } from '../src/maps/shopping.ts';
 import { buildShoppingNatal, covers, GARLAND_TINTS, SNOWMAN_EXIT_CLEARANCE } from '../src/maps/shopping-natal.ts';
@@ -38,6 +38,34 @@ function ownKey(box: Box): string {
 /** The same box turned 180 degrees around the map centre, as the builder's `mirrored` replays it. */
 function mirroredKey(box: Box): string {
   return keyOf({ x: -box.max.x, y: box.min.y, z: -box.max.z }, { x: -box.min.x, y: box.max.y, z: -box.min.z }, box);
+}
+
+/** Tree geometry from `tree()` in shopping-natal.ts: a trunk 14 units wide per scale, baubles 5 units per scale, 20 baubles a tree. */
+const TREE_TRUNK_UNITS = 14;
+const TREE_TRUNK_TINT = 0x9c5c36;
+const BAUBLE_UNITS = 5;
+const BAUBLE_TINTS = [0xffcc59, 0xc32038];
+const BAUBLES_PER_TREE = 20;
+/** A bauble sits at most 39 units per scale from its trunk's centre (the widest tier's half width); 40 leaves room for its own size. */
+const TREE_REACH_UNITS = 40;
+
+function extentOf(b: Box): { x: number; y: number; z: number } {
+  return { x: b.max.x - b.min.x, y: b.max.y - b.min.y, z: b.max.z - b.min.z };
+}
+
+function near(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.01;
+}
+
+function isTreeTrunk(b: Box): boolean {
+  const e = extentOf(b);
+  return b.tint === TREE_TRUNK_TINT && near(e.x, e.z) && near(e.y / e.x, 22 / TREE_TRUNK_UNITS);
+}
+
+function isTreeBauble(b: Box, treeScales: readonly number[]): boolean {
+  const e = extentOf(b);
+  return b.tint !== undefined && BAUBLE_TINTS.includes(b.tint) && near(e.x, e.y) && near(e.x, e.z)
+    && treeScales.some((scale) => near(e.x, BAUBLE_UNITS * scale));
 }
 
 describe('Shopping Sul Rio: Natal', () => {
@@ -217,9 +245,12 @@ describe('Shopping Sul Rio: Natal', () => {
     assert.ok(speakers.every((p) => p.kind === 'speaker' && p.station === natal.id));
   });
 
-  it('places a landmark for the tree and keeps the base landmarks', () => {
-    assert.ok(natal.features.some((f) => f.kind === 'landmark' && f.name.startsWith('Árvore de Natal')));
-    for (const f of base.features) assert.ok(natal.features.some((g) => JSON.stringify(g) === JSON.stringify(f)));
+  it('keeps the base landmarks and clears the four ground-floor atrium trees', () => {
+    assert.deepEqual(natal.features, base.features);
+    const trunks = decor.filter(isTreeTrunk);
+    assert.equal(trunks.length, 32);
+    assert.ok(trunks.every((box) => box.min.y > 0));
+    assert.ok(!natal.lights.some(({ x, y, z }) => Math.abs(x) === 640 && y === 139 && Math.abs(z) === 240));
   });
 
   it('snows only under the glass canopy, inside the atrium and never above the roof', () => {
@@ -247,4 +278,58 @@ describe('Shopping Sul Rio: Natal', () => {
     assert.ok(Math.abs(snow.min.z) < -GALLERY_Z && Math.abs(snow.max.z) < -GALLERY_Z);
     assert.ok(snow.flakes > 0);
   });
+});
+
+it('hangs mirrored swags on all three floors, under the canopy and at the ground-floor fascias', () => {
+  const strands = natal.props.filter((p) => p.kind === 'twinkleLights');
+  assert.equal(strands.length, 26);
+  assert.equal(strands.reduce((total, strand) => total + strand.bulbs, 0), 182);
+  assert.ok(getMaps().filter(({ id }) => id !== natal.id).every((map) => map.props.every(({ kind }) => kind !== 'twinkleLights')));
+  for (const y of [DECK - 18, DECK + 64, DECK3 + 64]) {
+    assert.equal(strands.filter((p) => p.y === y && Math.abs(p.z) === -GALLERY_Z - 4).length, 4);
+  }
+  assert.equal(strands.filter((p) => p.y === CANOPY_BOTTOM - 3).length, 6);
+  assert.equal(strands.filter((p) => Math.abs(p.z) === -FACADE_Z - 12).length, 8);
+  for (const strand of strands) {
+    const twin = strands.find((p) => p.x === -strand.x && p.z === -strand.z && p.y === strand.y);
+    assert.deepEqual(twin, { ...strand, x: -strand.x, z: -strand.z, x2: -strand.x2, z2: -strand.z2 });
+  }
+});
+
+it('keeps the strands clear of sign faces, doorways and escalator approaches', () => {
+  const signs = retained.filter(({ mat }) => isBrandMat(mat));
+  const doors = natal.features.filter((feature) => 'width' in feature);
+  const liftDoors = natal.lifts.flatMap(({ doors }) => doors);
+  const escalators = natal.props.filter((prop) => prop.kind === 'escalator');
+  const forward = 28;
+  const margin = 6;
+  for (const strand of natal.props.filter((prop) => prop.kind === 'twinkleLights')) {
+    const samples = [...strandBulbs(strand), ...Array.from({ length: 33 }, (_, i) => strandPoint(strand, i / 32))];
+    for (const point of samples) {
+      const { x, y, z } = point;
+      for (const sign of signs) {
+        const normal = sign.max.x - sign.min.x < sign.max.z - sign.min.z ? 'x' : 'z';
+        const across = normal === 'x' ? 'z' : 'x';
+        assert.ok(!(point[normal] > sign.min[normal] - forward && point[normal] < sign.max[normal] + forward &&
+          point[across] > sign.min[across] - margin && point[across] < sign.max[across] + margin &&
+          y > sign.min.y - margin && y < sign.max.y + margin), `strand obscures ${sign.mat} at ${JSON.stringify(point)}`);
+      }
+      for (const door of doors) {
+        assert.ok(!(door.kind === 'door' && Math.abs(z - door.z) < forward && Math.abs(x - door.x) < door.width / 2 + margin && y < 112 + margin));
+      }
+      for (const door of liftDoors) {
+        assert.ok(!(x > door.minX - margin && x < door.maxX + margin && z > door.minZ - forward && z < door.maxZ + forward &&
+          y > door.y - margin && y < door.y + LIFT_DOOR_HEIGHT_UNITS + margin));
+      }
+      for (const { x: footX, y: footY, z: footZ, dirX, dirZ, width, height, length } of escalators) {
+        for (const end of [0, 1]) {
+          const dx = x - footX - end * length * dirX;
+          const dz = z - footZ - end * length * dirZ;
+          const dy = y - footY - end * height;
+          assert.ok(!(Math.abs(dx * dirX + dz * dirZ) < 72 && Math.abs(dx * dirZ - dz * dirX) < width / 2 + margin &&
+            dy > -margin && dy < 80), `strand at escalator approach: ${JSON.stringify(point)}`);
+        }
+      }
+    }
+  }
 });

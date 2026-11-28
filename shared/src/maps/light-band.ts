@@ -6,10 +6,11 @@ export interface LightBand {
   ceiling: number;
 }
 
-const TRANSLUCENT: ReadonlySet<Box['mat']> = new Set(['glass', 'water']);
+/** Glass and water let the light through, and a lamp is itself the light, so none of them bounds a halo. */
+const PASSES_LIGHT: ReadonlySet<Box['mat']> = new Set(['glass', 'water', 'lamp']);
 
 function blocksLight(box: Box): boolean {
-  return box.visible && !TRANSLUCENT.has(box.mat);
+  return box.visible && !PASSES_LIGHT.has(box.mat);
 }
 
 /**

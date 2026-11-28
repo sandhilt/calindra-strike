@@ -28,7 +28,6 @@ const RETURN_WIDTH = 64;
 const SIGN_WIDTH = 180;
 const LINTEL_TRIM = 6;
 const COUNTER_Z = 52;
-const LAMP_Y = 160;
 const CEILING = SHOP_WALL_HEIGHT;
 /** The back wall paint stands in front of the lounge's trim along the outer wall (3 deep), so the two never share a plane. */
 const BACK_WALL_DEPTH = 4;
@@ -474,7 +473,10 @@ function shell(r: Room, half: number, spec: Boutique): void {
   r.box(0, BACK_WALL_DEPTH / 2, 2 * half, BACK_WALL_DEPTH, CEILING - 6, 0, 'white', spec.paint);
   r.box(0, 2, 2 * half, 3.4, 8, 0, 'white', spec.trim);
   r.box(0, SHOP_DEPTH / 2, 2 * half, SHOP_DEPTH - 8, 3, CEILING - 3, 'white', spec.paint);
-  for (const x of [-half / 2, half / 2]) r.box(x, 150, 60, 6, 1.4, CEILING - 4.4, 'lamp');
+  for (const x of [-half / 2, half / 2]) {
+    r.box(x, 150, 60, 6, 1.4, CEILING - 4.4, 'lamp');
+    r.lamp(x, 150, CEILING - 4.4);
+  }
 }
 
 /** The lintel closes the gap between the doorway and the roof; the sign hangs on it, clear of the doorway. */
@@ -509,7 +511,6 @@ export function boutiqueShop(b: MapBuilder, brand: BoutiqueBrand, x1: number, x2
   r.staff(0, CASHIER_Z, 'front', 'cashier', brand);
   r.vent(0, 152, BACK_WALL_DEPTH, 'front');
   facade(b, x1, x2, brand, spec);
-  b.light(cx, DECK3 + LAMP_Y, -Z + 200, '#ffe9bd');
   b.interior(cx + spec.browseX, DECK3, -Z + 142);
   b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }

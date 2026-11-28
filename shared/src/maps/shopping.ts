@@ -10,7 +10,6 @@ import { LIFT_GAP_HALF, topFloor, type MiranteShops } from './shopping-top.ts';
 import type { EscalatorTravel, MapDef } from './types.ts';
 
 /** Height of the warm glow under a shop's ceiling panels (the shop ceiling is 176). */
-const STORE_LAMP_Y = 160;
 /** The skydive start stays this far from the end walls, with room to steer before reaching the perimeter. */
 const DROP_END_MARGIN = 208;
 const STORE_XS = [-3, -1, 1, 3].map((bay) => bay * X / 4);
@@ -92,7 +91,6 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
     b.block(cx, -Z + 52, 140, 36, TILL_HEIGHT, 'desk');
     b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
     dressStore(new Room(b, cx, 0, -Z), brand);
-    for (const lampZ of [60, 190]) b.light(cx, STORE_LAMP_Y, -Z + lampZ, '#ffe9bd');
     b.interior(cx, 0, -Z + 142);
   });
 }

@@ -7,6 +7,9 @@ export type Gaze = 'front' | 'back' | 'left' | 'right';
 
 const GAZE_YAW: Record<Gaze, number> = { back: 0, front: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 };
 
+/** Colour of the halo over a shop ceiling lamp. */
+const SHOP_LAMP_COLOR = '#ffe9bd';
+
 /** The wall a mirror hangs on: `left` and `right` are the side walls at -x and +x, `back` the wall at z 0. */
 export type MirrorWall = 'back' | 'left' | 'right';
 /** Dark frame thickness, glass thickness and the frame's rim beyond the glass (units). */
@@ -47,6 +50,11 @@ export class Room {
   /** Solid box by footprint centre (x, z), size and base height. */
   solid(x: number, z: number, w: number, d: number, h: number, y: number, mat: Mat, tint?: number): void {
     this.b.add(this.ox + x - w / 2, this.oy + y, this.oz + z - d / 2, this.ox + x + w / 2, this.oy + y + h, this.oz + z + d / 2, mat, { tint });
+  }
+
+  /** The halo of a ceiling lamp bar, in the shops' warm light: `y` is the bottom of the bar, where the glow starts. */
+  lamp(x: number, z: number, y: number): void {
+    this.b.light(this.ox + x, this.oy + y, this.oz + z, SHOP_LAMP_COLOR);
   }
 
   fan(x: number, z: number, y: number, radius: number): void {

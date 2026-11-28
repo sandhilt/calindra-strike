@@ -192,7 +192,6 @@ export interface MiranteShops {
 
 /** The pharmacy's middle: it fills the gallery's north-west corner between the lounge and the escalator bay. */
 const PHARMACY_X = -730;
-const PHARMACY_LAMP_Y = 160;
 
 const PHARMACY_WHITE = 0xeef2f6;
 const PHARMACY_BLUE = 0x1f4fa8;
@@ -298,7 +297,6 @@ function pharmacyShop(b: MapBuilder, brand: ShopBrand): void {
   pharmacyFacade(b, cx, brand);
   pharmacySideWalls(b, cx);
   pharmacyFloor(b, cx);
-  b.light(cx - 250, DECK3 + PHARMACY_LAMP_Y, -Z + 220, '#ffe9bd');
   b.interior(cx, DECK3, -Z + 142);
   b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }

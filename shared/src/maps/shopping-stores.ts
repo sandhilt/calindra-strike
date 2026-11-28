@@ -20,6 +20,10 @@ interface Dress {
   trim: Hex;
 }
 
+/** The ceiling lamp bars: x offsets across the store and depth in from the facade (units). */
+const LAMP_BARS_X = [-230, -80, 80, 230] as const;
+const LAMP_BAR_Z = 150;
+
 function shell(r: Room, d: Dress): void {
   r.box(0, STORE_DEPTH / 2 - 1, 2 * STORE_HALF_WIDTH - 4, STORE_DEPTH - 6, 0.5, 0, d.floor, d.floorTint);
   r.box(0, 1, 2 * STORE_HALF_WIDTH - 4, 2, CEILING - 6, 0, 'white', d.wall);
@@ -28,7 +32,8 @@ function shell(r: Room, d: Dress): void {
   r.box(0, 1.4, 2 * STORE_HALF_WIDTH - 4, 2.4, 3, 112, 'white', d.trim);
   r.duct(0, 15, 2 * STORE_HALF_WIDTH - 8, 30, 30, CEILING - 36);
   for (const x of [-200, 200]) r.vent(x, CEILING - 21, 30, 'front', 44, DUCT_VENT_HEIGHT);
-  for (const x of [-230, -80, 80, 230]) r.box(x, 150, 70, 6, 1.4, CEILING - 1.4, 'lamp');
+  for (const x of LAMP_BARS_X) r.box(x, LAMP_BAR_Z, 70, 6, 1.4, CEILING - 1.4, 'lamp');
+  for (const x of [-80, 80]) r.lamp(x, LAMP_BAR_Z, CEILING - 1.4);
 }
 
 /** A table of folded goods: a solid base with stacks of coloured squares on top. */

@@ -12,6 +12,10 @@ import { type Settings, loadSettings } from './settings.ts';
 import { h } from './ui/dom.ts';
 import { renderLobby } from './ui/lobby.ts';
 import { Overlays } from './ui/overlays.ts';
+import { unloadGuard } from './game/unload-guard.ts';
+
+// Vite sends this before every full reload (a code change outside any hot-update boundary), and only in dev.
+import.meta.hot?.on('vite:beforeFullReload', () => unloadGuard.expectReload());
 
 const app = document.getElementById('app') as HTMLElement;
 const settings = loadSettings();

@@ -137,6 +137,7 @@ import { LEAN_ROLL_RAD, SPRINT_FOV_KICK_DEG, movementEye, stepBlend } from './re
 import { easeFov } from './render/zoom.ts';
 import { ADS_BLEND_SECONDS, type AimState, aimFovFor, aimSensitivityScale, crosshairFor, gunHidden, scopeOverlay, type ScopeOverlay } from './render/ads-view.ts';
 import { saveScreenshot } from '../screenshot.ts';
+import { unloadGuard } from './unload-guard.ts';
 import { type WorldView, applyShadowQuality, buildWorld, followShadow } from './render/world.ts';
 
 const DEFUSE_DEATH_CAM_MS = 2_000;
@@ -495,7 +496,7 @@ export class ClientGame {
 
   private onBeforeUnload = (e: BeforeUnloadEvent): void => {
     // browsers reserve Ctrl+W, so keydown cannot cancel it; the leave-site prompt is the only guard (crouch + forward closes the tab otherwise)
-    if (this.running) {
+    if (unloadGuard.shouldPrompt(this.running)) {
       e.preventDefault();
       e.returnValue = '';
     }

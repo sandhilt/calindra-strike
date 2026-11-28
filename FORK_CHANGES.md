@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-27
 
+- The leave-site prompt that guards Ctrl+W no longer appears when the Vite dev server reloads the page after a code change (`unload-guard.ts`, listening to `vite:beforeFullReload`). Closing the tab or reloading by hand still asks.
+
 - The Trovão 12 reload shows the supporting hand guiding each shell into the underside of the receiver (`reload-anim.ts`).
 
 - Eliminated players in LMS and Gincana can use the spectator cameras and target controls until respawn (`client.ts`, `spectate/`). Gincana allows switching between teams locally, and the camera cycle includes a map overview.

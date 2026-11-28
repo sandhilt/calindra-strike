@@ -1,7 +1,8 @@
-import { brandOfMat, isBrandMat, type Box, type MapDef, type Mat, type MoonPhase, type Vec3 } from '@calindra-strike/shared';
+import { brandOfMat, isBrandMat, lightBand, type Box, type MapDef, type Mat, type MoonPhase, type Vec3 } from '@calindra-strike/shared';
 import * as THREE from 'three';
 import type { DayLook } from './day-look.ts';
 import type { QualityProfile } from './quality.ts';
+import { clipHaloToBand } from './halo-clip.ts';
 import { buildProps } from './props.ts';
 import { SnowView } from './snow.ts';
 import { signMaterial } from './store-signs.ts';
@@ -386,6 +387,7 @@ export function buildWorld(map: MapDef, scene: THREE.Scene, profile: QualityProf
   const halos: THREE.SpriteMaterial[] = [];
   for (const l of map.lights) {
     const halo = glowSprite(l.color);
+    clipHaloToBand(halo, lightBand(map.boxes, l));
     halos.push(halo);
     const s = new THREE.Sprite(halo);
     s.position.set(l.x, l.y, l.z);

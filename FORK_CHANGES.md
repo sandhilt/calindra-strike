@@ -9,6 +9,10 @@ What this fork (`sandhilt/calindra-strike`) changed relative to upstream (`gabri
 
 Changes made after the baseline, newest day first.
 
+### 2026-11-27
+
+- Shopping Sul Rio: a lamp's glow no longer leaks onto the level above or below. A halo is a camera-facing sprite and reached through the slab next to its lamp (the ground floor lamps lit the food court floor, the food court lamps the Mirante); each halo is now cut at the floor and ceiling of its own level (`lightBand` in `shared/src/maps/light-band.ts`, `clipHaloToBand` in `client/src/game/render/halo-clip.ts`).
+
 ### 2026-11-26
 
 - The Rener store is renamed **Brenner** (brand id `brenner`, sign in `store-signs.ts`).

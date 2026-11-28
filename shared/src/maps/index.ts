@@ -10,6 +10,7 @@ export * from './stations.ts';
 export * from './staff.ts';
 export { MapBuilder } from './builder.ts';
 export * from './water.ts';
+export * from './light-band.ts';
 export * from './duct.ts';
 
 let cache: MapDef[] | null = null;

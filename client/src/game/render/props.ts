@@ -35,6 +35,7 @@ import { addCabDecor, addSnowman } from './christmas.ts';
 import { addSanta } from './santa.ts';
 import type { QualityProfile } from './quality.ts';
 import { signCanvas } from './store-signs.ts';
+import { buildRecycleBins, buildSaleEasels, buildSaleRibbons } from './mall-scenery.ts';
 import { canvasTexture } from './textures.ts';
 
 type PropOf<K extends PropKind> = Extract<MapProp, { kind: K }>;
@@ -55,7 +56,7 @@ export interface PropContext {
   readonly profile: QualityProfile;
 }
 
-type Builder<K extends PropKind> = (props: readonly PropOf<K>[], ctx: PropContext) => PropGroup;
+type Builder<K extends PropKind> = (props: readonly PropOf<K>[], ctx: PropContext) => PropGroup | null;
 
 const still = (): PropGroup => ({ object: new THREE.Group(), update() {}, setQuality() {} });
 
@@ -839,13 +840,22 @@ const PROP_BUILDERS: { [K in PropKind]: Builder<K> } = {
   cook: still,
   speaker: buildSpeakers,
   adScreen: buildAdScreens,
+  saleEasel(items, { statics }) {
+    const object = buildSaleEasels(items, statics);
+    return object ? { object, update() {}, setQuality() {} } : null;
+  },
+  saleRibbon: buildSaleRibbons,
+  recycleBin(items, { statics }) {
+    const object = buildRecycleBins(items, statics);
+    return object ? { object, update() {}, setQuality() {} } : null;
+  },
 };
 
 function isPropKind(kind: string): kind is PropKind {
   return Object.hasOwn(PROP_BUILDERS, kind);
 }
 
-function buildKind<K extends PropKind>(kind: K, props: readonly MapProp[], ctx: PropContext): PropGroup {
+function buildKind<K extends PropKind>(kind: K, props: readonly MapProp[], ctx: PropContext): PropGroup | null {
   const own = props.filter((p): p is PropOf<K> => p.kind === kind);
   return PROP_BUILDERS[kind](own, ctx);
 }
@@ -859,7 +869,7 @@ export interface PropsView {
 export function buildProps(props: readonly MapProp[], materialOf: PropContext['materialOf'], profile: QualityProfile): PropsView {
   const statics = new Parts();
   const ctx: PropContext = { statics, materialOf, profile };
-  const groups = Object.keys(PROP_BUILDERS).filter(isPropKind).map((kind) => buildKind(kind, props, ctx));
+  const groups = Object.keys(PROP_BUILDERS).filter(isPropKind).map((kind) => buildKind(kind, props, ctx)).filter((group) => group !== null);
   const group = new THREE.Group();
   const geometry = statics.merge();
   if (geometry) {

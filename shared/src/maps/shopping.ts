@@ -1,3 +1,4 @@
+import { recycleBin, saleEasel, saleRibbon } from './shopping-scenery.ts';
 import { brandMat, STORE_BRANDS, type FoodBrand, type ShopBrand } from './brands.ts';
 import { MapBuilder } from './builder.ts';
 import { coverShopping } from './shopping-cover.ts';
@@ -90,6 +91,8 @@ function storefronts(b: MapBuilder, brands: readonly ShopBrand[]): void {
     b.deco(cx - 60, 114, FACADE_Z + 8, cx + 60, 174, FACADE_Z + 10, brandMat(brand));
     b.block(cx, -Z + 52, 140, 36, TILL_HEIGHT, 'desk');
     b.landmark(STORE_BRANDS[brand].name, cx, -Z + 152);
+    saleEasel(b, brand, cx + 152, 0);
+    saleRibbon(b, brand, cx + 192, 78, FACADE_Z + 4, 144);
     dressStore(new Room(b, cx, 0, -Z), brand);
     b.interior(cx, 0, -Z + 142);
   });
@@ -211,6 +214,8 @@ export function buildShopping({ displayCar = true } = {}): MapDef {
     b.deco(-X, 100, -300, -X + 2, 260, -140, 'eitri');
 
     coverShopping(b, displayCar);
+    recycleBin(b, 370, 0, -607, 0);
+    recycleBin(b, -1120, DECK, -1213);
 
     b.point(0, -480);
     b.point(-1150, -200);

@@ -1,3 +1,4 @@
+import type { SaleBrand } from './sale.ts';
 import type { BombPoint } from '../defuse.ts';
 import type { Lift } from '../lift.ts';
 import type { SupplyPoint } from '../supply.ts';
@@ -86,6 +87,9 @@ export type MapProp =
   /** A snowman standing on (x, y, z), facing local -z, about 80 units tall at `scale` 1. Look only, never solid. */
   | { kind: 'snowman'; x: number; y: number; z: number; yaw: number; scale: number }
   | { kind: 'mannequin'; x: number; y: number; z: number; yaw: number; outfit: Outfit }
+  | { kind: 'saleEasel'; x: number; y: number; z: number; yaw: number; percent: number }
+  | { kind: 'saleRibbon'; x: number; y: number; z: number; yaw: number; width: number; height: number; brand: SaleBrand }
+  | { kind: 'recycleBin'; x: number; y: number; z: number; yaw: number }
   /** A store employee behind a till or inside a kitchen: a mannequin in a uniform. Scenery only, never a player, bot or target. */
   | { kind: 'staff'; x: number; y: number; z: number; yaw: number; role: StaffRole; uniform: StaffUniform }
   | { kind: 'clothesRack'; x: number; y: number; z: number; yaw: number; length: number; palette: readonly number[] }

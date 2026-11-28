@@ -142,6 +142,9 @@ export class MapBuilder {
       case 'vent':
       case 'lift':
       case 'adScreen':
+      case 'saleEasel':
+      case 'saleRibbon':
+      case 'recycleBin':
         return { ...p, x, z, yaw: p.yaw - turn };
       case 'flame':
       case 'steam':

@@ -13,6 +13,7 @@ export * from './water.ts';
 export * from './light-band.ts';
 export * from './duct.ts';
 export * from './sale.ts';
+export { RECYCLE_BIN_WIDTH_UNITS, RECYCLE_BIN_DEPTH_UNITS, RECYCLE_BIN_HEIGHT_UNITS, SALE_EASEL_WIDTH_UNITS, SALE_EASEL_DEPTH_UNITS } from './shopping-scenery.ts';
 
 let cache: MapDef[] | null = null;
 

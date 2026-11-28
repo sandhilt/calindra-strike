@@ -203,12 +203,34 @@ const BLACK_FRIDAY_RIBBON = {
   tagLabelY: 18, tagLabelSize: 14, tagMinAlpha: 0.7, tagPeriodMs: 850,
 } as const;
 
-export function drawBlackFridayRibbon(ctx: CanvasRenderingContext2D, width: number, height: number, timeMs: number): void {
+const SALE_YELLOW = '#ffdc53';
+const SALE_BLACK = '#121212';
+
+function drawSaleStrip(ctx: Ctx, width: number, height: number, edge: number, labelX: number, labelY: number, labelSize: number): void {
+  ctx.fillStyle = SALE_YELLOW;
+  ctx.fillRect(-width / 2, -height / 2, width, height);
+  ctx.fillStyle = SALE_BLACK;
+  ctx.fillRect(-width / 2, -height / 2 + edge, width, height - 2 * edge);
+  write(ctx, 'BLACK FRIDAY', labelX, labelY, { color: SALE_YELLOW, size: labelSize, weight: 'bold', align: 'center' });
+}
+
+function drawSaleTag(ctx: Ctx, x: number, y: number, width: number, height: number, radius: number, labelY: number, labelSize: number): void {
+  fillRound(ctx, x, y, width, height, radius, SALE_YELLOW);
+  write(ctx, `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF`, x + width / 2, y + labelY, { color: SALE_BLACK, size: labelSize, weight: 'bold', align: 'center' });
+}
+
+export function drawBlackFridayRibbon(ctx: Ctx, width: number, height: number, timeMs: number, layout: 'corner' | 'storefront' = 'corner'): void {
   const ribbon = BLACK_FRIDAY_RIBBON;
-  const yellow = '#ffdc53';
-  const black = '#121212';
-  const tagX = SCREEN_W - ribbon.tagRight - ribbon.tagWidth;
   ctx.save();
+  if (layout === 'storefront') {
+    ctx.scale(width / 512, height / 64);
+    ctx.translate(256, 32);
+    drawSaleStrip(ctx, 512, 64, 4, -80, 13, 36);
+    drawSaleTag(ctx, 101, -22, 147, 44, 22, 32, 28);
+    ctx.restore();
+    return;
+  }
+  const tagX = SCREEN_W - ribbon.tagRight - ribbon.tagWidth;
   ctx.scale(width / SCREEN_W, height / SCREEN_H);
   ctx.beginPath();
   ctx.rect(0, 0, SCREEN_W, SCREEN_H);
@@ -217,15 +239,10 @@ export function drawBlackFridayRibbon(ctx: CanvasRenderingContext2D, width: numb
   // Bottom-right corner: the top-right one holds the incident countdown.
   ctx.translate(SCREEN_W - ribbon.offset, SCREEN_H - ribbon.offset);
   ctx.rotate(-ribbon.angle);
-  ctx.fillStyle = yellow;
-  ctx.fillRect(-ribbon.width / 2, -ribbon.height / 2, ribbon.width, ribbon.height);
-  ctx.fillStyle = black;
-  ctx.fillRect(-ribbon.width / 2, -ribbon.height / 2 + ribbon.edge, ribbon.width, ribbon.height - 2 * ribbon.edge);
-  write(ctx, 'BLACK FRIDAY', 0, ribbon.labelY, { color: yellow, size: ribbon.labelSize, weight: 'bold', align: 'center' });
+  drawSaleStrip(ctx, ribbon.width, ribbon.height, ribbon.edge, 0, ribbon.labelY, ribbon.labelSize);
   ctx.restore();
   ctx.globalAlpha *= lerp(ribbon.tagMinAlpha, 1, pulse(timeMs, ribbon.tagPeriodMs));
-  fillRound(ctx, tagX, ribbon.tagTop, ribbon.tagWidth, ribbon.tagHeight, ribbon.tagRadius, yellow);
-  write(ctx, `${BLACK_FRIDAY_DISCOUNT_PERCENT}% OFF`, tagX + ribbon.tagWidth / 2, ribbon.tagTop + ribbon.tagLabelY, { color: black, size: ribbon.tagLabelSize, weight: 'bold', align: 'center' });
+  drawSaleTag(ctx, tagX, ribbon.tagTop, ribbon.tagWidth, ribbon.tagHeight, ribbon.tagRadius, ribbon.tagLabelY, ribbon.tagLabelSize);
   ctx.restore();
 }
 

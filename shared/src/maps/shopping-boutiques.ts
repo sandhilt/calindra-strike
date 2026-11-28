@@ -1,3 +1,4 @@
+import { saleEasel, saleRibbon } from './shopping-scenery.ts';
 import { brandMat, STORE_BRANDS, type BoutiqueBrand } from './brands.ts';
 import type { MapBuilder } from './builder.ts';
 import { FACADE_Z, ROOF, DECK3, Z } from './shopping-levels.ts';
@@ -511,6 +512,8 @@ export function boutiqueShop(b: MapBuilder, brand: BoutiqueBrand, x1: number, x2
   r.staff(0, CASHIER_Z, 'front', 'cashier', brand);
   r.vent(0, 152, BACK_WALL_DEPTH, 'front');
   facade(b, x1, x2, brand, spec);
+  saleEasel(b, brand, x2 - 24, DECK3);
+  saleRibbon(b, brand, cx, DECK3 + DOORWAY_HEIGHT + 5, FACADE_Z + 12, 72);
   b.interior(cx + spec.browseX, DECK3, -Z + 142);
   b.landmark(`${STORE_BRANDS[brand].name} (Mirante)`, cx, -Z + 152);
 }

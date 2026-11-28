@@ -36,3 +36,4 @@ Maintained source for verifying user-facing behavior. Read this index, then the 
 - [Map speakers](./map-speakers.md) covers asset loading and the music control in an audio-capable browser.
 - [Weapon viewer](./weapon-viewer.md): weapon models, skins, aim and reload poses, in headless Chromium.
 - [Shopping Sul Rio: Natal](./shopping-natal.md) covers the sleigh display, storefront trim and glass canopy.
+- [Shopping Sul Rio promotions and recycling](./shopping-scenery.md) covers easels, rotating storefront ribbons and recycling cabinets.

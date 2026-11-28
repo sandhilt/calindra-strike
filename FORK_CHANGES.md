@@ -11,6 +11,7 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-27
 
+- Shopping Sul Rio and Natal add fixed sale easels, Black Friday ribbons that rotate among storefronts (`sale.ts`), and wooden recycling cabinets on all three floors (`shopping-scenery.ts`).
 - Shopping Sul Rio: the warm halo of a shop's ceiling lamps hangs on its lamp bars. The Mirante boutiques had one glow floating between the two bars and 50 units behind them, and the pharmacies one off to the side; each bar now has its own (`Room.lamp`, shared by the stores, pharmacies and boutiques), and `shared/test/lamp-halos.test.ts` fails a shop light that is not on a bar.
 - Shopping Sul Rio: a lamp's glow no longer leaks onto the level above or below. A halo is a camera-facing sprite and reached through the slab next to its lamp (the ground floor lamps lit the food court floor, the food court lamps the Mirante); each halo is now cut at the floor and ceiling of its own level (`lightBand` in `shared/src/maps/light-band.ts`, `clipHaloToBand` in `client/src/game/render/halo-clip.ts`).
 

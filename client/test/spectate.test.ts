@@ -28,12 +28,13 @@ import { scrollsPage, spectatorAction, stepTarget } from '../src/game/spectate/c
 const open: RayWorld = { trace: () => null };
 const player: FollowedPlayer = { x: 100, y: 0, z: 200, yaw: 0, pitch: 0, stance: STANCE.STAND, onGround: true, sliding: false, lean: 0 };
 
-test('Space cycles first person, locked chase, free chase and free camera, then wraps', () => {
-  assert.deepEqual(CAMERA_MODES, ['first', 'chase', 'orbit', 'free']);
+test('Space cycles first person, locked chase, free chase, free camera and overview, then wraps', () => {
+  assert.deepEqual(CAMERA_MODES, ['first', 'chase', 'orbit', 'free', 'overview']);
   assert.equal(nextCameraMode('first'), 'chase');
   assert.equal(nextCameraMode('chase'), 'orbit');
   assert.equal(nextCameraMode('orbit'), 'free');
-  assert.equal(nextCameraMode('free'), 'first');
+  assert.equal(nextCameraMode('free'), 'overview');
+  assert.equal(nextCameraMode('overview'), 'first');
   assert.deepEqual(CAMERA_MODES.filter(mouseLooks), ['orbit', 'free'], 'the mouse turns the free chase and the free camera only');
 });
 

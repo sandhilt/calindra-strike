@@ -57,6 +57,7 @@ export interface SpectatorBar {
   /** Team choice in team modes: the watched team (-1 until picked) and the pick countdown while the server waits. */
   teams: { active: number; pickSecondsLeft: number | null } | null;
   pointerLocked: boolean;
+  canJoin: boolean;
 }
 
 /** How long the Black Friday banner stays on screen, in ms. */
@@ -163,6 +164,8 @@ export class Hud {
   );
   private readonly watchCountdown = h('span', { class: 'watch-countdown' });
   private readonly watchTeams = h('div', { class: 'watch-teams hidden' }, [...this.watchTeamButtons, this.watchCountdown]);
+  private readonly watchJoin = h('button', { class: 'watch-btn watch-join', type: 'button', title: 'Entrar na partida como jogador (J)', onclick: () => this.onSpectate({ kind: 'join' }) }, [h('span', { class: 'kbd', text: 'J' }), 'entrar no jogo']);
+  private readonly watchRoundWait = h('div', { text: 'aguardando a próxima rodada' });
   private readonly watchHint = h('div', { class: 'watch-hint' });
   private readonly watchBadge = h('div', { class: 'watch-bar glass hidden' }, [
     h('div', { class: 'watch-row' }, [
@@ -172,9 +175,10 @@ export class Hud {
       h('button', { class: 'watch-btn', type: 'button', title: 'Próximo jogador (seta direita)', 'aria-label': 'próximo jogador', text: '›', onclick: () => this.onSpectate({ kind: 'next' }) }),
       h('button', { class: 'watch-btn watch-mode', type: 'button', title: 'Trocar a câmera (Espaço)', onclick: () => this.onSpectate({ kind: 'mode' }) }, [h('span', { class: 'kbd', text: 'Espaço' }), this.watchModeLabel]),
       this.watchTeams,
-      h('button', { class: 'watch-btn watch-join', type: 'button', title: 'Entrar na partida como jogador (J)', onclick: () => this.onSpectate({ kind: 'join' }) }, [h('span', { class: 'kbd', text: 'J' }), 'entrar no jogo']),
+      this.watchJoin,
     ]),
     this.watchHint,
+    this.watchRoundWait,
   ]);
   private readonly center = h('div', { class: 'center' });
   private readonly dropAlt = h('div', { class: 'alt', text: '' });
@@ -403,6 +407,8 @@ export class Hud {
     this.set('watch', JSON.stringify(bar ?? false), () => {
       this.watchBadge.classList.toggle('hidden', !bar);
       if (!bar) return;
+      this.watchJoin.classList.toggle('hidden', !bar.canJoin);
+      this.watchRoundWait.classList.toggle('hidden', bar.canJoin);
       const choosing = bar.teams?.pickSecondsLeft != null;
       this.watchBadge.classList.toggle('idle', bar.target === null);
       this.watchBadge.dataset.mode = bar.mode;
@@ -787,12 +793,16 @@ export class Hud {
 
 const hintKey = (text: string): HTMLElement => h('span', { class: 'kbd', text });
 
+function spectatorEscapeHint(bar: SpectatorBar): string {
+  return bar.canJoin ? 'Esc solta o mouse' : 'Esc abre o menu';
+}
+
 /** Key hints under the spectator bar; they depend on the camera mode. */
 function spectatorHints(bar: SpectatorBar): (Node | string)[] {
   if (bar.mode === 'free') {
-    return [hintKey('WASD'), 'voar', hintKey('Shift'), 'rápido', hintKey('E'), hintKey('Q'), 'subir e descer', bar.pointerLocked ? 'Esc solta o mouse' : 'clique para travar o mouse'];
+    return [hintKey('WASD'), 'voar', hintKey('Shift'), 'rápido', hintKey('E'), hintKey('Q'), 'subir e descer', bar.pointerLocked ? spectatorEscapeHint(bar) : 'clique para travar o mouse'];
   }
   if (bar.mode === 'orbit' && !bar.pointerLocked) return ['clique para girar com o mouse', hintKey('→'), 'próximo', hintKey('←'), 'anterior'];
-  if (bar.mode === 'orbit') return ['mouse gira', 'clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', 'Esc solta o mouse'];
+  if (bar.mode === 'orbit') return ['mouse gira', 'clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', spectatorEscapeHint(bar)];
   return ['clique ou', hintKey('→'), 'próximo', hintKey('←'), 'anterior', ...(bar.teams ? [hintKey('1'), hintKey('2'), 'time'] : [])];
 }

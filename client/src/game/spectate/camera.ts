@@ -3,17 +3,18 @@ import { movementEye } from '../render/movement-pose.ts';
 
 /**
  * CS 1.6 spectator views, cycled with Space in this order: first person, locked chase (behind the player,
- * turning with their view), free chase (the mouse orbits the camera around the player) and free look.
+ * turning with their view), free chase (the mouse orbits the camera around the player), free look and overview.
  */
-export type CameraMode = 'first' | 'chase' | 'orbit' | 'free';
+export type CameraMode = 'first' | 'chase' | 'orbit' | 'free' | 'overview';
 
-export const CAMERA_MODES: readonly CameraMode[] = ['first', 'chase', 'orbit', 'free'];
+export const CAMERA_MODES: readonly CameraMode[] = ['first', 'chase', 'orbit', 'free', 'overview'];
 
 export const CAMERA_MODE_LABEL: Record<CameraMode, string> = {
   first: '1ª pessoa',
   chase: '3ª pessoa travada',
   orbit: '3ª pessoa livre',
   free: 'câmera livre',
+  overview: 'visão geral',
 };
 
 /** Modes where the mouse turns the camera instead of the camera following the player's view. */

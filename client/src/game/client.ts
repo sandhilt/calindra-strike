@@ -129,7 +129,7 @@ import { FollowedViewTracker } from './render/follow-view.ts';
 import { bombActivity } from './spectate/activity.ts';
 import { type CameraMode, type FollowedPlayer, type Pose, NO_FREE_KEYS, chasePose, eyePose, freeKeysFrom, mouseLooks, nextCameraMode, overviewPose, stepFreeCam } from './spectate/camera.ts';
 import { type SpectatorAction, scrollsPage, spectatorAction, stepTarget } from './spectate/controls.ts';
-import { deathSpectateTargets } from './spectate/death.ts';
+import { canRunSpectatorAction, canWatchEliminationRound, deathSpectateTargets, defaultWatchTeam } from './spectate/death.ts';
 import { ViewModel } from './render/viewmodel.ts';
 import { weaponSkin, type WeaponSkin } from './render/weapons3d.ts';
 import { weaponIcon } from './render/weapon-icons.ts';
@@ -302,6 +302,8 @@ export class ClientGame {
   private lastCmdPitch = 0;
   private followedId = -1;
   private cameraMode: CameraMode = 'first';
+  private roundWatchTeam: 0 | 1 | null = null;
+  private activeWatchTeam = -1;
   /** Where the spectator camera stood last frame: the start of the free camera and the view while nobody can be followed. */
   private spectatorPose: Pose = { x: 0, y: 700, z: 0, yaw: 0, pitch: -0.6 };
   private readonly heldKeys = new Set<string>();
@@ -455,19 +457,20 @@ export class ClientGame {
     });
 
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.spectator) { this.onSpectatorClick(); return; }
+      if (this.watching()) { this.onSpectatorClick(); return; }
       if (this.menuOpen || this.chatOpen) return;
       if (!this.input.locked) { void this.requestPlay(); return; }
       if (this.canDeathSpectate()) this.stepTarget(1);
     });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
-      if (e.button !== 2 || this.menuOpen || this.chatOpen || !this.canDeathSpectate()) return;
+      if (e.button !== 2 || this.menuOpen || this.chatOpen) return;
+      if (this.deadWatchingRound() ? this.cameraMode === 'free' : !this.canDeathSpectate()) return;
       this.stepTarget(-1);
     });
     this.renderer.domElement.addEventListener('contextmenu', (e) => {
-      if (this.spectator) {
+      if (this.watching()) {
         e.preventDefault();
-        if (!this.menuOpen && this.cameraMode !== 'free') this.stepTarget(-1);
+        if (this.spectator && !this.menuOpen && !this.chatOpen && this.cameraMode !== 'free') this.stepTarget(-1);
         return;
       }
       if (this.menuOpen || this.chatOpen || !this.canDeathSpectate()) return;
@@ -522,9 +525,12 @@ export class ClientGame {
       this.ui.showMenu(false);
       this.ui.showClickToPlay(false);
       this.sfx.resume();
-    } else if (this.spectator) {
-      this.heldKeys.clear(); // Esc only frees the mouse for a spectator; the menu has its own press
+    } else if (this.spectator || (this.deadWatchingRound() && !mouseLooks(this.cameraMode))) {
+      // Switching to a fixed camera releases the pointer without opening the menu.
+      this.heldKeys.clear();
     } else if (!this.chatOpen && !this.podiumActive) {
+      this.heldKeys.clear();
+      this.scoreboardOpen = false;
       this.menuOpen = true;
       this.ui.showMenu(true, this.teamPanel());
     }
@@ -534,6 +540,12 @@ export class ClientGame {
     this.sfx.resume();
     if (this.spectator) { this.menuOpen = false; this.ui.showMenu(false); return; }
     this.confirmReady();
+    if (this.deadWatchingRound()) {
+      this.menuOpen = false;
+      this.ui.showMenu(false);
+      this.ui.showClickToPlay(false);
+      if (!mouseLooks(this.cameraMode)) return;
+    }
     await this.input.lock();
   }
 
@@ -865,10 +877,12 @@ export class ClientGame {
   }
 
   private onSnap(m: Extract<ServerMsg, { t: 'snap' }>): void {
+    const wasWatchingRound = this.deadWatchingRound();
     if (m.el?.kind === 'playing' && m.el.number !== this.elimination?.number) {
       this.alive = false;
       this.dropAllAvatars();
     }
+    if (wasWatchingRound && !m.el) this.resetRoundWatch();
     this.elimination = m.el;
     this.flags = flagViews(m.fl);
     this.carrapeta = this.match.mode === 'carrapeta' && this.match.phase === 'live' ? m.ca ?? null : null;
@@ -906,7 +920,7 @@ export class ClientGame {
       if (!this.alive) {
         this.alive = true;
         this.deathAt = 0;
-        this.followedId = -1;
+        this.resetRoundWatch();
         this.input.clearProne();
         copyState(this.me, this.serverState);
         for (const c of this.pending) this.predict(this.me, c);
@@ -940,6 +954,8 @@ export class ClientGame {
       this.alive = false;
       this.input.clearProne();
     }
+
+    if (!wasWatchingRound && this.deadWatchingRound()) this.enterRoundWatch();
 
     const seen = new Set<number>();
     for (const p of m.ps) {
@@ -1069,6 +1085,7 @@ export class ClientGame {
           this.deathPos.set(this.me.x, this.me.y, this.me.z);
           this.killerId = e.by;
           this.hud.setDeath({ killer: k.name, color: k.color, weapon: def.name, hs: e.hs === 1 });
+          if (this.deadWatchingRound()) this.enterRoundWatch();
           this.sfx.setWind(0);
         } else {
           const r = this.remotes.get(e.to);
@@ -1309,7 +1326,7 @@ export class ClientGame {
     if (info.phase !== 'live' || info.mode !== before.mode || info.map !== before.map) this.elimination = undefined;
     if (!this.spectator && (info.phase !== before.phase || info.mode !== before.mode || info.map !== before.map)) {
       this.deathAt = 0;
-      this.followedId = -1;
+      this.resetRoundWatch();
       this.hud.setDeath(null);
     }
     if (info.mode !== 'carrapeta' || info.phase !== 'live') this.clearCarrapeta();
@@ -1397,7 +1414,7 @@ export class ClientGame {
 
   private onKey(code: string, down: boolean, e: KeyboardEvent): boolean {
     if (this.chatOpen) return true;
-    if (this.spectator) return this.onSpectatorKey(code, down, e);
+    if (this.watching()) return this.onSpectatorKey(code, down, e);
     if (this.podiumActive && down && /^(Digit|Numpad)[1-3]$/.test(code)) {
       this.vote(Number(code.slice(-1)) - 1);
       return true;
@@ -1422,15 +1439,9 @@ export class ClientGame {
 
   private onBoundPress(code: string): void {
     if (!this.input.locked || this.menuOpen || this.podiumActive || this.spectator) return;
-    if (this.input.matches('spray', code)) this.net.send({ t: 'spray' });
+    if (!this.deadWatchingRound() && this.input.matches('spray', code)) this.net.send({ t: 'spray' });
     if (this.input.matches('screenshot', code)) this.screenshotPending = true;
-    if (this.input.matches('chat', code)) {
-      this.chatOpen = true;
-      this.setRadioMenu(null);
-      this.input.enabled = false;
-      this.input.releaseAll();
-      this.hud.openChat(true);
-    }
+    if (this.input.matches('chat', code)) this.openChat();
   }
 
   private canUseRadio(): boolean {
@@ -1457,6 +1468,10 @@ export class ClientGame {
     if (down) this.heldKeys.add(code);
     else this.heldKeys.delete(code);
     const action = spectatorAction(code);
+    if (down && !e.repeat && !action && this.deadWatchingRound() && this.input.matches('chat', code) && !this.menuOpen) {
+      this.openChat();
+      return true;
+    }
     if (!down || e.repeat) return true;
     if (!this.menuOpen && scrollsPage(code)) e.preventDefault();
     if (action) this.runSpectatorAction(action);
@@ -1464,18 +1479,27 @@ export class ClientGame {
   }
 
   private onSpectatorClick(): void {
-    if (this.menuOpen) return;
+    if (this.menuOpen || this.chatOpen || this.podiumActive) return;
+    this.sfx.resume();
     if (mouseLooks(this.cameraMode) && !this.input.locked) void this.input.lock();
     else if (this.cameraMode !== 'free') this.stepTarget(1);
   }
 
   private runSpectatorAction(action: SpectatorAction): void {
+    if (this.chatOpen || !this.watching() || !canRunSpectatorAction(action, this.spectator ? 'spectator' : 'eliminated')) return;
     switch (action.kind) {
       case 'join':
         this.ui.joinGame();
         return;
       case 'menu':
-        if (this.input.locked) return; // the browser is already releasing the mouse for this press
+        if (this.input.locked) {
+          if (this.deadWatchingRound()) {
+            this.menuOpen = true;
+            this.ui.showMenu(true, this.teamPanel());
+            document.exitPointerLock();
+          }
+          return;
+        }
         this.menuOpen = !this.menuOpen;
         this.ui.showMenu(this.menuOpen, this.teamPanel());
         return;
@@ -1492,7 +1516,9 @@ export class ClientGame {
         this.stepTarget(-1);
         return;
       case 'team':
-        if (isTeamMode(this.match.mode)) this.net.send({ t: 'watch', team: action.team });
+        if (!isTeamMode(this.match.mode)) return;
+        if (this.spectator) this.net.send({ t: 'watch', team: action.team });
+        else this.roundWatchTeam = action.team;
         return;
     }
   }
@@ -1505,6 +1531,16 @@ export class ClientGame {
     } else if (document.pointerLockElement) {
       document.exitPointerLock();
     }
+  }
+
+  private openChat(): void {
+    this.chatOpen = true;
+    this.setRadioMenu(null);
+    this.heldKeys.clear();
+    this.scoreboardOpen = false;
+    this.input.enabled = false;
+    this.input.releaseAll();
+    this.hud.openChat(true);
   }
 
   private onChatKey = (e: KeyboardEvent): void => {
@@ -1651,8 +1687,8 @@ export class ClientGame {
 
   /** Eases the aim blend toward what the player on screen is doing and mirrors it, with the scope level, into `aimView`. */
   private stepAim(dt: number): void {
-    const followed = this.spectator && this.cameraMode === 'first' ? this.followedSample() : null;
-    const aiming = this.spectator ? !!followed && (followed.flags & RF_AIM) !== 0 : this.alive && this.me.aiming;
+    const followed = this.watching() && this.cameraMode === 'first' ? this.followedSample() : null;
+    const aiming = this.watching() ? !!followed && (followed.flags & RF_AIM) !== 0 : this.alive && this.me.aiming;
     this.aimT = stepBlend(this.aimT, aiming, dt, ADS_BLEND_SECONDS);
     this.aimView.zoom = this.alive && !this.spectator ? this.me.zoom : 0;
     this.aimView.aiming = aiming;
@@ -1738,7 +1774,7 @@ export class ClientGame {
     const [ox, oy, oz] = e.o;
     this.sfx.shot(e.w as WeaponId, { x: ox, y: oy, z: oz }, e.h === 1);
     const r = this.remotes.get(e.id);
-    if (this.spectator && e.id === this.followedId) this.view.fire(e.h === 1);
+    if (this.watching() && this.cameraMode === 'first' && e.id === this.followedId) this.view.fire(e.h === 1);
     if (def.slot === 3) {
       if (r?.visible) r.avatar.swingHammer(e.h === 1);
       return;
@@ -1894,8 +1930,8 @@ export class ClientGame {
     const def = weaponDef(this.me.weapon);
     this.stepAim(dt);
     const overlay = this.localOverlay(def);
-    const showView = this.spectator ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
-    if (!this.spectator) {
+    const showView = this.watching() ? this.cameraMode === 'first' && this.updateFollowedView(dt) : this.alive && !gunHidden(def, this.aimView, this.me.dropping);
+    if (!this.watching()) {
       // The server also hands out weapons outside the player's own commands (the Azeitadora on a Carrapeta pickup, and taking it away), which prediction never sees.
       this.view.setWeapon(this.me.weapon, this.skinOf(this.myId));
       this.view.update({
@@ -1960,18 +1996,55 @@ export class ClientGame {
     return (remote && this.sample(remote, this.serverNow() - INTERP_DELAY_MS)) || null;
   }
 
+  private deadWatchingRound(): boolean {
+    return !this.spectator && canWatchEliminationRound(this.match, this.elimination, this.alive);
+  }
+
+  private watching(): boolean {
+    return this.spectator !== null || this.deadWatchingRound();
+  }
+
+  private enterRoundWatch(): void {
+    this.input.releaseAll();
+    this.setRadioMenu(null);
+    if (this.input.locked) document.exitPointerLock();
+    if (this.ready.kind === 'confirmed') this.ui.showClickToPlay(false);
+  }
+
+  private resetRoundWatch(): void {
+    this.followedId = -1;
+    this.cameraMode = 'first';
+    this.roundWatchTeam = null;
+    this.activeWatchTeam = -1;
+    this.eyeTargetId = -1;
+    this.scoreboardOpen = false;
+    this.heldKeys.clear();
+    this.spectatorPose = overviewPose(this.map.bounds);
+    if (this.viewColorFor !== -1) {
+      this.viewColorFor = -1;
+      this.view.setSleeveColor(this.nameOf(this.myId).color);
+      this.aimT = 0;
+    }
+  }
+
   private watchTargets(): Remote[] {
     const state = this.spectator;
-    if (state?.kind !== 'watching') return [];
-    return [...this.remotes.values()].filter(r => {
-      const s = this.sample(r, this.serverNow() - INTERP_DELAY_MS);
-      return s && (s.flags & RF_ALIVE) && (state.team === -1 || this.names.get(r.id)?.team === state.team);
+    if (state?.kind === 'choosing') return [];
+    const renderT = this.serverNow() - INTERP_DELAY_MS;
+    const living = [...this.remotes.values()].filter(r => {
+      const flags = this.sample(r, renderT)?.flags ?? 0;
+      const latest = state ? flags : r.buf.at(-1)?.flags ?? 0;
+      return (flags & latest & RF_ALIVE) !== 0;
     }).sort((a, b) => a.id - b.id);
+    const team = state?.team ?? (isTeamMode(this.match.mode)
+      ? this.roundWatchTeam ?? defaultWatchTeam(this.myTeam, living.map(r => this.names.get(r.id)?.team))
+      : -1);
+    this.activeWatchTeam = team;
+    return team < 0 ? living : living.filter(r => this.names.get(r.id)?.team === team);
   }
 
   private canDeathSpectate(): boolean {
     if (this.spectator || this.alive || this.match.phase === 'podium') return false;
-    if (this.elimination) return true;
     return this.match.mode === 'defuse' && this.deathAt > 0 && performance.now() - this.deathAt >= DEFUSE_DEATH_CAM_MS;
   }
 
@@ -1982,11 +2055,11 @@ export class ClientGame {
       team: this.names.get(r.id)?.team,
       // Use the latest alive flag as well as the interpolated one so a death cannot linger in the chase view.
       flags: (r.buf.at(-1)?.flags ?? 0) & (this.sample(r, renderT)?.flags ?? 0),
-    })), this.myTeam, this.match.mode === 'lms');
+    })), this.myTeam);
   }
 
   private stepTarget(dir: 1 | -1): void {
-    const ids = this.spectator ? this.watchTargets().map(r => r.id) : this.deathTargets();
+    const ids = this.watching() ? this.watchTargets().map(r => r.id) : this.deathTargets();
     this.followedId = stepTarget(ids, this.followedId, dir);
   }
 
@@ -2018,11 +2091,15 @@ export class ClientGame {
     let sprinting = false;
     if (this.cameraMode === 'free') {
       this.eyeTargetId = -1;
-      const keys = this.menuOpen ? NO_FREE_KEYS : freeKeysFrom(this.heldKeys);
+      const keys = this.menuOpen || this.chatOpen ? NO_FREE_KEYS : freeKeysFrom(this.heldKeys);
       const limits = { bounds: this.map.bounds, maxY: this.map.dropHeight };
       this.spectatorPose = stepFreeCam({ ...this.spectatorPose, yaw: this.input.yaw, pitch: this.input.pitch }, keys, dt, limits);
+    } else if (this.cameraMode === 'overview') {
+      this.eyeTargetId = -1;
+      this.spectatorPose = overviewPose(this.map.bounds);
     } else {
       const sample = this.followedSample();
+      if (!sample && this.deadWatchingRound()) this.spectatorPose = overviewPose(this.map.bounds);
       const followed = this.followedPlayer(sample);
       const view = this.cameraMode === 'orbit' ? { yaw: this.input.yaw, pitch: this.input.pitch } : followed;
       if (sample && followed && this.cameraMode === 'first') {
@@ -2060,7 +2137,7 @@ export class ClientGame {
     else if (aimFov > 0) vfov = csToVertical(aimFov);
     if (this.alive && s.dropping) vfov = baseV + 8;
     if (!zoomed && aimFov === 0 && this.alive && s.sprinting) vfov += SPRINT_FOV_KICK_DEG;
-    if (this.spectator) vfov = baseV + (this.updateSpectatorCamera(dt) ? SPRINT_FOV_KICK_DEG : 0);
+    if (this.watching()) vfov = baseV + (this.updateSpectatorCamera(dt) ? SPRINT_FOV_KICK_DEG : 0);
     if (this.camera.fov !== vfov) {
       this.camera.fov = easeFov(this.camera.fov, vfov, dt);
       this.camera.updateProjectionMatrix();
@@ -2068,7 +2145,7 @@ export class ClientGame {
     if (zoomed) this.input.zoomSensScale = (def.zoomFov[s.zoom - 1] / this.settings.fov) * ZOOM_SENSITIVITY_RATIO;
     else this.input.zoomSensScale = aimFov > 0 ? aimSensitivityScale(aimFov, this.settings.fov, ZOOM_SENSITIVITY_RATIO) : 1;
 
-    if (this.spectator) return;
+    if (this.watching()) return;
     if (this.alive) {
       const alpha = clamp(this.accum / TICK_MS, 0, 1);
       const x = this.prev.x + (s.x - this.prev.x) * alpha + this.correction.x;
@@ -2119,7 +2196,7 @@ export class ClientGame {
       const wasVisible = r.visible;
       pos.set(s.x, s.y, s.z);
       r.avatar.root.rotation.y = s.yaw;
-      r.avatar.root.visible = !(this.spectator && this.cameraMode === 'first' && r.id === this.followedId);
+      r.avatar.root.visible = !(this.watching() && this.cameraMode === 'first' && r.id === this.followedId);
       r.visible = true;
       const moved = wasVisible ? Math.hypot(s.x - r.last.x, s.z - r.last.z) : 0;
       const inst = dt > 0 ? moved / dt : 0;
@@ -2188,7 +2265,7 @@ export class ClientGame {
 
   private updateHud(overlay: ScopeOverlay): void {
     const hud = this.hud;
-    hud.root.classList.toggle('spectating', !!this.spectator);
+    hud.root.classList.toggle('spectating', this.watching());
     const s = this.me;
     const def = weaponDef(s.weapon);
     const now = this.serverNow();
@@ -2227,7 +2304,7 @@ export class ClientGame {
     hud.setTeamBadge(tdm ? this.myTeam : -1);
     hud.setSpectatorBar(this.spectatorBar());
     const title = `${this.map.name} · ${MODE_LABEL[this.match.mode]} · ${rows.length} jogador${rows.length === 1 ? '' : 'es'}`;
-    hud.showScoreboard(this.spectator ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
+    hud.showScoreboard(this.watching() ? this.scoreboardOpen : this.input.down('scoreboard'), rows, title, tdm ? this.teamScores : null, scoreUnit(this.match.mode));
     hud.setFlags(this.lunch ? lunchStatus(this.lunch, now, this.map.restaurants[this.lunch.target]?.name ?? 'almoço') : this.flags.map(flag => ({ team: flag.team, text: flagStatus(flag, now, id => this.nameOf(id).name) })), !this.spectator && this.flags.some(flag => flag.state === 'carried' && flag.carrier === this.myId));
     this.updateBombHud(hud, now);
     hud.setCarrapetaStatus(this.carrapeta ? carrapetaStatus(this.carrapeta, now, id => id === this.myId ? 'você está com ela' : this.nameOf(id).name) : null);
@@ -2238,7 +2315,8 @@ export class ClientGame {
     hud.setStance(s.stance, this.alive, s.lean);
     this.hintLift(hud, !this.spectator && this.alive && liftAt(this.map.lifts, s.x, s.y, s.z) !== undefined);
 
-    if (this.spectator) {
+    if (this.watching()) {
+      if (this.deadWatchingRound()) hud.setRespawn('', null);
       // other players' crosshair settings are not on the wire, so the viewer's own style is drawn
       const target = this.followedSample();
       const open = this.cameraMode === 'first' && !!target && crosshairFor(weaponDef(target.w as WeaponId), { zoom: target.flags & RF_ZOOM ? 1 : 0, aiming: (target.flags & RF_AIM) !== 0, blend: this.aimT }, (target.flags & RF_DROP) !== 0, target.w === WEAPON.SNIPER).visible;
@@ -2253,9 +2331,9 @@ export class ClientGame {
 
     if (!this.alive) {
       const left = Math.max(0, (this.deathWaitMs ?? this.match.respawnMs ?? respawnTicksOf(this.match.mode) * TICK_MS) - (performance.now() - this.deathAt));
-      if (this.deathAt > 0 || this.elimination) {
+      if (this.deathAt > 0) {
         const followed = this.followedId >= 0 ? this.nameOf(this.followedId).name : null;
-        hud.setRespawn(this.elimination ? 'aguardando a próxima rodada' : left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…', followed);
+        hud.setRespawn(left > 0 ? `voltando do céu em ${(left / 1000).toFixed(1)} s` : 'saltando…', followed);
       }
       hud.setCrosshair(0, 0, '', false);
       hud.setDrop(null);
@@ -2306,15 +2384,15 @@ export class ClientGame {
 
   private spectatorBar(): SpectatorBar | undefined {
     const state = this.spectator;
-    if (!state) return undefined;
+    if (!this.watching()) return undefined;
     const followed = this.remotes.has(this.followedId) ? this.nameOf(this.followedId) : null;
     const teams = isTeamMode(this.match.mode)
       ? {
-          active: state.kind === 'watching' ? state.team : -1,
-          pickSecondsLeft: state.kind === 'choosing' ? Math.max(0, Math.ceil((state.pickEndsAt - this.serverNow()) / 1000)) : null,
+          active: state?.kind === 'choosing' ? -1 : this.activeWatchTeam,
+          pickSecondsLeft: state?.kind === 'choosing' ? Math.max(0, Math.ceil((state.pickEndsAt - this.serverNow()) / 1000)) : null,
         }
       : null;
-    return { target: followed && { name: followed.name, color: followed.color }, mode: this.cameraMode, teams, pointerLocked: this.input.locked };
+    return { target: followed && { name: followed.name, color: followed.color }, mode: this.cameraMode, teams, pointerLocked: this.input.locked, canJoin: state !== null };
   }
 
   private markers(): Marker[] {

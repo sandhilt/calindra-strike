@@ -11,6 +11,8 @@ Changes made after the baseline, newest day first.
 
 ### 2026-11-27
 
+- Eliminated players in LMS and Gincana can use the spectator cameras and target controls until respawn (`client.ts`, `spectate/`). Gincana allows switching between teams locally, and the camera cycle includes a map overview.
+
 - LMS and Gincana open a 30-second join window before the first round and after a pause that ends with too few ready players. The HUD and MCP read the waiting deadline from `snap.el.startsAt`.
 
 - LMS and Gincana show a 90-second round countdown and award timed-out rounds to the group with strictly the most survivors. Ties draw. `snap.el.endsAt` exposes the deadline to the HUD and MCP.

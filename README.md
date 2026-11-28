@@ -262,13 +262,19 @@ and key hints. Spectator controls, as in CS 1.6:
   while the target is scoped, skydiving or holding the sniper), locked third person
   (chase camera on the player's back, turning with their view), free third person
   (the mouse orbits the camera around the player; click once to lock the mouse) and
-  free camera. Both third-person cameras are pulled in when a wall is in the way.
+  free camera, then a map overview. Both third-person cameras are pulled in when a wall is in the way.
 - `Left click` or `→` follows the next player, `Right click` or `←` the previous one.
 - Free camera: `WASD` fly along the view, `Shift` faster, `E` up, `Q`/`C` down.
   Click the screen to lock the mouse for looking around and `Esc` to release it.
 - `1` / `2` watch the first or second team, `Tab` shows the scoreboard, `Esc` opens the menu.
 - `J`, the **entrar no jogo** button on the bar or the one in the Esc menu joins
   the match as a player. If the server is full you keep watching.
+
+In LMS and Gincana, eliminated players can use the same camera controls while
+waiting for the next round. LMS follows any survivor. Gincana starts with living
+teammates, falls back to the other team if needed, and lets you switch teams with
+`1` / `2`. `Esc` opens the menu, and your own view returns when you respawn.
+`J` is reserved for players who joined as spectators.
 
 Whatever player a spectator follows, planting or defusing the bug shows a progress
 bar with who is doing it.
